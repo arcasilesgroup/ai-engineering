@@ -37,7 +37,7 @@ say "G4 evidence: path1 bare-folder → git repo created"
 # Path 3: re-init a governed repo → offers three options.
 REINIT_OUT=$(printf '\n' | $CLI init 2>&1)
 printf '%s\n' "$REINIT_OUT" | grep -q "already governed" || die "G4 path3: re-init prompt missing"
-printf '%s\n' "$REINIT_OUT" | grep -q "Change agent surfaces" || die "G4 path3: change-surfaces option missing"
+printf '%s\n' "$REINIT_OUT" | grep -q "Change settings (agent surfaces, CI)" || die "G4 path3: change-settings option missing"
 printf '%s\n' "$REINIT_OUT" | grep 'already governed' | head -1 | sed 's/^/G4 evidence: path3 /'
 printf '\n\n\n' | $CLI init >/dev/null 2>&1
 # Path 4: CI/script: --yes --surface claude-code → zero prompts, exit 0.
@@ -129,7 +129,8 @@ printf '%s\n' "$REI_OUT" | grep -qE 'assets current|assets synced' || die "R15-1
 printf '%s\n' "$REI_OUT" | grep -E 'assets current|assets synced' | head -1 | sed 's/^/R15 evidence: re-init update /'
 
 # ── R15-2: config preselects installed surfaces and prints the delta ──
-CFG_OUT=$(printf '\n' | $CLI config 2>&1)
+# The first Enter picks "Agent surfaces" in the settings menu; the second submits.
+CFG_OUT=$(printf '\n\n' | $CLI config 2>&1)
 printf '%s\n' "$CFG_OUT" | grep -q 'Which agent surfaces is this project governed on?' || die "R15-2: surface prompt missing"
 printf '%s\n' "$CFG_OUT" | grep -q 'core — deny' && die "R15-2: tier classification still in the picker"
 printf '%s\n' "$CFG_OUT" | grep -q 'surfaces unchanged' || die "R15-2: delta output missing"

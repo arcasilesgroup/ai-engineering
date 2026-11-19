@@ -78,7 +78,7 @@ test("init recovers a repo whose lock was uninstalled (no update↔init deadlock
   expect(existsSync(join(repo, ".git", "hooks", "pre-commit"))).toBe(true);
   expect(existsSync(join(engHome, "skills", "ai-brainstorm", "SKILL.md"))).toBe(true);
   // The recovered init still reaches the machine side: ours merged in, the user's key kept.
-  expect(output).toInclude("~/.claude/settings.json · machine carrier · written");
+  expect(output).toInclude("installed  ~/.claude/settings.json · machine carrier");
   const machineSettingsAfter = readFileSync(machineSettings, "utf8");
   expect(machineSettingsAfter).not.toBe(machineSettingsBefore);
   expect(machineSettingsAfter).toMatch(/ai-eng(?:\.cmd|\.exe)? chain/);

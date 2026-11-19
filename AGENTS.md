@@ -47,10 +47,13 @@ Replies to a person, and handoffs to another agent, follow the voice standard in
 `/clear` between tasks · `/compact` before stopping, not after · batch prompting · check `/usage` when the context inflates.
 
 ## Where to work
-- Work in the open checkout. Use a worktree only when requested or another feature is active; pause if work may overlap.
-- Prefer host worktree support; otherwise run `ai-eng worktree new <branch>` and use its reported path. The person chooses or approves the branch.
-- Resume in the feature checkout. Never stash, reset, overwrite, or remove foreign work; preserve uncertainty and ask.
-- After review, offer a PR, local merge, or keeping the branch. Prefer PR with a forge remote, otherwise local merge; `ai-eng worktree merge <slug>` handles it.
+1. One task, one branch, one lane, one PR, under two days; split bigger work into stacked PRs.
+2. One folder, one writer: if another session writes here, use a worktree (host support or `ai-eng worktree new <branch>`). The person approves the branch.
+3. Never stash or commit a mixed tree. To stop: commit WIP, then `ai-eng work park <branch> "<reason>"`.
+4. Every branch leaves by one door: land, park (reason + date), or `ai-eng work drop <branch>` (kept in `refs/archive/`).
+5. Landing closes the lane: a PR with a forge, else `ai-eng worktree merge <slug>`; after the merge, `ai-eng work tidy` or `ai-eng worktree rm <slug>`.
+6. At most 3 active lanes (`[work] max_active`); `ai-eng worktree new` refuses a fourth.
+7. Git and the forge are the truth: `ai-eng work`. Never reset, overwrite or remove foreign work; ask.
 
 ## Git workflow
 See **Where to work** for checkout, worktree, and integration choices. `.ai-engineering/recap.html` is optional and never required for merge.

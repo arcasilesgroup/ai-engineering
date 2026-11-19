@@ -111,6 +111,47 @@ function installGitleaksShim(): void {
   useGitleaksShim(shimDir, { mode: "grep" }, PATH_BEFORE);
 }
 
+/** The stand-in that reads history the way `gitleaks git` does: the --log-opts range, or
+ *  every ref when none is given. `record` captures the argv the floor handed it. */
+function installHistoryShim(record?: string): void {
+  useGitleaksShim(shimDir, record === undefined ? { mode: "history" } : { mode: "history", record }, PATH_BEFORE);
+}
+
+const ZERO = "0".repeat(40);
+
+/** A repo whose remote already has its base: origin/main tracks the first commit and is
+ *  the remote's default branch, and the work happens on `feature`. The fixture carries no
+ *  hooks, so its commits never run whatever floor this machine has installed. */
+function publishedRepo(): { repo: string; base: string } {
+  const repo = tempRepo(true);
+  rmSync(join(repo, ".git", "hooks"), { recursive: true, force: true });
+  const base = commitFile(repo, "README.md", "base\n");
+  run("git", repo, ["remote", "add", "origin", join(repo, "unused-remote.git")]);
+  run("git", repo, ["update-ref", "refs/remotes/origin/main", base]);
+  run("git", repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+  run("git", repo, ["checkout", "-q", "-b", "feature"]);
+  return { repo, base };
+}
+
+function commitFile(repo: string, name: string, content: string): string {
+  write(repo, name, content);
+  run("git", repo, ["add", name]);
+  run("git", repo, ["commit", "-q", "-m", `test: add ${name}`]);
+  return run("git", repo, ["rev-parse", "HEAD"]).stdout.trim();
+}
+
+/** Sets the lines git would hand pre-push for the duration of `body`. */
+function pushing<T>(lines: string[], body: () => T): T {
+  const previous = process.env.AI_ENG_PUSH_REFS;
+  process.env.AI_ENG_PUSH_REFS = lines.join("\n");
+  try {
+    return body();
+  } finally {
+    if (previous === undefined) delete process.env.AI_ENG_PUSH_REFS;
+    else process.env.AI_ENG_PUSH_REFS = previous;
+  }
+}
+
 /** A PATH with git and nothing else — how "gitleaks is not installed" is proved
  *  without depending on what this machine happens to have in /opt/homebrew. */
 function pathWithoutGitleaks(): void {
@@ -286,7 +327,7 @@ describe("commitMsg — the convention and the Receipt-Id trailer", () => {
   });
 });
 
-describe("prePush — the whole unpushed surface, and dated overrides", () => {
+describe("prePush — exactly the commits the push sends, and dated overrides", () => {
   // The refs arrive through AI_ENG_PUSH_REFS: the shim captures pre-push stdin before
   // exec eats it (src/floor/index.ts:167). No gitleaks on PATH here on purpose — if the
   // branch check ever moves behind the scan, this test fails on the HARD FAIL line.
@@ -371,39 +412,181 @@ describe("prePush — the whole unpushed surface, and dated overrides", () => {
   });
 
   test("any other ref keeps the gate on the scan, not the branch", () => {
-    const repo = tempRepo(true);
-    declareBase(repo);
-    installGitleaksShim();
-    write(repo, "app.ts", "export const name = 'clean';\n");
-    process.env.AI_ENG_PUSH_REFS = "refs/heads/feat1234 abcdef1234 refs/heads/feat1234 abcdef1234";
-    try {
-      expect(prePush(repo)).toEqual({ ok: true, lines: [] });
-    } finally {
-      delete process.env.AI_ENG_PUSH_REFS;
-    }
+    const { repo } = publishedRepo();
+    installHistoryShim();
+    const tip = commitFile(repo, "app.ts", "export const name = 'clean';\n");
+    expect(pushing([`refs/heads/feature ${tip} refs/heads/feature ${ZERO}`], () => prePush(repo))).toEqual({ ok: true, lines: [] });
   });
 
-  test("passes a surface with nothing to leak", () => {
-    const repo = tempRepo(true);
-    declareBase(repo);
-    installGitleaksShim();
-    write(repo, "app.ts", "export const name = 'clean';\n");
-
-    expect(prePush(repo)).toEqual({ ok: true, lines: [] });
+  test("a push that sends no commit passes without a scan", () => {
+    const { repo } = publishedRepo();
+    const record = join(dirname(repo), "argv.json");
+    installHistoryShim(record);
+    expect(pushing([], () => prePush(repo))).toEqual({ ok: true, lines: [] });
+    expect(existsSync(record)).toBe(false);
   });
 
-  test("blocks the push when the surface carries a secret", () => {
-    const repo = tempRepo(true);
-    declareBase(repo);
-    installGitleaksShim();
-    write(repo, "leak.env", `AWS_ACCESS_KEY_ID=${SECRET}\n`);
+  test("blocks the push when an outgoing commit carries a secret, and the finding stays redacted", () => {
+    const { repo } = publishedRepo();
+    installHistoryShim();
+    const tip = commitFile(repo, "leak.env", `AWS_ACCESS_KEY_ID=${SECRET}\n`);
 
-    const result = prePush(repo);
+    const result = pushing([`refs/heads/feature ${tip} refs/heads/feature ${ZERO}`], () => prePush(repo));
 
     expect(result.ok).toBe(false);
     expect(result.lines[0]).toBe("gitleaks in pre-push: secret in the unpushed history → BLOCKED.");
     expect(result.lines[1]).toContain("RuleID:");
     expect(result.lines[1]).toContain("aws-access-token");
+    expect(result.lines.join("\n")).not.toContain(SECRET);
+  });
+
+  // The false positive this scope exists for: Figma exports parked on refs/archive/* and
+  // in the stash were scanned on every push although no push ever sent them.
+  test("a secret only an archive ref and the stash reach does not block a push that never sends them", () => {
+    const { repo, base } = publishedRepo();
+    const record = join(dirname(repo), "argv.json");
+    installHistoryShim(record);
+    const archived = commitFile(repo, "figma-export.json", `{"token":"${SECRET}"}\n`);
+    run("git", repo, ["update-ref", "refs/archive/figma", archived]);
+    run("git", repo, ["reset", "-q", "--hard", base]);
+    write(repo, "wip.env", `KEY=${SECRET}\n`);
+    run("git", repo, ["add", "wip.env"]);
+    run("git", repo, ["stash", "-q"]);
+    // The fixture really leaks — just not on this branch.
+    expect(run("git", repo, ["log", "-p", "--all"]).stdout).toContain(SECRET);
+    const tip = commitFile(repo, "app.ts", "export const name = 'clean';\n");
+
+    expect(pushing([`refs/heads/feature ${tip} refs/heads/feature ${ZERO}`], () => prePush(repo))).toEqual({ ok: true, lines: [] });
+    const { args } = JSON.parse(readFileSync(record, "utf8")) as { args: string[] };
+    expect(args).toContain(`--log-opts=${tip} --not ${base}`);
+  });
+
+  test("a new remote ref is measured from the base the remote already has", () => {
+    const { repo } = publishedRepo();
+    const record = join(dirname(repo), "argv.json");
+    installHistoryShim(record);
+    // The base on the remote moves past the branch point: those commits are published.
+    run("git", repo, ["checkout", "-q", "-b", "elsewhere"]);
+    const published = commitFile(repo, "published.txt", "already on the remote\n");
+    run("git", repo, ["update-ref", "refs/remotes/origin/main", published]);
+    run("git", repo, ["checkout", "-q", "feature"]);
+    const tip = commitFile(repo, "app.ts", "clean\n");
+
+    expect(pushing([`refs/heads/feature ${tip} refs/heads/feature ${ZERO}`], () => prePush(repo)).ok).toBe(true);
+    const { args } = JSON.parse(readFileSync(record, "utf8")) as { args: string[] };
+    expect(args).toContain(`--log-opts=${tip} --not ${published}`);
+  });
+
+  test("a configured base is measured on its remote-tracking ref, never on a guessed main", () => {
+    const { repo } = publishedRepo();
+    const record = join(dirname(repo), "argv.json");
+    installHistoryShim(record);
+    const develop = commitFile(repo, "develop.txt", "develop\n");
+    run("git", repo, ["update-ref", "refs/remotes/origin/develop", develop]);
+    write(repo, ".ai-engineering/config.toml", '[surfaces]\nenabled = ["claude-code"]\n\n[git]\nbase = "develop"\n');
+    const tip = commitFile(repo, "app.ts", "clean\n");
+
+    expect(pushing([`refs/heads/feature ${tip} refs/heads/feature ${ZERO}`], () => prePush(repo)).ok).toBe(true);
+    const { args } = JSON.parse(readFileSync(record, "utf8")) as { args: string[] };
+    expect(args).toContain(`--log-opts=${tip} --not ${develop}`);
+  });
+
+  test("an existing remote ref is measured from its old tip: what the remote has is not rescanned", () => {
+    const { repo } = publishedRepo();
+    installHistoryShim();
+    // Already on the remote's copy of the branch (a leak cleaned up elsewhere is CI's scan).
+    const old = commitFile(repo, "old.env", `AWS_ACCESS_KEY_ID=${SECRET}\n`);
+    const tip = commitFile(repo, "app.ts", "clean\n");
+
+    expect(pushing([`refs/heads/feature ${tip} refs/heads/feature ${old}`], () => prePush(repo))).toEqual({ ok: true, lines: [] });
+    // The same secret in the moved range blocks.
+    const leak = commitFile(repo, "again.env", `AWS_ACCESS_KEY_ID=${SECRET}\n`);
+    expect(pushing([`refs/heads/feature ${leak} refs/heads/feature ${tip}`], () => prePush(repo)).ok).toBe(false);
+  });
+
+  test("several refs are one scan of their shared commits, and a deletion sends nothing", () => {
+    const { repo, base } = publishedRepo();
+    const record = join(dirname(repo), "argv.json");
+    installHistoryShim(record);
+    const tip = commitFile(repo, "app.ts", "clean\n");
+
+    const result = pushing(
+      [
+        `refs/heads/feature ${tip} refs/heads/feature ${ZERO}`,
+        `refs/heads/feature ${tip} refs/heads/feature-copy ${ZERO}`,
+        `(delete) ${ZERO} refs/heads/gone ${base}`,
+      ],
+      () => prePush(repo),
+    );
+
+    expect(result).toEqual({ ok: true, lines: [] });
+    const { args } = JSON.parse(readFileSync(record, "utf8")) as { args: string[] };
+    expect(args).toContain(`--log-opts=${tip} --not ${base}`);
+  });
+
+  test("a push of deletions only runs no scan", () => {
+    const { repo, base } = publishedRepo();
+    const record = join(dirname(repo), "argv.json");
+    installHistoryShim(record);
+    expect(pushing([`(delete) ${ZERO} refs/heads/gone ${base}`], () => prePush(repo))).toEqual({ ok: true, lines: [] });
+    expect(existsSync(record)).toBe(false);
+  });
+
+  test("a new ref whose base this clone never fetched fails closed and names the ref", () => {
+    const { repo } = publishedRepo();
+    installHistoryShim();
+    write(repo, ".ai-engineering/config.toml", '[surfaces]\nenabled = ["claude-code"]\n\n[git]\nbase = "develop"\n');
+    const tip = commitFile(repo, "app.ts", "clean\n");
+
+    const result = pushing([`refs/heads/feature ${tip} refs/heads/feature ${ZERO}`], () => prePush(repo));
+
+    expect(result.ok).toBe(false);
+    expect(result.lines[0]).toContain("refs/remotes/origin/develop is not in this clone");
+    expect(result.lines[0]).toContain("git fetch");
+  });
+
+  test("a remote tip this clone does not have fails closed instead of scanning everything", () => {
+    const { repo } = publishedRepo();
+    installHistoryShim();
+    const tip = commitFile(repo, "app.ts", "clean\n");
+
+    const result = pushing([`refs/heads/feature ${tip} refs/heads/feature ${"a".repeat(40)}`], () => prePush(repo));
+
+    expect(result.ok).toBe(false);
+    expect(result.lines[0]).toContain("which this clone does not have");
+  });
+
+  test("a ref line it cannot read fails closed", () => {
+    const { repo } = publishedRepo();
+    installHistoryShim();
+    const result = pushing(["refs/heads/feature not-a-sha refs/heads/feature also-not"], () => prePush(repo));
+    expect(result.ok).toBe(false);
+    expect(result.lines[0]).toContain("cannot read the pushed ref");
+  });
+
+  test("the project's .gitleaksrc.toml is used when it exists, and a missing one is never named", () => {
+    const { repo } = publishedRepo();
+    const record = join(dirname(repo), "argv.json");
+    installHistoryShim(record);
+    const tip = commitFile(repo, "app.ts", "clean\n");
+    const line = [`refs/heads/feature ${tip} refs/heads/feature ${ZERO}`];
+    const previousConfig = process.env.GITLEAKS_CONFIG;
+    // What the pre-push shim exports, whether or not the file is there.
+    process.env.GITLEAKS_CONFIG = join(repo, ".gitleaksrc.toml");
+    try {
+      expect(pushing(line, () => prePush(repo)).ok).toBe(true);
+      const missing = JSON.parse(readFileSync(record, "utf8")) as { args: string[]; config: string | null };
+      expect(missing.args).not.toContain("-c");
+      expect(missing.config).toBeNull();
+
+      write(repo, ".gitleaksrc.toml", "[extend]\nuseDefault = true\n");
+      expect(pushing(line, () => prePush(repo)).ok).toBe(true);
+      const present = JSON.parse(readFileSync(record, "utf8")) as { args: string[] };
+      expect(present.args.slice(-2)).toEqual(["-c", join(repo, ".gitleaksrc.toml")]);
+    } finally {
+      if (previousConfig === undefined) delete process.env.GITLEAKS_CONFIG;
+      else process.env.GITLEAKS_CONFIG = previousConfig;
+    }
   });
 
   test("HARD FAILS when gitleaks is not on PATH", () => {
@@ -418,13 +601,12 @@ describe("prePush — the whole unpushed surface, and dated overrides", () => {
   });
 
   test("an expired dated override leaves the gate live again (§09.1)", () => {
-    const repo = tempRepo(true);
-    declareBase(repo);
-    installGitleaksShim();
+    const { repo } = publishedRepo();
+    installHistoryShim();
     write(repo, ".ai-engineering/overrides.toml", '[[guard.off]]\nname = "floor"\nreason = "pushed under duress"\nuntil = "2020-01-01"\n');
-    write(repo, "leak.env", `AWS_ACCESS_KEY_ID=${SECRET}\n`);
+    const tip = commitFile(repo, "leak.env", `AWS_ACCESS_KEY_ID=${SECRET}\n`);
 
-    expect(prePush(repo).ok).toBe(false);
+    expect(pushing([`refs/heads/feature ${tip} refs/heads/feature ${ZERO}`], () => prePush(repo)).ok).toBe(false);
   });
 });
 
@@ -569,16 +751,15 @@ describe("floor — the dispatcher the shims exec into", () => {
   });
 
   test("pre-push: exit 0 on a clean surface, exit 1 when it leaks", async () => {
-    const repo = tempRepo(true);
-    declareBase(repo);
-    installGitleaksShim();
-    write(repo, "app.ts", "export const name = 'clean';\n");
+    const { repo } = publishedRepo();
+    installHistoryShim();
+    const clean = commitFile(repo, "app.ts", "export const name = 'clean';\n");
     process.chdir(repo);
     const err = captureStderr();
     try {
-      expect(await floor("pre-push")).toBe(0);
-      write(repo, "leak.env", `AWS_ACCESS_KEY_ID=${SECRET}\n`);
-      expect(await floor("pre-push")).toBe(1);
+      expect(await pushing([`refs/heads/feature ${clean} refs/heads/feature ${ZERO}`], () => floor("pre-push"))).toBe(0);
+      const leak = commitFile(repo, "leak.env", `AWS_ACCESS_KEY_ID=${SECRET}\n`);
+      expect(await pushing([`refs/heads/feature ${leak} refs/heads/feature ${clean}`], () => floor("pre-push"))).toBe(1);
     } finally {
       err.restore();
     }

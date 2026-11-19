@@ -5,7 +5,8 @@
 
 import { VERSION } from "./version.ts";
 import { showLogo } from "./branding.ts";
-import { maybeNotice } from "./notice.ts";
+import { noticeNow, refreshVersionCache, REFRESH_ENV } from "./notice.ts";
+import { info, warn } from "./ui.ts";
 import { chainMain } from "./chain/mod.ts";
 import { surfaceDialect } from "./surfaces/adapters.ts";
 import { doctorMain } from "./commands/doctor.ts";
@@ -15,13 +16,18 @@ import { uninstallMain } from "./commands/uninstall.ts";
 import { configMain } from "./commands/config.ts";
 import { adaptMain } from "./commands/adapt.ts";
 import { worktreeMain } from "./commands/worktree.ts";
+import { workMain } from "./commands/work.ts";
 import { wrapMain } from "./wrap/index.ts";
 import { floor } from "./floor/entry.ts";
 import { suggestVerb, HUMAN_VERBS, MACHINE_VERBS, ALL_VERBS } from "./shared-verbs.ts";
 
 
+// The detached child a session start spawns to refresh the version cache: its arguments
+// only had to start it, so none of them is read — not even as a request for help.
+const isRefreshChild = process.env[REFRESH_ENV] === "1";
+
 const argv = process.argv.slice(2);
-const BOOLS: Record<string, true> = { yes: true, global: true, help: true, version: true, gc: true, force: true };
+const BOOLS: Record<string, true> = { yes: true, global: true, help: true, version: true, gc: true, force: true, json: true };
 const boolFlags: Record<string, true> = {};
 const valueFlags: Record<string, string> = {};
 const positionals: string[] = [];
@@ -34,7 +40,10 @@ for (let i = 0; i < argv.length; i++) {
   } else if (arg.startsWith("--") && BOOLS[arg.slice(2)]) {
     boolFlags[arg.slice(2)] = true;
   } else if (arg.startsWith("--")) {
-    valueFlags[arg.slice(2)] = argv[++i] ?? "";
+    // `--ci=azure-pipelines` and `--ci azure-pipelines` are the same flag.
+    const equals = arg.indexOf("=");
+    if (equals > 2) valueFlags[arg.slice(2, equals)] = arg.slice(equals + 1);
+    else valueFlags[arg.slice(2)] = argv[++i] ?? "";
   } else {
     positionals.push(arg);
   }
@@ -46,18 +55,20 @@ const flags: { _: string[] } & Record<string, string | boolean | undefined> = Ob
 );
 const verb = positionals[0];
 
-if (flags.version) {
+if (flags.version && !isRefreshChild) {
   process.stdout.write(`ai-eng ${VERSION}\n`);
   process.exit(0);
 }
-if (flags.help || !verb) {
+if (!isRefreshChild && (flags.help || !verb)) {
   showLogo(VERSION);
   process.stdout.write("\n");
-  const nameWidth = Math.max(...HUMAN_VERBS.map((entry) => entry.verb.length)) + 2;
+  const listed = [...HUMAN_VERBS, ...MACHINE_VERBS];
+  const nameWidth = Math.max(...listed.map((entry) => entry.verb.length)) + 2;
   for (const { verb: name, description } of HUMAN_VERBS)
     process.stdout.write(`  ai-eng ${name.padEnd(nameWidth)}${description}\n`);
   process.stdout.write("\n");
-  process.stdout.write(`Machine verbs (hooks/CI/agents): ${MACHINE_VERBS.join(" · ")}\n`);
+  for (const { verb: name, description } of MACHINE_VERBS)
+    process.stdout.write(`  ai-eng ${name.padEnd(nameWidth)}${description}\n`);
   process.exit(flags.help ? 0 : 2);
 }
 
@@ -72,8 +83,23 @@ async function readStdin(): Promise<string> {
 }
 
 async function main(): Promise<number> {
+  if (isRefreshChild) {
+    await refreshVersionCache();
+    return 0;
+  }
   const handler = verb !== undefined ? verbMain[verb] : undefined;
-  if (handler) return await handler();
+  if (handler) {
+    const code = await handler();
+    // Once, at the end of a verb a person typed and that succeeded. Not after `update`:
+    // it asks the registry itself, and a relaunched run would answer for the old binary.
+    if (code === 0 && verb !== "update" && HUMAN_VERBS.some((entry) => entry.verb === verb)) {
+      for (const notice of noticeNow()) {
+        if (notice.kind === "newer") info(notice.line);
+        else warn(notice.line);
+      }
+    }
+    return code;
+  }
   const typed = String(verb);
   const suggestion = suggestVerb(typed);
   process.stderr.write(`unknown verb: ${typed}\n`);
@@ -102,24 +128,18 @@ const verbMain: Record<string, () => number | Promise<number>> = {
   git: () => floor(String(flags._[1] ?? ""), flags._[2] != null ? String(flags._[2]) : undefined),
   wrap: () => wrapMain(process.argv.slice(3).map(String)),
   worktree: () => worktreeMain(flags._.slice(1).map(String), flags.force === true),
-  init: async () => {
-    const code = await initMain({ yes: flags.yes === true, global: flags.global === true, surface: surfaceList });
-    if (code === 0) maybeNotice();
-    return code;
-  },
-  doctor: async () => {
-    const code = await doctorMain({ gc: flags.gc === true });
-    if (code === 0) maybeNotice();
-    return code;
-  },
+  init: () => initMain({ yes: flags.yes === true, global: flags.global === true, surface: surfaceList, ...(typeof flags.ci === "string" ? { ci: flags.ci } : {}) }),
+  doctor: () => doctorMain({ gc: flags.gc === true }),
   config: () => {
-    const configFlags: { add?: string; remove?: string } = {};
+    const configFlags: { add?: string; remove?: string; ci?: string } = {};
     if (typeof flags.add === "string") configFlags.add = flags.add;
     if (typeof flags.remove === "string") configFlags.remove = flags.remove;
+    if (typeof flags.ci === "string") configFlags.ci = flags.ci;
     return configMain(configFlags);
   },
   adapt: () => adaptMain(flags._.slice(1).map(String)),
   update: () => updateMain({ yes: flags.yes === true }),
+  work: () => workMain(flags._.slice(1).map(String), { json: flags.json === true, ...(typeof flags.until === "string" ? { until: flags.until } : {}) }),
   uninstall: () => uninstallMain(),
 };
 const unhandledVerbs = ALL_VERBS.filter((name) => !(name in verbMain));

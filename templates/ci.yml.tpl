@@ -43,8 +43,10 @@ jobs:
           gh attestation verify ai-eng \
             --repo arcasilesgroup/ai-engineering \
             --signer-workflow arcasilesgroup/ai-engineering/.github/workflows/release.yml \
-            --source-ref "refs/tags/${AI_ENG_VERSION}" \
             --deny-self-hosted-runners
+          # No --source-ref: release.yml is dispatched from the default branch, so the
+          # provenance records that branch, never the tag; the version is pinned by
+          # the CHECKSUMS-SHA256.txt taken from the release's own assets.
           mkdir -p "$HOME/.local/bin"
           install -m 0755 ai-eng "$HOME/.local/bin/ai-eng"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"

@@ -1,3 +1,0 @@
-# Gitleaks fingerprint allowlist — synthetic/historical findings only.
-# None of these are live credentials; see DECISIONS.md in v1 history.
-# Test fixtures with fake values are allowlisted in .gitleaksrc.toml (path-based).

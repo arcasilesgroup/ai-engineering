@@ -1,8 +1,8 @@
 // @bun
 // src/chain/mod.ts
-import { readFileSync as readFileSync12, writeFileSync as writeFileSync4, mkdirSync as mkdirSync4 } from "fs";
+import { readFileSync as readFileSync13, writeFileSync as writeFileSync6, mkdirSync as mkdirSync5 } from "fs";
 import { createHash as createHash6 } from "crypto";
-import { dirname as dirname5, join as join12 } from "path";
+import { dirname as dirname6, join as join14 } from "path";
 
 // src/env.ts
 import { homedir } from "os";
@@ -1198,9 +1198,130 @@ function runNoVerify(payload, repoRoot) {
   return;
 }
 
+// src/guards/no-stash.ts
+var RESTORES = new Set(["list", "show", "apply", "pop", "branch"]);
+var VALUE_OPTIONS2 = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"]);
+var REASON = "BLOCKED: git stash takes work off its branch, where no board sees it. Commit it on the branch instead " + '(git commit -m "wip: \u2026"); to stop for a while, ai-eng work park <branch> "<reason>". ' + "Reading or restoring a stash (list, show, apply, pop, branch) is fine.";
+function stashSubcommand(segment) {
+  const words = shellWords(segment).filter((word) => !word.isOperator).map((word) => word.value);
+  const at = commandIndex(words);
+  if (words[at] === undefined || !/(^|[\\/])git(\.exe)?$/.test(words[at]))
+    return null;
+  let index = at + 1;
+  while (index < words.length && words[index].startsWith("-"))
+    index += VALUE_OPTIONS2.has(words[index]) ? 2 : 1;
+  if (words[index] !== "stash")
+    return null;
+  return words[index + 1] ?? "";
+}
+function runNoStash(payload) {
+  if (payload.tool_name !== "Bash" && payload.tool_name !== "PowerShell")
+    return;
+  const command = payload.tool_input["command"];
+  if (typeof command !== "string" || command.length === 0)
+    return;
+  const segments = shellSegments(command);
+  if (segments === null)
+    return;
+  for (const segment of segments) {
+    const subcommand = stashSubcommand(segment.text);
+    if (subcommand !== null && !RESTORES.has(subcommand))
+      return { deny: true, reason: REASON };
+  }
+  return;
+}
+
+// src/guards/lease.ts
+import { existsSync as existsSync2, mkdirSync, readFileSync as readFileSync3, rmSync, statSync, writeFileSync } from "fs";
+import { dirname, join as join4, resolve as resolve3 } from "path";
+var MINUTE_MS = 60 * 1000;
+var FILE_WRITES = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
+var GIT_WRITES = new Set(["add", "commit", "checkout", "switch", "reset", "restore", "merge", "rebase", "cherry-pick", "revert", "stash", "rm", "mv", "pull", "am", "apply"]);
+var GIT_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"]);
+function gitDirOf(root) {
+  const dotGit = join4(root, ".git");
+  try {
+    if (statSync(dotGit).isDirectory())
+      return dotGit;
+    const pointer = /^gitdir:\s*(.+)$/m.exec(readFileSync3(dotGit, "utf8"))?.[1]?.trim();
+    return pointer === undefined ? null : resolve3(root, pointer);
+  } catch {
+    return null;
+  }
+}
+function leasePath(root) {
+  const gitDir = gitDirOf(root);
+  return gitDir === null ? null : join4(gitDir, "ai-eng", "lease.json");
+}
+function readLease(root) {
+  const path = leasePath(root);
+  if (path === null || !existsSync2(path))
+    return null;
+  try {
+    const lease = JSON.parse(readFileSync3(path, "utf8"));
+    return typeof lease.session === "string" && typeof lease.ts === "number" ? { session: lease.session, ts: lease.ts } : null;
+  } catch {
+    return null;
+  }
+}
+function writeLease(root, lease) {
+  const path = leasePath(root);
+  if (path === null)
+    return;
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify(lease));
+  } catch {}
+}
+function leaseMinutes(root) {
+  const value = loadConfig(root)["work"]?.["lease_minutes"];
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 15;
+}
+function writesThroughGit(command) {
+  const segments = shellSegments(command);
+  if (segments === null)
+    return false;
+  return segments.some((segment) => {
+    const words = shellWords(segment.text).filter((word) => !word.isOperator).map((word) => word.value);
+    const at = commandIndex(words);
+    if (words[at] === undefined || !/(^|[\\/])git(\.exe)?$/.test(words[at]))
+      return false;
+    let index = at + 1;
+    while (index < words.length && words[index].startsWith("-"))
+      index += GIT_VALUE_OPTIONS.has(words[index]) ? 2 : 1;
+    return GIT_WRITES.has(words[index] ?? "");
+  });
+}
+function isWrite(payload) {
+  if (FILE_WRITES.has(payload.tool_name))
+    return true;
+  if (payload.tool_name !== "Bash" && payload.tool_name !== "PowerShell")
+    return false;
+  const command = payload.tool_input["command"];
+  return typeof command === "string" && writesThroughGit(command);
+}
+function runLease(payload, root, now = Date.now()) {
+  const session = typeof payload.session_id === "string" ? payload.session_id.trim() : "";
+  if (root === null || session === "" || !isWrite(payload))
+    return;
+  const lease = readLease(root);
+  const minutes = leaseMinutes(root);
+  const isHeldByOther = lease !== null && lease.session !== session && now - lease.ts < minutes * MINUTE_MS;
+  if (!isHeldByOther) {
+    writeLease(root, { session, ts: now });
+    return;
+  }
+  const idle = Math.floor((now - lease.ts) / MINUTE_MS);
+  const left = Math.max(1, minutes - idle);
+  return {
+    deny: true,
+    reason: `BLOCKED: another session (${lease.session.slice(0, 8)}, last write ${idle} min ago) is writing in ${root}. ` + "One folder, one writer: do this work in a worktree \u2014 your host's worktree support, or `ai-eng worktree new <branch>` and its reported path. " + `If that session has ended, \`ai-eng work release\` frees the folder now; otherwise it frees itself in ${left} min.`
+  };
+}
+
 // src/guards/self-protect.ts
-import { basename as basename3, isAbsolute as isAbsolute2, join as join4, parse, resolve as resolve3, sep as sep2 } from "path";
-import { existsSync as existsSync2, readFileSync as readFileSync3, realpathSync as realpathSync2 } from "fs";
+import { basename as basename3, isAbsolute as isAbsolute2, join as join5, parse, resolve as resolve4, sep as sep2 } from "path";
+import { existsSync as existsSync3, readFileSync as readFileSync4, realpathSync as realpathSync2 } from "fs";
 var WRITERS = {
   rm: true,
   mv: true,
@@ -1521,7 +1642,7 @@ function pathCandidates(word, bases) {
     for (const pattern of expandBraces(expandTilde(form))) {
       for (const base of bases) {
         if (!GLOB_CHARS.test(pattern)) {
-          found.push(resolve3(base, pattern));
+          found.push(resolve4(base, pattern));
           continue;
         }
         const isRooted = isAbsolute2(pattern);
@@ -1828,7 +1949,7 @@ function globNamesProtected(word, bases, paths) {
   const protectedRoots = [...paths.literals, ...paths.terminal.filter((path) => isAbsolute2(path))];
   for (const pattern of expandBraces(expandTilde(word))) {
     for (const base of bases) {
-      const segments = slashed(resolve3(base, pattern)).toLowerCase().split("/");
+      const segments = slashed(resolve4(base, pattern)).toLowerCase().split("/");
       for (const root of protectedRoots) {
         const rootForm = slashed(root).toLowerCase();
         const depth = rootForm.split("/").length;
@@ -1921,46 +2042,46 @@ function isRestrictedCliCommand(command, depth = 0) {
 function surfacesSettings(repoRoot) {
   const out = [];
   const candidates = [
-    join4(repoRoot, ".claude", "settings.json"),
-    join4(repoRoot, ".opencode", "plugins", "ai-eng.ts"),
-    join4(repoRoot, ".agents", "hooks", "ai-eng.ts")
+    join5(repoRoot, ".claude", "settings.json"),
+    join5(repoRoot, ".opencode", "plugins", "ai-eng.ts"),
+    join5(repoRoot, ".agents", "hooks", "ai-eng.ts")
   ];
   for (const path of candidates)
-    if (existsSync2(path))
+    if (existsSync3(path))
       out.push(path);
   return out;
 }
 function protectedPaths(repoRoot) {
   const literals = [];
-  const globalHome = join4(home(), "");
-  literals.push(join4(home(), "skills"));
-  literals.push(join4(machineBase(), ".claude", "skills"));
-  literals.push(join4(machineBase(), ".agents", "skills"));
-  literals.push(join4(machineBase(), ".config", "opencode", "skill"));
+  const globalHome = join5(home(), "");
+  literals.push(join5(home(), "skills"));
+  literals.push(join5(machineBase(), ".claude", "skills"));
+  literals.push(join5(machineBase(), ".agents", "skills"));
+  literals.push(join5(machineBase(), ".config", "opencode", "skill"));
   literals.push(globalHome);
   for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".config/opencode/ai-eng", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json", ".gitconfig", ".config/git/config"]) {
-    literals.push(join4(machineBase(), carrier));
+    literals.push(join5(machineBase(), carrier));
   }
   if (!repoRoot)
     return { literals: literals.filter((p) => p.length > 0), specPinned: false, terminal: [] };
-  const aiEng = join4(repoRoot, ".ai-engineering");
+  const aiEng = join5(repoRoot, ".ai-engineering");
   const terminal = [".ai-engineering", aiEng];
   for (const name of ["config.toml", "overrides.toml", "ai-eng.lock", "arch.rules.json"]) {
-    literals.push(join4(aiEng, name));
+    literals.push(join5(aiEng, name));
   }
-  literals.push(join4(repoRoot, ".git", "hooks"));
-  literals.push(join4(repoRoot, ".gitleaksrc.toml"));
-  literals.push(join4(repoRoot, ".gitleaksignore"));
+  literals.push(join5(repoRoot, ".git", "hooks"));
+  literals.push(join5(repoRoot, ".gitleaksrc.toml"));
+  literals.push(join5(repoRoot, ".gitleaksignore"));
   let specPinned = false;
   try {
-    const lock = Bun.TOML.parse(readFileSync3(join4(aiEng, "ai-eng.lock"), "utf8"));
+    const lock = Bun.TOML.parse(readFileSync4(join5(aiEng, "ai-eng.lock"), "utf8"));
     const pinned = lock["spec_sha256"];
     specPinned = typeof pinned === "string" && pinned.length >= 64;
   } catch {
     specPinned = false;
   }
   if (specPinned)
-    literals.push(join4(aiEng, "spec.html"));
+    literals.push(join5(aiEng, "spec.html"));
   literals.push(...surfacesSettings(repoRoot));
   return { literals: literals.filter((p) => p.length > 0), specPinned, terminal };
 }
@@ -1992,7 +2113,7 @@ function expandTilde(path) {
   if (path === "~")
     return machineBase();
   if (path.startsWith("~/"))
-    return join4(machineBase(), path.slice(2));
+    return join5(machineBase(), path.slice(2));
   return path;
 }
 var GOVERNANCE_FILE = new RegExp([
@@ -2032,14 +2153,14 @@ function offendingPath(paths, rawText) {
 function offendingTarget(paths, target, bases) {
   const expanded = expandTilde(target);
   for (const base of bases) {
-    const resolved = isAbsolute2(expanded) ? resolve3(expanded) : resolve3(base, expanded);
+    const resolved = isAbsolute2(expanded) ? resolve4(expanded) : resolve4(base, expanded);
     let canonical = resolved;
     try {
       canonical = localRealpath(resolved);
     } catch {
       let prefix = parse(resolved).root;
       for (const part of resolved.slice(prefix.length).split(sep2)) {
-        const next = join4(prefix, part);
+        const next = join5(prefix, part);
         try {
           prefix = localRealpath(next);
         } catch {
@@ -2099,13 +2220,13 @@ function runSelfProtect(payload, repoRoot) {
         if (part === "" || part === ".")
           continue;
         if (part === "..") {
-          current = join4(current, "..");
+          current = join5(current, "..");
           try {
             current = realpathSync2(current);
           } catch {}
           continue;
         }
-        const next = join4(current, part);
+        const next = join5(current, part);
         try {
           current = realpathSync2(next);
         } catch {
@@ -2117,7 +2238,7 @@ function runSelfProtect(payload, repoRoot) {
     const canon = (text, base) => {
       const expanded = text.replace(/(^|[\s"'=])~\//g, `$1${machineBase()}/`);
       const absolute = expanded.replace(/(?<![\w.@+-])(\/[\w.@+-]+)+/g, (m) => canonPath(m));
-      return absolute.replace(RELATIVE_PATH, (match, lead, token) => `${lead}${canonPath(join4(base, token))}`);
+      return absolute.replace(RELATIVE_PATH, (match, lead, token) => `${lead}${canonPath(join5(base, token))}`);
     };
     const canonicalPaths = {
       literals: paths.literals.map((p) => {
@@ -2171,8 +2292,8 @@ function runSelfProtect(payload, repoRoot) {
 }
 
 // src/guards/policy.ts
-import { readFileSync as readFileSync4, realpathSync as realpathSync3 } from "fs";
-import { join as join5, posix } from "path";
+import { readFileSync as readFileSync5, realpathSync as realpathSync3 } from "fs";
+import { join as join6, posix } from "path";
 import { homedir as homedir2, tmpdir } from "os";
 var DEFAULT_MODE = "4667";
 var SCOPE_SYSTEM = 8;
@@ -2210,7 +2331,7 @@ function policyModeFor(root) {
   if (!root)
     return DEFAULT_MODE;
   try {
-    const doc = Bun.TOML.parse(readFileSync4(join5(root, ".ai-engineering", "config.toml"), "utf8"));
+    const doc = Bun.TOML.parse(readFileSync5(join6(root, ".ai-engineering", "config.toml"), "utf8"));
     const guards = doc["guards"];
     const mode = guards !== null && typeof guards === "object" && !Array.isArray(guards) ? guards["policy_mode"] : undefined;
     return typeof mode === "string" ? mode : DEFAULT_MODE;
@@ -2425,8 +2546,8 @@ function runPolicy(command, cwd, allowedMode) {
 }
 
 // src/guards/injection.ts
-import { readFileSync as readFileSync5, existsSync as existsSync3 } from "fs";
-import { dirname, isAbsolute as isAbsolute3, resolve as resolve4, sep as sep3 } from "path";
+import { readFileSync as readFileSync6, existsSync as existsSync4 } from "fs";
+import { dirname as dirname2, isAbsolute as isAbsolute3, resolve as resolve5, sep as sep3 } from "path";
 import { fileURLToPath } from "url";
 
 // src/guards/local-rules.ts
@@ -2535,13 +2656,13 @@ var TRUSTED_ROOT;
 function trustedRoot() {
   if (TRUSTED_ROOT !== undefined)
     return TRUSTED_ROOT;
-  let dir = dirname(fileURLToPath(import.meta.url));
+  let dir = dirname2(fileURLToPath(import.meta.url));
   for (let i = 0;i < 8 && dir.includes(sep3); i += 1) {
-    if (existsSync3(`${dir}${sep3}package.json`))
+    if (existsSync4(`${dir}${sep3}package.json`))
       break;
-    dir = dirname(dir);
+    dir = dirname2(dir);
   }
-  TRUSTED_ROOT = existsSync3(`${dir}${sep3}package.json`) ? `${dir}${sep3}` : null;
+  TRUSTED_ROOT = existsSync4(`${dir}${sep3}package.json`) ? `${dir}${sep3}` : null;
   return TRUSTED_ROOT;
 }
 var MAX_BYTES = 400000;
@@ -2633,7 +2754,7 @@ function readTargets(command) {
 }
 function scanPath(target, cwd) {
   const base = typeof cwd === "string" && cwd.length > 0 ? cwd : process.cwd();
-  const resolved = isAbsolute3(target) ? target : resolve4(base, target);
+  const resolved = isAbsolute3(target) ? target : resolve5(base, target);
   const root = trustedRoot();
   if (root !== null && resolved.startsWith(root))
     return null;
@@ -2641,7 +2762,7 @@ function scanPath(target, cwd) {
     return null;
   let text;
   try {
-    text = readFileSync5(resolved, "utf8").slice(0, MAX_BYTES);
+    text = readFileSync6(resolved, "utf8").slice(0, MAX_BYTES);
   } catch {
     return null;
   }
@@ -2827,17 +2948,17 @@ function runSpokenSecret(payload) {
 }
 
 // src/guards/loop.ts
-import { readFileSync as readFileSync6, writeFileSync, mkdirSync } from "fs";
+import { readFileSync as readFileSync7, writeFileSync as writeFileSync2, mkdirSync as mkdirSync2 } from "fs";
 import { createHash as createHash2 } from "crypto";
-import { join as join6 } from "path";
+import { join as join7 } from "path";
 var SIGNATURES_KEPT = 20;
 var SAME_CALL_MS = 3000;
 function stateFile() {
-  return join6(home(), "cache", "loop", `${createHash2("sha256").update(sessionId()).digest("hex").slice(0, 32)}.json`);
+  return join7(home(), "cache", "loop", `${createHash2("sha256").update(sessionId()).digest("hex").slice(0, 32)}.json`);
 }
 function loadState() {
   try {
-    const parsed = JSON.parse(readFileSync6(stateFile(), "utf8"));
+    const parsed = JSON.parse(readFileSync7(stateFile(), "utf8"));
     return {
       recent: Array.isArray(parsed.recent) ? parsed.recent : [],
       failures: parsed.failures ?? {},
@@ -2859,8 +2980,8 @@ function callTime(payload) {
 function saveState(state) {
   try {
     const file = stateFile();
-    mkdirSync(join6(file, ".."), { recursive: true });
-    writeFileSync(file, JSON.stringify(state));
+    mkdirSync2(join7(file, ".."), { recursive: true });
+    writeFileSync2(file, JSON.stringify(state));
   } catch {}
 }
 function failed(payload) {
@@ -2938,25 +3059,28 @@ function judgeCall(state, call, payload, sig, limits) {
 import { createHash as createHash3 } from "crypto";
 import {
   lstatSync as lstatSync2,
-  mkdirSync as mkdirSync2,
-  readFileSync as readFileSync9,
+  mkdirSync as mkdirSync3,
+  readFileSync as readFileSync10,
   readdirSync,
   readlinkSync,
   realpathSync as realpathSync6,
-  statSync,
+  statSync as statSync2,
   unlinkSync,
-  writeFileSync as writeFileSync2
+  writeFileSync as writeFileSync4
 } from "fs";
 import { homedir as homedir3 } from "os";
-import { basename as basename4, dirname as dirname2, isAbsolute as isAbsolute5, join as join9, relative as relative2, resolve as resolve6, sep as sep5 } from "path";
+import { basename as basename4, dirname as dirname3, isAbsolute as isAbsolute5, join as join11, relative as relative2, resolve as resolve7, sep as sep5 } from "path";
 import { isDeepStrictEqual } from "util";
 
 // src/git/context.ts
-import { existsSync as existsSync4, readFileSync as readFileSync7, realpathSync as realpathSync4 } from "fs";
-import { join as join7 } from "path";
+import { existsSync as existsSync5, readFileSync as readFileSync8, realpathSync as realpathSync4 } from "fs";
+import { join as join9 } from "path";
 
 // src/git/run.ts
 import { spawnSync } from "child_process";
+import { mkdtempSync, writeFileSync as writeFileSync3 } from "fs";
+import { tmpdir as tmpdir2 } from "os";
+import { join as join8 } from "path";
 var NO_CONFIG_FILE = "/dev/null";
 var repositoryEnvVars;
 function localEnvVars(cwd) {
@@ -2980,11 +3104,33 @@ function repositoryScopedEnv(cwd) {
     delete env[name];
   return env;
 }
+var lineEndingConfigs = new Map;
+function isolatedGlobalConfig() {
+  const key = `${process.env["GIT_CONFIG_GLOBAL"] ?? ""}\x00${process.env["GIT_CONFIG_SYSTEM"] ?? ""}`;
+  const known = lineEndingConfigs.get(key);
+  if (known !== undefined)
+    return known;
+  let file = NO_CONFIG_FILE;
+  const done = spawnSync("git", ["config", "--get", "core.autocrlf"], { cwd: tmpdir2(), encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
+  const value = (done.stdout ?? "").trim().toLowerCase();
+  if (done.status === 0 && ["true", "false", "input"].includes(value)) {
+    try {
+      file = join8(mkdtempSync(join8(tmpdir2(), "ai-eng-git-")), "config");
+      writeFileSync3(file, `[core]
+	autocrlf = ${value}
+`, { mode: 384 });
+    } catch {
+      file = NO_CONFIG_FILE;
+    }
+  }
+  lineEndingConfigs.set(key, file);
+  return file;
+}
 function isolatedEnv(cwd, overrides) {
   const env = repositoryScopedEnv(cwd);
   if (env instanceof Error)
     return env;
-  return { ...env, GIT_CONFIG_GLOBAL: NO_CONFIG_FILE, GIT_CONFIG_SYSTEM: NO_CONFIG_FILE, GIT_CONFIG_NOSYSTEM: "1", ...overrides };
+  return { ...env, GIT_CONFIG_GLOBAL: isolatedGlobalConfig(), GIT_CONFIG_SYSTEM: NO_CONFIG_FILE, GIT_CONFIG_NOSYSTEM: "1", ...overrides };
 }
 function runGit(args, opts) {
   try {
@@ -3046,16 +3192,16 @@ function requireBranchName(root, name, origin, fix) {
   throw new Error(`${origin} is not a valid branch name: ${JSON.stringify(name)}; ${fix}`);
 }
 function readConfig(path) {
-  if (!existsSync4(path))
+  if (!existsSync5(path))
     return;
   try {
-    return Bun.TOML.parse(readFileSync7(path, "utf8"));
+    return Bun.TOML.parse(readFileSync8(path, "utf8"));
   } catch (error) {
     throw new Error(`cannot read ${path} (${error instanceof Error ? error.message : String(error)}): fix the TOML so it parses, or remove the file`);
   }
 }
 function configuredBase(root) {
-  const path = join7(root, ".ai-engineering", "config.toml");
+  const path = join9(root, ".ai-engineering", "config.toml");
   const config = readConfig(path);
   const section = typeof config === "object" && config !== null && "git" in config ? config.git : undefined;
   if (section === undefined)
@@ -3135,8 +3281,8 @@ function resolveContext(cwd, opts = {}) {
 }
 
 // src/workflow/checkpoint.ts
-import { lstatSync, readFileSync as readFileSync8, realpathSync as realpathSync5 } from "fs";
-import { isAbsolute as isAbsolute4, join as join8, relative, resolve as resolve5, sep as sep4 } from "path";
+import { lstatSync, readFileSync as readFileSync9, realpathSync as realpathSync5 } from "fs";
+import { isAbsolute as isAbsolute4, join as join10, relative, resolve as resolve6, sep as sep4 } from "path";
 var SHA_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 var SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 var GATE_STATUSES = ["pending", "failed", "passed", "n/a", "blocked"];
@@ -3406,16 +3552,16 @@ function parseCheckpoint(contents, context, options = {}) {
 function readCheckpointText(path, context, allowMissing = false) {
   try {
     const repoRoot = realpathSync5.native(context.repoPath);
-    const absolutePath = isAbsolute4(path) ? resolve5(path) : resolve5(repoRoot, path);
+    const absolutePath = isAbsolute4(path) ? resolve6(path) : resolve6(repoRoot, path);
     const relativePath = relative(repoRoot, absolutePath);
-    const expectedPath = join8(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${context.slug}.json`);
+    const expectedPath = join10(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${context.slug}.json`);
     if (relativePath === "" || relativePath === ".." || relativePath.startsWith(`..${sep4}`) || isAbsolute4(relativePath) || absolutePath !== expectedPath) {
       fail("path", "is not the repository-local checkpoint file for this slug");
     }
     let currentPath = repoRoot;
     const components = relativePath.split(sep4);
     for (const [index, component] of components.entries()) {
-      currentPath = join8(currentPath, component);
+      currentPath = join10(currentPath, component);
       let stat;
       try {
         stat = lstatSync(currentPath);
@@ -3433,7 +3579,7 @@ function readCheckpointText(path, context, allowMissing = false) {
         fail("path", "is not a regular file");
       }
     }
-    return readFileSync8(absolutePath, "utf8");
+    return readFileSync9(absolutePath, "utf8");
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("checkpoint "))
       throw error;
@@ -3678,8 +3824,8 @@ function realRootOf(root) {
 function checkpointTarget(repoRoot, filePath) {
   if (typeof filePath !== "string" || filePath.length === 0)
     return null;
-  const root = resolve6(repoRoot);
-  const absolutePath = isAbsolute5(filePath) ? resolve6(filePath) : resolve6(root, filePath);
+  const root = resolve7(repoRoot);
+  const absolutePath = isAbsolute5(filePath) ? resolve7(filePath) : resolve7(root, filePath);
   for (const base of new Set([root, realRootOf(root)])) {
     const match = CHECKPOINT_PATH.exec(relative2(base, absolutePath).split(sep5).join("/"));
     if (match?.[1])
@@ -3692,14 +3838,14 @@ function realTarget(path, hops = 0) {
   let current = path;
   for (;; ) {
     try {
-      return join9(realpathSync6(current), ...rest);
+      return join11(realpathSync6(current), ...rest);
     } catch {}
     try {
       if (hops < MAX_LINK_HOPS && lstatSync2(current).isSymbolicLink()) {
-        return realTarget(join9(resolve6(dirname2(current), readlinkSync(current)), ...rest), hops + 1);
+        return realTarget(join11(resolve7(dirname3(current), readlinkSync(current)), ...rest), hops + 1);
       }
     } catch {}
-    const parent = dirname2(current);
+    const parent = dirname3(current);
     if (parent === current)
       return path;
     rest.unshift(basename4(current));
@@ -3711,8 +3857,8 @@ function isCaseInsensitive(path) {
   if (swapped === path)
     return false;
   try {
-    const named = statSync(path);
-    const other = statSync(swapped);
+    const named = statSync2(path);
+    const other = statSync2(swapped);
     return named.dev === other.dev && named.ino === other.ino;
   } catch {
     return false;
@@ -3733,7 +3879,7 @@ function landsInCheckpoints(repo, absolutePath) {
 function checkpointWithSameInode(folder, path) {
   let target;
   try {
-    target = statSync(path);
+    target = statSync2(path);
   } catch {
     return null;
   }
@@ -3749,7 +3895,7 @@ function checkpointWithSameInode(folder, path) {
     if (!name.endsWith(".json"))
       continue;
     try {
-      const candidate = statSync(join9(folder, name));
+      const candidate = statSync2(join11(folder, name));
       if (candidate.dev === target.dev && candidate.ino === target.ino)
         return name.slice(0, -".json".length);
     } catch {}
@@ -3760,8 +3906,8 @@ function aliasedCheckpoint(repoRoot, filePath) {
   if (typeof filePath !== "string" || filePath.length === 0)
     return null;
   const repo = realRepo(repoRoot);
-  const absolutePath = isAbsolute5(filePath) ? resolve6(filePath) : resolve6(repoRoot, filePath);
-  const sameFile = checkpointWithSameInode(join9(repo.root, CHECKPOINTS_DIR), absolutePath);
+  const absolutePath = isAbsolute5(filePath) ? resolve7(filePath) : resolve7(repoRoot, filePath);
+  const sameFile = checkpointWithSameInode(join11(repo.root, CHECKPOINTS_DIR), absolutePath);
   if (sameFile !== null)
     return sameFile;
   return CHECKPOINT_PATH.exec(landsAt(repo, absolutePath))?.[1] ?? null;
@@ -3875,7 +4021,7 @@ function checkFirstPlan(root, checkpoint) {
   }
   let html;
   try {
-    html = readFileSync9(join9(root, ".ai-engineering", "brainstorm.html"), "utf8");
+    html = readFileSync10(join11(root, ".ai-engineering", "brainstorm.html"), "utf8");
   } catch (error) {
     return deny2(`Checkpoint ${checkpoint.slug}`, "plan approval", `cannot read the matching brainstorm (${error instanceof Error ? error.message : String(error)})`, "restore the approved brainstorm and retry the plan write");
   }
@@ -3961,7 +4107,7 @@ function checkMarker(payload, repoRoot) {
     return deny2(label, "checkpoint stage", `does not recognize "${stage}"`, "use tests, implement, behavior, ui, review, or fix");
   }
   let checkpoint;
-  const path = join9(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
+  const path = join11(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
   try {
     checkpoint = readCheckpoint(path, checkpointContext(repoRoot, slug));
   } catch (error) {
@@ -4045,8 +4191,8 @@ function shellPath(cwd, word) {
   if (/[$`]/.test(word) || /^~[^/]/.test(word))
     return null;
   if (word === "~" || word.startsWith("~/"))
-    return join9(homedir3(), word.slice(1));
-  return resolve6(cwd, word);
+    return join11(homedir3(), word.slice(1));
+  return resolve7(cwd, word);
 }
 function shellWritesIntoCheckpoints(command, cwd, repo) {
   let directory = cwd;
@@ -4089,7 +4235,7 @@ function checkBash2(payload, repoRoot) {
   if (typeof command !== "string")
     return;
   const hostCwd = payload["cwd"];
-  const cwd = typeof hostCwd === "string" && hostCwd.length > 0 ? resolve6(repoRoot, hostCwd) : resolve6(repoRoot);
+  const cwd = typeof hostCwd === "string" && hostCwd.length > 0 ? resolve7(repoRoot, hostCwd) : resolve7(repoRoot);
   if (command.includes("*** Begin Patch")) {
     let patched;
     try {
@@ -4097,7 +4243,7 @@ function checkBash2(payload, repoRoot) {
     } catch {
       patched = [];
     }
-    const gated = patched.map((path) => resolve6(cwd, path)).find((path) => checkpointTarget(repoRoot, path) !== null || aliasedCheckpoint(repoRoot, path) !== null);
+    const gated = patched.map((path) => resolve7(cwd, path)).find((path) => checkpointTarget(repoRoot, path) !== null || aliasedCheckpoint(repoRoot, path) !== null);
     if (gated !== undefined) {
       return deny2("Checkpoint", "shell gate", `does not accept a patch to ${gated}`, "use Edit or Write so checkpoint gates are validated");
     }
@@ -4112,7 +4258,7 @@ function orchestratorTranscript(payload, slug) {
   if (typeof transcriptPath !== "string" || transcriptPath.length === 0)
     return false;
   try {
-    const transcript = readFileSync9(transcriptPath, "utf8");
+    const transcript = readFileSync10(transcriptPath, "utf8");
     const startedOrchestrator = /"skill"\s*:\s*"ai-orchestrator"|<command-name>\/ai-orchestrator<\/command-name>/.test(transcript);
     return startedOrchestrator && transcript.includes(`.ai-engineering/workflow/checkpoints/${slug}.json`);
   } catch {
@@ -4122,12 +4268,12 @@ function orchestratorTranscript(payload, slug) {
 function stopCounterPath(root, sessionId) {
   const session = typeof sessionId === "string" && sessionId.trim() ? sessionId.trim() : "unknown";
   const hash = createHash3("sha256").update(session).digest("hex");
-  return join9(root, ".ai-engineering", "cache", "checkpoint-stop", `${hash}.txt`);
+  return join11(root, ".ai-engineering", "cache", "checkpoint-stop", `${hash}.txt`);
 }
 function ensureCounterDirectory(directory, root) {
   let current = root;
   for (const part of relative2(root, directory).split(sep5)) {
-    current = join9(current, part);
+    current = join11(current, part);
     try {
       const stat = lstatSync2(current);
       if (stat.isSymbolicLink() || !stat.isDirectory())
@@ -4135,7 +4281,7 @@ function ensureCounterDirectory(directory, root) {
     } catch (error) {
       if (error.code !== "ENOENT")
         throw error;
-      mkdirSync2(current);
+      mkdirSync3(current);
     }
   }
 }
@@ -4145,13 +4291,13 @@ function resetStopCounter(path) {
   } catch {}
 }
 function bumpStopCounter(path, root) {
-  ensureCounterDirectory(dirname2(path), root);
+  ensureCounterDirectory(dirname3(path), root);
   let count = 0;
   try {
     const stat = lstatSync2(path);
     if (stat.isSymbolicLink() || !stat.isFile())
       throw new Error(`${path} is not a regular file`);
-    const previous = Number(readFileSync9(path, "utf8"));
+    const previous = Number(readFileSync10(path, "utf8"));
     if (Number.isSafeInteger(previous) && previous > 0)
       count = previous;
   } catch (error) {
@@ -4159,7 +4305,7 @@ function bumpStopCounter(path, root) {
       throw error;
   }
   const next = count + 1;
-  writeFileSync2(path, String(next), { mode: 384 });
+  writeFileSync4(path, String(next), { mode: 384 });
   return next;
 }
 function isContinuingAfterStop(payload) {
@@ -4178,7 +4324,7 @@ function checkStop(payload, repoRoot) {
   } catch (error) {
     return faultRefusal(payload, deny2("Checkpoint", "Stop gate", `cannot resolve the repository (${error instanceof Error ? error.message : String(error)})`, "return to the repository and retry the Stop event"));
   }
-  const folder = join9(root, ".ai-engineering", "workflow", "checkpoints");
+  const folder = join11(root, ".ai-engineering", "workflow", "checkpoints");
   let files;
   try {
     files = readdirSync(folder).filter((file) => file.endsWith(".json")).sort();
@@ -4192,7 +4338,7 @@ function checkStop(payload, repoRoot) {
     const slug = file.slice(0, -".json".length);
     if (!orchestratorTranscript(payload, slug))
       continue;
-    const path = join9(folder, file);
+    const path = join11(folder, file);
     let checkpoint;
     try {
       checkpoint = readCheckpoint(path, checkpointContext(root, slug));
@@ -4281,14 +4427,14 @@ function rewrite(command) {
 }
 
 // src/receipts.ts
-import { closeSync as closeSync2, constants as constants2, openSync as openSync2, writeFileSync as writeFileSync3, readFileSync as readFileSync11, readdirSync as readdirSync2, mkdirSync as mkdirSync3, lstatSync as lstatSync4, realpathSync as realpathSync8, renameSync, rmSync, unlinkSync as unlinkSync3 } from "fs";
-import { dirname as dirname4, join as join11 } from "path";
+import { closeSync as closeSync2, constants as constants2, openSync as openSync2, writeFileSync as writeFileSync5, readFileSync as readFileSync12, readdirSync as readdirSync2, mkdirSync as mkdirSync4, lstatSync as lstatSync4, realpathSync as realpathSync8, renameSync, rmSync as rmSync2, unlinkSync as unlinkSync3 } from "fs";
+import { dirname as dirname5, join as join13 } from "path";
 import { createHash as createHash5, randomUUID } from "crypto";
 
 // src/shared-project-fs.ts
 import { createHash as createHash4 } from "crypto";
-import { closeSync, constants, fstatSync, ftruncateSync, lstatSync as lstatSync3, openSync, readFileSync as readFileSync10, readSync, realpathSync as realpathSync7, rmdirSync, unlinkSync as unlinkSync2, writeSync } from "fs";
-import { basename as basename5, dirname as dirname3, isAbsolute as isAbsolute6, join as join10, relative as relative3, resolve as resolve7, sep as sep6 } from "path";
+import { closeSync, constants, fstatSync, ftruncateSync, lstatSync as lstatSync3, openSync, readFileSync as readFileSync11, readSync, realpathSync as realpathSync7, rmdirSync, unlinkSync as unlinkSync2, writeSync } from "fs";
+import { basename as basename5, dirname as dirname4, isAbsolute as isAbsolute6, join as join12, relative as relative3, resolve as resolve8, sep as sep6 } from "path";
 function safeProjectPath(root, rel) {
   let canonicalRoot;
   try {
@@ -4296,12 +4442,12 @@ function safeProjectPath(root, rel) {
   } catch {
     return null;
   }
-  const absolute = resolve7(canonicalRoot, rel);
+  const absolute = resolve8(canonicalRoot, rel);
   if (!pathIsWithin(canonicalRoot, absolute))
     return null;
   let current = canonicalRoot;
   for (const component of relative3(canonicalRoot, absolute).split(sep6).filter(Boolean)) {
-    current = join10(current, component);
+    current = join12(current, component);
     try {
       if (lstatSync3(current).isSymbolicLink() || !pathIsWithin(canonicalRoot, realpathSync7(current)))
         return null;
@@ -4323,7 +4469,7 @@ function withSafeProjectParent(root, absolute, action) {
       return false;
     throw error;
   }
-  const parent = dirname3(absolute);
+  const parent = dirname4(absolute);
   const previousDirectory = process.cwd();
   let changedDirectory = false;
   try {
@@ -4356,7 +4502,7 @@ function withSafeProjectParent(root, absolute, action) {
 function withCheckedProjectParent(root, absolute, action) {
   try {
     const canonicalRoot = realpathSync7(root);
-    if (!isCheckedFolder(canonicalRoot, dirname3(absolute)))
+    if (!isCheckedFolder(canonicalRoot, dirname4(absolute)))
       return false;
     return action(absolute);
   } catch (error) {
@@ -4369,7 +4515,7 @@ function isCheckedFolder(canonicalRoot, folder) {
   return lstatSync3(folder).isDirectory() && realpathSync7(folder) === folder && pathIsWithin(canonicalRoot, folder);
 }
 function takeCheckedProjectFile(canonicalRoot, absolute) {
-  const folder = dirname3(absolute);
+  const folder = dirname4(absolute);
   let descriptor = null;
   try {
     if (!isCheckedFolder(canonicalRoot, folder))
@@ -4381,7 +4527,7 @@ function takeCheckedProjectFile(canonicalRoot, absolute) {
     const opened = fstatSync(descriptor);
     if (!sameFileVersion(entryBefore, opened))
       return null;
-    const content = readFileSync10(descriptor);
+    const content = readFileSync11(descriptor);
     const afterRead = fstatSync(descriptor);
     if (!sameFileVersion(opened, afterRead) || content.length !== afterRead.size)
       return null;
@@ -4411,7 +4557,7 @@ function readProjectFileSnapshot(root, absolute, bindParent = withSafeProjectPar
       const opened = fstatSync(descriptor);
       if (!sameFileVersion(entryBefore, opened))
         return false;
-      const content = readFileSync10(descriptor);
+      const content = readFileSync11(descriptor);
       const afterRead = fstatSync(descriptor);
       const entryAfter = lstatSync3(name);
       if (!sameFileVersion(opened, afterRead) || !sameFileVersion(afterRead, entryAfter) || content.length !== afterRead.size) {
@@ -4448,7 +4594,7 @@ var RECEIPTS_REL = `${AI_DIR}/receipts`;
 function receiptsFolder(root) {
   for (const rel of [AI_DIR, RECEIPTS_REL]) {
     try {
-      lstatSync4(join11(root, rel));
+      lstatSync4(join13(root, rel));
     } catch (error) {
       if (error.code === "ENOENT")
         return { kind: "absent" };
@@ -4465,7 +4611,7 @@ function ensureReceiptsFolder(root) {
   if (aiDir === null)
     return null;
   try {
-    mkdirSync3(join11(aiDir, "receipts"));
+    mkdirSync4(join13(aiDir, "receipts"));
   } catch (error) {
     if (error.code !== "EEXIST")
       return null;
@@ -4486,11 +4632,11 @@ function writeReceipt(receipt, root) {
     ...receipt
   };
   try {
-    const folder = ensureReceiptsFolder(dirname4(dirname4(dir)));
+    const folder = ensureReceiptsFolder(dirname5(dirname5(dir)));
     if (folder === null)
       return null;
     const stamp = full.ts.replace(/[:.]/g, "-");
-    writeFileSync3(join11(folder, `${stamp}-${receiptEventName(full.event)}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
+    writeFileSync5(join13(folder, `${stamp}-${receiptEventName(full.event)}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
     return full;
   } catch {
     return null;
@@ -4546,10 +4692,10 @@ function upsertDenyLedger(dir, key) {
   if (!dir)
     return 0;
   try {
-    const folder = ensureReceiptsFolder(dirname4(dirname4(dir)));
+    const folder = ensureReceiptsFolder(dirname5(dirname5(dir)));
     if (folder === null)
       return 0;
-    const file = join11(folder, "denies.json");
+    const file = join13(folder, "denies.json");
     let ledger = {};
     try {
       ledger = JSON.parse(readNoFollow(file));
@@ -4580,7 +4726,7 @@ function pruneDenyLedger(file, ttlDays = 90, cap = LEDGER_CAP, now = Date.now())
 function readNoFollow(path) {
   const descriptor = openSync2(path, constants2.O_RDONLY | constants2.O_NOFOLLOW);
   try {
-    return readFileSync11(descriptor, "utf8");
+    return readFileSync12(descriptor, "utf8");
   } finally {
     closeSync2(descriptor);
   }
@@ -4588,7 +4734,7 @@ function readNoFollow(path) {
 function writeNoFollow(path, text) {
   const descriptor = openSync2(path, constants2.O_WRONLY | constants2.O_CREAT | constants2.O_TRUNC | constants2.O_NOFOLLOW, 438);
   try {
-    writeFileSync3(descriptor, text);
+    writeFileSync5(descriptor, text);
   } finally {
     closeSync2(descriptor);
   }
@@ -4606,7 +4752,7 @@ var RECEIPT_NAME = /^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)-[A-Za-z0-9_-]+
 var WRAP_LOG_NAME = /^[0-9a-f]{8}\.log$/;
 var stampOf = (ms) => new Date(ms).toISOString().replace(/[:.]/g, "-");
 function mergeAndWriteSummary(root, folder, collected, total, now) {
-  const summaryPath = join11(folder, "summary.json");
+  const summaryPath = join13(folder, "summary.json");
   let prior = null;
   const snapshot = readProjectFileSnapshot(root, summaryPath, withCheckedProjectParent);
   try {
@@ -4620,19 +4766,19 @@ function mergeAndWriteSummary(root, folder, collected, total, now) {
   }
   const merged = { ...collected, total, daily: mergeDaily(prior?.daily, summed, 90, now), gc: new Date(now).toISOString() };
   withCheckedProjectParent(root, summaryPath, (path) => {
-    const staging = join11(dirname4(path), `.summary-${randomUUID()}.tmp`);
+    const staging = join13(dirname5(path), `.summary-${randomUUID()}.tmp`);
     try {
-      writeFileSync3(staging, JSON.stringify(merged), { flag: "wx" });
+      writeFileSync5(staging, JSON.stringify(merged), { flag: "wx" });
       renameSync(staging, path);
     } finally {
-      rmSync(staging, { force: true });
+      rmSync2(staging, { force: true });
     }
     return true;
   });
 }
 function listStaleReceipts(root, folder, cutStamp) {
   let listing = null;
-  const isListed = withCheckedProjectParent(root, join11(folder, "summary.json"), () => {
+  const isListed = withCheckedProjectParent(root, join13(folder, "summary.json"), () => {
     const stale = [];
     let stored = 0;
     for (const name of readdirSync2(folder)) {
@@ -4649,7 +4795,7 @@ function listStaleReceipts(root, folder, cutStamp) {
       if (!WRAP_LOG_NAME.test(name))
         continue;
       try {
-        const aged = stampOf(lstatSync4(join11(folder, name)).mtimeMs);
+        const aged = stampOf(lstatSync4(join13(folder, name)).mtimeMs);
         if (aged < cutStamp)
           stale.push({ stamp: aged, name });
       } catch {}
@@ -4676,7 +4822,7 @@ function collectReceipts(root, folder, ttlDays, maxDeletes, now) {
     if (deleted >= limit)
       break;
     consumed += 1;
-    const content = takeCheckedProjectFile(canonicalRoot, join11(folder, entry.name));
+    const content = takeCheckedProjectFile(canonicalRoot, join13(folder, entry.name));
     if (content === null)
       continue;
     deleted += 1;
@@ -4688,7 +4834,7 @@ function collectReceipts(root, folder, ttlDays, maxDeletes, now) {
   }
   if (deleted > 0)
     mergeAndWriteSummary(root, folder, summaryOf(tally), stored, now);
-  withCheckedProjectParent(root, join11(folder, "denies.json"), (path) => {
+  withCheckedProjectParent(root, join13(folder, "denies.json"), (path) => {
     pruneDenyLedger(path, 90, LEDGER_CAP, now);
     return true;
   });
@@ -4715,7 +4861,7 @@ function runRetention(root, now) {
   if (aiDir === null)
     return idle;
   try {
-    mkdirSync3(join11(aiDir, "cache"));
+    mkdirSync4(join13(aiDir, "cache"));
   } catch (error) {
     if (error.code !== "EEXIST")
       return idle;
@@ -4723,7 +4869,7 @@ function runRetention(root, now) {
   const cache = safeProjectPath(root, `${AI_DIR}/cache`);
   if (cache === null)
     return idle;
-  const claim = join11(cache, today);
+  const claim = join13(cache, today);
   const isClaimed = withCheckedProjectParent(root, claim, (path) => {
     closeSync2(openSync2(path, "wx"));
     return true;
@@ -4745,23 +4891,97 @@ function runRetention(root, now) {
     const isOldClaim = entry.startsWith("receipts-retention-") && entry !== today;
     if (!isOldClaim && !(entry === today && pass.hasBacklog))
       continue;
-    withCheckedProjectParent(root, join11(cache, entry), (path) => {
+    withCheckedProjectParent(root, join13(cache, entry), (path) => {
       unlinkSync3(path);
       return true;
     });
   }
   return { ran: true, deleted: pass.deleted };
 }
+// package.json
+var package_default = {
+  name: "ai-engineering",
+  version: "3.0.8",
+  description: "Guardrails for AI coding agents: install a contract, deny destructive calls, prove every run.",
+  license: "Apache-2.0",
+  type: "module",
+  module: "src/cli.ts",
+  bin: {
+    "ai-eng": "bin/ai-eng.js"
+  },
+  files: [
+    "bin",
+    "src",
+    "skills",
+    "agents",
+    "scripts/.embed",
+    "templates",
+    "NOTICE.md",
+    "THIRD-PARTY-NOTICES.md",
+    "CHANGELOG.md"
+  ],
+  packageManager: "bun@1.4.4",
+  repository: {
+    type: "git",
+    url: "https://github.com/arcasilesgroup/ai-engineering.git"
+  },
+  engines: {
+    bun: ">=1.4.4"
+  },
+  scripts: {
+    build: "bun scripts/build.ts",
+    test: "bun test",
+    lint: "oxlint src tests --ignore-pattern 'tests/fixtures/verify-tiers/evals/**'",
+    typecheck: "oxlint --type-aware --type-check src tests --ignore-pattern 'tests/fixtures/verify-tiers/evals/**'",
+    arch: "bun test tests/arch.spec.ts",
+    bench: "bun scripts/bench-chain.ts",
+    tokens: "bun scripts/tokens.ts",
+    mutation: "stryker run",
+    changeset: "changeset"
+  },
+  dependencies: {
+    "@clack/prompts": "1.7.0",
+    "fast-wrap-ansi": "0.2.2"
+  },
+  devDependencies: {
+    "@changesets/changelog-github": "1.0.0",
+    "@changesets/cli": "3.0.1",
+    "@hughescr/stryker-bun-runner": "1.3.8",
+    "@stryker-mutator/core": "9.6.1",
+    "@types/bun": "1.4.0",
+    oxlint: "1.80.0",
+    "oxlint-tsgolint": "7.0.2001"
+  },
+  overrides: {
+    "smol-toml": "1.7.2",
+    "brace-expansion": "5.0.12",
+    "launch-editor": "2.14.2",
+    "shell-quote": "1.12.0",
+    zod: "4.6.7"
+  }
+};
+
+// src/version.ts
+var VERSION = package_default.version;
+
+// src/notice.ts
+var TTL_MS = 24 * 60 * 60 * 1000;
+
+// src/git/lanes.ts
+var DAY_MS = 24 * 60 * 60 * 1000;
+var FORGE_TTL_MS = 10 * 60 * 1000;
 
 // src/chain/mod.ts
 var TABLE = {
   PreToolUse: [
     { name: "self-protect", matcher: /^(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|shell|command)$/ },
     { name: "no-verify", matcher: /^(Bash|PowerShell|shell|command|Edit|Write|MultiEdit|NotebookEdit)$/ },
+    { name: "no-stash", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "policy", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ },
     { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|Task|Agent|Bash)$/ },
+    { name: "lease", matcher: /^(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|shell|command)$/ },
     { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ }
   ],
   Stop: [{ name: "checkpoint", matcher: /^$/ }],
@@ -4769,7 +4989,9 @@ var TABLE = {
     { name: "injection", matcher: /^(WebFetch|Fetch|WebSearch|mcp__.*|tool_result)$/ },
     { name: "loop", matcher: /^.*$/ }
   ],
-  UserPromptSubmit: [{ name: "spoken-secret", matcher: /^$/ }]
+  UserPromptSubmit: [{ name: "spoken-secret", matcher: /^$/ }],
+  SessionStart: [],
+  SessionEnd: []
 };
 var HOT_PATH_BUDGET_MS = 200;
 var UNREADABLE_PAYLOAD = "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.";
@@ -4781,7 +5003,7 @@ function selected(event, tool) {
 }
 function cachedVerdict(file, fp) {
   try {
-    const book = JSON.parse(readFileSync12(file, "utf8"));
+    const book = JSON.parse(readFileSync13(file, "utf8"));
     const entry = book[fp];
     if (!entry || typeof entry.deny !== "boolean")
       return null;
@@ -4796,14 +5018,14 @@ function rememberVerdict(file, fp, verdict) {
   try {
     let book = {};
     try {
-      book = JSON.parse(readFileSync12(file, "utf8"));
+      book = JSON.parse(readFileSync13(file, "utf8"));
     } catch {}
-    mkdirSync4(dirname5(file), { recursive: true });
+    mkdirSync5(dirname6(file), { recursive: true });
     book[fp] = verdict;
     const trimmed = {};
     for (const key of Object.keys(book).slice(-500))
       trimmed[key] = book[key];
-    writeFileSync4(file, JSON.stringify(trimmed));
+    writeFileSync6(file, JSON.stringify(trimmed));
   } catch {}
 }
 function hostCwd(raw) {
@@ -4851,7 +5073,7 @@ function runChain(rawPayload, event, options = {}) {
   const overrides = readOverrides(root);
   const ctx = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
   const dedup = deduplicable(payload) && event === "PreToolUse";
-  const cacheFile = join12(root, ".ai-engineering", "cache", "verdicts", `${createHash6("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
+  const cacheFile = join14(root, ".ai-engineering", "cache", "verdicts", `${createHash6("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
   if (dedup) {
     const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {
@@ -4929,6 +5151,10 @@ function dispatchGuard(name, payload, ctx) {
           return runSelfProtect(payload, ctx.repoRoot);
         case "no-verify":
           return runNoVerify(payload, ctx.repoRoot);
+        case "no-stash":
+          return runNoStash(payload);
+        case "lease":
+          return runLease(payload, ctx.repoRoot);
         case "policy": {
           const command = payload.tool_input["command"];
           if (typeof command !== "string" || command.length === 0)

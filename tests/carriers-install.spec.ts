@@ -614,7 +614,7 @@ describe("carriers on the machine", () => {
     const repoRoot = join(sandbox, "repo-stop-scope");
     mkdirSync(repoRoot, { recursive: true });
     const repoSurfaces = surfaces.filter((surface) => repoCarrier(surface) !== null);
-    expect(install(repoRoot, planEntries(repoSurfaces.map((surface) => surface.id))).refused).toEqual([]);
+    expect(install(repoRoot, planEntries(repoSurfaces.map((surface) => surface.id), "github-actions")).refused).toEqual([]);
     for (const surface of repoSurfaces) {
       const placement = repoCarrier(surface)!;
       const content = readFileSync(join(repoRoot, placement.path), "utf8");
@@ -1760,7 +1760,7 @@ describe("installCanon and what leaves with it", () => {
     const repoRoot = join(sandbox, "repo-single-source");
     mkdirSync(repoRoot, { recursive: true });
     const repoSurfaces = SURFACES.filter((surface) => repoCarrier(surface) !== null);
-    const repoReport = install(repoRoot, planEntries(repoSurfaces.map((surface) => surface.id)));
+    const repoReport = install(repoRoot, planEntries(repoSurfaces.map((surface) => surface.id), "github-actions"));
     const machineReport = installMachineCarriers(machineSurfaces.map((surface) => surface.id));
 
     expect(installedSkillNames(base)).toEqual(sourceSkills);

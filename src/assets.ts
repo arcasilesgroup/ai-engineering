@@ -85,7 +85,6 @@ import askills_ai_read_docs_SKILL_md from "../skills/ai-read-docs/SKILL.md" with
 import askills__chain_bundle_ai_eng_chain_ts from "../skills/.chain-bundle/ai-eng-chain.ts" with { type: "file" };
 import askills_security_audit_SKILL_md from "../skills/security-audit/SKILL.md" with { type: "file" };
 import askills_ai_prototype_SKILL_md from "../skills/ai-prototype/SKILL.md" with { type: "file" };
-import askills_ai_git_cleanup_SKILL_md from "../skills/ai-git-cleanup/SKILL.md" with { type: "file" };
 import askills_a11y_audit_SKILL_md from "../skills/a11y-audit/SKILL.md" with { type: "file" };
 import askills_second_opinion_scripts_second_opinion_sh from "../skills/second-opinion/scripts/second-opinion.sh" with { type: "file" };
 import askills_second_opinion_SKILL_md from "../skills/second-opinion/SKILL.md" with { type: "file" };
@@ -123,6 +122,7 @@ import atemplates_gitignore_tpl from "../templates/gitignore.tpl" with { type: "
 import atemplates_git_commit_msg_tpl from "../templates/git-commit-msg.tpl" with { type: "file" };
 import atemplates_git_pre_commit_tpl from "../templates/git-pre-commit.tpl" with { type: "file" };
 import atemplates_PRD_html_tpl from "../templates/PRD.html.tpl" with { type: "file" };
+import atemplates_azure_pipelines_yml_tpl from "../templates/azure-pipelines.yml.tpl" with { type: "file" };
 import atemplates_spec_html_tpl from "../templates/spec.html.tpl" with { type: "file" };
 import atemplates_plugin_omp_ts_tpl from "../templates/plugin.omp.ts.tpl" with { type: "file" };
 import atemplates_plugin_pi_ts_tpl from "../templates/plugin.pi.ts.tpl" with { type: "file" };
@@ -221,7 +221,6 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/.chain-bundle/ai-eng-chain.ts": askills__chain_bundle_ai_eng_chain_ts as unknown as string,
   "../skills/security-audit/SKILL.md": askills_security_audit_SKILL_md as unknown as string,
   "../skills/ai-prototype/SKILL.md": askills_ai_prototype_SKILL_md as unknown as string,
-  "../skills/ai-git-cleanup/SKILL.md": askills_ai_git_cleanup_SKILL_md as unknown as string,
   "../skills/a11y-audit/SKILL.md": askills_a11y_audit_SKILL_md as unknown as string,
   "../skills/second-opinion/scripts/second-opinion.sh": askills_second_opinion_scripts_second_opinion_sh as unknown as string,
   "../skills/second-opinion/SKILL.md": askills_second_opinion_SKILL_md as unknown as string,
@@ -259,6 +258,7 @@ export const EMBEDDED: Record<string, string> = {
   "../templates/git-commit-msg.tpl": atemplates_git_commit_msg_tpl as unknown as string,
   "../templates/git-pre-commit.tpl": atemplates_git_pre_commit_tpl as unknown as string,
   "../templates/PRD.html.tpl": atemplates_PRD_html_tpl as unknown as string,
+  "../templates/azure-pipelines.yml.tpl": atemplates_azure_pipelines_yml_tpl as unknown as string,
   "../templates/spec.html.tpl": atemplates_spec_html_tpl as unknown as string,
   "../templates/plugin.omp.ts.tpl": atemplates_plugin_omp_ts_tpl as unknown as string,
   "../templates/plugin.pi.ts.tpl": atemplates_plugin_pi_ts_tpl as unknown as string,

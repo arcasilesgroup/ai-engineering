@@ -14,6 +14,8 @@ import { join } from "node:path";
 import type { PassThrough } from "node:stream";
 import { stripVTControlCharacters } from "node:util";
 import { configMain } from "../src/commands/config.ts";
+import { ciEntries } from "../src/commands/init-shared.ts";
+import { buildLock, lockText } from "../src/install.ts";
 import { canonSkills, embeddedPath } from "../src/embed.ts";
 import { isGoverned } from "../src/env.ts";
 import { installCanon } from "../src/surfaces/canon-install.ts";
@@ -87,7 +89,7 @@ function expectFullCanonInstalled(home: string): void {
 }
 
 /** `configMain` resolves the repo from the cwd: the test owns the cwd for the call. */
-function runConfig(repo: string, flags: { add?: string; remove?: string }): Promise<{ result: number; out: string }> {
+function runConfig(repo: string, flags: { add?: string; remove?: string; ci?: string }): Promise<{ result: number; out: string }> {
   process.chdir(repo);
   return capture(() => configMain(flags));
 }
@@ -127,8 +129,8 @@ describe("ai-eng config · --add and --remove", () => {
     expect(code).toBe(0);
     expect(configOf(repo)).toBe('# keep me\n[surfaces]\nenabled = ["claude-code", "cursor"]\n\n[models]\ndecide = "x"\n');
     expect(out).toContain("◆  Surfaces changed  ·  2 enabled: claude-code, cursor");
-    expect(out).toContain("│  ✓ + cursor · adapter + skill mirror written");
-    expect(out).toContain("└  Done. Run ai-eng doctor to verify.");
+    expect(out).toContain("│  ✓ installed  cursor · adapter + skill mirror written");
+    expect(out).toContain("└  Next: ai-eng doctor");
 
     // The adapter itself, not just the claim: a declaration nobody enforces is the bug
     // this verb exists to end.
@@ -226,8 +228,8 @@ describe("ai-eng config · --add and --remove", () => {
     const { result: code, out } = await runConfig(repo, { add: "copilot" });
 
     expect(code).toBe(0);
-    expect(out).toContain("✓  .github/hooks/ai-eng.json written (repo carrier)");
-    expect(out).toContain("✓  ~/.copilot/hooks/ai-eng.json written (machine carrier)");
+    expect(out).toContain("✓  installed  .github/hooks/ai-eng.json · repo carrier");
+    expect(out).toContain("✓  installed  ~/.copilot/hooks/ai-eng.json · machine carrier");
     expect(existsSync(join(repo, ".github", "hooks", "ai-eng.json"))).toBe(true);
     expect(readFileSync(join(repo, ".github", "hooks", "ai-eng.json"), "utf8")).toContain("ai-eng chain PreToolUse --surface copilot-cli");
     expect(configOf(repo)).toBe('[surfaces]\nenabled = ["claude-code", "copilot-cli"]\n');
@@ -249,8 +251,8 @@ describe("ai-eng config · --add and --remove", () => {
     const { result: code, out } = await runConfig(repo, { remove: "cursor" });
 
     expect(code).toBe(0);
-    expect(out).toContain("✓  .cursor/hooks.json: ai-eng entries removed, yours kept");
-    expect(out).toContain("│  ✓ - cursor · off in this repo");
+    expect(out).toContain("✓  updated    .cursor/hooks.json · ai-eng entries removed, yours kept");
+    expect(out).toContain("│  ✓ removed    cursor · off in this repo");
     expect(configOf(repo)).toBe(SOURCE);
     const kept = readFileSync(join(repo, ".cursor", "hooks.json"), "utf8");
     expect(kept).not.toContain("ai-eng chain");
@@ -265,7 +267,7 @@ describe("ai-eng config · --add and --remove", () => {
     const { result: code, out } = await runConfig(repo, { remove: "cursor" });
 
     expect(code).toBe(0);
-    expect(out).toContain("✓  .cursor/hooks.json removed (it held only ai-eng entries)");
+    expect(out).toContain("✓  removed    .cursor/hooks.json · it held only ai-eng entries");
     expect(existsSync(join(repo, ".cursor", "hooks.json"))).toBe(false);
     expect(configOf(repo)).toBe(SOURCE);
   });
@@ -306,10 +308,12 @@ describe("ai-eng config · --add and --remove", () => {
 
     process.chdir(repo);
     const answer = capture(() => configMain({}));
-    type("\x03");
+    // Enter picks "Agent surfaces" in the settings menu; ctrl-c then cancels the picker.
+    type("\n\x03");
 
     const { result: code, out } = await answer;
     expect(code).toBe(0);
+    expect(out).toContain("What do you want to change?");
     expect(out).toContain("Which agent surfaces is this project governed on?");
     expect(out).not.toContain("core — deny");
     expect(out).not.toContain("experimental —");
@@ -326,13 +330,14 @@ describe("ai-eng config · --add and --remove", () => {
 
     process.chdir(repo);
     const answer = capture(() => configMain({}));
-    // Space untick the row under the cursor (the first surface), Enter submits.
-    type(" \n");
+    // Enter picks "Agent surfaces"; space unticks the row under the cursor (the first
+    // surface), Enter submits.
+    type("\n \n");
 
     const { result: code, out } = await answer;
     expect(code).toBe(0);
     expect(out).toContain("◆  Surfaces changed  ·  1 enabled: cursor");
-    expect(out).toContain("│  ✓ - claude-code · off in this repo");
+    expect(out).toContain("│  ✓ removed    claude-code · off in this repo");
     expect(configOf(repo)).toBe('[surfaces]\nenabled = ["cursor"]\n');
     // Cursor stayed declared, so its carrier was neither rewritten nor taken away.
     expect(readFileSync(join(repo, ".cursor", "hooks.json"), "utf8")).toBe('{ "mine": true }\n');
@@ -344,16 +349,107 @@ describe("ai-eng config · --add and --remove", () => {
 
     process.chdir(repo);
     const answer = capture(() => configMain({}));
-    // Down to the second row (Oh My Pi, in-process: no repo carrier), space, Enter.
-    type("\x1b[B \n");
+    // Enter picks "Agent surfaces"; down to the second row (Oh My Pi, in-process: no
+    // repo carrier), space, Enter.
+    type("\n\x1b[B \n");
 
     const { result: code, out } = await answer;
     expect(code).toBe(0);
-    expect(out).toContain("│  ✓ + oh-my-pi · adapter + skill mirror written");
-    expect(out).toContain("✓  ~/.omp/agent/hooks/pre/ai-eng.ts written (machine carrier)");
+    expect(out).toContain("│  ✓ installed  oh-my-pi · adapter + skill mirror written");
+    expect(out).toContain("✓  installed  ~/.omp/agent/hooks/pre/ai-eng.ts · machine carrier");
     expect(configOf(repo)).toBe('[surfaces]\nenabled = ["claude-code", "cursor", "oh-my-pi"]\n');
     // An in-process host is installed where the host reads it: its agent dir, not ours.
     expect(existsSync(join(home, "agent-dir", "hooks", "pre", "ai-eng.ts"))).toBe(true);
+  });
+});
+
+describe("ai-eng config · the CI provider", () => {
+  const GITHUB = join(".github", "workflows", "ai-eng-check.yml");
+  const AZURE = join(".azure-pipelines", "ai-eng-check.yml");
+  const lockOf = (repo: string): string => readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8");
+
+  /** A repo init left on GitHub Actions: the workflow on disk, and the lock that records it. */
+  function githubRepo(config = SOURCE): string {
+    const { repo } = governedRepo(config);
+    const [gate] = ciEntries("github-actions");
+    mkdirSync(join(repo, ".github", "workflows"), { recursive: true });
+    writeFileSync(join(repo, gate!.path), gate!.ours);
+    writeFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), lockText(buildLock([gate!], VERSION)));
+    return repo;
+  }
+
+  test("--ci azure-pipelines writes the Azure gate, retires the GitHub one, and moves the lock", async () => {
+    const repo = githubRepo();
+    const { result: code, out } = await runConfig(repo, { ci: "azure-pipelines" });
+    expect(code).toBe(0);
+    expect(readFileSync(join(repo, AZURE), "utf8")).toBe(ciEntries("azure-pipelines")[0]!.ours);
+    // The workflow was all .github held: no empty folders are left behind.
+    expect(existsSync(join(repo, ".github"))).toBe(false);
+    expect(out).toContain(".github/workflows/ removed (empty)");
+    // A config from before the choice existed gains the [ci] table; nothing else moves.
+    expect(configOf(repo)).toBe(`${SOURCE}\n[ci]\nprovider = "azure-pipelines"\n`);
+    expect(lockOf(repo)).toInclude('".azure-pipelines/ai-eng-check.yml"');
+    expect(lockOf(repo)).not.toInclude('".github/workflows/ai-eng-check.yml"');
+    expect(out).toContain("Build validation");
+  });
+
+  test("a .github folder that still holds the project's files stays; only the empty workflows folder goes", async () => {
+    const repo = githubRepo();
+    writeFileSync(join(repo, ".github", "dependabot.yml"), "version: 2\n");
+    expect((await runConfig(repo, { ci: "azure-pipelines" })).result).toBe(0);
+    expect(existsSync(join(repo, ".github", "workflows"))).toBe(false);
+    expect(readFileSync(join(repo, ".github", "dependabot.yml"), "utf8")).toBe("version: 2\n");
+  });
+
+  test("--ci rewrites an existing [ci].provider in place and keeps its comments", async () => {
+    const config = `${SOURCE}\n[ci]\n# where the gate runs\nprovider = "github-actions" # set by init\n`;
+    const repo = githubRepo(config);
+    expect((await runConfig(repo, { ci: "none" })).result).toBe(0);
+    expect(configOf(repo)).toBe(config.replace('"github-actions"', '"none"'));
+    expect(existsSync(join(repo, ".github"))).toBe(false);
+    expect(existsSync(join(repo, ".azure-pipelines"))).toBe(false);
+  });
+
+  test("--ci of the provider already declared writes nothing", async () => {
+    const repo = githubRepo();
+    const { result: code, out } = await runConfig(repo, { ci: "github-actions" });
+    expect(code).toBe(0);
+    expect(out).toContain("CI unchanged");
+    expect(configOf(repo)).toBe(SOURCE);
+    expect(existsSync(join(repo, GITHUB))).toBe(true);
+  });
+
+  test("--ci of an unknown provider is refused and the config stays byte-identical", async () => {
+    const repo = githubRepo();
+    const { result: code } = await runConfig(repo, { ci: "jenkins" });
+    expect(code).toBe(2);
+    expect(configOf(repo)).toBe(SOURCE);
+    expect(existsSync(join(repo, GITHUB))).toBe(true);
+  });
+
+  test("a [ci] layout the rewrite cannot judge is refused, never mangled", async () => {
+    // A top-level dotted key: valid TOML, but no [ci] header for the text edit to find.
+    const config = `ci.provider = "github-actions"\n${SOURCE}`;
+    const repo = githubRepo(config);
+    const { result: code, out } = await runConfig(repo, { ci: "azure-pipelines" });
+    expect(code).toBe(2);
+    expect(out).toContain('set provider = "azure-pipelines"');
+    expect(configOf(repo)).toBe(config);
+    expect(existsSync(join(repo, AZURE))).toBe(false);
+  });
+
+  test("the settings menu reaches the CI picker, preselected on the declared provider", async () => {
+    const repo = githubRepo();
+    process.chdir(repo);
+    const answer = capture(() => configMain({}));
+    // Down to "CI provider", Enter; down from GitHub Actions to Azure Pipelines, Enter.
+    type("\x1b[B\n\x1b[B\n");
+
+    const { result: code, out } = await answer;
+    expect(code).toBe(0);
+    expect(out).toContain("Where does this project's CI run?");
+    expect(existsSync(join(repo, AZURE))).toBe(true);
+    expect(existsSync(join(repo, GITHUB))).toBe(false);
   });
 });
 

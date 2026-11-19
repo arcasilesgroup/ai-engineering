@@ -12,6 +12,8 @@ import { normalise, deduplicable, fingerprint, loopExact } from "../payload.ts";
 import type { Payload } from "../payload.ts";
 import { deny, allow, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
+import { runNoStash } from "../guards/no-stash.ts";
+import { releaseLease, runLease } from "../guards/lease.ts";
 import { runSelfProtect } from "../guards/self-protect.ts";
 import { policyModeFor, runPolicy } from "../guards/policy.ts";
 import { runInjection, type GuardResult as InjectionGuardResult } from "../guards/injection.ts";
@@ -20,8 +22,10 @@ import { runLoopGuard } from "../guards/loop.ts";
 import { runCheckpointGuard } from "../guards/checkpoint.ts";
 import { isTestCommand, rewrite } from "../guards/wrap.ts";
 import { writeReceipt, upsertDenyLedger, retainReceipts, type Receipt } from "../receipts.ts";
+import { refreshInBackground, sessionStartContext } from "../notice.ts";
+import { lanes, laneSummary } from "../git/lanes.ts";
 
-export type GuardName = "self-protect" | "no-verify" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret" | "checkpoint";
+export type GuardName = "self-protect" | "no-verify" | "no-stash" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret" | "checkpoint" | "lease";
 
 type GuardRow = { name: GuardName; matcher: RegExp };
 type GuardOutcome = { deny: true; reason: string; rewriteTo?: string } | { deny: false; review: true; reason: string; rule: { id: string; name: string; risk: number } } | undefined;
@@ -37,10 +41,12 @@ export const TABLE: Record<string, GuardRow[]> = {
   PreToolUse: [
     { name: "self-protect", matcher: /^(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|shell|command)$/ },
     { name: "no-verify", matcher: /^(Bash|PowerShell|shell|command|Edit|Write|MultiEdit|NotebookEdit)$/ },
+    { name: "no-stash", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "policy", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ },
     { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|Task|Agent|Bash)$/ },
+    { name: "lease", matcher: /^(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|shell|command)$/ },
     { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
   ],
   Stop: [{ name: "checkpoint", matcher: /^$/ }],
@@ -52,6 +58,11 @@ export const TABLE: Record<string, GuardRow[]> = {
   // payload carries no tool at all, and normalise leaves tool_name as "" — the empty
   // name IS this event's signature. Anchored like every row (TABLE invariant test).
   UserPromptSubmit: [{ name: "spoken-secret", matcher: /^$/ }],
+  // No guard: a session start only tells the agent what the version cache and the lock
+  // say (sessionStartContext). It never denies, and chainMain answers it before runChain.
+  SessionStart: [],
+  // No guard either: the ending session frees the folder it holds (lease.ts).
+  SessionEnd: [],
 };
 
 const HOT_PATH_BUDGET_MS = 200;
@@ -291,7 +302,7 @@ export function judgeWrappedCommand(command: string, cwd: string): string | null
   const localRules = loadLocalRules(root);
   if (localRules.length > 0) (payload as Record<string, unknown>)["localRules"] = localRules;
   const ctx: ChainContext = { repoRoot: root, loopOverride: false };
-  for (const name of ["self-protect", "no-verify", "policy", "injection", "checkpoint"] as const) {
+  for (const name of ["self-protect", "no-verify", "no-stash", "policy", "injection", "checkpoint"] as const) {
     const outcome = dispatchGuard(name, payload, ctx);
     if (outcome?.deny === true) return outcome.reason;
   }
@@ -316,6 +327,10 @@ function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): Gu
           return runSelfProtect(payload, ctx.repoRoot);
         case "no-verify":
           return runNoVerify(payload, ctx.repoRoot);
+        case "no-stash":
+          return runNoStash(payload);
+        case "lease":
+          return runLease(payload, ctx.repoRoot);
         case "policy": {
           const command = payload.tool_input["command"];
           if (typeof command !== "string" || command.length === 0) return undefined;
@@ -410,7 +425,58 @@ function rewriteOutcome(
 }
 
 /** stdio entry used by `ai-eng chain <event>`: stdin payload → verdict on stdout. */
+/** The lanes that need a decision, in one line — from git and the cached forge answer,
+ *  never the network. A board that cannot be read says nothing: this event never blocks. */
+function laneLine(root: string): string | null {
+  try {
+    return laneSummary(lanes(root, { refresh: false }));
+  } catch {
+    return null;
+  }
+}
+
+/** SessionStart: information only. In a governed repo, the version lines go to the
+ *  agent as additionalContext — the JSON shape Claude Code and Codex both read (Codex
+ *  rejects plain text). Anything unreadable is silence: this event never blocks. */
+export function sessionStart(raw: string): void {
+  let body: unknown = null;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    /* no payload: resolve the repo from the cwd */
+  }
+  const root = repoRoot(hostCwd(body));
+  if (root === null || !isGoverned(root)) return;
+  const context = [sessionStartContext(root, refreshInBackground), laneLine(root)].filter((line) => line !== null).join("\n");
+  if (context === "") return;
+  process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context } })}\n`);
+}
+
+/** SessionEnd: the session that holds this folder lets it go now, instead of in fifteen
+ *  minutes. Only its own lease: another session's is never released from here. */
+export function sessionEnd(raw: string): void {
+  let body: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) body = parsed as Record<string, unknown>;
+  } catch {
+    return;
+  }
+  const session = typeof body["session_id"] === "string" ? body["session_id"] : "";
+  const root = repoRoot(hostCwd(body));
+  if (root === null || session === "" || !isGoverned(root)) return;
+  releaseLease(root, session);
+}
+
 export function chainMain(event: string, raw: string, options: ChainOptions = {}): void {
+  if (event === "SessionStart") {
+    sessionStart(raw);
+    process.exit(0);
+  }
+  if (event === "SessionEnd") {
+    sessionEnd(raw);
+    process.exit(0);
+  }
   if (!raw.trim()) process.exit(0); // nothing was decided, so there is nothing to judge
   let body: Record<string, unknown>;
   try {

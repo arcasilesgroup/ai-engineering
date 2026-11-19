@@ -1,11 +1,13 @@
-// `ai-eng config` — add/remove surfaces, regenerate their adapters and mirrors.
+// `ai-eng config` — change what init chose: add/remove surfaces (regenerating their
+// adapters and mirrors) or switch the CI provider (config-ci.ts).
 // Never touches AGENTS.md and never writes overrides (those are manual, with reason).
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { PassThrough } from "node:stream";
 import { install, stripSharedText } from "../install.ts";
-import { join } from "node:path";
-import { multiselect, isCancel } from "@clack/prompts";
+import { basename, join } from "node:path";
+import { multiselect, select, isCancel } from "@clack/prompts";
+import { changeCi, changeCiFromFlag, pickCi } from "./config-ci.ts";
 import { canonicalSurfaceId, repoRoot, enabledSurfaces, isGoverned } from "../env.ts";
 import { mirrorTargets, installCanon } from "../surfaces/canon-install.ts";
 import { installMachineCarriers } from "../surfaces/carriers-install.ts";
@@ -80,8 +82,8 @@ async function pickSurfaces(
 /** The "Surfaces changed" rows: one per added surface, one per removed surface. */
 function deltaRows(added: string[], removedSurfaces: string[]): ui.Row[] {
   return [
-    ...added.map((id): ui.Row => ({ mark: "ok", text: `+ ${id}`, dim: "adapter + skill mirror written" })),
-    ...removedSurfaces.map((id): ui.Row => ({ mark: "ok", text: `- ${id}`, dim: "off in this repo; the machine carrier stays — it serves every governed repo" })),
+    ...added.map((id) => ui.fileRow("installed", id, "adapter + skill mirror written")),
+    ...removedSurfaces.map((id) => ui.fileRow("removed", id, "off in this repo; the machine carrier stays — it serves every governed repo")),
   ];
 }
 
@@ -159,16 +161,45 @@ function showSurfaceDelta(current: string[], before: string[]): void {
   }
 }
 
-export async function configMain(flags: { add?: string; remove?: string }): Promise<number> {
+/** No flags: ask which of init's choices to change. Null when cancelled. */
+async function pickSetting(input: NodeJS.ReadStream | PassThrough): Promise<"surfaces" | "ci" | null> {
+  const answer = await select({
+    message: "What do you want to change?",
+    options: [
+      { value: "surfaces" as const, label: "Agent surfaces" },
+      { value: "ci" as const, label: "CI provider" },
+    ],
+    input: input as never,
+  });
+  return isCancel(answer) ? null : answer;
+}
+
+export async function configMain(flags: { add?: string; remove?: string; ci?: string }): Promise<number> {
   const input = scriptedInput();
-  ui.frame(`Configuration · ai-eng ${VERSION}`);
   const root = repoRoot();
+  ui.frame(ui.frameTitle("config", root === null ? "this folder" : basename(root), VERSION));
   // The gate, not "there is a .git above us": `config --add` in a bare repo would die
   // on writeFileSync with a raw ENOENT instead of telling the human to run init.
   if (root === null || !isGoverned(root)) {
     ui.fail("you are not in a governed repo — run ai-eng init first");
     ui.end("Nothing changed.");
     return 2;
+  }
+  if (flags.ci !== undefined) return changeCiFromFlag(root, flags.ci);
+  if (flags.add === undefined && flags.remove === undefined) {
+    const setting = await pickSetting(input);
+    if (setting === null) {
+      ui.cancelled("Nothing changed.");
+      return 0;
+    }
+    if (setting === "ci") {
+      const next = await pickCi(input, root);
+      if (next === null) {
+        ui.cancelled("Nothing changed.");
+        return 0;
+      }
+      return changeCi(root, next);
+    }
   }
   // Governed means the declaration parsed, so enabledSurfaces() cannot be guessing here.
   const surfacesBefore = enabledSurfaces();
@@ -183,8 +214,8 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   installNewSurfaces(root, current, surfacesBefore, addedNow);
   showSurfaceDelta(current, surfacesBefore);
   const mirrors = mirrorTargets().length;
-  ui.section("Mirrors verified", [{ mark: "ok", text: `${mirrors} targets` }], "model tier thresholds: edit .ai-engineering/config.toml directly, or ask your AI assistant");
-  ui.end("Done. Run ai-eng doctor to verify.");
+  ui.section("Mirrors verified", [{ mark: "ok", text: `${mirrors} targets` }], "model tiers: .ai-engineering/config.toml");
+  ui.end("Next: ai-eng doctor");
   return 0;
 }
 
@@ -197,7 +228,7 @@ function removeSurfaceFiles(root: string, id: string): void {
   if (existsSync(absolute)) {
     if (placement.kind === "module") {
       unlinkSync(absolute);
-      ui.ok(`${placement.path} removed`);
+      ui.file("removed", placement.path);
     } else {
       // A settings carrier is a file the user also owns: ours come out by marker, exactly
       // as uninstall does it. A bare unlink here deleted their hooks and told them only
@@ -207,10 +238,10 @@ function removeSurfaceFiles(root: string, id: string): void {
         ui.warn(`${placement.path} left alone — not JSON this installer can rewrite without reformatting it`);
       } else if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0) {
         unlinkSync(absolute);
-        ui.ok(`${placement.path} removed (it held only ai-eng entries)`);
+        ui.file("removed", placement.path, "it held only ai-eng entries");
       } else {
         writeFileSync(absolute, stripped);
-        ui.ok(`${placement.path}: ai-eng entries removed, yours kept`);
+        ui.file("updated", placement.path, "ai-eng entries removed, yours kept");
       }
     }
   }
@@ -218,7 +249,7 @@ function removeSurfaceFiles(root: string, id: string): void {
     const chainPath = join(root, placement.chain);
     if (existsSync(chainPath)) {
       unlinkSync(chainPath);
-      ui.ok(`${placement.chain} removed (chain module)`);
+      ui.file("removed", placement.chain, "chain module");
     }
   }
 }
@@ -402,15 +433,15 @@ function installSurfaceFiles(root: string, id: string): void {
   const machine = machineCarrier(surface);
   if (machine !== null) {
     const report = installMachineCarriers([id]);
-    for (const path of report.written) ui.ok(`${path} written (machine carrier)`);
-    for (const path of report.retired) ui.ok(`${path} retired (every file in OpenCode's plugin folder is loaded as a plugin)`);
+    for (const path of report.written) ui.file("installed", path, "machine carrier");
+    for (const path of report.retired) ui.file("removed", path, "OpenCode loads every file in its plugin folder");
     for (const refused of report.refused) ui.warn(refuseLine(refused));
-    if (report.written.length === 0 && report.refused.length === 0 && report.untouched.length > 0) ui.info(`${machine.path} was already current`);
+    if (report.written.length === 0 && report.refused.length === 0 && report.untouched.length > 0) ui.file("unchanged", machine.path, "already current");
   }
   const repo = repoCarrier(surface);
   if (repo !== null) {
-    const report = install(root, planEntries([id]).filter((entry) => entry.path === repo.path || entry.path === repo.chain));
-    for (const path of report.written) ui.ok(`${path} written (repo carrier)`);
+    const report = install(root, planEntries([id], "none").filter((entry) => entry.path === repo.path || entry.path === repo.chain));
+    for (const path of report.written) ui.file("installed", path, "repo carrier");
     for (const refused of report.refused) ui.warn(refuseLine(refused));
   }
 }

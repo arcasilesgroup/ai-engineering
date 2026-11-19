@@ -183,3 +183,71 @@ Status: Accepted · Date: 2026-11-07
 
 - **Tell Windows users to install with bun:** true but it does not fix the people who already ran the README's npm line. Rejected as the only answer.
 - **Write `ai-eng.cmd` into the repo hook file:** breaks every macOS and Linux teammate. Rejected.
+
+## D-009: `ai-eng update` installs a newer ai-eng, then syncs
+
+Status: Accepted · Date: 2026-11-19
+
+### Context
+
+3.0 removed the `upgrade` verb because it split one job into two commands, and `update` became "sync from the installed binary, zero network". A person who types `ai-eng update` still expects to end on the newest ai-eng, and the old binary can only sync the files it carries. The version notice only showed at the end of `init` and `doctor`, and the agent never heard about a new release at all.
+
+### Decision
+
+One verb. `ai-eng update` reads the registry once (3 s, remembered for 24 h whether it answered or not). When a newer version exists it asks, installs it with the package manager that installed ai-eng (`bun add -g` or `npm install -g`), checks that the `ai-eng` on PATH is the new one, and runs it to do the sync. The sync itself is still offline. With no terminal and no `--yes` it installs nothing and prints the command. Every human verb ends with the version lines, and a `SessionStart` hook (Claude Code, Codex) hands the same lines to the agent from the cache, with no network.
+
+### Consequences
+
+- `update` makes one registry request per run, and the notices one a day at most; offline, both behave exactly as before.
+- Trust in the downloaded package stays with bun or npm: ai-eng never downloads or verifies a binary itself.
+- An agent is told to ask the person before installing, because it changes ai-eng for every repo on the machine.
+
+### Alternatives considered
+
+- **Bring the `upgrade` verb back:** the two-step split 3.0 removed. Rejected.
+- **Download the release binary ourselves:** a second trust path to maintain. Rejected.
+
+## D-010: One task is one lane, and every lane leaves by one of three doors
+
+Status: Accepted · Date: 2026-11-19
+
+### Context
+
+No successful path cleaned up after itself: merged PRs left local branches (`git branch --merged` misses squash and rebase merges), a 54-day stash outlived its branch, and a dead worktree from another host was never pruned. Two sessions sharing a folder depended on an agent noticing the other one, which it cannot.
+
+### Decision
+
+A lane is a branch, its folder and its PR, and its state is computed from git and the forge each time, never stored. `ai-eng work` shows the board; `tidy` removes only a provably landed lane (the forge merged that exact tip, or the base holds it and its remote branch is gone), `park` records a reason and a date in git config, `drop` keeps the tip in `refs/archive/`. The owner's four calls were taken at the proposed defaults: a second session is detected rather than forcing every agent into a worktree, at most 3 active lanes (`[work] max_active`), an orphan after 3 days (`[work] orphan_days`), and cleanup only when provable. A `no-stash` guard denies creating a stash; a session start shows one line about the lanes that need a decision. `ai-git-cleanup` is removed: `tidy` does its job with the right merge test.
+
+### Consequences
+
+- A merged branch disappears in the step that confirms the merge (`/ai-pr`), not weeks later.
+- `ai-eng worktree merge` still keeps the folder after a local merge: its retry and race protection need the checkout, so `ai-eng worktree rm` closes that lane.
+- The per-folder lease that would make a second session's first write move to a worktree is not built yet; rule 2 is still the agent's to follow.
+
+### Alternatives considered
+
+- **Every agent always in a worktree:** simpler to explain, heavier for the one-session case. Rejected for now.
+- **A lanes file:** a second source of truth that drifts from git. Rejected.
+
+## D-011: A folder is held by the session writing in it, for 15 minutes
+
+Status: Accepted · Date: 2026-11-19
+
+### Context
+
+D-010 left lane rule 2 (one folder, one writer) to the agent, which cannot see another session. Two sessions in one checkout is how one session's `git add -A` took another's 34 files.
+
+### Decision
+
+A `lease` guard holds a folder for the session that writes in it: a file edit, or a git command that writes the index, a ref or the tree. Another session's write there is denied and sent to a worktree. The hold lives in the folder's own git directory, lapses after 15 minutes without a write (`[work] lease_minutes`), ends with the holder's `SessionEnd` where the host sends one (Claude Code), and `ai-eng work release` frees it by hand. A host that sends no session id is never judged.
+
+### Consequences
+
+- Reading, testing and building stay free for every session: only writes are held.
+- After closing a session on a host with no SessionEnd, the next session waits up to 15 minutes or runs `ai-eng work release`.
+
+### Alternatives considered
+
+- **Every agent always in a worktree:** no hold to wait on, more friction for one session. Rejected by the owner.
+- **A shorter or longer window:** 5 minutes lets a pause lose the folder; 60 blocks for nothing. The owner chose 15.

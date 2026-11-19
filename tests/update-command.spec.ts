@@ -180,7 +180,7 @@ function assertAllSkillsInstalled(additionalNames: string[] = [], editedFiles: s
 }
 
 describe("syncPlan · what the binary decides to write, keep or refuse", () => {
-  const entries = planEntries(["claude-code"]);
+  const entries = planEntries(["claude-code"], "github-actions");
   const paths = entries.map((entry) => entry.path).sort();
 
   test("nothing on disk yet is fresh — the whole payload", () => {
@@ -264,7 +264,7 @@ describe("syncPlan · what the binary decides to write, keep or refuse", () => {
   });
 
   test("a shared settings file is updated by its merge, never written whole", () => {
-    const cursor = planEntries(["cursor"]);
+    const cursor = planEntries(["cursor"], "github-actions");
     const settings = entryFor(cursor, ".cursor/hooks.json");
     expect(settings.merge).toBe(true);
     const root = join(SANDBOX, "plan-merge");
@@ -294,13 +294,24 @@ describe("syncPlan · what the binary decides to write, keep or refuse", () => {
 });
 
 describe("updateMain · rewriting this repo's assets from the binary", () => {
-  test("outside a governed repo it refuses with exit 2 and writes nothing", async () => {
+  test("outside any repo it brings the machine side up to date and writes nothing in the folder", async () => {
+    const outside = join(SANDBOX, "outside");
+    mkdirSync(outside, { recursive: true });
+    process.chdir(outside);
+    const run = await captured(() => updateMain({ yes: true }));
+    expect(run.value).toBe(0);
+    expect(run.out).toInclude("outside a repo: the machine side only");
+    expect(existsSync(join(outside, ".ai-engineering"))).toBe(false);
+  });
+
+  test("in a repo that never declared itself it refuses with exit 2 and writes nothing", async () => {
     const foreign = join(SANDBOX, "foreign");
     mkdirSync(foreign, { recursive: true });
+    spawnSync("git", ["init", "-q"], { cwd: foreign });
     process.chdir(foreign);
     const run = await captured(() => updateMain({ yes: true }));
     expect(run.value).toBe(2);
-    expect(run.err).toInclude("not in a governed repo");
+    expect(run.out).toInclude("not in a governed repo");
     expect(existsSync(join(foreign, ".ai-engineering"))).toBe(false);
   });
 
@@ -333,7 +344,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     if (process.platform !== "win32") expect(statSync(join(repo, ".git", "hooks", "pre-commit")).mode & 0o111).not.toBe(0);
     // The local canon installs completely, and the user's machine settings take our entries
     // beside their own keys.
-    expect(first.out).toInclude("~/.claude/settings.json · machine carrier · written");
+    expect(first.out).toInclude("installed  ~/.claude/settings.json · machine carrier");
     const machineSettingsMerged = readFileSync(machineSettings, "utf8");
     expect(JSON.parse(machineSettingsMerged).user).toBe("keep");
     expect(machineSettingsMerged).toMatch(/ai-eng(?:\.cmd|\.exe)? chain/);
@@ -380,7 +391,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(first.value).toBe(0);
     for (const [id, path] of carriers) {
       expect(readFileSync(join(freshHome, path), "utf8")).toBe(carrierFiles(id)!.main);
-      expect(first.out).toInclude(`~/${path} · machine carrier · written`);
+      expect(first.out).toInclude(`installed  ~/${path} · machine carrier`);
     }
     expect(first.out).not.toInclude("unavailable on this platform");
     const recorded = JSON.parse(readFileSync(join(freshHome, "machine.json"), "utf8")) as { carriers: Record<string, string> };
@@ -567,7 +578,9 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     });
   });
 
-  test("the update CLI does not fetch or enter the notice path", () => {
+  // The binary step reads the registry once; the sync is still offline, and no package
+  // manager runs unless a newer version is installed. A failed read is no failure.
+  test("the update CLI reads the registry once, runs no package manager, and syncs when the read fails", () => {
     const isolatedHome = join(SANDBOX, "no-notice-home");
     const noNoticeConfig = join(isolatedHome, "gitconfig");
     const shimDir = join(SANDBOX, "notice-bin");
@@ -589,10 +602,10 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const cli = join(import.meta.dir, "..", "src", "cli.ts");
     const cliUrl = pathToFileURL(cli).href;
     writeFileSync(runner, `
-      import { writeFileSync } from "node:fs";
+      import { appendFileSync } from "node:fs";
       globalThis.fetch = () => {
-        writeFileSync(${quote(fetchLog)}, "called");
-        throw new Error("update unexpectedly fetched");
+        appendFileSync(${quote(fetchLog)}, "called\\n");
+        throw new Error("the registry is unreachable");
       };
       process.argv = [process.argv[0], ${quote(cli)}, "update", "--yes"];
       await import(${quote(cliUrl)});
@@ -609,8 +622,9 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const run = spawnSync(process.execPath, [runner], { cwd: repo, encoding: "utf8", env });
 
     expect(run.status).toBe(0);
-    expect(existsSync(fetchLog)).toBe(false);
+    expect(readFileSync(fetchLog, "utf8")).toBe("called\n");
     expect(existsSync(noticeLog)).toBe(false);
+    expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).toInclude(`version = "${VERSION}"`);
   });
 
   test("the plan names a shared settings file as merged, never overwritten, and each ↳ list sits under its own heading", async () => {
@@ -648,7 +662,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(run.out).toInclude("hooks/pre-commit");
     expect(run.out).toInclude("edited since ai-eng wrote it");
     expect(run.out).not.toInclude("What wins?");
-    expect(readFileSync(shim, "utf8")).toBe(entryFor(planEntries(["claude-code"]), ".git/hooks/pre-commit").ours);
+    expect(readFileSync(shim, "utf8")).toBe(entryFor(planEntries(["claude-code"], "github-actions"), ".git/hooks/pre-commit").ours);
     expect(readFileSync(lockPath, "utf8")).toInclude('".git/hooks/pre-commit"');
   });
 
@@ -875,7 +889,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const run = await captured(() => updateMain({ yes: true }));
     expect(run.value).toBe(0);
     expect(run.out).not.toInclude("no longer shipped");
-    expect(run.out).not.toInclude("retired");
+    expect(run.out).not.toInclude("retired —");
     expect(readFileSync(outside, "utf8")).toBe("not ai-eng's\n");
   });
 
@@ -998,5 +1012,59 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     } finally {
       rmSync(folder, { recursive: true, force: true });
     }
+  });
+});
+
+describe("update · the CI provider the repo declares", () => {
+  const GITHUB = join(".github", "workflows", "ai-eng-check.yml");
+  const AZURE = join(".azure-pipelines", "ai-eng-check.yml");
+  const declare = (repo: string, ci: string): void =>
+    writeFileSync(join(repo, ".ai-engineering", "config.toml"), `[surfaces]\nenabled = ["claude-code"]\n\n[ci]\nprovider = "${ci}"\n`);
+
+  test("a config with no [ci] block keeps the GitHub workflow: repos governed before the choice existed keep their gate", async () => {
+    const repo = governedRepo("ci-silent");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    expect(existsSync(join(repo, GITHUB))).toBe(true);
+    expect(existsSync(join(repo, AZURE))).toBe(false);
+  });
+
+  test("switching to azure-pipelines writes the Azure gate and retires the GitHub one", async () => {
+    const repo = governedRepo("ci-switch");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    declare(repo, "azure-pipelines");
+
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    expect(existsSync(join(repo, AZURE))).toBe(true);
+    expect(existsSync(join(repo, ".github"))).toBe(false); // no empty folders left behind
+    const lock = readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8");
+    expect(lock).toInclude('".azure-pipelines/ai-eng-check.yml"');
+    expect(lock).not.toInclude('".github/workflows/ai-eng-check.yml"');
+  });
+
+  test("none retires the gate and writes no other", async () => {
+    const repo = governedRepo("ci-none");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    declare(repo, "none");
+
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    expect(existsSync(join(repo, GITHUB))).toBe(false);
+    expect(existsSync(join(repo, AZURE))).toBe(false);
+  });
+
+  test("an unknown provider is refused before anything is written", async () => {
+    const repo = governedRepo("ci-unknown");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    declare(repo, "jenkins");
+    const lockBefore = readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8");
+
+    const run = await captured(() => updateMain({ yes: true }));
+    expect(run.value).toBe(2);
+    expect(run.out).toInclude('"jenkins"');
+    expect(existsSync(join(repo, GITHUB))).toBe(true);
+    expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).toBe(lockBefore);
   });
 });

@@ -1,0 +1,249 @@
+// tests/lanes.spec.ts — the lane model: one task, one branch, one folder, one PR, and
+// three doors out (land, park, drop). The classifier is pure and tested on facts; the
+// board, its doors, the lane limit and the session-start line run against real repos.
+// No network: the forge answer is a cache file the test writes.
+
+import { afterEach, describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { classify, laneSummary, lanes, type BranchFacts } from "../src/git/lanes.ts";
+import { runNoStash } from "../src/guards/no-stash.ts";
+import { normalise } from "../src/payload.ts";
+
+const DAY = 24 * 60 * 60 * 1000;
+const NOW = Date.UTC(2026, 10, 19, 12);
+const cli = join(import.meta.dir, "..", "src", "cli.ts");
+const roots: string[] = [];
+
+afterEach(() => {
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
+
+function facts(overrides: Partial<BranchFacts>): BranchFacts {
+  return {
+    branch: "feat/x",
+    tip: "a".repeat(40),
+    lastCommitMs: NOW - DAY,
+    path: null,
+    isCurrent: false,
+    dirty: 0,
+    upstreamGone: false,
+    inBase: false,
+    pr: null,
+    parked: null,
+    ...overrides,
+  };
+}
+
+describe("classify — a lane's state, from what git and the forge say (pure)", () => {
+  test("landed only on proof: the forge merged this exact tip, or the base holds it and its remote is gone", () => {
+    const tip = "a".repeat(40);
+    expect(classify(facts({ pr: { number: 7, state: "MERGED", headRefName: "feat/x", headRefOid: tip } }), NOW, 3).state).toBe("landed");
+    // Merged at another tip: the local branch carries work the PR never had.
+    expect(classify(facts({ pr: { number: 7, state: "MERGED", headRefName: "feat/x", headRefOid: "b".repeat(40) } }), NOW, 3).state).toBe("active");
+    expect(classify(facts({ inBase: true, upstreamGone: true, lastCommitMs: NOW - 9 * DAY }), NOW, 3).state).toBe("landed");
+    // In the base but never pushed anywhere: a branch made a minute ago looks the same.
+    expect(classify(facts({ inBase: true }), NOW, 3).state).toBe("active");
+  });
+
+  test("an open PR is ready; a recent, current or dirty branch is active; silence past the limit is an orphan", () => {
+    expect(classify(facts({ pr: { number: 9, state: "OPEN", headRefName: "feat/x", headRefOid: "c".repeat(40) } }), NOW, 3).state).toBe("ready");
+    expect(classify(facts({ lastCommitMs: NOW - 2 * DAY }), NOW, 3).state).toBe("active");
+    expect(classify(facts({ lastCommitMs: NOW - 9 * DAY, isCurrent: true }), NOW, 3).state).toBe("active");
+    expect(classify(facts({ lastCommitMs: NOW - 9 * DAY, dirty: 4 }), NOW, 3)).toMatchObject({ state: "active", detail: expect.stringContaining("4 uncommitted") });
+    expect(classify(facts({ lastCommitMs: NOW - 9 * DAY }), NOW, 3)).toMatchObject({ state: "orphan", ageDays: 9 });
+  });
+
+  test("parked holds until its date; past it, the lane asks for a decision again", () => {
+    const old = NOW - 30 * DAY;
+    expect(classify(facts({ lastCommitMs: old, parked: { reason: "waiting for the API", until: "2026-12-01" } }), NOW, 3)).toMatchObject({ state: "parked", detail: "waiting for the API · until 2026-12-01" });
+    expect(classify(facts({ lastCommitMs: old, parked: { reason: "waiting", until: null } }), NOW, 3).state).toBe("parked");
+    expect(classify(facts({ lastCommitMs: old, parked: { reason: "waiting", until: "2026-11-01" } }), NOW, 3).state).toBe("orphan");
+  });
+
+  test("the session line names only what needs a decision", () => {
+    const board = (states: Array<"active" | "landed" | "orphan" | "ghost">) => ({
+      repo: "/r",
+      base: "main",
+      maxActive: 3,
+      forgeNote: null,
+      lanes: states.map((state, index) => ({ state, name: `b${index}`, path: null, detail: "", ageDays: state === "orphan" ? 54 : 0 })),
+    });
+    expect(laneSummary(board(["active"]))).toBeNull();
+    expect(laneSummary(board(["landed", "landed", "orphan", "ghost"]))).toBe("lanes: 2 landed to tidy, 1 orphan (oldest 54 d), 1 ghost worktree → ai-eng work");
+    expect(laneSummary(board(["active", "active", "active", "active"]))).toBe("lanes: 4 active lanes, over the limit of 3 → ai-eng work");
+  });
+});
+
+/** A governed repo whose remote already has `main`, with no hook template: fixture
+ *  commits never run this machine's own floor. */
+function repo(): string {
+  const parent = mkdtempSync(join(tmpdir(), "ai-eng-lanes-"));
+  roots.push(parent);
+  const dir = join(parent, "repo");
+  mkdirSync(dir);
+  git(dir, ["init", "-q", "--template=", "-b", "main"]);
+  git(dir, ["config", "user.email", "lanes@example.com"]);
+  git(dir, ["config", "user.name", "lanes"]);
+  git(dir, ["config", "commit.gpgsign", "false"]);
+  mkdirSync(join(dir, ".ai-engineering"));
+  writeFileSync(join(dir, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+  commit(dir, "README.md", "base\n");
+  git(dir, ["remote", "add", "origin", join(parent, "unused.git")]);
+  git(dir, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
+  git(dir, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+  return dir;
+}
+
+function git(dir: string, args: string[]): string {
+  const done = spawnSync("git", args, { cwd: dir, encoding: "utf8" });
+  if (done.status !== 0) throw new Error(`git ${args.join(" ")}: ${done.stderr}`);
+  return done.stdout.trim();
+}
+
+function commit(dir: string, name: string, content: string): string {
+  writeFileSync(join(dir, name), content);
+  git(dir, ["add", name]);
+  git(dir, ["commit", "-q", "-m", `test: ${name}`]);
+  return git(dir, ["rev-parse", "HEAD"]);
+}
+
+function ai(dir: string, args: string[]): { status: number | null; out: string } {
+  const run = spawnSync(process.execPath, [cli, ...args], { cwd: dir, encoding: "utf8", env: { ...process.env, NO_COLOR: "1", AI_ENG_NO_UPDATE_NOTICES: "1" } });
+  return { status: run.status, out: `${run.stdout}${run.stderr}` };
+}
+
+/** The forge answer as `ai-eng work` would have cached it, fresh. */
+function forgeSays(dir: string, pulls: unknown[]): void {
+  const common = git(dir, ["rev-parse", "--path-format=absolute", "--git-common-dir"]);
+  mkdirSync(join(common, "ai-eng"), { recursive: true });
+  writeFileSync(join(common, "ai-eng", "forge.json"), JSON.stringify({ ts: Date.now(), pulls }));
+}
+
+describe("the board — every lane, from git and the cached forge answer", () => {
+  test("a stash, a branch the forge merged, and the work in progress each get their lane", () => {
+    const dir = repo();
+    git(dir, ["checkout", "-q", "-b", "feat/landed"]);
+    const tip = commit(dir, "landed.txt", "done\n");
+    git(dir, ["checkout", "-q", "main"]);
+    git(dir, ["checkout", "-q", "-b", "feat/wip"]);
+    commit(dir, "wip.txt", "going\n");
+    writeFileSync(join(dir, "README.md"), "changed\n");
+    git(dir, ["stash", "push", "-q", "-m", "parked by hand"]);
+    forgeSays(dir, [{ number: 12, state: "MERGED", headRefName: "feat/landed", headRefOid: tip }]);
+
+    const board = lanes(dir, { refresh: false });
+    expect(board.base).toBe("main");
+    expect(board.lanes.find((lane) => lane.name === "feat/landed")).toMatchObject({ state: "landed", detail: "PR #12 merged" });
+    expect(board.lanes.find((lane) => lane.name === "feat/wip")?.state).toBe("active");
+    expect(board.lanes.find((lane) => lane.name.startsWith("stash@{0}"))).toMatchObject({ state: "orphan" });
+    expect(ai(dir, ["work", "--json"]).out).toContain('"state": "landed"');
+  });
+
+  test("tidy removes a provably landed lane and keeps the one checked out here", () => {
+    const dir = repo();
+    git(dir, ["checkout", "-q", "-b", "feat/gone"]);
+    commit(dir, "gone.txt", "merged\n");
+    git(dir, ["checkout", "-q", "main"]);
+    git(dir, ["merge", "-q", "--ff-only", "feat/gone"]);
+    git(dir, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    // Its remote branch was deleted on merge: the upstream is configured and gone.
+    git(dir, ["config", "branch.feat/gone.remote", "origin"]);
+    git(dir, ["config", "branch.feat/gone.merge", "refs/heads/feat/gone"]);
+    forgeSays(dir, []);
+
+    const run = ai(dir, ["work", "tidy"]);
+    expect(run.status).toBe(0);
+    expect(run.out).toContain("✓ feat/gone removed");
+    expect(spawnSync("git", ["rev-parse", "--verify", "--quiet", "refs/heads/feat/gone"], { cwd: dir }).status).not.toBe(0);
+  });
+
+  test("park records a reason and a date; resume clears it; uncommitted work refuses to park", () => {
+    const dir = repo();
+    git(dir, ["branch", "feat/later"]);
+    forgeSays(dir, []);
+    expect(ai(dir, ["work", "park", "feat/later", "waiting for the API", "--until", "2099-01-01"]).status).toBe(0);
+    expect(lanes(dir, { refresh: false }).lanes.find((lane) => lane.name === "feat/later")).toMatchObject({ state: "parked", detail: "waiting for the API · until 2099-01-01" });
+    expect(ai(dir, ["work", "resume", "feat/later"]).status).toBe(0);
+    expect(lanes(dir, { refresh: false }).lanes.find((lane) => lane.name === "feat/later")?.state).toBe("active");
+
+    git(dir, ["checkout", "-q", "feat/later"]);
+    const worktree = join(dir, "..", "later-tree");
+    git(dir, ["checkout", "-q", "main"]);
+    git(dir, ["worktree", "add", "-q", worktree, "feat/later"]);
+    writeFileSync(join(worktree, "draft.txt"), "not committed\n");
+    const refused = ai(dir, ["work", "park", "feat/later", "waiting"]);
+    expect(refused.status).toBe(2);
+    expect(refused.out).toContain("uncommitted work");
+  });
+
+  test("drop keeps the tip in refs/archive and removes the branch; the branch checked out here is refused", () => {
+    const dir = repo();
+    git(dir, ["checkout", "-q", "-b", "feat/abandon"]);
+    const tip = commit(dir, "idea.txt", "maybe\n");
+    expect(ai(dir, ["work", "drop", "feat/abandon"]).status).toBe(2);
+    git(dir, ["checkout", "-q", "main"]);
+    const dropped = ai(dir, ["work", "drop", "feat/abandon"]);
+    expect(dropped.status).toBe(0);
+    expect(dropped.out).toContain("git branch feat/abandon refs/archive/feat/abandon");
+    expect(git(dir, ["rev-parse", "refs/archive/feat/abandon"])).toBe(tip);
+    expect(spawnSync("git", ["rev-parse", "--verify", "--quiet", "refs/heads/feat/abandon"], { cwd: dir }).status).not.toBe(0);
+  });
+});
+
+describe("the lane limit — a fourth active lane is refused", () => {
+  test("worktree new names the active lanes and the three doors", () => {
+    const dir = repo();
+    for (const name of ["feat/a", "feat/b"]) {
+      git(dir, ["checkout", "-q", "-b", name]);
+      commit(dir, `${name.slice(5)}.txt`, "work\n");
+    }
+    // feat/b is checked out: with feat/a and one more, three lanes are active.
+    git(dir, ["checkout", "-q", "-b", "feat/c"]);
+    commit(dir, "c.txt", "work\n");
+    const refused = ai(dir, ["worktree", "new", "d"]);
+    expect(refused.status).toBe(2);
+    expect(refused.out).toContain("3 lanes are active");
+    expect(refused.out).toContain("[work] max_active");
+    writeFileSync(join(dir, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n\n[work]\nmax_active = 4\n');
+    expect(ai(dir, ["worktree", "new", "d"]).status).toBe(0);
+  });
+});
+
+describe("SessionStart — the lane line beside the version lines", () => {
+  test("a stash is named as an orphan when the session starts", () => {
+    const dir = repo();
+    writeFileSync(join(dir, "README.md"), "changed\n");
+    git(dir, ["stash", "push", "-q"]);
+    const run = spawnSync(process.execPath, [cli, "chain", "SessionStart"], {
+      cwd: dir,
+      input: JSON.stringify({ cwd: dir }),
+      encoding: "utf8",
+      env: { ...process.env, AI_ENG_NO_UPDATE_NOTICES: "1" },
+    });
+    expect(run.status).toBe(0);
+    const context = (JSON.parse(run.stdout) as { hookSpecificOutput: { additionalContext: string } }).hookSpecificOutput.additionalContext;
+    expect(context).toContain("lanes: 1 orphan");
+    expect(existsSync(join(dir, ".ai-engineering", "work.json"))).toBe(false);
+  });
+});
+
+describe("no-stash — work never leaves its branch for the stash", () => {
+  const verdict = (command: string) => runNoStash(normalise({ tool_name: "Bash", tool_input: { command } }, undefined, "PreToolUse"));
+
+  test("making a stash is denied, with the two alternatives", () => {
+    for (const command of ["git stash", "git stash push -m wip", "git stash -u", "git -C repo stash save x", "cd repo && git stash"]) {
+      const result = verdict(command);
+      expect(result?.deny, command).toBe(true);
+      expect(result?.deny === true ? result.reason : "").toContain("ai-eng work park");
+    }
+  });
+
+  test("reading or restoring a stash, and every other git command, passes", () => {
+    for (const command of ["git stash list", "git stash show -p stash@{0}", "git stash pop", "git stash apply", "git stash branch rescue", "git status", "echo git stash"]) {
+      expect(verdict(command)?.deny ?? false, command).toBe(false);
+    }
+  });
+});

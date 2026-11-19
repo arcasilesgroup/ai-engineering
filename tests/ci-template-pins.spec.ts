@@ -9,6 +9,7 @@ const WORKFLOW = resolve(WORKFLOWS, "check.yml");
 const TOOLCHAIN = resolve(ROOT, "scripts/toolchain.sh");
 
 const template = readFileSync(TEMPLATE, "utf8");
+const azureTemplate = readFileSync(resolve(ROOT, "templates/azure-pipelines.yml.tpl"), "utf8");
 const toolchain = readFileSync(TOOLCHAIN, "utf8");
 
 function pinOf(source: string, name: string): string | undefined {
@@ -20,9 +21,9 @@ function toolchainValue(key: string): string {
 }
 
 // The template embeds version + sha256 inline ("ver=X" + "echo "<sha>  name.tgz").
-function templateToolPin(tool: string): string {
-  const ver = template.match(new RegExp(`ver=([\\d.]+)[\\s\\S]{0,120}?${tool}_`))?.[1] ?? "";
-  const sha256 = template.match(new RegExp(`"([0-9a-f]{64})\\s+${tool}\\.tgz"`))?.[1] ?? "";
+function templateToolPin(tool: string, source: string = template): string {
+  const ver = source.match(new RegExp(`ver=([\\d.]+)[\\s\\S]{0,120}?${tool}_`))?.[1] ?? "";
+  const sha256 = source.match(new RegExp(`"([0-9a-f]{64})\\s+${tool}\\.tgz"`))?.[1] ?? "";
   return `${ver} ${sha256}`;
 }
 
@@ -63,4 +64,14 @@ describe("ci template pins track their source of truth", () => {
       "templates/ci.yml.tpl (source of truth: scripts/toolchain.sh)",
     );
   });
+
+  for (const tool of ["gitleaks", "trivy"]) {
+    test(`${tool} version + sha256 in the Azure template match scripts/toolchain.sh`, () => {
+      expectSamePin(
+        templateToolPin(tool, azureTemplate),
+        toolchainToolPin(tool.toUpperCase()),
+        "templates/azure-pipelines.yml.tpl (source of truth: scripts/toolchain.sh)",
+      );
+    });
+  }
 });

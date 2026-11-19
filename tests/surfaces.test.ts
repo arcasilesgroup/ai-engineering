@@ -43,7 +43,7 @@ const DENYING = { tool_name: "Bash", tool_input: { command: "git commit -n -m x"
 
 /** A fresh session per call: the loop guard counts repeats inside one session, and a
  *  test that reuses one session tests the loop guard instead of the surface. */
-const clean = (n: string) => ({ tool_name: "Bash", tool_input: { command: "git commit -m 'feat: ok'" }, tool_use_id: `c${n}`, session_id: `clean-${n}` });
+const clean = (n: string) => ({ tool_name: "Bash", tool_input: { command: `git commit -m 'feat: ok ${n}'` }, tool_use_id: `c${n}`, session_id: "clean" });
 
 beforeAll(() => {
   sandbox = mkdtempSync(join(tmpdir(), "ai-eng-surfaces-"));
@@ -140,8 +140,8 @@ test("init scaffolds each surface's carrier where its host reads it", () => {
   // Cursor must fail CLOSED: a hook that cannot run cannot silently allow.
   expect(readFileSync(join(fresh, ".cursor/hooks.json"), "utf8")).toInclude('"failClosed": true');
   // The machine carriers land in the user's existing files, by marker, beside their keys.
-  expect(output).toInclude("~/.codex/hooks.json — machine carrier");
-  expect(output).toInclude("~/.copilot/hooks/ai-eng.json — machine carrier");
+  expect(output).toInclude("installed  ~/.codex/hooks.json · machine carrier");
+  expect(output).toInclude("installed  ~/.copilot/hooks/ai-eng.json · machine carrier");
   for (const [path, before, marker] of [
     [codexSettings, codexSettingsBefore, "--surface codex"],
     [copilotSettings, copilotSettingsBefore, "--surface copilot-cli"],

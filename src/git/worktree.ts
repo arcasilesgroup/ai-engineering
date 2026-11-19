@@ -89,7 +89,10 @@ export function statusPaths(tokens: string[], index: number): { paths: string[];
 
 /** Every changed and untracked path in a worktree; `detail` says why the status could not be trusted. */
 export function worktreeStatus(path: string): WorktreeStatus {
-  const status = git(path, ["--no-optional-locks", "status", "--porcelain", "--untracked-files=all", "-z"]);
+  // core.safecrlf=false: with core.autocrlf on (run.ts carries the person's value into the
+  // isolated read), status warns on stderr that LF "will be replaced by CRLF", and any
+  // stderr here means "untrusted". A read converts nothing; real errors still reach stderr.
+  const status = git(path, ["-c", "core.safecrlf=false", "--no-optional-locks", "status", "--porcelain", "--untracked-files=all", "-z"]);
   if (status.status !== 0 || status.stderr.trim() !== "") {
     return { paths: [], untracked: [], detail: status.stderr.trim() || `git status exited ${status.status}` };
   }

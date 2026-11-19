@@ -346,7 +346,7 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
   });
 
   test("planEntries installs the floor and only the carriers read from the checkout", () => {
-    const entries = planEntries(["claude-code", "cursor"]);
+    const entries = planEntries(["claude-code", "cursor"], "github-actions");
     const paths = entries.map((e) => e.path);
     expect(paths).toContain(".ai-engineering/overrides.toml");
     expect(paths).toContain(".ai-engineering/arch.rules.json");
@@ -362,7 +362,7 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
     // A settings file the user may already own goes in by marker, never whole.
     expect(entries.find((e) => e.path === ".cursor/hooks.json")?.merge).toBe(true);
     // A surface with nothing to enforce in the checkout adds no files at all.
-    expect(planEntries(["zed"]).map((e) => e.path)).toEqual(paths.filter((p) => p !== ".cursor/hooks.json"));
+    expect(planEntries(["zed"], "github-actions").map((e) => e.path)).toEqual(paths.filter((p) => p !== ".cursor/hooks.json"));
   });
 
   test("surfaceOptions offers only surfaces with an adapter behind them", () => {
@@ -474,7 +474,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     }
 
     // The user's machine settings take our entries beside their own keys.
-    expect(out).toContain("~/.claude/settings.json — machine carrier");
+    expect(out).toContain("installed  ~/.claude/settings.json · machine carrier");
     const machineSettingsMerged = readFileSync(machineSettings, "utf8");
     expect(machineSettingsMerged).toMatch(/ai-eng(?:\.cmd|\.exe)? chain/);
     expect(machineSettingsMerged).not.toBe(machineSettingsBefore);
@@ -559,6 +559,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     const { result, out } = await driven({}, [
       ["Create", "y"],
       ["governed", " \n"],
+      ["CI run", "\n"],
       ["AGENTS.md already exists", "n"],
     ]);
     expect(result).toBe(0);
@@ -572,6 +573,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     const { result, out } = await driven({}, [
       ["Create", "y"],
       ["governed", " \n"],
+      ["CI run", "\n"],
       ["AGENTS.md already exists", "y"],
     ]);
     expect(result).toBe(0);
@@ -701,7 +703,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
 
     const { result, out } = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
     expect(result).toBe(0);
-    const yoursRow = out.indexOf(".github/workflows/ai-eng-check.yml — already here");
+    const yoursRow = out.indexOf("unchanged  .github/workflows/ai-eng-check.yml · already here");
     expect(yoursRow).toBeGreaterThan(out.indexOf("Scaffolded"));
     expect(out.indexOf("Scaffolded")).toBeGreaterThan(out.indexOf("Your contract files"));
   });
@@ -723,12 +725,13 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(parseLock(readFileSync(join(cwd, ".ai-engineering", "ai-eng.lock"), "utf8")).version).toBe(VERSION);
   });
 
-  test("closing line names /ai-config-to-project", async () => {
+  test("closing line names the next command", async () => {
     const { cwd } = sandboxed();
     gitIn(["init", "-q"], cwd);
     const { result, out } = await capture(() => initMain({ yes: true }));
     expect(result).toBe(0);
-    expect(out).toContain("/ai-config-to-project");
+    expect(out).toContain("└  Next: ai-eng doctor");
+    expect(out).toContain("Trust this workspace in your editor, or the hooks do not run.");
   });
 });
 
@@ -740,7 +743,7 @@ describe("init · the git floor's own housekeeping", () => {
 
     const { result, out } = await capture(() => initMain({ yes: true }));
     expect(result).toBe(0);
-    expect(out).toContain("unset — it pointed at ai-eng's own floor");
+    expect(out).toContain("updated    core.hooksPath · unset — was .ai-engineering/git-template/hooks");
     // git only reads .git/hooks while the setting is unset, so the floor runs again.
     expect(gitIn(["config", "--get", "core.hooksPath"], cwd).trim()).toBe("");
     expect(readFileSync(join(cwd, ".git", "hooks", "pre-commit"), "utf8")).toContain("ai-eng");
@@ -822,12 +825,27 @@ describe("init · non-interactive default skill installation", () => {
     expect(out).toContain("Inside a repo, ai-eng init governs it too");
   });
 
-  test("a bare folder answered yes creates the repo, takes the surface the human picks, and asks nothing about packs", async () => {
-    const { cwd, machine: home } = sandboxed();
-    // Only the repo and surface questions are answered: any further prompt leaves init waiting.
+  test("the CI question installs the gate of the provider the human picks", async () => {
+    const { cwd } = sandboxed();
     const { result, out } = await driven({}, [
       ["Create", "y"],
       ["governed", " \n"],
+      ["CI run", "\u001b[B\n"], // one down from the GitHub suggestion: Azure Pipelines
+    ]);
+    expect(result).toBe(0);
+    expect(existsSync(join(cwd, ".azure-pipelines", "ai-eng-check.yml"))).toBe(true);
+    expect(existsSync(join(cwd, ".github", "workflows", "ai-eng-check.yml"))).toBe(false);
+    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toContain('provider = "azure-pipelines"');
+    expect(out).toContain("Build validation");
+  });
+
+  test("a bare folder answered yes creates the repo, takes the surface the human picks, and asks nothing about packs", async () => {
+    const { cwd, machine: home } = sandboxed();
+    // Only the repo, surface and CI questions are answered: any further prompt leaves init waiting.
+    const { result, out } = await driven({}, [
+      ["Create", "y"],
+      ["governed", " \n"],
+      ["CI run", "\n"],
     ]);
     expect(result).toBe(0);
     expect(out).not.toMatch(/packs?\b/i);
@@ -846,7 +864,8 @@ describe("init · non-interactive default skill installation", () => {
 
     const { result, out } = await driven({}, [
       ["governed", "\n"],
-      ["carriers", "n"],
+      ["CI run", "\n"],
+      ["guard hook", "n"],
     ]);
     expect(result).toBe(0);
     expect(out).toContain("global canon intact"); // a healthy machine is never re-written without a question
@@ -861,7 +880,8 @@ describe("init · non-interactive default skill installation", () => {
     expect(existsSync(join(home, ".omp", "agent", "hooks", "pre", "ai-eng.ts"))).toBe(false);
     expect(existsSync(join(home, ".config", "opencode", "plugins", "ai-eng.ts"))).toBe(false);
     expect(existsSync(join(home, "gitconfig"))).toBe(false); // init does not write global Git config
-    expect(out).toContain("machine carriers not written");
+    expect(out).toContain("only load hooks from your home folder");
+    expect(out).toContain("guard hook not added");
     expect(out).toContain("4 surfaces");
   });
 

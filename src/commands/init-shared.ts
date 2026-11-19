@@ -8,6 +8,7 @@ import type { Row } from "../ui.ts";
 import { VERSION } from "../version.ts";
 import { embeddedTemplate } from "../embed.ts";
 import { SURFACES, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
+import { CI_PROVIDERS, type CiProvider } from "../env.ts";
 
 export function repoTemplateRoot(): string {
   // src/commands → repo root is three up.
@@ -74,6 +75,11 @@ export function refuseLine(refused: { path: string; reason: string }): string {
   return `⚠ ${refused.path} — ${why}: left exactly as it is, so this surface runs without guards until you move it aside or reformat it`;
 }
 
+/** The refusal without its ⚠, for a row or a detail that brings its own mark. */
+export function refuseText(refused: { path: string; reason: string }): string {
+  return refuseLine(refused).slice("⚠ ".length);
+}
+
 /** An install line as a report row: a ⚠ line is a warning, never shown under a ✓. */
 export function installLineRow(line: string, mark: "ok" | "sub" = "ok"): Row {
   if (line.startsWith("⚠ ")) return { mark: "warn", text: line.slice(2) };
@@ -107,7 +113,40 @@ export function gitHookEntries(): PlanEntry[] {
   ];
 }
 
-export function planEntries(surfaces: string[]): PlanEntry[] {
+/** Not the root azure-pipelines.yml: an Azure DevOps project usually already has one,
+ *  and install() would keep it as the project's — leaving the repo with no gate. */
+export const AZURE_PIPELINE_PATH = ".azure-pipelines/ai-eng-check.yml";
+
+/** The CI question init and config ask, and its options in CI_PROVIDERS order. */
+export const CI_PICK_MESSAGE = "Where does this project's CI run?";
+
+const CI_LABELS: Record<CiProvider, string> = {
+  "github-actions": "GitHub Actions",
+  "azure-pipelines": "Azure Pipelines",
+  none: "None — I bring my own gate",
+};
+
+export function ciOptions(): Array<{ value: CiProvider; label: string }> {
+  return CI_PROVIDERS.map((provider) => ({ value: provider, label: CI_LABELS[provider] }));
+}
+
+/** Azure DevOps keeps pipelines and PR validation outside the repository: ai-eng writes
+ *  the file and names the two clicks; creating remote policy is not ours to do. */
+export const AZURE_PORTAL_STEPS: Row[] = [
+  { mark: "sub", text: `Pipelines → New pipeline → Existing Azure Pipelines YAML file → ${AZURE_PIPELINE_PATH}` },
+  { mark: "sub", text: "Repos → Branches → default branch → Branch policies → Build validation → this pipeline, Required" },
+];
+
+/** The merge gate for one CI provider. It belongs to the project, not to one editor:
+ *  it once hung off the claude-code case, so choosing any other surface installed
+ *  guards and adapters with no workflow at all, and nothing said so (§17). */
+export function ciEntries(provider: CiProvider): PlanEntry[] {
+  if (provider === "github-actions") return [{ path: ".github/workflows/ai-eng-check.yml", ours: embeddedTemplate("ci.yml.tpl") }];
+  if (provider === "azure-pipelines") return [{ path: AZURE_PIPELINE_PATH, ours: embeddedTemplate("azure-pipelines.yml.tpl") }];
+  return [];
+}
+
+export function planEntries(surfaces: string[], ci: CiProvider): PlanEntry[] {
   return [
     { path: ".ai-engineering/overrides.toml", ours: embeddedTemplate("overrides.toml.tpl") },
     { path: ".ai-engineering/arch.rules.json", ours: embeddedTemplate("arch.rules.json.tpl") },
@@ -115,12 +154,10 @@ export function planEntries(surfaces: string[]): PlanEntry[] {
       path: ".ai-engineering/config.toml",
       ours: embeddedTemplate("config.toml.tpl", {
         surfaces: surfaces.map((s) => `"${s}"`).join(", "),
+        ci,
       }),
     },
-    // The merge gate belongs to the project, not to one editor: it hung off the
-    // claude-code case, so choosing OpenCode/OMP/Codex/Cursor/Copilot CLI/Pi installed
-    // guards and adapters with no workflow at all, and nothing said so (§17).
-    { path: ".github/workflows/ai-eng-check.yml", ours: embeddedTemplate("ci.yml.tpl") },
+    ...ciEntries(ci),
     ...gitHookEntries(),
     ...surfaces.flatMap(surfaceEntries),
   ];

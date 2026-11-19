@@ -7,20 +7,30 @@
 
 /** The verbs a person types, in help order, each with its one-line --help answer. */
 export const HUMAN_VERBS: readonly { readonly verb: string; readonly description: string }[] = [
-  { verb: "init", description: "install governance (global without a repo; contract inside)" },
-  { verb: "doctor", description: "12 checks + one real adversarial probe + --gc" },
-  { verb: "config", description: "add or remove surfaces, and regenerate their adapters" },
-  { verb: "update", description: "rewrite ai-eng's files from the installed binary (zero network)" },
-  { verb: "uninstall", description: "revert ours, keep yours" },
+  { verb: "init", description: "install the contract in this repo (--global = this machine)" },
+  { verb: "doctor", description: "verify hooks, canon, and one live deny" },
+  { verb: "config", description: "change surfaces or the CI provider" },
+  { verb: "update", description: "install a newer binary, then sync this repo" },
+  { verb: "work", description: "list lanes; tidy, park, or drop to close one" },
+  { verb: "uninstall", description: "remove ai-eng here; keep your files" },
 ];
 
-/** Verbs typed by agents and hooks, never by a person — named on one line in --help. */
-export const MACHINE_VERBS: readonly string[] = ["chain", "git", "wrap", "worktree", "adapt"];
+/** Verbs typed by agents and hooks. One line each in --help, same column as the human verbs. */
+export const MACHINE_VERBS: readonly { readonly verb: string; readonly description: string }[] = [
+  { verb: "chain", description: "hook decision, JSON in, JSON out" },
+  { verb: "git", description: "pre-commit, commit-msg, pre-push" },
+  { verb: "wrap", description: "run tests, print failures only" },
+  { verb: "worktree", description: "new, list, merge, rm a lane checkout" },
+];
+
+/** Still answered, absent from --help until it does something again. */
+const QUIET_VERBS = ["adapt"] as const;
 
 /** Every verb the binary answers to. */
 export const ALL_VERBS: readonly string[] = [
   ...HUMAN_VERBS.map((entry) => entry.verb),
-  ...MACHINE_VERBS,
+  ...MACHINE_VERBS.map((entry) => entry.verb),
+  ...QUIET_VERBS,
 ];
 
 /** Levenshtein, two rows. The inputs are short and there is no dependency to add. */

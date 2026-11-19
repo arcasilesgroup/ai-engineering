@@ -86,6 +86,8 @@ function pushBaseFixture(base: "develop" | "main"): { repo: string; branch: stri
   expect(sha).toMatch(/^[a-f0-9]{40}$/);
 
   for (const name of ["develop", "main"]) run("git", repo, ["branch", name, sha]);
+  // The remote has the base too: a new ref's push is measured from it.
+  run("git", repo, ["update-ref", `refs/remotes/origin/${base}`, sha]);
   write(
     repo,
     ".ai-engineering/config.toml",
@@ -339,13 +341,24 @@ describe("floor gates — the staged-secret scan contract", () => {
   test("a pre-push scan must arrive as `git --redact -v`, truncated to 2000 chars on failure", () => {
     const repo = tempRepo(true);
     declareBase(repo);
-    installStrictShim({ scanExit: 0 });
     write(repo, "app.ts", "clean\n");
-    expect(prePush(repo)).toEqual({ ok: true, lines: [] });
-
+    run("git", repo, ["add", "app.ts"]);
+    run("git", repo, ["commit", "-q", "-m", "test: scan fixture"]);
+    const sha = run("git", repo, ["rev-parse", "HEAD"]).stdout.trim();
+    // A ref the remote already has: the scan runs, over an empty range.
+    const previousRefs = process.env.AI_ENG_PUSH_REFS;
+    process.env.AI_ENG_PUSH_REFS = `refs/heads/feature ${sha} refs/heads/feature ${sha}`;
+    installStrictShim({ scanExit: 0 });
+    let result: ReturnType<typeof prePush>;
+    try {
+      expect(prePush(repo)).toEqual({ ok: true, lines: [] });
+      installStrictShim({ scanExit: 1, scanOut: "x".repeat(3000) });
+      result = prePush(repo);
+    } finally {
+      if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
+      else process.env.AI_ENG_PUSH_REFS = previousRefs;
+    }
     const long = "x".repeat(3000);
-    installStrictShim({ scanExit: 1, scanOut: long });
-    const result = prePush(repo);
     expect(result.ok).toBe(false);
     expect(result.lines[0]).toBe("gitleaks in pre-push: secret in the unpushed history → BLOCKED.");
     expect(result.lines[1]!.length).toBe(2000);

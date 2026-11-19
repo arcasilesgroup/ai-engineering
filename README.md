@@ -48,7 +48,7 @@ A receipt for every verdict, on disk, in git.</p>
 
 | | |
 |---|---|
-| **5** protection guards | Tool-specific checks; the workflow checkpoint gate is separate |
+| **7** protection guards | Tool-specific checks; the workflow checkpoint gate is separate |
 | **1** prompt guard | `spoken-secret`, on surfaces with a prompt hook |
 | **1** output filter | `wrap` reduces test-output context; it is not a protection guard |
 | **1** npm package | `ai-engineering`; release binaries are separate assets |
@@ -113,9 +113,9 @@ Security is the product, so it comes early. A guard bypass is critical by defini
   and an expired entry re-arms the guard.
 - **No hosted service or daemon.** State is versioned files in your repo and your home
   directory.
-- **One optional outbound metadata read.** `init` and `doctor` check the package registry
-  at most once per 24 hours; set `AI_ENG_NO_UPDATE_NOTICES=1` to disable it. Offline
-  checks stay silent.
+- **One optional outbound metadata read.** Human commands check the package registry at
+  most once per 24 hours, a failure included; set `AI_ENG_NO_UPDATE_NOTICES=1` to disable
+  it. Offline checks stay silent.
 
 ## Security boundary
 
@@ -189,11 +189,13 @@ governs, in a fixed order, and the first deny wins.
 |---|---|---|
 | 1 | `self-protect` | writes against anything that governs the agent: `.ai-engineering/` (except the milestone slots a session owns), the surface settings, the git hooks, the global canon |
 | 2 | `no-verify` | `--no-verify`, `git commit -n`, `HUSKY=0`, deleting `.git/hooks/`, repointing `core.hooksPath`, and every linter silence: `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `noqa`, `nosec`, `NOLINTNEXTLINE` |
-| 3 | `policy` | commands outside the configured scope. Four octal digits for system, external, network and workspace, each read, write or execute. The default is `4667`: system read only, everything else read and write, workspace execute too |
-| 4 | `injection` | reading a file whose text carries an instruction payload, and acting on a fetched page that carries one. The text is treated as data, never as an order |
-| 5 | `wrap` | output optimization, not a protection guard. It rewrites recognized test commands so `ai-eng wrap test -- <command>` prints failing blocks and a summary, reducing test-output context |
-| 6 | `loop` | the same call repeated, or the same failure retried with the arguments tweaked. Thresholds live in `config.toml` |
-| 7 | `checkpoint` | validates workflow phase and gate writes when a checkpoint is active |
+| 3 | `no-stash` | creating a stash, which takes work off its branch and every board; `list`, `show`, `apply`, `pop` and `branch` still work |
+| 4 | `policy` | commands outside the configured scope. Four octal digits for system, external, network and workspace, each read, write or execute. The default is `4667`: system read only, everything else read and write, workspace execute too |
+| 5 | `injection` | reading a file whose text carries an instruction payload, and acting on a fetched page that carries one. The text is treated as data, never as an order |
+| 6 | `wrap` | output optimization, not a protection guard. It rewrites recognized test commands so `ai-eng wrap test -- <command>` prints failing blocks and a summary, reducing test-output context |
+| 7 | `loop` | the same call repeated, or the same failure retried with the arguments tweaked. Thresholds live in `config.toml` |
+| 8 | `checkpoint` | validates workflow phase and gate writes when a checkpoint is active |
+| 9 | `lease` | a second session's write in a folder another session wrote in during the last 15 minutes (`[work] lease_minutes`); it is sent to a worktree, and `ai-eng work release` frees the folder |
 
 Separately, `spoken-secret` checks submitted prompts on surfaces with a prompt hook. It
 denies a prompt that appears to contain a credential and never prints the value it found.
@@ -270,7 +272,6 @@ asked out loud, once. The UI trigger uses the `ai-audit-design` skill.
 | `ai-debug` | Names the root cause at `file:line`, then writes the check that fails for that reason before the fix |
 | `ai-design-md-planner` | Writes a `DESIGN.md` design system and audits it with the official CLI until it lints clean |
 | `ai-explore` | Answers "where does this live" from the repository, anchored to `file:line` |
-| `ai-git-cleanup` | Removes merged branches and dead worktrees in one pass. It never force-deletes |
 | `ai-triage` | Ranks one GitHub or Azure DevOps backlog in a complete, read-only report |
 | `ai-issue-report` | Files a governed bug report: scrubbed fields, local draft, nothing sent unconfirmed |
 | `ai-note` | Saves a hard-won finding as committed markdown, stamped so staleness is detectable |
@@ -298,7 +299,7 @@ asked out loud, once. The UI trigger uses the `ai-audit-design` skill.
 | `full-review` | Coordinates the complete set of review skills |
 | `perf-audit` | Audits performance for measurable, user-visible costs |
 | `review-router` | Selects the review lanes a change needs |
-| `security-audit` | Traces attacker-controlled input to exploitable sinks |
+| `security-audit` | The security lane of `/ai-verify`: one change, traced from attacker-controlled input to exploitable sinks. A milestone audit is `ai-security` |
 
 </details>
 
@@ -343,12 +344,12 @@ Five verbs for people:
 ```bash
 ai-eng init        # install governance; leaves changes for your review
 ai-eng doctor      # every check it knows, plus one real adversarial probe
-ai-eng config      # add or remove surfaces, and regenerate their adapters
-ai-eng update      # sync files from the installed CLI assets (offline; leaves changes for review)
+ai-eng config      # change the surfaces or the CI provider, and regenerate their files
+ai-eng update      # install the newest version if there is one, then sync (sync is offline)
 ai-eng uninstall   # revert ours, keep yours
 ```
 
-To upgrade the installed package, run `bun add -g ai-engineering@latest`.
+`ai-eng update` installs a newer package with bun or npm, after asking you.
 
 Five machine verbs for hooks, CI and agents: `chain`, `git`, `wrap`, `worktree`,
 `adapt`. `--help` names them on one line. The three you will meet in the README:
@@ -381,12 +382,12 @@ Ask the repo how it is doing, with real receipt statistics:
 
 ## Where to work
 
-Use the current checkout by default. Create a worktree when you request isolation or another
-feature is active in that checkout. `ai-eng worktree new <branch>` starts from the caller's
-current `HEAD` and reports the path to resume; it does not sync from a remote. The approved
-merge flow targets the detected local base and leaves the feature worktree and branch in place.
-Remove them with `ai-eng worktree rm <slug>` only when you are ready. The command does not
-push. See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor workflow.
+One task is one lane: a branch, its folder and its PR. `ai-eng work` shows every lane from git
+and the forge, and each one leaves by `tidy` (landed), `park` (with a reason) or `drop` (kept in
+`refs/archive/`). `ai-eng worktree new <branch>` starts from the caller's current `HEAD`,
+refuses a fourth active lane, and does not sync from a remote. A local merge with `ai-eng
+worktree merge` keeps the folder until `ai-eng worktree rm <slug>`. Nothing here pushes.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor workflow.
 
 ## Configuration
 
@@ -406,13 +407,13 @@ receipt and in the commit.
 - **`ai-eng` never calls a model.** `config.toml` carries a model pin per tier, cheap for
   verifying and expensive for judging, and the framework injects that line. The calls stay
   yours.
-- **One optional outbound metadata read.** `init` and `doctor` check the package registry at
-  most once per 24 hours; set `AI_ENG_NO_UPDATE_NOTICES=1` to disable it. Offline checks stay
-  silent.
+- **One optional outbound metadata read.** Human commands check the package registry at
+  most once per 24 hours, a failure included; set `AI_ENG_NO_UPDATE_NOTICES=1` to disable
+  it. Offline checks stay silent.
 - **Slow denials are visible.** A chain denial emits a diagnostic when processing exceeds
   200 ms; that warning does not change the verdict.
-- **`update` uses local assets.** It reconciles files from the installed package and makes no
-  network request; use Bun or npm separately to upgrade the package.
+- **`update` delegates the install.** One version read, then `bun add -g` or `npm install -g`
+  if you agree; the file sync that follows makes no network request.
 
 The design document is [docs/blueprint.html](docs/blueprint.html). [The recap](docs/recap.html)
 is a historical snapshot; use this README and the source tree for current guidance.

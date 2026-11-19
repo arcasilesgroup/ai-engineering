@@ -150,6 +150,24 @@ export function enabledSurfaces(): string[] {
   return "surfaces" in declared ? declared.surfaces : ["claude-code"];
 }
 
+/** Where the project's merge gate runs. The CI host is the repo's choice, not an
+ *  agent surface's: one project, one provider, whatever editors are attached. */
+export const CI_PROVIDERS = ["github-actions", "azure-pipelines", "none"] as const;
+export type CiProvider = (typeof CI_PROVIDERS)[number];
+
+export function isCiProvider(value: unknown): value is CiProvider {
+  return CI_PROVIDERS.some((provider) => provider === value);
+}
+
+/** The declared CI provider, or the raw value when it names none we know. A repo
+ *  governed before the choice existed has no [ci] block and always had the GitHub
+ *  workflow: reading that silence as anything else would retire its gate on update. */
+export function ciProvider(root?: string | null): CiProvider | { unknown: string } {
+  const declared = loadConfig(root).ci?.["provider"];
+  if (declared === undefined) return "github-actions";
+  return isCiProvider(declared) ? declared : { unknown: String(declared) };
+}
+
 export function guardLimits(): { window: number; repeats: number; failures: number } {
   const g = loadConfig().guards ?? {};
   return {

@@ -17,7 +17,7 @@ import {
 import { parseLock } from "../install.ts";
 import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, hookLauncher, isOnPath } from "../surfaces/adapters.ts";
 import { machineStateUnavailable, readMachineState } from "../surfaces/machine-state.ts";
-import { refuseLine } from "./init-shared.ts";
+import { refuseText } from "./init-shared.ts";
 import { VERSION, compareVersions } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
 import { readOverrides, overrideDaysLeft } from "../chain/dialect.ts";
@@ -456,7 +456,7 @@ function checkMachineState(surfaces: string[]): CheckResult | null {
   //      would be the old one, and the old one has no gate — so the policy would fall
   //      back onto repos that never asked for it (F7).
   const unavailable = machineStateUnavailable();
-  if (unavailable !== null) return { name: "machine state", status: "warn", detail: refuseLine(unavailable).replace(/^⚠ /, "") };
+  if (unavailable !== null) return { name: "machine state", status: "warn", detail: refuseText(unavailable) };
   const state = readMachineState();
   if (Object.keys(state.carriers).length === 0) return null;
   const downgrade = state.version !== "" && state.version !== VERSION && compareVersions(state.version, VERSION) > 0;
@@ -685,13 +685,19 @@ function lintBehavior(content: string, folder: string): string | null {
 
 export async function doctorMain(flags: { gc?: boolean; cwd?: string }): Promise<number> {
   if (flags.gc) {
-    for (const line of gc()) process.stdout.write(`${line}\n`);
+    const spin = ui.spinner();
+    spin.start("Collecting old files");
+    const lines = gc();
+    spin.stop();
+    for (const line of lines) process.stdout.write(`${line}\n`);
     return 0;
   }
   const root = repoRoot(flags.cwd) ?? flags.cwd ?? process.cwd();
-  const runtime = `bun ${typeof Bun !== "undefined" ? Bun.version : "?"}`;
-  ui.frame(`Health check · ${basename(root)} · ${runtime} · ai-eng ${VERSION}`);
+  ui.frame(ui.frameTitle("doctor", basename(root), VERSION));
+  const spin = ui.spinner();
+  spin.start("Checking hooks");
   const { results, fail } = await runChecks(flags.cwd);
+  spin.stop();
   // One block per status — the eye scans three ideas, not twelve lines
   // (the ✓/▲/✗ families of §14.2).
   const toRow = (r: CheckResult): ui.Row => ({ mark: r.status, text: `${r.name} · ${r.detail}` });
@@ -699,9 +705,9 @@ export async function doctorMain(flags: { gc?: boolean; cwd?: string }): Promise
   const warns = results.filter((r) => r.status === "warn");
   const fails = results.filter((r) => r.status === "fail");
   if (fails.length > 0) ui.section("FAIL — the chain is broken here", fails.map(toRow));
-  if (warns.length > 0) ui.section("Attention", warns.map(toRow), "not fatal — decide with the detail");
+  if (warns.length > 0) ui.section("Attention", warns.map(toRow));
   ui.section("Checks passed", oks.map(toRow));
   ui.summary(oks.length, warns.length, fails.length);
-  ui.end(fail ? "FAIL present — fix before trusting the chain." : "Chain verified. Next: keep working.");
+  ui.end(fail ? "Next: fix the FAIL lines, then ai-eng doctor" : "Chain verified.");
   return fail ? 2 : 0;
 }

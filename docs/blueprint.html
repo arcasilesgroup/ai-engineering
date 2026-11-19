@@ -591,7 +591,7 @@
 
   <div class="note warn">
     <h4>Dónde vive cada documento (los nombres largos se recortaron, no se eliminaron)</h4>
-    <p><strong>El spec existe y es obligatorio</strong> — lo que cambió es su forma: un <code>spec.html</code> (QUÉ: requisitos + gates de aceptación) y un <code>plan.html</code> (CÓMO: orden de ejecución) por hito dentro de <code>.ai-engineering/</code> (§9.3), no un directorio <code>specs/</code> con historial completo. El historial lo da git; conservar copias de specs cerrados es duplicar el VCS. <strong>Por qué dentro y no en la raíz:</strong> spec/plan son superficie de trabajo de la herramienta — el runner los encuentra por ruta fija, no por convención de descubrimiento. AGENTS.md, CLAUDE.md y DECISIONS.md sí viven en la raíz: los descubren por convención las superficies y las personas, y son tuyos — sobreviven al uninstall (§14.5). La línea es simple: <em>lo que la herramienta ejecuta, en su casa; lo que el equipo lee, en la tuya</em>. Lo mismo con las decisiones: <code>DECISIONS.md</code> en la raíz, no <code>docs/adr/NNNN-*.md</code> — un bloque de 6 líneas por decisión, un solo archivo que el agente lee entero. El ledger de ejecución son los receipts, no un <code>policy/requirements.toml</code>. Y <code>update</code>/<code>upgrade</code> no descargan contenido: <code>upgrade</code> delega en bun/npm, <code>update</code> reinstala los assets desde el binario ya instalado (§14.3–14.4). Cada recorte quita un sitio donde la verdad podía estar doble; ninguno quita una necesidad.</p>
+    <p><strong>El spec existe y es obligatorio</strong> — lo que cambió es su forma: un <code>spec.html</code> (QUÉ: requisitos + gates de aceptación) y un <code>plan.html</code> (CÓMO: orden de ejecución) por hito dentro de <code>.ai-engineering/</code> (§9.3), no un directorio <code>specs/</code> con historial completo. El historial lo da git; conservar copias de specs cerrados es duplicar el VCS. <strong>Por qué dentro y no en la raíz:</strong> spec/plan son superficie de trabajo de la herramienta — el runner los encuentra por ruta fija, no por convención de descubrimiento. AGENTS.md, CLAUDE.md y DECISIONS.md sí viven en la raíz: los descubren por convención las superficies y las personas, y son tuyos — sobreviven al uninstall (§14.5). La línea es simple: <em>lo que la herramienta ejecuta, en su casa; lo que el equipo lee, en la tuya</em>. Lo mismo con las decisiones: <code>DECISIONS.md</code> en la raíz, no <code>docs/adr/NNNN-*.md</code> — un bloque de 6 líneas por decisión, un solo archivo que el agente lee entero. El ledger de ejecución son los receipts, no un <code>policy/requirements.toml</code>. Y <code>update</code> no descarga contenido: consulta la versión, delega la instalación en bun/npm y reinstala los assets desde el binario nuevo, sin red (§14.3–14.4). Cada recorte quita un sitio donde la verdad podía estar doble; ninguno quita una necesidad.</p>
   </div>
 
   <h3>7.1 · Dónde vive esto: la cadena de distribución completa</h3>
@@ -626,7 +626,7 @@
       <tr><td>Instalarlo en otra máquina</td><td><code>bun add -g ai-engineering</code> o una release binaria</td><td>El paquete npm es uno; las ocho releases compiladas son assets separados. Actualiza el paquete con el gestor y luego reconcilia archivos con <code>ai-eng update</code></td></tr>
       <tr><td>Probar el binario local en otro repo</td><td><code>bun link</code> en el repo de ai-eng → <code>ai-eng init</code> donde quieras</td><td>bun. Sin publicar nada, sin tocar el global</td></tr>
       <tr><td>Que un compañero tenga MIS skills</td><td><code>bun add -g ai-engineering</code> → <code>ai-eng init</code></td><td><strong>el binario.</strong> El canon de skills viaja dentro del binario y se instala en <code>~/.ai-engineering/skills/</code> — una sola copia por máquina, cero por repo (§08, §10)</td></tr>
-      <tr><td>Actualizar los assets instalados al binario nuevo</td><td><code>ai-eng update</code></td><td>ai-eng, <strong>sin red</strong>: lee del binario instalado (§14.3)</td></tr>
+      <tr><td>Actualizar los assets instalados al binario nuevo</td><td><code>ai-eng update</code></td><td>ai-eng, una consulta de versión, instalación delegada en bun/npm y sincronización <strong>sin red</strong> desde el binario nuevo (§14.3)</td></tr>
     </tbody>
   </table></div>
 
@@ -1240,11 +1240,11 @@ license: Apache-2.0
 <span class="s">└</span>  <span class="s">12 checks: 9 OK · 3 WARN · 0 FAIL</span>   <span class="n">⚠</span> nueva versión disponible <span class="c">→ bun add -g ai-engineering@latest · CHANGELOG.md</span></pre>
   <p>La diferencia con un doctor de teatro: este <strong>ejecuta</strong> un payload adversarial y mide latencia real. Si el hook no niega, o niega lento, es FAIL — no WARN. v1 tenía 26 checks en 6 familias; 12 en una familia basta, y con una prueba de verdad vale más que 26 comprobaciones de existencia. Nota los dos WARN de versión: <strong>«hay binario nuevo»</strong> y <strong>«tus assets instalados son de un binario viejo»</strong> son cosas distintas, y solo la segunda se arregla con <code>update</code>.</p>
 
-  <h3>14.3 · <code>ai-eng update</code> — sync assets from the installed binary (zero network)</h3>
+  <h3>14.3 · <code>ai-eng update</code> — install a newer ai-eng if there is one, then sync from it (the sync is offline)</h3>
 <pre>$ ai-eng update
 
 <span class="s">┌</span>  <span class="b">ai-eng 2.2.3 · assets instalados: 2.2.2</span>
-<span class="s">│</span>  <span class="c">Read from the installed binary — zero network requests, no skills downloaded.</span>
+<span class="s">│</span>  <span class="c">Read from the installed binary — one version read; the install is delegated to bun/npm; the sync downloads nothing.</span>
 <span class="s">│</span>
 <span class="s">◆</span>  <span class="t">What needs to sync</span>
 <span class="s">│</span>  <span class="k">✓</span> .claude/settings.json        <span class="c">2 de 4 eventos cambian (matcher +PowerShell, timeout 60→5)</span>
@@ -1638,7 +1638,7 @@ $ ai-eng update</pre>
   <h2><span class="num">19</span>Lo que queda al terminar</h2>
   <div class="grid g2">
     <div class="card" style="border-color:var(--ok)"><h4><span class="pill p-ok">SOBREVIVE DE V1</span></h4><p>Los 4 guards + chain (lógica exacta, LOC medidos) · receipts (1 JSON, firma = trailer git) · model-router (61 LOC, no 200) · las 12 reglas de AGENTS.md · el pin sha256 en CI · el suelo de git independiente de superficie · SBOM en release · dogfooding · la regla 12 · la gobernanza de una línea · ai-write literal</p></div>
-    <div class="card" style="border-color:var(--bad)"><h4><span class="pill p-bad">MUERE CON V1</span></h4><p>49 specs → spec.html + plan.html por hito (≤30 gates, ejecutados) · 39 ADRs → DECISIONS.md (≤6 líneas/bloque) · 412 entradas ledger → receipts · 20 skills v1 + 12 locales → canon global de 20 (§08, §11.2) · 26 doctor checks → 12 + prueba adversarial · 10 verbos → 6 humanos + 7 de máquina (y <code>update</code>/<code>upgrade</code> ya no tocan la red: §14.3–14.4) · HMAC + hash-chain + OTLP (853 LOC) → JSON local · 8 superficies → 3 core · Python/wheel/questionary/rich → binario Bun + clack</p></div>
+    <div class="card" style="border-color:var(--bad)"><h4><span class="pill p-bad">MUERE CON V1</span></h4><p>49 specs → spec.html + plan.html por hito (≤30 gates, ejecutados) · 39 ADRs → DECISIONS.md (≤6 líneas/bloque) · 412 entradas ledger → receipts · 20 skills v1 + 12 locales → canon global de 20 (§08, §11.2) · 26 doctor checks → 12 + prueba adversarial · 10 verbos → 6 humanos + 7 de máquina (y <code>update</code> solo consulta la versión y delega la instalación en bun/npm: §14.3–14.4) · HMAC + hash-chain + OTLP (853 LOC) → JSON local · 8 superficies → 3 core · Python/wheel/questionary/rich → binario Bun + clack</p></div>
   </div>
 
   <div class="stats">

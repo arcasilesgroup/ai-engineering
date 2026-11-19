@@ -35,6 +35,17 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ai-eng chain SessionStart --surface codex",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

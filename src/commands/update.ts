@@ -1,5 +1,7 @@
-// `ai-eng update` — re-install this repo's assets from the installed binary. ZERO
-// network: the payload leaves the binary the user already installed (§14.3). What
+// `ai-eng update` — brings the machine and this repo up to date. First the binary
+// (update-binary.ts): one registry read, the install delegated to the package manager
+// that installed ai-eng, and a relaunch of the new binary. Then the sync, which is
+// still ZERO network: the payload leaves the binary now installed (§14.3). What
 // What ai-eng wrote is ai-eng's and always receives this binary's bytes, edited or not
 // (an edit is overwritten: commit or copy it first to keep it); what it never wrote, and seeded config the project edited, is the
 // project's and is never rewritten.
@@ -9,18 +11,19 @@
 // src/ui.ts.
 
 import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { confirm, isCancel } from "@clack/prompts";
 import { install, buildLock, lockText, parseLock, sha256, mergeSharedText, SEEDED_CONFIG } from "../install.ts";
 import type { PlanEntry } from "../install.ts";
-import { repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
+import { repoRoot, enabledSurfaces, home, isGoverned, ciProvider, CI_PROVIDERS } from "../env.ts";
 import { canonDrift, isFilesystemRefusal, refusedChangeText, type CanonDrift } from "../embed.ts";
 import { installCanon } from "../surfaces/canon-install.ts";
 import { installMachineCarriers, sweepMovedRepoCarriers } from "../surfaces/carriers-install.ts";
 import { machineStateFile } from "../surfaces/machine-state.ts";
 import { retireNpmPowerShellShim } from "../surfaces/adapters.ts";
 import { runGit } from "../git/run.ts";
-import { installLineRow, planEntries, refuseLine } from "./init-shared.ts";
+import { updateBinary } from "./update-binary.ts";
+import { installLineRow, planEntries, refuseText } from "./init-shared.ts";
 import { retiredPaths, retiredPlanNote, sweepRetiredAssets } from "./uninstall.ts";
 import { VERSION } from "../version.ts";
 import * as ui from "../ui.ts";
@@ -107,14 +110,14 @@ function installMachineSide(root: string, canon: CanonDrift): { rows: ui.Row[]; 
   }
   const machineReport = installMachineCarriers(enabledSurfaces());
   written += machineReport.written.length;
-  rows.push(...machineReport.written.map((path): ui.Row => ({ mark: "ok", text: path, dim: "machine carrier · written" })));
+  rows.push(...machineReport.written.map((path) => ui.fileRow("installed", path, "machine carrier")));
   written += machineReport.retired.length;
-  rows.push(...machineReport.retired.map((path): ui.Row => ({ mark: "ok", text: path, dim: "retired — every file in OpenCode's plugin folder is loaded as a plugin" })));
-  rows.push(...machineReport.untouched.map((path): ui.Row => ({ mark: "muted", text: `${path} · machine carrier already current` })));
-  rows.push(...machineReport.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseLine(refused).replace(/^⚠ /, "") })));
+  rows.push(...machineReport.retired.map((path) => ui.fileRow("removed", path, "OpenCode loads every file in its plugin folder")));
+  rows.push(...machineReport.untouched.map((path) => ui.fileRow("unchanged", path, "machine carrier already current")));
+  rows.push(...machineReport.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseText(refused) })));
   const moved = sweepMovedRepoCarriers(root);
   written += moved.removed.length;
-  rows.push(...moved.removed.map((path): ui.Row => ({ mark: "ok", text: path, dim: "moved to the machine — removed from the repo" })));
+  rows.push(...moved.removed.map((path) => ui.fileRow("removed", path, "moved to the machine")));
   rows.push(...moved.kept.map((path): ui.Row => ({ mark: "warn", text: `${path} kept`, dim: "not ours any more — review by hand" })));
   rows.push(...moved.refused.map((path): ui.Row => ({ mark: "warn", text: `${path} kept`, dim: "still ai-eng's, but it could not be removed or rewritten (changed meanwhile, or a read-only, locked or busy folder) — the next ai-eng update retries" })));
   // The ledger this half is written into: version + the hash of every carrier. Named
@@ -130,11 +133,34 @@ function machineSection(machine: { rows: ui.Row[]; written: number }): void {
   ui.section("Machine side", machine.rows, machine.written === 0 ? "nothing to write" : `${machine.written} written`);
 }
 
-export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> {
+/** Outside a repo there is no repo to sync: the binary step above, then the global canon. */
+function updateMachineOnly(): number {
+  ui.frame(ui.frameTitle("update", "this machine", VERSION));
+  const canon = canonDrift(home());
+  const isHealthy = canon.drift === 0 && canon.missing === 0 && canon.stale === 0;
+  if (isHealthy) {
+    ui.section("Machine side", [{ mark: "muted", text: `global canon · ${canon.verified} files match ai-eng ${VERSION}` }], "nothing to write");
+  } else {
+    ui.section("Machine side", installCanon(VERSION).map((line) => installLineRow(line)), "global canon re-installed");
+  }
+  ui.end("outside a repo: the machine side only. Next: ai-eng update inside a repo.");
+  return 0;
+}
+
+/** `binary: false` is init's re-init path: it syncs, and installing a new ai-eng is
+ *  only ever asked for by the verb that says so. */
+export async function updateMain(opts: { yes?: boolean; binary?: boolean } = {}): Promise<number> {
+  if (opts.binary !== false) {
+    const handedOver = await updateBinary({ yes: opts.yes === true });
+    if (handedOver !== null) return handedOver;
+  }
   const input = scriptedInput();
   const root = repoRoot();
-  if (root === null || !isGoverned(root)) {
-    process.stderr.write("update: you are not in a governed repo.\n");
+  if (root === null) return updateMachineOnly();
+  if (!isGoverned(root)) {
+    ui.frame(ui.frameTitle("update", basename(root), VERSION));
+    ui.fail("not in a governed repo — nothing written");
+    ui.end("Next: ai-eng init");
     return 2;
   }
   const lockPath = join(root, ".ai-engineering", "ai-eng.lock");
@@ -145,7 +171,15 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // file on disk is treated as the user's, and the lock is rebuilt at the end.
   const previous = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : { version: "", assets: {} };
   const surfaces = enabledSurfaces();
-  const shipped = planEntries(surfaces);
+  // An unknown provider would retire the gate the repo has: refuse before writing anything.
+  const ci = ciProvider(root);
+  if (typeof ci !== "string") {
+    ui.frame(ui.frameTitle("update", basename(root), VERSION));
+    ui.fail(`[ci].provider = "${ci.unknown}" is not one of ${CI_PROVIDERS.join(", ")} — nothing written`);
+    ui.end("Next: fix .ai-engineering/config.toml");
+    return 2;
+  }
+  const shipped = planEntries(surfaces, ci);
   // Config is user-owned; update must not rewrite legacy keys or their bytes.
   const entries: PlanEntry[] = shipped.filter((entry) => entry.path !== CONFIG_PATH);
   const plan = syncPlan(entries, root, previous.assets);
@@ -172,7 +206,8 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
     : previous.version
       ? `previous install by ai-eng ${previous.version}`
       : "previous install by an older ai-eng";
-  ui.frame(`ai-eng ${VERSION} · ${origin}`);
+  ui.frame(ui.frameTitle("update", basename(root), VERSION));
+  ui.info(origin);
   // The machine side travels with the repo side. The canon is what a surface
   // actually reads, and it drifts the moment the binary ships different skills —
   // twenty stale skills reported as "all assets current" is the gap, and
@@ -207,9 +242,11 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // never announced as overwritten, edited or not.
   const mergedPaths = new Set(entries.filter((entry) => entry.merge === true).map((entry) => entry.path));
   const rows: ui.Row[] = [
-    ...plan.updates.map((path): ui.Row => ({ mark: "ok", text: path, dim: updateNote(root, path, previous.assets, mergedPaths) })),
-    ...plan.fresh.map((path): ui.Row => ({ mark: "ok", text: path, dim: "new asset" })),
-    ...retiredOnDisk.map(({ path, note }): ui.Row => ({ mark: "ok", text: path, dim: `no longer shipped by ai-eng ${VERSION} — ${note}` })),
+    ...plan.updates.map((path) => ui.fileRow("updated", path, updateNote(root, path, previous.assets, mergedPaths))),
+    ...plan.fresh.map((path) => ui.fileRow("installed", path)),
+    ...retiredOnDisk.map(({ path, note }) => note === "removed"
+      ? ui.fileRow("removed", path, `no longer shipped by ai-eng ${VERSION}`)
+      : ui.fileRow("updated", path, note)),
   ];
   if (plan.current.length > 0) {
     rows.push({ mark: "muted", text: `${plan.current.length} already current — untouched` }, { mark: "sub", text: ui.pathList(plan.current) });
@@ -245,7 +282,7 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   }
   const resultRows: ui.Row[] = [
     { mark: "ok", text: `${report.written.length} asset${report.written.length === 1 ? "" : "s"} synced`, dim: "sha256 recorded in ai-eng.lock" },
-    ...report.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseLine(refused).replace(/^⚠ /, "") })),
+    ...report.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseText(refused) })),
     ...shimRefusals,
     ...retiredRows,
   ];
@@ -287,7 +324,7 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   ui.section("Recorded", [{ mark: "ok", text: `ai-eng.lock · ${Object.keys(lock.assets).length} assets with sha256` }]);
   const status = runGit(["status", "--porcelain"], { cwd: root });
   const changesAreVisible = status.status !== 0 || status.stdout.trim().length > 0;
-  ui.end(`${changesAreVisible ? "Changes are waiting for your review" : "Nothing to commit"}; nothing was committed · Next: ai-eng doctor — verify the chain responds`);
+  ui.end(changesAreVisible ? "Review the diff. Next: ai-eng doctor" : "Nothing to commit. Next: ai-eng doctor");
   return 0;
 }
 

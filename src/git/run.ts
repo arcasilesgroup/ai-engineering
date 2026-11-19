@@ -1,5 +1,8 @@
 // src/git/run.ts — the one Git runner: status, raw stdout and stderr, never a throw.
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /** Git's documented "no config file" value. Not os.devNull: Git for Windows maps the literal
  *  "/dev/null" to NUL, but cannot access(2) node's `\\.\nul` and fails every command. */
@@ -44,10 +47,39 @@ function repositoryScopedEnv(cwd: string): NodeJS.ProcessEnv | Error {
   return env;
 }
 
+/** Keyed by the config files in force, so a changed GIT_CONFIG_GLOBAL is read again. */
+const lineEndingConfigs = new Map<string, string>();
+
+/** The global config an isolated run sees: nothing, except the person's core.autocrlf.
+ *  Isolation drops the system and global files, and on Windows the system file is where
+ *  core.autocrlf=true lives: without it git calls every CRLF checkout modified and
+ *  refuses to remove a clean worktree. That one value crosses, in a file of its own in a
+ *  private directory — global precedence, so a repository's own setting still wins, and
+ *  nothing else (no hook path, no alias) comes along. Read once per process. */
+function isolatedGlobalConfig(): string {
+  const key = `${process.env["GIT_CONFIG_GLOBAL"] ?? ""}\0${process.env["GIT_CONFIG_SYSTEM"] ?? ""}`;
+  const known = lineEndingConfigs.get(key);
+  if (known !== undefined) return known;
+  let file = NO_CONFIG_FILE;
+  // Outside any repository, so only the system and global files answer.
+  const done = spawnSync("git", ["config", "--get", "core.autocrlf"], { cwd: tmpdir(), encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
+  const value = (done.stdout ?? "").trim().toLowerCase();
+  if (done.status === 0 && ["true", "false", "input"].includes(value)) {
+    try {
+      file = join(mkdtempSync(join(tmpdir(), "ai-eng-git-")), "config");
+      writeFileSync(file, `[core]\n\tautocrlf = ${value}\n`, { mode: 0o600 });
+    } catch {
+      file = NO_CONFIG_FILE; // no file, no setting: the read is as before
+    }
+  }
+  lineEndingConfigs.set(key, file);
+  return file;
+}
+
 function isolatedEnv(cwd: string, overrides: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv | Error {
   const env = repositoryScopedEnv(cwd);
   if (env instanceof Error) return env;
-  return { ...env, GIT_CONFIG_GLOBAL: NO_CONFIG_FILE, GIT_CONFIG_SYSTEM: NO_CONFIG_FILE, GIT_CONFIG_NOSYSTEM: "1", ...overrides };
+  return { ...env, GIT_CONFIG_GLOBAL: isolatedGlobalConfig(), GIT_CONFIG_SYSTEM: NO_CONFIG_FILE, GIT_CONFIG_NOSYSTEM: "1", ...overrides };
 }
 
 export function runGit(args: string[], opts: GitRunOptions): GitResult {

@@ -170,11 +170,11 @@ describe("doctor · a repo where everything is green", () => {
     healthy();
     const run = await doctor();
     expect(run.code).toBe(0);
-    expect(run.out).toContain("Health check ·");
+    expect(run.out).toContain("doctor ·");
     expect(run.out).toContain(`ai-eng ${VERSION}`);
     expect(run.out).toContain("Checks passed");
     expect(run.out).not.toContain("FAIL — the chain is broken here");
-    expect(run.out).toContain("Chain verified. Next: keep working.");
+    expect(run.out).toContain("Chain verified.");
     expect(detail(run, "AGENTS.md")).toBe("6 rules · 20 lines");
     expect(detail(run, "config.toml")).toBe("governed · surfaces: claude-code");
     expect(detail(run, "mirrors")).toBe("3/3 mirrors carry linked skills");
@@ -226,7 +226,7 @@ describe("doctor · AGENTS.md", () => {
     expect(row(run, "AGENTS.md")).toContain("✗");
     expect(detail(run, "AGENTS.md")).toBe("missing — the contract was never installed");
     expect(run.out).toContain("FAIL — the chain is broken here");
-    expect(run.out).toContain("FAIL present — fix before trusting the chain.");
+    expect(run.out).toContain("Next: fix the FAIL lines, then ai-eng doctor");
   });
 
   test("an AGENTS.md inside the ceiling with enough rules is ok; too many lines warns", async () => {
