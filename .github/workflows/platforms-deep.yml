@@ -1,0 +1,82 @@
+name: platforms-deep
+# The exhaustive cross-OS pass. platforms.yml is the pull-request gate: the suite, the
+# binary and an init/doctor/uninstall smoke. This one proves every human verb and every
+# lane flow end to end, three ways — from the source, from the compiled binary, and from
+# the package installed the way a person installs it — on Linux (x64 and ARM), macOS and
+# Windows. It costs too much for every push: run it by hand before a release, and every
+# night against main.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deep:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # bun from npm, not from an action: the repository's action policy allows only
+      # GitHub-owned actions plus a fixed set of org patterns (see platforms.yml).
+      - run: npm install -g bun@1.4.4
+      - run: bun install --frozen-lockfile
+      - name: Tested revision (${{ matrix.os }})
+        shell: bash
+        run: git rev-parse HEAD
+
+      - name: Full serial suite
+        shell: bash
+        run: bun test --parallel=1
+
+      - name: Every verb from the source
+        shell: bash
+        run: AI_ENG_BIN="bun run $GITHUB_WORKSPACE/src/cli.ts" sh scripts/proof-cli.sh
+
+      - name: Build the real binary
+        run: bun run build
+
+      - name: Every verb from the compiled binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          bin="$GITHUB_WORKSPACE/dist/ai-eng"
+          if [ -f "$bin.exe" ]; then bin="$bin.exe"; fi
+          AI_ENG_BIN="$bin" sh scripts/proof-cli.sh
+
+      - name: The CI gate init installs (GitHub and Azure templates)
+        shell: bash
+        run: sh scripts/proof-installed-ci.sh
+
+      # The package a person installs: packed from this checkout, installed globally with
+      # npm, and found on PATH the way a shell finds it.
+      - name: Install the package as a person would
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun pm pack --destination "$RUNNER_TEMP/pack"
+          npm install -g "$RUNNER_TEMP"/pack/ai-engineering-*.tgz
+          command -v ai-eng
+          ai-eng --version
+
+      - name: Every verb from the installed package
+        shell: bash
+        run: AI_ENG_BIN="$(command -v ai-eng)" sh scripts/proof-cli.sh
+
+      - name: The installed command answers in PowerShell and cmd
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ai-eng --version
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          cmd /c "ai-eng --version"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
