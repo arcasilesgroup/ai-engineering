@@ -26,7 +26,10 @@ export type GitleaksBehaviour =
 export function compileGitleaksShim(): string {
   const dir = mkdtempSync(join(tmpdir(), "ai-eng-gitleaks-shim-"));
   const binary = join(dir, process.platform === "win32" ? "gitleaks.exe" : "gitleaks");
-  const built = spawnSync(process.execPath, ["build", "--compile", join(import.meta.dir, "gitleaks-shim-main.ts"), "--outfile", binary], { encoding: "utf8" });
+  // cwd is the stand-in's own folder: `bun build --compile` writes its ~90 MB scratch in the
+  // cwd, and a test run killed mid-compile left it in the repository root, where nothing
+  // ever removed it. Here it dies with the folder.
+  const built = spawnSync(process.execPath, ["build", "--compile", join(import.meta.dir, "gitleaks-shim-main.ts"), "--outfile", binary], { encoding: "utf8", cwd: dir });
   if (built.status !== 0) {
     rmSync(dir, { recursive: true, force: true });
     throw new Error(`cannot compile the gitleaks stand-in: ${built.stderr || String(built.error)}`);

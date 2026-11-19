@@ -5,6 +5,14 @@
 //
 // `bun run mutation` locally, `bunx stryker run` in CI (the CLI declares a node
 // shebang and bunx honours it; the test children still run under Bun).
+import { rmSync } from "node:fs";
+
+const TEMP_DIR = ".stryker-tmp";
+// A killed run (Ctrl-C, a CI timeout) cleans nothing, not even with cleanTempDir
+// "always": its sandboxes are swept when the next run loads this config, the way
+// scripts/build.ts sweeps an interrupted compile's scratch.
+rmSync(TEMP_DIR, { recursive: true, force: true });
+
 export default {
   // The plugin is NOT in the @stryker-mutator/* scope, so Stryker's default plugin
   // glob never finds it. The plugin's own README omits this line.
@@ -36,7 +44,9 @@ export default {
   // so it can kill no mutant either. Excluded by pattern, auto-discovery intact.
   // `.codegraph/daemon.sock` is a machine-local UNIX socket: copyfile() cannot clone
   // it into the sandbox, and CI never has the directory.
-  ignorePatterns: ["tests/generated-payload.test.ts", ".codegraph/**"],
+  // dist/ and an interrupted build's *.bun-build scratch are ~250 MB a sandbox, read by no
+  // test (the suite runs before the build, on purpose).
+  ignorePatterns: ["tests/generated-payload.test.ts", ".codegraph/**", "dist/**", "*.bun-build"],
   // The cache is what makes the pull-request job cheap: ~35s warm against ~8min cold.
   // A cached kill survives only while its killing test is unchanged (research 005 §01).
   incremental: true,
@@ -48,7 +58,10 @@ export default {
   // 85. The number only ever goes up. Below it, the clear-text report names the
   // survivors, so the red says what is missing instead of just being red.
   thresholds: { high: 90, low: 85, break: 85 },
-  tempDirName: ".stryker-tmp",
+  tempDirName: TEMP_DIR,
+  // The default (`true`) deletes the sandboxes only after a successful run: every failed
+  // or timed-out run left a full copy of the project behind (3 GB after a few).
+  cleanTempDir: "always",
   // The plugin's `timeout` is the whole `bun test` subprocess, not one test, and it adds a
   // fixed 30 s drain ceiling: 30 000 here meant 60 s for the full dry run, which measured
   // 57 s at 2,332 tests on a hosted runner and passed 60 s once the suite grew past 2,400
