@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { basename, dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { repoRoot } from "../env.ts";
-import { namedBase } from "../git/context.ts";
+import { namedBase, namedBaseTrackingRef } from "../git/context.ts";
 import { runGit } from "../git/run.ts";
 
 type FloorResult = { ok: boolean; lines: string[] };
@@ -181,9 +181,57 @@ export function commitMsg(msgFile: string, receiptId: string): FloorResult {
   return { ok: true, lines };
 }
 
-/** pre-push: block direct pushes to the detected base + gitleaks over the whole unpushed
- *  surface + expiry of dated overrides. The branch protection rule (PR required) lives on
- *  GitHub, but admins can bypass it — this local guard catches that. */
+/** One line git hands pre-push on stdin: what is pushed, and where the remote ref stood. */
+type PushTuple = { localSha: string; remoteRef: string; remoteSha: string };
+
+const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+const isZero = (sha: string): boolean => /^0+$/.test(sha);
+
+/** `<local ref> <local sha> <remote ref> <remote sha>` per pushed ref, or the first line
+ *  that is not one: a hook that cannot read what is pushed cannot say it is clean. */
+function pushTuples(raw: string): PushTuple[] | { malformed: string } {
+  const tuples: PushTuple[] = [];
+  for (const line of raw.split("\n").map((entry) => entry.trim()).filter((entry) => entry.length > 0)) {
+    const [localRef, localSha, remoteRef, remoteSha, ...rest] = line.split(/\s+/);
+    if (localRef === undefined || remoteRef === undefined || rest.length > 0 || !OBJECT_ID.test(localSha ?? "") || !OBJECT_ID.test(remoteSha ?? "")) {
+      return { malformed: line };
+    }
+    tuples.push({ localSha: localSha!, remoteRef, remoteSha: remoteSha! });
+  }
+  return tuples;
+}
+
+/** The commits this push sends, as `git log` revisions: every new tip, minus what the
+ *  remote already has — the old tip of a ref it moves, or the remote's base for a ref it
+ *  creates. One revision list for every ref, so a commit two refs share is scanned once.
+ *  A deletion sends nothing. Whatever cannot be measured refuses, never widens or skips. */
+function outgoingRevisions(cwd: string, tuples: PushTuple[]): { tips: string[]; known: string[] } | { refused: string } {
+  const tips = new Set<string>();
+  const known = new Set<string>();
+  for (const tuple of tuples) {
+    if (isZero(tuple.localSha)) continue;
+    tips.add(tuple.localSha);
+    if (!isZero(tuple.remoteSha)) {
+      if (runGit(["cat-file", "-e", `${tuple.remoteSha}^{commit}`], { cwd }).status !== 0) {
+        return { refused: `pre-push: ${tuple.remoteRef} on the remote is at ${tuple.remoteSha.slice(0, 12)}, which this clone does not have, so the outgoing commits cannot be told apart — git fetch, then push again.` };
+      }
+      known.add(tuple.remoteSha);
+      continue;
+    }
+    const base = namedBaseTrackingRef(cwd);
+    if (base === null || base.commit === null) {
+      const where = base === null ? "the remote's base branch" : base.ref;
+      return { refused: `pre-push: ${tuple.remoteRef} is new on the remote and ${where} is not in this clone, so the outgoing commits cannot be told apart — git fetch, or set [git] base in .ai-engineering/config.toml, then push again.` };
+    }
+    known.add(base.commit);
+  }
+  return { tips: [...tips], known: [...known] };
+}
+
+/** pre-push: block direct pushes to the detected base + gitleaks over exactly the commits
+ *  this push sends. The branch protection rule (PR required) lives on the forge, but admins
+ *  can bypass it — this local guard catches that. The whole history is CI's scan, not this
+ *  hook's: unpublished refs (a stash, an archive ref) are not what a push sends. */
 export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   const lines: string[] = [];
   let baseRef: string;
@@ -201,8 +249,9 @@ export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   }
   // The pre-push hook shim captures stdin into AI_ENG_PUSH_REFS before calling us,
   // so we read it from the environment instead of fd 0 (which may already be consumed).
-  const refs = (process.env.AI_ENG_PUSH_REFS ?? "").split("\n");
-  for (const line of refs) {
+  const raw = process.env.AI_ENG_PUSH_REFS ?? "";
+  // The base rule reads the remote ref of every line, parseable or not: it runs first.
+  for (const line of raw.split("\n")) {
     const remoteRef = line.trim().split(/\s+/)[2];
     if (remoteRef === baseRef) {
       return { ok: false, lines: [`direct push to detected base ${baseRef} is not allowed — open a PR instead.`] };
@@ -212,8 +261,24 @@ export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   if (!gitleaks) {
     return { ok: false, lines: [`gitleaks is not installed — HARD FAIL (§12.1). ${gitleaksInstallHint()}`] };
   }
+  const tuples = pushTuples(raw);
+  if ("malformed" in tuples) {
+    return { ok: false, lines: [`pre-push: cannot read the pushed ref "${tuples.malformed.slice(0, 200)}" — expected "<local ref> <local sha> <remote ref> <remote sha>".`] };
+  }
+  const outgoing = outgoingRevisions(cwd, tuples);
+  if ("refused" in outgoing) return { ok: false, lines: [outgoing.refused] };
+  // Only deletions, or nothing at all: no commit leaves this clone.
+  if (outgoing.tips.length === 0) return { ok: true, lines };
+  // Object ids only, handed to gitleaks as one argv element: no ref name reaches a shell.
+  const range = [...outgoing.tips, "--not", ...outgoing.known].join(" ");
+  // The project's allowlist when it has one. ai-eng never installs that file, and a -c (or
+  // the shim's GITLEAKS_CONFIG) naming a missing one makes gitleaks exit 1 before scanning
+  // — which this hook would report as a secret: gitleaks' own rules apply instead.
+  const config = join(cwd, ".gitleaksrc.toml");
+  const hasConfig = existsSync(config);
+  const { GITLEAKS_CONFIG: _unset, ...withoutConfig } = process.env;
   try {
-    execFileSync(gitleaks, ["git", "--redact", "-v", "-c", join(cwd, ".gitleaksrc.toml")], { cwd, stdio: "pipe" });
+    execFileSync(gitleaks, ["git", "--redact", "-v", `--log-opts=${range}`, ...(hasConfig ? ["-c", config] : [])], { cwd, stdio: "pipe", env: hasConfig ? process.env : withoutConfig });
   } catch (error) {
     const out = (error as { stdout?: string }).stdout ?? "";
     return { ok: false, lines: ["gitleaks in pre-push: secret in the unpushed history → BLOCKED.", out.toString().slice(0, 2000)] };

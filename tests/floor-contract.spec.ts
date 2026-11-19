@@ -120,7 +120,8 @@ describe("pre-push through the hook entry", () => {
     repo = join(scratch, "repo");
     mkdirSync(join(repo, ".ai-engineering"), { recursive: true });
     const git = (...args: string[]) => expect(spawnSync("git", args, { cwd: repo, encoding: "utf8" }).status).toBe(0);
-    git("init", "-q", "-b", "feature");
+    // --template=: no hook template, so a fixture commit never runs this machine's hooks.
+    git("init", "-q", "--template=", "-b", "feature");
     writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n\n[git]\nbase = "main"\n');
     process.chdir(repo);
   });
@@ -134,7 +135,11 @@ describe("pre-push through the hook entry", () => {
 
   async function hookStderr(scanOut: string): Promise<{ code: number; stderr: string }> {
     useGitleaksShim(shimDir, { mode: "strict", scanExit: 1, scanOut }, pathBefore);
-    process.env.AI_ENG_PUSH_REFS = "";
+    // The scan runs only for a pushed ref: one commit, pushed over the remote's copy of it.
+    const git = (...args: string[]) => spawnSync("git", args, { cwd: repo, encoding: "utf8" });
+    git("-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "test: fixture");
+    const sha = git("rev-parse", "HEAD").stdout.trim();
+    process.env.AI_ENG_PUSH_REFS = `refs/heads/feature ${sha} refs/heads/feature ${sha}`;
     const chunks: string[] = [];
     const original = process.stderr.write.bind(process.stderr);
     process.stderr.write = ((chunk: unknown) => {

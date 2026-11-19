@@ -16,7 +16,11 @@ export type GitleaksBehaviour =
   | { mode: "record-env"; record: string }
   /** Like the real binary with exemptions: honours the handed GITLEAKS_CONFIG allowlist
    *  paths and a .gitleaksignore in the scan root; finds the AWS key otherwise. */
-  | { mode: "leaky" };
+  | { mode: "leaky" }
+  /** Like `gitleaks git`: reads the patches of `git log -p` over the --log-opts range — or
+   *  over every ref when there is none, as the real binary does — and finds an AWS key id
+   *  on an added line. `record` receives the argv and whether GITLEAKS_CONFIG was set. */
+  | { mode: "history"; record?: string };
 
 /** Compiles the stand-in into a fresh directory and returns that directory. */
 export function compileGitleaksShim(): string {

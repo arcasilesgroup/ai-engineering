@@ -2,6 +2,7 @@
 // executable, so the floor resolves it from PATH the way it resolves the real binary on
 // every platform (Windows runs no `#!/bin/sh` script). What it answers is read from the
 // gitleaks-shim.json written beside it, so one compile serves every test in a file.
+import { spawnSync } from "node:child_process";
 import { copyFileSync, lstatSync, readdirSync, readFileSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { GitleaksBehaviour } from "./gitleaks-shim.ts";
@@ -83,6 +84,19 @@ if (behaviour.mode === "leaky") {
   const hit = firstLeak(target, (relative) => !isIgnored && !exemptions.some((pattern) => pattern === "*" || new RegExp(pattern).test(relative)));
   if (hit === null) answer("", 0);
   answer(`Finding:     AWS access token\nFile:        ${hit}\nRuleID:      aws-access-token\n`, 1);
+}
+
+if (behaviour.mode === "history") {
+  if (behaviour.record !== undefined) {
+    writeFileSync(behaviour.record, JSON.stringify({ args, config: process.env["GITLEAKS_CONFIG"] ?? null }));
+  }
+  const opts = args.find((arg) => arg.startsWith("--log-opts="))?.slice("--log-opts=".length);
+  const revisions = opts === undefined ? ["--all"] : opts.split(" ").filter((part) => part.length > 0);
+  const log = spawnSync("git", ["log", "-p", "-U0", ...revisions], { encoding: "utf8" });
+  if (log.status !== 0) answer(`git log failed: ${log.stderr}`, 1);
+  const hit = (log.stdout ?? "").split("\n").find((line) => line.startsWith("+") && /AKIA[0-9A-Z]+/.test(line));
+  if (hit === undefined) answer("", 0);
+  answer("Finding:     REDACTED\nRuleID:      aws-access-token\n", 1);
 }
 
 if (behaviour.mode === "strict") {

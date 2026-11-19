@@ -177,3 +177,19 @@ export function namedBase(cwd: string): string | null {
   const { root } = locate(cwd);
   return detectBase(root, currentBranch(root), undefined)?.base ?? null;
 }
+
+/** Where the remote keeps the named base, as this clone last fetched it: the line a new
+ *  branch's push is measured from, since what the remote already has under its base is
+ *  not outgoing. The remote is the one that named the base, or, for a configured base,
+ *  the current branch's upstream remote (origin otherwise) — the same rule as detection.
+ *  `commit` is null when that ref is not in this clone: nothing here can say what the
+ *  remote has, and the caller must not guess. Null when no base is named at all. */
+export function namedBaseTrackingRef(cwd: string): { ref: string; commit: string | null } | null {
+  const { root } = locate(cwd);
+  const branch = currentBranch(root);
+  const detected = detectBase(root, branch, undefined);
+  if (detected === null) return null;
+  const ref = `${REMOTES}${detected.baseRemote ?? baseRemote(root, branch)}/${detected.base}`;
+  const resolved = git(root, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]);
+  return { ref, commit: resolved.status === 0 ? resolved.stdout.trim() : null };
+}
