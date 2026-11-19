@@ -20,6 +20,7 @@ import { runLoopGuard } from "../guards/loop.ts";
 import { runCheckpointGuard } from "../guards/checkpoint.ts";
 import { isTestCommand, rewrite } from "../guards/wrap.ts";
 import { writeReceipt, upsertDenyLedger, retainReceipts, type Receipt } from "../receipts.ts";
+import { refreshInBackground, sessionStartContext } from "../notice.ts";
 
 export type GuardName = "self-protect" | "no-verify" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret" | "checkpoint";
 
@@ -52,6 +53,9 @@ export const TABLE: Record<string, GuardRow[]> = {
   // payload carries no tool at all, and normalise leaves tool_name as "" — the empty
   // name IS this event's signature. Anchored like every row (TABLE invariant test).
   UserPromptSubmit: [{ name: "spoken-secret", matcher: /^$/ }],
+  // No guard: a session start only tells the agent what the version cache and the lock
+  // say (sessionStartContext). It never denies, and chainMain answers it before runChain.
+  SessionStart: [],
 };
 
 const HOT_PATH_BUDGET_MS = 200;
@@ -410,7 +414,28 @@ function rewriteOutcome(
 }
 
 /** stdio entry used by `ai-eng chain <event>`: stdin payload → verdict on stdout. */
+/** SessionStart: information only. In a governed repo, the version lines go to the
+ *  agent as additionalContext — the JSON shape Claude Code and Codex both read (Codex
+ *  rejects plain text). Anything unreadable is silence: this event never blocks. */
+export function sessionStart(raw: string): void {
+  let body: unknown = null;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    /* no payload: resolve the repo from the cwd */
+  }
+  const root = repoRoot(hostCwd(body));
+  if (root === null || !isGoverned(root)) return;
+  const context = sessionStartContext(root, refreshInBackground);
+  if (context === null) return;
+  process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context } })}\n`);
+}
+
 export function chainMain(event: string, raw: string, options: ChainOptions = {}): void {
+  if (event === "SessionStart") {
+    sessionStart(raw);
+    process.exit(0);
+  }
   if (!raw.trim()) process.exit(0); // nothing was decided, so there is nothing to judge
   let body: Record<string, unknown>;
   try {

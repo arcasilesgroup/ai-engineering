@@ -1,5 +1,7 @@
-// `ai-eng update` — re-install this repo's assets from the installed binary. ZERO
-// network: the payload leaves the binary the user already installed (§14.3). What
+// `ai-eng update` — brings the machine and this repo up to date. First the binary
+// (update-binary.ts): one registry read, the install delegated to the package manager
+// that installed ai-eng, and a relaunch of the new binary. Then the sync, which is
+// still ZERO network: the payload leaves the binary now installed (§14.3). What
 // What ai-eng wrote is ai-eng's and always receives this binary's bytes, edited or not
 // (an edit is overwritten: commit or copy it first to keep it); what it never wrote, and seeded config the project edited, is the
 // project's and is never rewritten.
@@ -20,6 +22,7 @@ import { installMachineCarriers, sweepMovedRepoCarriers } from "../surfaces/carr
 import { machineStateFile } from "../surfaces/machine-state.ts";
 import { retireNpmPowerShellShim } from "../surfaces/adapters.ts";
 import { runGit } from "../git/run.ts";
+import { updateBinary } from "./update-binary.ts";
 import { installLineRow, planEntries, refuseLine } from "./init-shared.ts";
 import { retiredPaths, retiredPlanNote, sweepRetiredAssets } from "./uninstall.ts";
 import { VERSION } from "../version.ts";
@@ -130,10 +133,31 @@ function machineSection(machine: { rows: ui.Row[]; written: number }): void {
   ui.section("Machine side", machine.rows, machine.written === 0 ? "nothing to write" : `${machine.written} written`);
 }
 
-export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> {
+/** Outside a repo there is no repo to sync: the binary step above, then the global canon. */
+function updateMachineOnly(): number {
+  ui.frame(`ai-eng ${VERSION} · outside a repo: the machine side only`);
+  const canon = canonDrift(home());
+  const isHealthy = canon.drift === 0 && canon.missing === 0 && canon.stale === 0;
+  if (isHealthy) {
+    ui.section("Machine side", [{ mark: "muted", text: `global canon · ${canon.verified} files match ai-eng ${VERSION}` }], "nothing to write");
+  } else {
+    ui.section("Machine side", installCanon(VERSION).map((line) => installLineRow(line)), "global canon re-installed");
+  }
+  ui.end("Done. Inside a repo, ai-eng update also syncs that repo's files.");
+  return 0;
+}
+
+/** `binary: false` is init's re-init path: it syncs, and installing a new ai-eng is
+ *  only ever asked for by the verb that says so. */
+export async function updateMain(opts: { yes?: boolean; binary?: boolean } = {}): Promise<number> {
+  if (opts.binary !== false) {
+    const handedOver = await updateBinary({ yes: opts.yes === true });
+    if (handedOver !== null) return handedOver;
+  }
   const input = scriptedInput();
   const root = repoRoot();
-  if (root === null || !isGoverned(root)) {
+  if (root === null) return updateMachineOnly();
+  if (!isGoverned(root)) {
     process.stderr.write("update: you are not in a governed repo.\n");
     return 2;
   }

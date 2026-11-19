@@ -294,9 +294,20 @@ describe("syncPlan · what the binary decides to write, keep or refuse", () => {
 });
 
 describe("updateMain · rewriting this repo's assets from the binary", () => {
-  test("outside a governed repo it refuses with exit 2 and writes nothing", async () => {
+  test("outside any repo it brings the machine side up to date and writes nothing in the folder", async () => {
+    const outside = join(SANDBOX, "outside");
+    mkdirSync(outside, { recursive: true });
+    process.chdir(outside);
+    const run = await captured(() => updateMain({ yes: true }));
+    expect(run.value).toBe(0);
+    expect(run.out).toInclude("outside a repo: the machine side only");
+    expect(existsSync(join(outside, ".ai-engineering"))).toBe(false);
+  });
+
+  test("in a repo that never declared itself it refuses with exit 2 and writes nothing", async () => {
     const foreign = join(SANDBOX, "foreign");
     mkdirSync(foreign, { recursive: true });
+    spawnSync("git", ["init", "-q"], { cwd: foreign });
     process.chdir(foreign);
     const run = await captured(() => updateMain({ yes: true }));
     expect(run.value).toBe(2);
@@ -567,7 +578,9 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     });
   });
 
-  test("the update CLI does not fetch or enter the notice path", () => {
+  // The binary step reads the registry once; the sync is still offline, and no package
+  // manager runs unless a newer version is installed. A failed read is no failure.
+  test("the update CLI reads the registry once, runs no package manager, and syncs when the read fails", () => {
     const isolatedHome = join(SANDBOX, "no-notice-home");
     const noNoticeConfig = join(isolatedHome, "gitconfig");
     const shimDir = join(SANDBOX, "notice-bin");
@@ -589,10 +602,10 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const cli = join(import.meta.dir, "..", "src", "cli.ts");
     const cliUrl = pathToFileURL(cli).href;
     writeFileSync(runner, `
-      import { writeFileSync } from "node:fs";
+      import { appendFileSync } from "node:fs";
       globalThis.fetch = () => {
-        writeFileSync(${quote(fetchLog)}, "called");
-        throw new Error("update unexpectedly fetched");
+        appendFileSync(${quote(fetchLog)}, "called\\n");
+        throw new Error("the registry is unreachable");
       };
       process.argv = [process.argv[0], ${quote(cli)}, "update", "--yes"];
       await import(${quote(cliUrl)});
@@ -609,8 +622,9 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const run = spawnSync(process.execPath, [runner], { cwd: repo, encoding: "utf8", env });
 
     expect(run.status).toBe(0);
-    expect(existsSync(fetchLog)).toBe(false);
+    expect(readFileSync(fetchLog, "utf8")).toBe("called\n");
     expect(existsSync(noticeLog)).toBe(false);
+    expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).toInclude(`version = "${VERSION}"`);
   });
 
   test("the plan names a shared settings file as merged, never overwritten, and each ↳ list sits under its own heading", async () => {

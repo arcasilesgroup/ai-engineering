@@ -4752,6 +4752,74 @@ function runRetention(root, now) {
   }
   return { ran: true, deleted: pass.deleted };
 }
+// package.json
+var package_default = {
+  name: "ai-engineering",
+  version: "3.0.8",
+  description: "Guardrails for AI coding agents: install a contract, deny destructive calls, prove every run.",
+  license: "Apache-2.0",
+  type: "module",
+  module: "src/cli.ts",
+  bin: {
+    "ai-eng": "bin/ai-eng.js"
+  },
+  files: [
+    "bin",
+    "src",
+    "skills",
+    "agents",
+    "scripts/.embed",
+    "templates",
+    "NOTICE.md",
+    "THIRD-PARTY-NOTICES.md",
+    "CHANGELOG.md"
+  ],
+  packageManager: "bun@1.4.4",
+  repository: {
+    type: "git",
+    url: "https://github.com/arcasilesgroup/ai-engineering.git"
+  },
+  engines: {
+    bun: ">=1.4.4"
+  },
+  scripts: {
+    build: "bun scripts/build.ts",
+    test: "bun test",
+    lint: "oxlint src tests --ignore-pattern 'tests/fixtures/verify-tiers/evals/**'",
+    typecheck: "oxlint --type-aware --type-check src tests --ignore-pattern 'tests/fixtures/verify-tiers/evals/**'",
+    arch: "bun test tests/arch.spec.ts",
+    bench: "bun scripts/bench-chain.ts",
+    tokens: "bun scripts/tokens.ts",
+    mutation: "stryker run",
+    changeset: "changeset"
+  },
+  dependencies: {
+    "@clack/prompts": "1.7.0",
+    "fast-wrap-ansi": "0.2.2"
+  },
+  devDependencies: {
+    "@changesets/changelog-github": "1.0.0",
+    "@changesets/cli": "3.0.1",
+    "@hughescr/stryker-bun-runner": "1.3.8",
+    "@stryker-mutator/core": "9.6.1",
+    "@types/bun": "1.4.0",
+    oxlint: "1.80.0",
+    "oxlint-tsgolint": "7.0.2001"
+  },
+  overrides: {
+    "smol-toml": "1.7.2",
+    "brace-expansion": "5.0.12",
+    "launch-editor": "2.14.2",
+    "shell-quote": "1.12.0",
+    zod: "4.6.7"
+  }
+};
+
+// src/version.ts
+var VERSION = package_default.version;
+
+// src/notice.ts
+var TTL_MS = 24 * 60 * 60 * 1000;
 
 // src/chain/mod.ts
 var TABLE = {
@@ -4769,7 +4837,8 @@ var TABLE = {
     { name: "injection", matcher: /^(WebFetch|Fetch|WebSearch|mcp__.*|tool_result)$/ },
     { name: "loop", matcher: /^.*$/ }
   ],
-  UserPromptSubmit: [{ name: "spoken-secret", matcher: /^$/ }]
+  UserPromptSubmit: [{ name: "spoken-secret", matcher: /^$/ }],
+  SessionStart: []
 };
 var HOT_PATH_BUDGET_MS = 200;
 var UNREADABLE_PAYLOAD = "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.";

@@ -183,3 +183,26 @@ Status: Accepted · Date: 2026-11-07
 
 - **Tell Windows users to install with bun:** true but it does not fix the people who already ran the README's npm line. Rejected as the only answer.
 - **Write `ai-eng.cmd` into the repo hook file:** breaks every macOS and Linux teammate. Rejected.
+
+## D-009: `ai-eng update` installs a newer ai-eng, then syncs
+
+Status: Accepted · Date: 2026-11-19
+
+### Context
+
+3.0 removed the `upgrade` verb because it split one job into two commands, and `update` became "sync from the installed binary, zero network". A person who types `ai-eng update` still expects to end on the newest ai-eng, and the old binary can only sync the files it carries. The version notice only showed at the end of `init` and `doctor`, and the agent never heard about a new release at all.
+
+### Decision
+
+One verb. `ai-eng update` reads the registry once (3 s, remembered for 24 h whether it answered or not). When a newer version exists it asks, installs it with the package manager that installed ai-eng (`bun add -g` or `npm install -g`), checks that the `ai-eng` on PATH is the new one, and runs it to do the sync. The sync itself is still offline. With no terminal and no `--yes` it installs nothing and prints the command. Every human verb ends with the version lines, and a `SessionStart` hook (Claude Code, Codex) hands the same lines to the agent from the cache, with no network.
+
+### Consequences
+
+- `update` makes one registry request per run, and the notices one a day at most; offline, both behave exactly as before.
+- Trust in the downloaded package stays with bun or npm: ai-eng never downloads or verifies a binary itself.
+- An agent is told to ask the person before installing, because it changes ai-eng for every repo on the machine.
+
+### Alternatives considered
+
+- **Bring the `upgrade` verb back:** the two-step split 3.0 removed. Rejected.
+- **Download the release binary ourselves:** a second trust path to maintain. Rejected.

@@ -10,7 +10,7 @@ export const HUMAN_VERBS: readonly { readonly verb: string; readonly description
   { verb: "init", description: "install governance (global without a repo; contract inside)" },
   { verb: "doctor", description: "12 checks + one real adversarial probe + --gc" },
   { verb: "config", description: "change what init chose: agent surfaces or the CI provider" },
-  { verb: "update", description: "rewrite ai-eng's files from the installed binary (zero network)" },
+  { verb: "update", description: "install a newer ai-eng if there is one, then sync the machine and this repo" },
   { verb: "uninstall", description: "revert ours, keep yours" },
 ];
 

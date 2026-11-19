@@ -46,6 +46,17 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ai-eng chain SessionStart",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

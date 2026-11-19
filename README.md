@@ -113,9 +113,9 @@ Security is the product, so it comes early. A guard bypass is critical by defini
   and an expired entry re-arms the guard.
 - **No hosted service or daemon.** State is versioned files in your repo and your home
   directory.
-- **One optional outbound metadata read.** `init` and `doctor` check the package registry
-  at most once per 24 hours; set `AI_ENG_NO_UPDATE_NOTICES=1` to disable it. Offline
-  checks stay silent.
+- **One optional outbound metadata read.** Human commands check the package registry at
+  most once per 24 hours, a failure included; set `AI_ENG_NO_UPDATE_NOTICES=1` to disable
+  it. Offline checks stay silent.
 
 ## Security boundary
 
@@ -343,12 +343,12 @@ Five verbs for people:
 ```bash
 ai-eng init        # install governance; leaves changes for your review
 ai-eng doctor      # every check it knows, plus one real adversarial probe
-ai-eng config      # add or remove surfaces, and regenerate their adapters
-ai-eng update      # sync files from the installed CLI assets (offline; leaves changes for review)
+ai-eng config      # change the surfaces or the CI provider, and regenerate their files
+ai-eng update      # install the newest version if there is one, then sync (sync is offline)
 ai-eng uninstall   # revert ours, keep yours
 ```
 
-To upgrade the installed package, run `bun add -g ai-engineering@latest`.
+`ai-eng update` installs a newer package with bun or npm, after asking you.
 
 Five machine verbs for hooks, CI and agents: `chain`, `git`, `wrap`, `worktree`,
 `adapt`. `--help` names them on one line. The three you will meet in the README:
@@ -406,13 +406,13 @@ receipt and in the commit.
 - **`ai-eng` never calls a model.** `config.toml` carries a model pin per tier, cheap for
   verifying and expensive for judging, and the framework injects that line. The calls stay
   yours.
-- **One optional outbound metadata read.** `init` and `doctor` check the package registry at
-  most once per 24 hours; set `AI_ENG_NO_UPDATE_NOTICES=1` to disable it. Offline checks stay
-  silent.
+- **One optional outbound metadata read.** Human commands check the package registry at
+  most once per 24 hours, a failure included; set `AI_ENG_NO_UPDATE_NOTICES=1` to disable
+  it. Offline checks stay silent.
 - **Slow denials are visible.** A chain denial emits a diagnostic when processing exceeds
   200 ms; that warning does not change the verdict.
-- **`update` uses local assets.** It reconciles files from the installed package and makes no
-  network request; use Bun or npm separately to upgrade the package.
+- **`update` delegates the install.** One version read, then `bun add -g` or `npm install -g`
+  if you agree; the file sync that follows makes no network request.
 
 The design document is [docs/blueprint.html](docs/blueprint.html). [The recap](docs/recap.html)
 is a historical snapshot; use this README and the source tree for current guidance.

@@ -255,7 +255,7 @@ async function reinitHandoff(
     if (action === "config") return configMain({});
     // One frame, one story: updateMain() continues inside it — its frame()
     // call becomes the chapter line, and the version context rides with it.
-    return await updateMain({ yes: flags.yes === true });
+    return await updateMain({ yes: flags.yes === true, binary: false });
   }
   return null;
 }

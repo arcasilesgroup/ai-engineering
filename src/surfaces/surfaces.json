@@ -23,6 +23,12 @@
         "source": "code.claude.com/docs/en/hooks: UserPromptSubmit fires before the prompt is processed; exit 2 blocks it and erases the prompt",
         "measured": "2026-09-22"
       },
+      "sessionHook": {
+        "supported": true,
+        "event": "SessionStart",
+        "source": "code.claude.com/docs/en/hooks: SessionStart (matchers startup|resume|clear|compact) adds hookSpecificOutput.additionalContext to the session",
+        "measured": "2026-11-19"
+      },
       "carriers": [
         {
           "scope": "machine",
@@ -135,6 +141,12 @@
         "event": "UserPromptSubmit",
         "source": "developers.openai.com/codex/hooks (2026-09-22): UserPromptSubmit fires on prompt submission and ignores matchers; openai/codex#14626 added it",
         "measured": "2026-09-22"
+      },
+      "sessionHook": {
+        "supported": true,
+        "event": "SessionStart",
+        "source": "developers.openai.com/codex/hooks: SessionStart (startup|resume) reads hookSpecificOutput.additionalContext from JSON stdout; plain text has failed to parse in the TUI",
+        "measured": "2026-11-19"
       },
       "carriers": [
         {

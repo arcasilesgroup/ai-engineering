@@ -24,6 +24,11 @@ Object.defineProperty(process.stdin, "isTTY", { value: false, configurable: true
 Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });
 Object.defineProperty(process.stdout, "columns", { value: undefined, configurable: true });
 
+// No test reads the real registry: the version lookup (src/notice.ts) is pointed at a
+// local port nothing listens on, so it fails at once — and every CLI the suite spawns
+// inherits it. A test that wants an answer serves one on its own port.
+process.env["AI_ENG_REGISTRY_URL"] ??= "http://127.0.0.1:9/ai-engineering/latest";
+
 const initialEnv = snapshotSandboxEnv();
 const initialCwd = process.cwd();
 // Watch lifecycle tests directly so cleanup cannot hide a transient temp root.
