@@ -52,6 +52,12 @@ test("every surface with an adapter receives the workflow", () => {
   }
 });
 
+// release.yml is dispatched from the default branch, so every attestation records
+// refs/heads/main: a tag source-ref made every client's governor install fail.
+test("the provenance check does not demand a tag ref the release never records", () => {
+  expect(readFileSync(TEMPLATE, "utf8")).not.toMatch(/--source-ref\s+\S/);
+});
+
 test("the installed template cannot be skipped anywhere, and names one version", () => {
   const template = readFileSync(TEMPLATE, "utf8");
   const unpinned = template.split("\n").filter((line) => line.includes("uses: ") && !/@[0-9a-f]{40}/.test(line));
