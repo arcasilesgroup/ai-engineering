@@ -11,6 +11,7 @@ export const HUMAN_VERBS: readonly { readonly verb: string; readonly description
   { verb: "doctor", description: "12 checks + one real adversarial probe + --gc" },
   { verb: "config", description: "change what init chose: agent surfaces or the CI provider" },
   { verb: "update", description: "install a newer ai-eng if there is one, then sync the machine and this repo" },
+  { verb: "work", description: "every lane in this repo, and tidy · park · drop to close them" },
   { verb: "uninstall", description: "revert ours, keep yours" },
 ];
 

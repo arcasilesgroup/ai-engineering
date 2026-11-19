@@ -19,7 +19,7 @@ const BLOCK_MARKER = "agentc-block-marker";
 const LOCAL_RULES =
   `[[guards.local_rules]]\nid = "r-review"\nname = "Review marker"\nenabled = true\nscope = "all_text"\nmatch = "contains"\npattern = "${REVIEW_MARKER}"\naction = "review"\nrisk = 0.4\n` +
   `[[guards.local_rules]]\nid = "r-block"\nname = "Block marker"\nenabled = true\nscope = "all_text"\nmatch = "contains"\npattern = "${BLOCK_MARKER}"\naction = "block"\nrisk = 0.9\n`;
-const ALL_PRE_BASH = ["self-protect", "no-verify", "policy", "injection", "loop", "checkpoint", "wrap"];
+const ALL_PRE_BASH = ["self-protect", "no-verify", "no-stash", "policy", "injection", "loop", "checkpoint", "wrap"];
 
 let outside: string;
 let cwdBefore: string;

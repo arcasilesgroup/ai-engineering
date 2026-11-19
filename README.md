@@ -270,7 +270,6 @@ asked out loud, once. The UI trigger uses the `ai-audit-design` skill.
 | `ai-debug` | Names the root cause at `file:line`, then writes the check that fails for that reason before the fix |
 | `ai-design-md-planner` | Writes a `DESIGN.md` design system and audits it with the official CLI until it lints clean |
 | `ai-explore` | Answers "where does this live" from the repository, anchored to `file:line` |
-| `ai-git-cleanup` | Removes merged branches and dead worktrees in one pass. It never force-deletes |
 | `ai-triage` | Ranks one GitHub or Azure DevOps backlog in a complete, read-only report |
 | `ai-issue-report` | Files a governed bug report: scrubbed fields, local draft, nothing sent unconfirmed |
 | `ai-note` | Saves a hard-won finding as committed markdown, stamped so staleness is detectable |
@@ -381,12 +380,12 @@ Ask the repo how it is doing, with real receipt statistics:
 
 ## Where to work
 
-Use the current checkout by default. Create a worktree when you request isolation or another
-feature is active in that checkout. `ai-eng worktree new <branch>` starts from the caller's
-current `HEAD` and reports the path to resume; it does not sync from a remote. The approved
-merge flow targets the detected local base and leaves the feature worktree and branch in place.
-Remove them with `ai-eng worktree rm <slug>` only when you are ready. The command does not
-push. See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor workflow.
+One task is one lane: a branch, its folder and its PR. `ai-eng work` shows every lane from git
+and the forge, and each one leaves by `tidy` (landed), `park` (with a reason) or `drop` (kept in
+`refs/archive/`). `ai-eng worktree new <branch>` starts from the caller's current `HEAD`,
+refuses a fourth active lane, and does not sync from a remote. A local merge with `ai-eng
+worktree merge` keeps the folder until `ai-eng worktree rm <slug>`. Nothing here pushes.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor workflow.
 
 ## Configuration
 

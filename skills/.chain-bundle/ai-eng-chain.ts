@@ -1198,6 +1198,39 @@ function runNoVerify(payload, repoRoot) {
   return;
 }
 
+// src/guards/no-stash.ts
+var RESTORES = new Set(["list", "show", "apply", "pop", "branch"]);
+var VALUE_OPTIONS2 = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"]);
+var REASON = "BLOCKED: git stash takes work off its branch, where no board sees it. Commit it on the branch instead " + '(git commit -m "wip: \u2026"); to stop for a while, ai-eng work park <branch> "<reason>". ' + "Reading or restoring a stash (list, show, apply, pop, branch) is fine.";
+function stashSubcommand(segment) {
+  const words = shellWords(segment).filter((word) => !word.isOperator).map((word) => word.value);
+  const at = commandIndex(words);
+  if (words[at] === undefined || !/(^|[\\/])git(\.exe)?$/.test(words[at]))
+    return null;
+  let index = at + 1;
+  while (index < words.length && words[index].startsWith("-"))
+    index += VALUE_OPTIONS2.has(words[index]) ? 2 : 1;
+  if (words[index] !== "stash")
+    return null;
+  return words[index + 1] ?? "";
+}
+function runNoStash(payload) {
+  if (payload.tool_name !== "Bash" && payload.tool_name !== "PowerShell")
+    return;
+  const command = payload.tool_input["command"];
+  if (typeof command !== "string" || command.length === 0)
+    return;
+  const segments = shellSegments(command);
+  if (segments === null)
+    return;
+  for (const segment of segments) {
+    const subcommand = stashSubcommand(segment.text);
+    if (subcommand !== null && !RESTORES.has(subcommand))
+      return { deny: true, reason: REASON };
+  }
+  return;
+}
+
 // src/guards/self-protect.ts
 import { basename as basename3, isAbsolute as isAbsolute2, join as join4, parse, resolve as resolve3, sep as sep2 } from "path";
 import { existsSync as existsSync2, readFileSync as readFileSync3, realpathSync as realpathSync2 } from "fs";
@@ -4821,11 +4854,16 @@ var VERSION = package_default.version;
 // src/notice.ts
 var TTL_MS = 24 * 60 * 60 * 1000;
 
+// src/git/lanes.ts
+var DAY_MS = 24 * 60 * 60 * 1000;
+var FORGE_TTL_MS = 10 * 60 * 1000;
+
 // src/chain/mod.ts
 var TABLE = {
   PreToolUse: [
     { name: "self-protect", matcher: /^(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|shell|command)$/ },
     { name: "no-verify", matcher: /^(Bash|PowerShell|shell|command|Edit|Write|MultiEdit|NotebookEdit)$/ },
+    { name: "no-stash", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "policy", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ },
@@ -4998,6 +5036,8 @@ function dispatchGuard(name, payload, ctx) {
           return runSelfProtect(payload, ctx.repoRoot);
         case "no-verify":
           return runNoVerify(payload, ctx.repoRoot);
+        case "no-stash":
+          return runNoStash(payload);
         case "policy": {
           const command = payload.tool_input["command"];
           if (typeof command !== "string" || command.length === 0)

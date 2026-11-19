@@ -21,6 +21,7 @@ import { loadConfig, printable } from "../env.ts";
 import { namedBase, resolveContext } from "./context.ts";
 import { commitIdentityEnv, type GitResult, runGit } from "./run.ts";
 import { reviewedFeatureChainProblem } from "./merge.ts";
+import { lanes } from "./lanes.ts";
 import {
   canonicalize,
   gitOperationState,
@@ -185,6 +186,17 @@ export function worktreeNew(branchInput: string): WorktreeResult {
   const validBranch = git(repo, ["check-ref-format", "--branch", branch]);
   if (validBranch.status !== 0 || validBranch.stdout.trim() !== branch) {
     return { code: 2, out: "", err: `worktree new: invalid branch name "${printable(branchInput)}"; check it with \`git -C ${repo} check-ref-format --branch ${printable(branch)}\`.\n` };
+  }
+  // The lane limit: more open lanes than a person can review is how branches pile up.
+  // A branch that is already a lane is resumed, not opened, so it never counts twice.
+  const board = lanes(repo, { refresh: false });
+  const active = board.lanes.filter((lane) => lane.state === "active" && lane.name !== branch);
+  if (active.length >= board.maxActive) {
+    return {
+      code: 2,
+      out: "",
+      err: `worktree new: ${active.length} lanes are active (${active.map((lane) => lane.name).join(", ")}) and the limit is ${board.maxActive} — land one (open its PR), park it (ai-eng work park <branch> "<reason>") or drop it (ai-eng work drop <branch>), then retry. The limit is [work] max_active in .ai-engineering/config.toml.\n`,
+    };
   }
   const root = worktreeRoot(repo);
   let canonicalRoot: string;

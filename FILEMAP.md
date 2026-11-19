@@ -64,7 +64,6 @@ skills/                        Installed skill canon
   ai-brainstorm/SKILL.md       Interview, classify and record approved feature intent
   ai-orchestrator/SKILL.md     Gated feature workflow in the selected checkout
   ai-pr/SKILL.md               Provider-neutral PR base selection and review loop
-  ai-git-cleanup/SKILL.md      Native-Git preview and safe local cleanup
   ai-verify/                   Verification router, setup guide and shared review conventions
   ai-triage/                   Provider-neutral GitHub and Azure backlog analysis
   ai-design-md-planner/        Product taste interview and DESIGN.md creation

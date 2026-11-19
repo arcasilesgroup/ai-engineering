@@ -16,6 +16,7 @@ import { uninstallMain } from "./commands/uninstall.ts";
 import { configMain } from "./commands/config.ts";
 import { adaptMain } from "./commands/adapt.ts";
 import { worktreeMain } from "./commands/worktree.ts";
+import { workMain } from "./commands/work.ts";
 import { wrapMain } from "./wrap/index.ts";
 import { floor } from "./floor/entry.ts";
 import { suggestVerb, HUMAN_VERBS, MACHINE_VERBS, ALL_VERBS } from "./shared-verbs.ts";
@@ -26,7 +27,7 @@ import { suggestVerb, HUMAN_VERBS, MACHINE_VERBS, ALL_VERBS } from "./shared-ver
 const isRefreshChild = process.env[REFRESH_ENV] === "1";
 
 const argv = process.argv.slice(2);
-const BOOLS: Record<string, true> = { yes: true, global: true, help: true, version: true, gc: true, force: true };
+const BOOLS: Record<string, true> = { yes: true, global: true, help: true, version: true, gc: true, force: true, json: true };
 const boolFlags: Record<string, true> = {};
 const valueFlags: Record<string, string> = {};
 const positionals: string[] = [];
@@ -133,6 +134,7 @@ const verbMain: Record<string, () => number | Promise<number>> = {
   },
   adapt: () => adaptMain(flags._.slice(1).map(String)),
   update: () => updateMain({ yes: flags.yes === true }),
+  work: () => workMain(flags._.slice(1).map(String), { json: flags.json === true, ...(typeof flags.until === "string" ? { until: flags.until } : {}) }),
   uninstall: () => uninstallMain(),
 };
 const unhandledVerbs = ALL_VERBS.filter((name) => !(name in verbMain));

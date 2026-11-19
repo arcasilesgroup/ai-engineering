@@ -206,3 +206,26 @@ One verb. `ai-eng update` reads the registry once (3 s, remembered for 24 h whet
 
 - **Bring the `upgrade` verb back:** the two-step split 3.0 removed. Rejected.
 - **Download the release binary ourselves:** a second trust path to maintain. Rejected.
+
+## D-010: One task is one lane, and every lane leaves by one of three doors
+
+Status: Accepted · Date: 2026-11-19
+
+### Context
+
+No successful path cleaned up after itself: merged PRs left local branches (`git branch --merged` misses squash and rebase merges), a 54-day stash outlived its branch, and a dead worktree from another host was never pruned. Two sessions sharing a folder depended on an agent noticing the other one, which it cannot.
+
+### Decision
+
+A lane is a branch, its folder and its PR, and its state is computed from git and the forge each time, never stored. `ai-eng work` shows the board; `tidy` removes only a provably landed lane (the forge merged that exact tip, or the base holds it and its remote branch is gone), `park` records a reason and a date in git config, `drop` keeps the tip in `refs/archive/`. The owner's four calls were taken at the proposed defaults: a second session is detected rather than forcing every agent into a worktree, at most 3 active lanes (`[work] max_active`), an orphan after 3 days (`[work] orphan_days`), and cleanup only when provable. A `no-stash` guard denies creating a stash; a session start shows one line about the lanes that need a decision. `ai-git-cleanup` is removed: `tidy` does its job with the right merge test.
+
+### Consequences
+
+- A merged branch disappears in the step that confirms the merge (`/ai-pr`), not weeks later.
+- `ai-eng worktree merge` still keeps the folder after a local merge: its retry and race protection need the checkout, so `ai-eng worktree rm` closes that lane.
+- The per-folder lease that would make a second session's first write move to a worktree is not built yet; rule 2 is still the agent's to follow.
+
+### Alternatives considered
+
+- **Every agent always in a worktree:** simpler to explain, heavier for the one-session case. Rejected for now.
+- **A lanes file:** a second source of truth that drifts from git. Rejected.

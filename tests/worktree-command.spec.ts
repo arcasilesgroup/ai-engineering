@@ -1201,7 +1201,9 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
 
     const args = loggedArgs(log);
     expect(args.length).toBeGreaterThan(0);
-    for (const arg of args) {
+    // A --format= template is a literal of the code, and git's placeholders are spelled
+    // %(name): those parentheses are git syntax, not a value that went through a shell.
+    for (const arg of args.filter((entry) => !entry.startsWith("--format="))) {
       // A value that had travelled through a shell string would arrive split or
       // carry one of these; separate argv elements cannot.
       expect(arg).not.toMatch(/[;|&`$()<>*?[\]{}]/);
