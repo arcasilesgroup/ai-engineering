@@ -864,7 +864,7 @@ describe("init · non-interactive default skill installation", () => {
     const { result, out } = await driven({}, [
       ["governed", "\n"],
       ["CI run", "\n"],
-      ["carriers", "n"],
+      ["guard hook", "n"],
     ]);
     expect(result).toBe(0);
     expect(out).toContain("global canon intact"); // a healthy machine is never re-written without a question
@@ -879,7 +879,8 @@ describe("init · non-interactive default skill installation", () => {
     expect(existsSync(join(home, ".omp", "agent", "hooks", "pre", "ai-eng.ts"))).toBe(false);
     expect(existsSync(join(home, ".config", "opencode", "plugins", "ai-eng.ts"))).toBe(false);
     expect(existsSync(join(home, "gitconfig"))).toBe(false); // init does not write global Git config
-    expect(out).toContain("machine carriers not written");
+    expect(out).toContain("only load hooks from your home folder");
+    expect(out).toContain("guard hook not added");
     expect(out).toContain("4 surfaces");
   });
 

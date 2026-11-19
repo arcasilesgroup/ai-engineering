@@ -47,6 +47,11 @@ function detectedCiProvider(cwd: string): CiProvider {
   return /dev\.azure\.com|visualstudio\.com/.test(url) ? "azure-pipelines" : "github-actions";
 }
 
+/** "a", "a and b", "a, b and c" — a list as a sentence says it. */
+function listed(items: string[]): string {
+  return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
 /** The canon's drift in one line — the counts that matter, and only the ones that are
  *  non-zero beyond the first two. Nested template literals read as arithmetic. */
 function canonSummary(canon: { drift: number; missing: number; stale: number }): string {
@@ -394,12 +399,19 @@ async function installCarriers(
   const retiredShim = retireNpmPowerShellShim();
   if (retiredShim !== null) lines.push(retiredShim);
   if (machineScoped.length > 0) {
+    // Named by what the person sees — the tool and the file — not by ai-eng's word for it.
+    const tools = listed(machineScoped.map((id) => SURFACES.find((s) => s.id === id)?.label ?? id));
+    const files = listed(machineScoped.flatMap((id) => {
+      const surface = SURFACES.find((s) => s.id === id);
+      const carrier = surface ? machineCarrier(surface) : null;
+      return carrier ? [`~/${carrier.path}`] : [];
+    }));
     const agreed =
       machineAgreed ||
       flags.yes === true ||
-      (await confirmWithInput(`${machineScoped.join(", ")} read their hooks from your home — write the machine carriers there?`, true)) === true;
+      (await confirmWithInput(`${tools} only load hooks from your home folder, not from this repo. Add ai-eng's guard hook to ${files}? Your own settings there are kept.`, true)) === true;
     if (!agreed) {
-      lines.push("⚠ machine carriers not written — those surfaces will run without guards until you re-run init");
+      lines.push(`⚠ guard hook not added — ai-eng's guards do not run in ${tools} until you run ai-eng init again`);
     } else {
       const report = installMachineCarriers(machineScoped);
       for (const path of report.written) lines.push(`✓ ${path} — machine carrier`);
