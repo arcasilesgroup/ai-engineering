@@ -44,6 +44,7 @@ Lines the critic treats as blockers. Fill in project-specific rules here; leave 
 
 ## Git workflow
 See **Where to work** for checkout, worktree, and integration choices. `.ai-engineering/recap.html` is optional and never required for merge.
+- Push only your own feature branch to origin, never the base or integration branch. Do not open a PR unless asked: a person opens it.
 
 ## Workflow
 - Show the passing check before saying "done"; deterministic decisions belong in code.
