@@ -95,8 +95,42 @@ function forgeCachePath(root: string): string | null {
   return dir === null ? null : join(dir, "ai-eng", "forge.json");
 }
 
-/** The PRs the forge knows, from the cache. `refresh` asks `gh` when the cache is older
- *  than ten minutes; a failed ask keeps the old answer and says so. Never throws. */
+export type Forge = "github" | "azure";
+
+/** The forge a remote URL belongs to: Azure DevOps by its hosts (https, ssh and the old
+ *  visualstudio.com form), GitHub otherwise, since `gh` is what answers there. */
+export function forgeOf(remoteUrl: string): Forge {
+  return /(?:^|[@/.])(?:dev\.azure\.com|ssh\.dev\.azure\.com|[\w-]+\.visualstudio\.com)[:/]/i.test(remoteUrl) ? "azure" : "github";
+}
+
+type AzurePull = { pullRequestId?: unknown; status?: unknown; sourceRefName?: unknown; lastMergeSourceCommit?: { commitId?: unknown } | null };
+
+/** `az repos pr list -o json`, in the shape `gh pr list` gives: completed is merged, active is
+ *  open, abandoned is closed. An entry missing a field is skipped, never guessed. */
+export function azurePulls(answer: unknown): PullRequest[] {
+  if (!Array.isArray(answer)) throw new Error("not a list");
+  const states: Record<string, PullRequest["state"]> = { completed: "MERGED", active: "OPEN", abandoned: "CLOSED" };
+  const pulls: PullRequest[] = [];
+  for (const entry of answer as AzurePull[]) {
+    const state = typeof entry.status === "string" ? states[entry.status] : undefined;
+    const ref = typeof entry.sourceRefName === "string" ? entry.sourceRefName : "";
+    const oid = entry.lastMergeSourceCommit?.commitId;
+    if (typeof entry.pullRequestId !== "number" || state === undefined || !ref.startsWith("refs/heads/") || typeof oid !== "string") continue;
+    pulls.push({ number: entry.pullRequestId, state, headRefName: ref.slice("refs/heads/".length), headRefOid: oid });
+  }
+  return pulls;
+}
+
+/** The command that lists this repository's PRs on its forge. */
+function forgeCommand(forge: Forge): string[] {
+  return forge === "azure"
+    ? ["az", "repos", "pr", "list", "--status", "all", "--top", "200", "--detect", "true", "--output", "json"]
+    : ["gh", "pr", "list", "--state", "all", "--limit", "200", "--json", "number,state,headRefName,headRefOid"];
+}
+
+/** The PRs the forge knows, from the cache. `refresh` asks the forge (`gh`, or `az` for an
+ *  Azure DevOps remote) when the cache is older than ten minutes; a failed ask keeps the old
+ *  answer and says so. Never throws. */
 export function forgePulls(root: string, refresh: boolean, now: number = Date.now()): { pulls: PullRequest[]; note: string | null } {
   const path = forgeCachePath(root);
   let cached: { ts: number; pulls: PullRequest[] } | null = null;
@@ -110,12 +144,21 @@ export function forgePulls(root: string, refresh: boolean, now: number = Date.no
     if (cached === null) return { pulls: [], note: "no forge answer cached yet — ai-eng work asks it" };
     return { pulls: cached.pulls, note: isFresh ? null : `forge answer from ${Math.round((now - cached.ts) / 60000)} min ago` };
   }
-  const asked = Bun.spawnSync(["gh", "pr", "list", "--state", "all", "--limit", "200", "--json", "number,state,headRefName,headRefOid"], { cwd: root, stdout: "pipe", stderr: "pipe", timeout: 10_000 });
-  if (asked.exitCode !== 0) {
-    return { pulls: cached?.pulls ?? [], note: "the forge could not be asked (gh missing, offline or not signed in): merged PRs are not seen" };
+  const remote = git(root, ["remote", "get-url", "origin"])?.trim() ?? "";
+  const forge = forgeOf(remote);
+  const cli = forge === "azure" ? "az" : "gh";
+  let asked: ReturnType<typeof Bun.spawnSync> | null = null;
+  try {
+    asked = Bun.spawnSync(forgeCommand(forge), { cwd: root, stdout: "pipe", stderr: "pipe", timeout: 10_000, env: process.env });
+  } catch {
+    asked = null; // the CLI is not installed: the same answer as a refusal
+  }
+  if (asked === null || asked.exitCode !== 0) {
+    return { pulls: cached?.pulls ?? [], note: `the forge could not be asked (${cli} missing, offline or not signed in): merged PRs are not seen` };
   }
   try {
-    const pulls = JSON.parse(asked.stdout.toString()) as PullRequest[];
+    const answer = JSON.parse(asked.stdout?.toString() ?? "") as unknown;
+    const pulls = forge === "azure" ? azurePulls(answer) : (answer as PullRequest[]);
     if (path !== null) {
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, JSON.stringify({ ts: now, pulls }));
