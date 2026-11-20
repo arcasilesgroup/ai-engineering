@@ -1,7 +1,7 @@
 ---
 name: a11y-audit
 description: Audit the UI for accessibility defects against WCAG 2.2 AA — semantic structure, keyboard operability, focus management, form labeling, ARIA correctness, contrast, and motion — with each finding tied to the user it locks out. Use when asked to check accessibility or a11y, review UI for screen-reader or keyboard support, or verify WCAG compliance.
-license: LicenseRef-Attributed
+license: Apache-2.0
 ---
 
 # Accessibility audit
@@ -10,7 +10,7 @@ Find the places where someone cannot use this app. Every finding names the
 **user and the barrier**: "a keyboard user cannot dismiss this dialog" is a
 finding; "missing ARIA attributes" is a lint message.
 
-Read `.claude/review/CONVENTIONS.md` first — stack detection, scope, severity,
+Read `../references/review/CONVENTIONS.md` first — stack detection, scope, severity,
 false-positive gate, report format. Target is **WCAG 2.2 level AA**.
 
 WCAG is an external standard, so this skill is largely stack-independent — but

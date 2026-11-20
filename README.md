@@ -283,22 +283,10 @@ asked out loud, once. The UI trigger uses the `ai-audit-design` skill.
 | `ai-security` | Six-phase security audit, validated adversarially: the verifier is never the finder |
 | `ai-stress-test` | Finds the breaking point under load, and reports the load that caused it |
 | `ai-test-planner` | Plans and writes tests bottom-up; UI end-to-end only for what the lower layers cannot reach |
-| `ai-verify` | Verifies work at the right tier and produces verdicts with evidence, not impressions |
+| `ai-verify` | Verifies work at the right tier and produces verdicts with evidence, not impressions. Its lanes live in `skills/ai-verify/lanes/`: verify-feature, spec-extract, feature-verify, second-opinion, review-router, code-audit, security-audit, a11y-audit, perf-audit, design-check, build-check and full-review |
 | `ai-visual-recap` | Turns a diff into an interactive recap: diagrams, file map, annotated diff |
 | `ai-write` | Writes the README, the wiki page or the API doc, verified against the tree |
 | `ai-writing-behavior` | Authors `BEHAVIOR.md` specs for recurring, judgeable agent conduct |
-| `spec-extract` | Turns an agreement into a checkable, numbered specification |
-| `verify-feature` | Verifies that a feature matches what was requested |
-| `feature-verify` | Cross-verifies a completed feature with throwaway browser tests |
-| `second-opinion` | Requests an independent review of completed code |
-| `a11y-audit` | Audits a UI against WCAG 2.2 AA |
-| `build-check` | Runs the project's typecheck, lint, test and build gates |
-| `code-audit` | Reviews code for concrete correctness and maintainability defects |
-| `design-check` | Checks implementation against its design specification |
-| `full-review` | Coordinates the complete set of review skills |
-| `perf-audit` | Audits performance for measurable, user-visible costs |
-| `review-router` | Selects the review lanes a change needs |
-| `security-audit` | The security lane of `/ai-verify`: one change, traced from attacker-controlled input to exploitable sinks. A milestone audit is `ai-security` |
 
 </details>
 

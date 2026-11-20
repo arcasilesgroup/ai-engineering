@@ -1,6 +1,6 @@
 ---
 name: design-check
-license: LicenseRef-Attributed
+license: Apache-2.0
 description: Verify the implementation actually matches design.md — builds a requirement-by-requirement traceability table showing what is implemented, partial, missing, or contradicted, plus undocumented behavior the code added on its own. Use when asked to check code against the design/spec, confirm a feature was built as designed, find drift between design.md and the app, or answer "did we build what we said we would".
 ---
 
@@ -10,7 +10,7 @@ Verify the code against the design document. The deliverable is a **traceability
 table**: every requirement in the spec mapped to the code that implements it, or
 marked as missing. No requirement may be silently dropped.
 
-Read `.claude/review/CONVENTIONS.md` first — stack detection, severity, the
+Read `../references/review/CONVENTIONS.md` first — stack detection, severity, the
 false-positive gate, and the report format. The installed-version rule there
 applies: never call an implementation wrong based on remembered framework
 behavior.

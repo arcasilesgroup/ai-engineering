@@ -9,7 +9,7 @@ description: >-
   because no spec exists; and at the point a conversation has produced enough decisions
   that the next session would lose them. This produces the contract that `design-check`
   and `verify-feature` measure against — it does not verify anything itself.
-license: LicenseRef-Attributed
+license: Apache-2.0
 ---
 
 # Extract a spec from what was actually agreed

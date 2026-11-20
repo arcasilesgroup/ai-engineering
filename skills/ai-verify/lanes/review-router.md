@@ -1,6 +1,6 @@
 ---
 name: review-router
-license: LicenseRef-Attributed
+license: Apache-2.0
 description: Decide which review lanes a change actually needs, then run exactly those — instead of spawning the whole chain at every diff size. Reads the diff's shape and blast radius, maps the evidence to lanes (code, security, a11y, perf, design, build), estimates the cost, shows the routing decision, and executes it. Use when asked to "review this", "check this before I commit/merge", "is this ready", or "what should I run", and whenever a full review would cost more than the change is worth. Prefer this over full-review as the default entry point; full-review remains correct when the user explicitly asks for everything.
 ---
 
@@ -23,7 +23,7 @@ Two rules bound everything below:
 
 ## 1. Resolve scope and stack once
 
-Per `.claude/review/CONVENTIONS.md` §1 and §3. Resolve both here, exactly once, and pass
+Per `../references/review/CONVENTIONS.md` §1 and §3. Resolve both here, exactly once, and pass
 the identical strings to every agent you spawn. Agents that resolve their own scope drift
 apart and their findings stop being comparable — and in a monorepo they can legitimately
 land on different stacks, which silently produces reviews of different things.

@@ -1,7 +1,7 @@
 ---
 name: build-check
 description: Run the project's objective quality gates — typecheck, lint, tests, and a production build, whatever this project actually uses — then diagnose any failure down to the file and root cause. Use before committing, opening a PR, or declaring work done, and whenever asked whether the code compiles, typechecks, lints, tests, or builds.
-license: LicenseRef-Attributed
+license: Apache-2.0
 ---
 
 # Build check
@@ -13,7 +13,7 @@ about to change.
 
 Fast, deterministic, and the highest-value-per-token check in the set.
 
-Read `.claude/review/CONVENTIONS.md` first — §1 for stack detection, §3 for scope
+Read `../references/review/CONVENTIONS.md` first — §1 for stack detection, §3 for scope
 (you need it to tell a pre-existing failure from one this change introduced), and
 §6 for where the report goes. Your report format differs from the other skills'
 by design: this one reports gates and failures, not severity-ranked findings.
@@ -88,7 +88,7 @@ A wall of compiler output is not a report. For each distinct failure:
 4. **Give the fix**, specifically. Not "fix the type error" — name the change.
 
 For any failure that mentions a framework or library API, apply the
-**installed-version rule** from `.claude/review/CONVENTIONS.md` before
+**installed-version rule** from `../references/review/CONVENTIONS.md` before
 diagnosing. The fix for an error in the installed version is frequently not the
 fix you remember from an older one, and a confidently wrong fix here costs more
 than no fix at all.

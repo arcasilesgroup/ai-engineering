@@ -11,7 +11,7 @@ description: >-
   multi-step feature, before more code gets stacked on a wrong foundation. This
   answers "did we build the right thing" — it is not the code-quality gate (lint /
   typecheck / tests) and not `security-review`.
-license: LicenseRef-Attributed
+license: Apache-2.0
 ---
 
 # Verify feature against requirements

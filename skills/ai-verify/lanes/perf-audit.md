@@ -1,6 +1,6 @@
 ---
 name: perf-audit
-license: LicenseRef-Attributed
+license: Apache-2.0
 description: Audit performance — payload and bundle size, data-access patterns and waterfalls, caching, assets, and compute cost — reporting only issues with a measurable, user-visible cost. Use when asked about performance, slow loads, slow queries, slow renders, bundle size, memory use, Core Web Vitals, or optimizing the app.
 ---
 
@@ -11,7 +11,7 @@ Find work the system does that it does not need to do, where the cost is
 120KB of JavaScript shipped to render static text is, and so is an N+1 query that
 turns one page load into 200 round trips.
 
-Read `.claude/review/CONVENTIONS.md` first — stack detection, scope,
+Read `../references/review/CONVENTIONS.md` first — stack detection, scope,
 false-positive gate, report format. The **installed-version rule** matters
 especially here: caching semantics, lazy-loading defaults, and compiler behavior
 change between versions, and a stale mental model produces confident, wrong

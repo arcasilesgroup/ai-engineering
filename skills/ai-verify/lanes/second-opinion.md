@@ -1,7 +1,7 @@
 ---
 name: second-opinion
 description: Get an independent review of code you just wrote by spawning a fresh reviewer instance — a separate one-shot agent session with read-only tools that cannot see your reasoning. Use this immediately after finishing ANY implementation — a feature, a bugfix, a refactor, a migration, a schema change — before you tell the user the work is done. Also use whenever the user says "review this", "double-check that", "get a second opinion", "have another agent look at it", or asks whether an implementation is actually correct. Especially worth it when the change touches money, auth, permissions, migrations, or data deletion, or when you noticed yourself feeling uncertain while writing it.
-license: LicenseRef-Attributed
+license: Apache-2.0
 ---
 
 # Second opinion
@@ -95,7 +95,7 @@ not try to save files.
 <skill-dir>/scripts/second-opinion.sh <packet-path>
 ```
 
-`<skill-dir>` is the installed `second-opinion` skill directory (in Claude Code, `.claude/skills/second-opinion`).
+`<skill-dir>` is the installed `ai-verify` skill directory (in Claude Code, `.claude/skills/ai-verify`).
 
 Run it from the repo root so the reviewer picks up the project's agent-rules files (`AGENTS.md`, `CLAUDE.md`) — project conventions are frequently what "correct" means, and a reviewer that does not know them reports false positives against the house style. The highest-value thing those files can carry is a warning that some installed dependency postdates training data — that single line is what turns a confident finding into a correctly-discarded one.
 

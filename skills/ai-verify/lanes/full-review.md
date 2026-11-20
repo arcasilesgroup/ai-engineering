@@ -1,6 +1,6 @@
 ---
 name: full-review
-license: LicenseRef-Attributed
+license: Apache-2.0
 description: Run every review skill at once — build-check, then design-check, code-audit, security-audit, a11y-audit and perf-audit fanned out across parallel agents — and merge them into one deduplicated, severity-ranked report. Use when asked for a full/complete review, to review everything before shipping or merging, or to run all the checks.
 ---
 
@@ -12,7 +12,7 @@ what they return. You do not perform the reviews yourself.
 
 ## 1. Resolve scope once, up front
 
-Determine the scope per `.claude/review/CONVENTIONS.md` **before** spawning
+Determine the scope per `../references/review/CONVENTIONS.md` **before** spawning
 anything, and pass the identical scope string to every agent. Agents that each
 resolve their own scope will drift apart, and their findings then cannot be
 compared or deduplicated.
@@ -63,7 +63,7 @@ Give each agent this prompt shape:
 > Invoke the `<name>` skill via the Skill tool and complete the review it
 > describes. Scope: `<the exact scope string resolved in step 1>`.
 > Stack (already detected, do not re-derive): `<the stack string from step 1>`.
-> Follow `.claude/review/CONVENTIONS.md` exactly — especially the false-positive
+> Follow `../references/review/CONVENTIONS.md` exactly — especially the false-positive
 > gate and the installed-version rule.
 > Stay strictly in your lane: `<lane>`. If you notice something outside it, note
 > it in one line under "Cross-lane observations" and do not investigate — another
