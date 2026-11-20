@@ -5,7 +5,7 @@
 
 import { styleText } from "node:util";
 import { repoRoot } from "../env.ts";
-import { lanes, PARK_KEY, type Board, type Lane, type LaneState } from "../git/lanes.ts";
+import { archiveTip, closeLane, lanes, PARK_KEY, type Board, type Lane, type LaneState } from "../git/lanes.ts";
 import { runGit } from "../git/run.ts";
 import { worktreeStatus } from "../git/worktree.ts";
 import { readLease, releaseLease } from "../guards/lease.ts";
@@ -91,18 +91,20 @@ function nextStep(board: Board): string | null {
 /** Remove one landed lane: its worktree when clean, then its branch only if its tip is
  *  still the one the board saw. The checked-out branch of this checkout stays. */
 function tidyLane(root: string, lane: Lane, current: string | null): string {
-  if (lane.name === current) return mutedLine(`${lane.name} kept — it is checked out here; switch to the base, then run tidy again`);
-  if (lane.path !== null) {
-    const status = worktreeStatus(lane.path);
-    if (status.detail !== undefined) return mutedLine(`${lane.name} kept — its folder ${lane.path} could not be read: ${status.detail}`);
-    if (status.paths.length > 0) return mutedLine(`${lane.name} kept — its folder ${lane.path} has uncommitted work (${pending(status.paths)})`);
-    const removed = git(root, ["worktree", "remove", lane.path]);
-    if (!removed.ok) return mutedLine(`${lane.name} kept — git worktree remove refused: ${removed.out}`);
-  }
-  const deleted = git(root, ["update-ref", "-d", `refs/heads/${lane.name}`, lane.tip ?? ""]);
-  if (!deleted.ok) return mutedLine(`${lane.name} kept — it moved since the board read it`);
-  git(root, ["config", "--remove-section", `branch.${lane.name}`]);
-  return okLine(`${lane.name} removed — ${lane.detail}${lane.path === null ? "" : `, and its folder ${lane.path}`}`);
+  const closing = closeLane(root, lane, current);
+  return closing.isClosed ? okLine(closing.text) : mutedLine(closing.text);
+}
+
+/** The base checked out here, clean and behind its upstream: brought up to it, fast-forward
+ *  only. Anything else (another branch, local changes, a diverged base) is left as it is. */
+function advanceBase(root: string, base: string | null, current: string | null): string | null {
+  if (base === null || current !== base) return null;
+  // Untracked files never stop a fast-forward (git refuses on its own if one would be overwritten).
+  if (git(root, ["status", "--porcelain", "--untracked-files=no"]).out !== "") return null;
+  const behind = Number(git(root, ["rev-list", "--count", "HEAD..@{upstream}"]).out);
+  if (!Number.isInteger(behind) || behind <= 0) return null;
+  const moved = git(root, ["merge", "--ff-only", "--quiet", "@{upstream}"]);
+  return moved.ok ? okLine(`${base} fast-forwarded ${behind} commit${behind === 1 ? "" : "s"}`) : mutedLine(`${base} not fast-forwarded — ${moved.out}`);
 }
 
 function tidy(root: string): number {
@@ -113,6 +115,8 @@ function tidy(root: string): number {
     const pruned = git(root, ["worktree", "prune"]);
     lines.push(pruned.ok ? okLine("ghost worktrees pruned") : mutedLine(`ghost worktrees kept — git worktree prune: ${pruned.out}`));
   }
+  const advanced = advanceBase(root, board.base, current);
+  if (advanced !== null) lines.push(advanced);
   if (lines.length === 0) lines.push("nothing has landed — nothing to tidy");
   if (board.forgeNote !== null) lines.push(`forge: ${board.forgeNote}`);
   process.stdout.write(`${lines.join("\n")}\n`);
@@ -162,11 +166,8 @@ function drop(root: string, branch: string): number {
     if (status.detail !== undefined) return fail(`${lane.path} could not be read (${status.detail}) — nothing was dropped`);
     if (status.paths.length > 0) return fail(`${branch} has uncommitted work in ${lane.path} (${pending(status.paths)}) — commit it on the branch first, then drop`);
   }
-  const date = new Date().toISOString().slice(0, 10);
-  const isTaken = git(root, ["rev-parse", "--verify", "--quiet", `refs/archive/${branch}`]).ok;
-  const archive = isTaken ? `refs/archive/${branch}-${date}` : `refs/archive/${branch}`;
-  const archived = git(root, ["update-ref", archive, tip, "0".repeat(tip.length)]);
-  if (!archived.ok) return fail(`could not archive ${branch} at ${archive}: ${archived.out}`);
+  const archive = archiveTip(root, branch, tip);
+  if (archive === null) return fail(`could not archive ${branch} under refs/archive/${branch}`);
   if (lane?.path) {
     const removed = git(root, ["worktree", "remove", lane.path]);
     if (!removed.ok) return fail(`archived at ${archive}, but git worktree remove refused: ${removed.out}`);

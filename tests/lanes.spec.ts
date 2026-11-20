@@ -353,6 +353,92 @@ describe("SessionStart — the lane line beside the version lines", () => {
     expect(context).toContain("lanes: 1 orphan");
     expect(existsSync(join(dir, ".ai-engineering", "work.json"))).toBe(false);
   });
+
+  test("a proven landing closes on its own at session start; dirty, current and held lanes stay (D-015)", () => {
+    const dir = repo();
+    const sessionStart = (session: string): string => {
+      const run = spawnSync(process.execPath, [cli, "chain", "SessionStart"], {
+        cwd: dir,
+        input: JSON.stringify({ cwd: dir, session_id: session }),
+        encoding: "utf8",
+        env: { ...process.env, AI_ENG_NO_UPDATE_NOTICES: "1" },
+      });
+      expect(run.status).toBe(0);
+      return run.stdout === "" ? "" : (JSON.parse(run.stdout) as { hookSpecificOutput: { additionalContext: string } }).hookSpecificOutput.additionalContext;
+    };
+    // Three branches merged into main by a merge commit: proof without the forge.
+    for (const name of ["feat/done", "feat/dirty", "feat/held"]) {
+      git(dir, ["checkout", "-q", "-b", name]);
+      commit(dir, `${name.slice(5)}.txt`, `${name}\n`);
+      git(dir, ["checkout", "-q", "main"]);
+      git(dir, ["merge", "-q", "--no-ff", "-m", `merge ${name}`, name]);
+    }
+    git(dir, ["update-ref", "refs/remotes/origin/main", "main"]);
+    const doneTip = git(dir, ["rev-parse", "feat/done"]);
+    const dirtyTree = join(dir, "..", "dirty-tree");
+    const heldTree = join(dir, "..", "held-tree");
+    git(dir, ["worktree", "add", "-q", dirtyTree, "feat/dirty"]);
+    git(dir, ["worktree", "add", "-q", heldTree, "feat/held"]);
+    writeFileSync(join(dirtyTree, "unsaved.txt"), "not committed\n");
+    // Another session is writing in the held folder right now.
+    const heldGitDir = git(heldTree, ["rev-parse", "--path-format=absolute", "--git-dir"]);
+    mkdirSync(join(heldGitDir, "ai-eng"), { recursive: true });
+    writeFileSync(join(heldGitDir, "ai-eng", "lease.json"), JSON.stringify({ session: "other-session", ts: Date.now() }));
+
+    const context = sessionStart("this-session");
+    expect(context).toContain("lanes: closed feat/done (landed; each tip kept in refs/archive/<branch>");
+    expect(git(dir, ["rev-parse", "refs/archive/feat/done"])).toBe(doneTip);
+    expect(spawnSync("git", ["rev-parse", "--verify", "--quiet", "refs/heads/feat/done"], { cwd: dir }).status).not.toBe(0);
+    // Uncommitted work and another session's folder are never touched.
+    expect(existsSync(join(dirtyTree, "unsaved.txt"))).toBe(true);
+    expect(git(dir, ["rev-parse", "feat/dirty"])).not.toBe("");
+    expect(existsSync(heldTree)).toBe(true);
+    expect(context).toContain("2 landed to tidy");
+    // The holding session itself may close its own folder.
+    expect(sessionStart("other-session")).toContain("lanes: closed feat/held");
+    expect(existsSync(heldTree)).toBe(false);
+  });
+});
+
+describe("tidy — archive first, then close; the base catches up", () => {
+  test("tidy keeps every tip it removes in refs/archive and fast-forwards a clean base", () => {
+    const parent = mkdtempSync(join(tmpdir(), "ai-eng-lanes-ff-"));
+    roots.push(parent);
+    const remote = join(parent, "remote.git");
+    git(parent, ["init", "-q", "--bare", "-b", "main", remote]);
+    const dir = repo();
+    git(dir, ["remote", "set-url", "origin", remote]);
+    git(dir, ["push", "-q", "-u", "origin", "main"]);
+    git(dir, ["checkout", "-q", "-b", "feat/tidied"]);
+    const tip = commit(dir, "tidied.txt", "t\n");
+    git(dir, ["checkout", "-q", "main"]);
+    git(dir, ["merge", "-q", "--no-ff", "-m", "merge feat/tidied", "feat/tidied"]);
+    git(dir, ["push", "-q", "origin", "main"]);
+    // The remote moves on: someone else landed a commit main has not fetched yet.
+    const other = join(parent, "other");
+    git(parent, ["clone", "-q", remote, other]);
+    git(other, ["config", "user.email", "o@example.com"]);
+    git(other, ["config", "user.name", "o"]);
+    git(other, ["config", "commit.gpgsign", "false"]);
+    commit(other, "elsewhere.txt", "e\n");
+    git(other, ["push", "-q", "origin", "main"]);
+    forgeSays(dir, []);
+
+    const run = ai(dir, ["work", "tidy"]);
+    expect(run.status).toBe(0);
+    expect(run.out).toContain("feat/tidied removed — merged into main");
+    expect(run.out).toContain("kept at refs/archive/feat/tidied");
+    expect(git(dir, ["rev-parse", "refs/archive/feat/tidied"])).toBe(tip);
+    expect(run.out).toContain("main fast-forwarded 1 commit");
+    expect(existsSync(join(dir, "elsewhere.txt"))).toBe(true);
+
+    // With local changes the base is never moved.
+    commit(other, "later.txt", "l\n");
+    git(other, ["push", "-q", "origin", "main"]);
+    writeFileSync(join(dir, "README.md"), "local edit\n");
+    expect(ai(dir, ["work", "tidy"]).out).not.toContain("fast-forwarded");
+    expect(existsSync(join(dir, "later.txt"))).toBe(false);
+  });
 });
 
 describe("no-stash — work never leaves its branch for the stash", () => {
