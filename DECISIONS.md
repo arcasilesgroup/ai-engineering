@@ -316,3 +316,30 @@ Status: Accepted · Date: 2026-11-20
 ### Alternatives considered
 
 - **A new arch verb in the CLI, with scanners per language and a `--suggest` mode:** deterministic, and a second implementation of what each language's tool already does, with the judgement of choosing layers still missing. Rejected by the owner.
+
+## D-015: One refresh skill, verify lanes inside ai-verify, lanes that close themselves
+
+Status: Accepted · Date: 2026-11-20
+
+### Context
+
+Two skills kept one repository's guidance in line with its tree: `ai-agents-md` for the instruction files and `ai-config-to-project` for the governance files, and the second ended in an `adapt apply` verb that always refused because a hash an agent writes cannot prove a person approved anything. Twelve verification skills without the `ai-` prefix are the tiers `ai-verify` routes to, installed as top-level skills. And a landed branch stays on the board until someone runs `ai-eng work tidy`: a squash merge without `gh`, or a merge done in the forge's web page, is never seen as landed.
+
+### Decision
+
+The owner approved the plan on 2026-11-20:
+
+1. `ai-agents-md` and `ai-config-to-project` become one manual skill, `ai-refresh-project`, and the `adapt` verb is deleted with its hash ritual.
+2. The twelve unprefixed verification skills move inside `ai-verify` as its lanes, unmerged and unpruned; a later verify study decides what survives.
+3. Claude Code reads AGENTS.md when there is no CLAUDE.md, so no `@AGENTS.md` bridge is added.
+4. When a session opens, a branch whose landing is proven is deleted without asking: its tip is kept in `refs/archive/` first, a worktree with uncommitted changes is never touched, and the session is told in one line.
+
+### Consequences
+
+- Refreshing a project is one door, run by name, with every governance change on a page the person applies.
+- The skills list shrinks by thirteen entries without losing a lane's content.
+- The board shows only work that is still open.
+
+### Alternatives considered
+
+- **Warn at session start and leave deleting to `ai-eng work tidy`:** nothing goes without a command, and landed branches pile up until someone remembers. Rejected by the owner.

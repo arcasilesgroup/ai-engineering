@@ -341,7 +341,7 @@ function readIfPresent(path: string): string {
 
 /** The file that holds this project's layer rules, or null. The rules belong to the
  *  standard tool of the language (D-014) — dependency-cruiser, import-linter, depguard
- *  inside golangci-lint — set up by /ai-config-to-project. A non-empty
+ *  inside golangci-lint — set up by /ai-refresh-project. A non-empty
  *  .ai-engineering/arch.rules.json still counts: ai-engineering's own test reads one. */
 function archRulesFile(root: string): string | null {
   const named = [".dependency-cruiser.js", ".dependency-cruiser.cjs", ".dependency-cruiser.mjs", ".dependency-cruiser.json", ".importlinter"];
@@ -370,7 +370,7 @@ function checkArch(root: string | null): CheckResult {
   if (rulesFile) return { name: "arch", status: "ok", detail: `layer rules in ${rulesFile}` };
   const hasCode = hasSourceTree(root) || CODE_MANIFESTS.some((name) => existsSync(join(root, name)));
   if (!hasCode) return { name: "arch", status: "ok", detail: "no code yet — layer rules come once there is" };
-  return { name: "arch", status: "warn", detail: "no layer rules — run /ai-config-to-project to propose them" };
+  return { name: "arch", status: "warn", detail: "no layer rules — run /ai-refresh-project to propose them" };
 }
 
 function checkSpecSlot(root: string | null): CheckResult {

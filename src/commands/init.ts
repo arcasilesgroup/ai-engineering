@@ -377,7 +377,7 @@ function renderSections(picked: string[], ci: CiProvider, rows: ScaffoldRows): v
   const plural = picked.length === 1 ? "" : "s";
   ui.section("Scaffolded", rows.files, `${picked.length} surface${plural}: ${picked.join(", ")} · CI: ${ci}`);
   ui.section("Layer rules", [
-    { mark: "muted", text: "Choosing layers is judgement: run /ai-config-to-project once there is code." },
+    { mark: "muted", text: "Choosing layers is judgement: run /ai-refresh-project once there is code." },
     { mark: "sub", text: "It proposes rules for your language's own tool; you review and apply them." },
   ]);
 }

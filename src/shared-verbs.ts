@@ -23,14 +23,10 @@ export const MACHINE_VERBS: readonly { readonly verb: string; readonly descripti
   { verb: "worktree", description: "new, list, merge, rm a lane checkout" },
 ];
 
-/** Still answered, absent from --help until it does something again. */
-const QUIET_VERBS = ["adapt"] as const;
-
 /** Every verb the binary answers to. */
 export const ALL_VERBS: readonly string[] = [
   ...HUMAN_VERBS.map((entry) => entry.verb),
   ...MACHINE_VERBS.map((entry) => entry.verb),
-  ...QUIET_VERBS,
 ];
 
 /** Levenshtein, two rows. The inputs are short and there is no dependency to add. */

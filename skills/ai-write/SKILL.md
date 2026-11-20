@@ -60,7 +60,7 @@ the tree is the evidence.
 1. Two files, two jobs. [references/voice.md](references/voice.md) is how a reply
    or a handoff is shaped. [references/documentation-writer.md](references/documentation-writer.md)
    is the prose standard for every surface that writes for humans: incident
-   reports (/ai-issue-report), AGENTS.md authoring (/ai-agents-md), and any README the
+   reports (/ai-issue-report), AGENTS.md authoring (/ai-refresh-project), and any README the
    framework installs. Voice does not relax a checkable completion criterion.
 2. ai-write never writes into `.ai-engineering/` — governance artifacts are not product
    docs. Its home is the tree the user names: README.md, docs/, a wiki directory.
