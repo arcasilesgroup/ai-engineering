@@ -144,7 +144,7 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     const ompCarrier = readFileSync(join(home, ".omp", "agent", "hooks", "pre", "ai-eng.ts"), "utf8");
     expect(ompCarrier).toInclude("export default function");
     expect(ompCarrier).toInclude('pi.on("tool_call"');
-    expect(readFileSync(join(home, ".omp", "agent", "hooks", "pre", ".ai-eng-chain.ts"), "utf8")).toInclude("ai-eng-chain");
+    expect(readFileSync(join(home, ".omp", "agent", "hooks", "pre", ".ai-eng-chain.ts"), "utf8")).toInclude("function chain(");
     // The repo keeps exactly the two whose readers only exist in the checkout.
     expect(existsSync(join(repo, ".cursor", "hooks.json"))).toBe(true);
     expect(existsSync(join(repo, ".github", "hooks", "ai-eng.json"))).toBe(true);

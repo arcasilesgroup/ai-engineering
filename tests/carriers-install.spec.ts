@@ -1070,7 +1070,7 @@ describe("carriers on the machine", () => {
     // An in-process host is imported by the host itself: the chain bundle must sit beside
     // the entry, and the entry imports it by name.
     const pi = carrierFiles("pi")!;
-    expect(pi.chain).toInclude("ai-eng-chain");
+    expect(pi.chain).toInclude("function chain(");
     expect(pi.main).toInclude('from "./.ai-eng-chain.ts"');
     expect(carrierFiles("cursor")!.main).toInclude('"failClosed": true');
   });

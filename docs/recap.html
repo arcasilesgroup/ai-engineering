@@ -447,7 +447,7 @@
 <section id="s04">
   <h2><span class="num">04</span>The repository, file by file</h2>
   <p>One repository holds the CLI, the skill canon and the templates that <code>init</code> writes into client projects. It is dogfooded: it carries its own <code>AGENTS.md</code>, <code>DECISIONS.md</code>, <code>.ai-engineering/</code> and surface wiring, and its own skills govern work on it.</p>
-  <p><strong>The binary is the payload.</strong> <code>skills/</code> and <code>templates/</code> are embedded into the compiled executable by <code>scripts/gen-assets.ts</code>, so <code>init</code>, <code>update</code> and <code>doctor</code> read every asset from inside the binary — never from disk, never from the network.</p>
+  <p><strong>The binary is the payload.</strong> <code>skills/</code>, <code>agents/</code> and <code>templates/</code> are embedded into the compiled executable as they are (<code>bun build --compile --asset</code>), so <code>init</code>, <code>update</code> and <code>doctor</code> read every asset from inside the binary — never from disk, never from the network.</p>
   <p><strong>How to read this tree:</strong> every line carries its reason to exist — what it does and what breaks without it. A file that cannot answer that does not enter.</p>
 
 <pre>ai-engineering/
@@ -486,7 +486,6 @@
 │   ├── install.ts                # templates → disk: idempotent, 3-way diff, never overwrites an edit
 │   ├── receipts.ts               # one JSON per execution, append-only, plus the aggregate doctor reads
 │   ├── embed.ts                  # reads skills and templates from the binary payload; drift measurement
-│   ├── assets.ts                 # generated: every embedded skill and template as a file import
 │   ├── env.ts                    # repo root, home, session identity, config reads
 │   ├── ui.ts                     # the frame every human verb presents through
 │   ├── shared-verbs.ts           # the verb list and the typo suggestion
@@ -512,7 +511,7 @@
 │   ├── ai-audit-design/          # defects measured in a real browser
 │   ├── ai-writing-behavior/      # authorship of BEHAVIOR.md
 │   ├── ai-agents-md/             # authorship of AGENTS.md
-│   └── .chain-bundle/            # generated: the self-contained chain module the plugin hosts import
+│   └── (generated/chain/ is built, never committed: the chain module the plugin hosts import)
 ├── templates/                    # what init scaffolds — never hardcoded in the sources
 │   ├── AGENTS.md.tpl · DECISIONS.md.tpl · spec.html.tpl · plan.html.tpl
 │   ├── config.toml.tpl · overrides.toml.tpl · arch.rules.json.tpl
@@ -529,12 +528,11 @@
 │       embedded-path.spec.ts · release-flags.spec.ts · cli-ux.test.ts · wrap.test.ts
 ├── scripts/
 │   ├── build.ts                  # bun build --compile → dist/ai-eng (or dist/ai-eng-&lt;target&gt;)
-│   ├── gen-assets.ts             # rewrites src/assets.ts from skills/ and templates/
+│   ├── chain-bundle.ts           # builds generated/chain/, the chain module the plugin hosts import
 │   ├── chain-entry.ts            # the entry the chain bundle is built from
 │   ├── toolchain.sh              # installs a scanner by pinned version + sha256
 │   ├── proof-cli-ux.sh           # the six init paths, update idempotence, uninstall, NO_COLOR
 │   ├── proof-installed-ci.sh     # runs the workflow init installs, against a built binary
-│   └── .embed/                   # generated copies of fixture sources that must ship verbatim
 ├── .github/workflows/
 │   ├── check.yml                 # typecheck · lint · tests · CLI proofs · arch · build · spec run · doctor · scanners
 │   ├── e2e.yml                   # builds the binary a client would download, proves the installed pipeline

@@ -1,9 +1,8 @@
 // The binary IS the payload (blueprint 07): init/update/installCanon read every
-// skill and template from EMBEDDED — never from disk paths, never from the network.
+// skill and template from the payload folders the binary carries — never from the network.
 
-import { EMBEDDED } from "./assets.ts";
 import { randomBytes } from "node:crypto";
-import { closeSync, constants, fstatSync, ftruncateSync, openSync, writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, renameSync, unlinkSync, lstatSync, realpathSync, type Dirent, type Stats } from "node:fs";
+import { closeSync, constants, fstatSync, ftruncateSync, openSync, writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, lstatSync, realpathSync, type Dirent, type Stats } from "node:fs";
 import { basename, join, dirname, resolve, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hashFile } from "./shared-hash.ts";
@@ -12,28 +11,52 @@ import {
   withSafeProjectParent, writeProjectFile, type ProjectFileSnapshot,
 } from "./shared-project-fs.ts";
 
-/** Every embedded path under a prefix (e.g. "skills/" or "templates/"). Keys are
- *  normalized: generated as "../skills/..." relative to src/, stripped to "skills/...". */
+/** The folders the binary carries. `bun build --compile --asset <folder>` (scripts/build.ts)
+ *  embeds each at its own relative path; run from source, they are the checkout's or the
+ *  npm package's folders. `generated/` holds the chain bundle, a build artifact. */
+export const PAYLOAD_FOLDERS = ["skills", "agents", "templates", "generated"] as const;
+
+/** Where the payload folders sit. Compiled, they sit beside the binary's entry inside Bun's
+ *  embedded filesystem (`/$bunfs/root`, `B:\~BUN\root`); `import.meta.dir` cannot say so,
+ *  because --bytecode freezes it to the path of the machine that built the binary. From
+ *  source (a checkout, the npm package, the test suite) they sit one level above src/. */
+function payloadRoot(): string {
+  return Bun.embeddedFiles.length > 0 ? dirname(Bun.main) : join(import.meta.dir, "..");
+}
+
+let payloadCache: Map<string, string> | null = null;
+
+/** Every payload file, "skills/ai-debug/SKILL.md" → its absolute path, sorted by key.
+ *  .DS_Store is the OS talking, never payload. Read once per process. */
+function payloadFiles(): Map<string, string> {
+  if (payloadCache) return payloadCache;
+  const root = payloadRoot();
+  const entries: Array<[string, string]> = [];
+  for (const folder of PAYLOAD_FOLDERS) {
+    const base = join(root, folder);
+    if (!existsSync(base)) continue;
+    for (const name of readdirSync(base, { recursive: true }).map(String)) {
+      const path = join(base, name);
+      if (basename(name) === ".DS_Store" || !statSync(path).isFile()) continue;
+      entries.push([`${folder}/${name.split(sep).join("/")}`, path]);
+    }
+  }
+  payloadCache = new Map(entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  return payloadCache;
+}
+
+/** Every embedded path under a prefix (e.g. "skills/" or "templates/"). */
 export function embeddedUnder(prefix: string): Map<string, string> {
   const out = new Map<string, string>();
-  for (const [rawPath, ref] of Object.entries(EMBEDDED)) {
-    const path = rawPath.replace(/^(\.\.\/)+/, "");
+  for (const [path, ref] of payloadFiles()) {
     if (path.startsWith(prefix)) out.set(path, ref);
   }
   return out;
 }
 
-/** The skills canon proper: dot-entries under skills/ hold the generated chain
- *  bundle, payload for the plugin hosts and not a skill anyone loads. Materializing
- *  them writes a 33 KB build artifact in every canon and every mirror, counted as
- *  canon by doctor. One predicate, every consumer. */
+/** The skills canon: every file under skills/. */
 export function canonSkills(): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const [path, ref] of embeddedUnder("skills/")) {
-    if (path.slice("skills/".length).startsWith(".")) continue;
-    out.set(path, ref);
-  }
-  return out;
+  return embeddedUnder("skills/");
 }
 
 export type CanonDrift = { verified: number; drift: number; missing: number; stale: number; foreign: number };
@@ -410,10 +433,7 @@ function materializePrefix(prefix: string, destRoot: string, embedded = embedded
     assertInsideRoot(canonicalRoot, dest);
     // Everything under a link already refused is skipped: it is named once, by the link.
     if (linked.some((link) => pathIsWithin(link, dest))) continue;
-    const pathname = embeddedPath(ref);
-    // Inside a compiled binary the asset lives at its ORIGINAL absolute path —
-    // Bun --compile preserves the string. The ref is already the path.
-    const source = existsSync(pathname) ? pathname : ref;
+    const source = embeddedPath(ref);
     try {
       resolvedFromRef(source, dest, executablePattern, canonicalRoot);
     } catch (error) {
@@ -533,27 +553,21 @@ function readEmbeddedText(ref: string): string {
   return readFileSync(embeddedPath(ref), "utf8");
 }
 
-/** One embedded template, rendered with {{vars}}. Lookup by suffix so callers can
- *  use plain names ("AGENTS.md.tpl") regardless of the generated key prefix. */
+/** One embedded template by its name under templates/ ("AGENTS.md.tpl"), rendered with {{vars}}. */
 export function embeddedTemplate(name: string, vars: Record<string, string> = {}): string {
-  for (const [key, ref] of Object.entries(EMBEDDED)) {
-    if (key === `templates/${name}` || key === `../templates/${name}`) {
-      const content = readEmbeddedText(ref);
-      let out = content;
-      for (const [k, v] of Object.entries(vars)) out = out.split(`{{${k}}}`).join(v);
-      return out;
-    }
-  }
-  throw new Error(`template not embedded: ${name}`);
+  const ref = payloadFiles().get(`templates/${name}`);
+  if (!ref) throw new Error(`template not embedded: ${name}`);
+  let out = readEmbeddedText(ref);
+  for (const [k, v] of Object.entries(vars)) out = out.split(`{{${k}}}`).join(v);
+  return out;
 }
-/** Source of the chain bundle for in-process plugin hosts (P0-2). The bundle is
- *  generated by scripts/gen-assets.ts into skills/.chain-bundle/ and travels
- *  embedded like any other payload file — a self-contained module, not a
- *  pointer into src/ (whose relative imports die in a foreign repo). */
+
+/** Source of the chain bundle for in-process plugin hosts (P0-2): a self-contained module,
+ *  not a pointer into src/ (whose relative imports die in a foreign repo). Built by
+ *  scripts/chain-bundle.ts into generated/ and carried like any other payload file. */
 export function embeddedChainBundle(): string {
-  const bundled = embeddedUnder("skills/.chain-bundle/");
-  const ref = bundled.get("skills/.chain-bundle/ai-eng-chain.ts");
-  if (!ref) throw new Error("chain bundle not embedded — regenerate assets: bun scripts/gen-assets.ts");
+  const ref = payloadFiles().get("generated/chain/ai-eng-chain.ts");
+  if (!ref) throw new Error("chain bundle not built — run: bun scripts/chain-bundle.ts");
   return readEmbeddedText(ref);
 }
 

@@ -7,6 +7,8 @@
 import { readdirSync, existsSync, rmSync, unlinkSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { PAYLOAD_FOLDERS } from "../src/embed.ts";
+import { buildChainBundle } from "./chain-bundle.ts";
 
 const args = process.argv.slice(2);
 
@@ -43,9 +45,13 @@ function sweep(): number {
 const orphans = sweep();
 if (orphans > 0) console.log(`build: swept ${orphans} orphaned .bun-build scratch file(s)`);
 
+buildChainBundle();
+// The binary IS the payload (blueprint 07): every folder in PAYLOAD_FOLDERS travels inside
+// it at its own relative path, and src/embed.ts reads it back from there.
+const assets = PAYLOAD_FOLDERS.flatMap((folder) => ["--asset", folder]);
 const done = spawnSync(
   process.execPath,
-  ["build", "src/cli.ts", "--compile", "--minify", "--sourcemap", "--bytecode", "--outfile", outfile(args), ...args],
+  ["build", "src/cli.ts", "--compile", "--minify", "--sourcemap", "--bytecode", ...assets, "--outfile", outfile(args), ...args],
   { stdio: "inherit" },
 );
 

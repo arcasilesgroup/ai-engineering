@@ -25,8 +25,8 @@ bun run lint         # oxlint
 bun run typecheck    # oxlint --type-aware --type-check
 ```
 
-The binary is the payload: `skills/` and `templates/` travel inside it. If you
-touch either, run `bun scripts/gen-assets.ts` — the build breaks without it.
+The binary is the payload: `skills/`, `agents/` and `templates/` travel inside it as
+they are, so an edit there ships with the next build. Nothing to regenerate.
 
 To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
 

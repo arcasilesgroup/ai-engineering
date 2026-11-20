@@ -272,3 +272,25 @@ Status: Accepted · Date: 2026-11-20
 ### Alternatives considered
 
 - **Keep the questions with Yes as the default:** one Enter each, and a "no" still produced a repo governed by nothing. Rejected.
+
+## D-013: The binary carries its payload folders as they are
+
+Status: Accepted · Date: 2026-11-20
+
+### Context
+
+Three generated files were committed so the payload could ride inside the binary: `src/assets.ts` (one import per skill and template file), `scripts/.embed/` (`.txt` copies of skill scripts tsc would otherwise resolve) and `skills/.chain-bundle/` (the compiled chain, parked under `skills/` so the walk picked it up). Each change to a skill or to the chain meant regenerating and committing them, a test existed only to catch them stale, and the code skipped dot entries under `skills/` in five places to step around the bundle.
+
+### Decision
+
+`bun build --compile --asset <folder>` embeds `skills/`, `agents/`, `templates/` and `generated/` at their own relative paths, and `src/embed.ts` reads them by path: beside the binary's entry inside Bun's embedded filesystem when compiled, one level above `src/` from source. The tracked files are the one source of truth. The chain bundle is built into the ignored `generated/` folder by every compile, every `bun test` and every `npm pack`, and is never committed. Approved by the owner on 2026-11-20.
+
+### Consequences
+
+- Editing a skill or template needs no regeneration step; nothing generated is in git.
+- The payload root cannot come from `import.meta.dir`: `--bytecode` freezes it to the build machine's path. It comes from `Bun.main` when the binary carries embedded files.
+- The prepack script must stay silent on stdout, because the release job parses `npm pack --json`.
+
+### Alternatives considered
+
+- **Keep the generated registry, move the bundle out of `skills/`:** fixes the misplaced folder and keeps two committed generated files. Rejected.

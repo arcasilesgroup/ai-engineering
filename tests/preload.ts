@@ -1,6 +1,11 @@
 import { afterAll } from "bun:test";
 import { readdirSync, watch } from "node:fs";
+import { buildChainBundle } from "../scripts/chain-bundle.ts";
 import { SANDBOX_VARS, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
+
+// The chain bundle is a build artifact (generated/, never committed): rebuilt for every run
+// (~20 ms), so a test that installs a plugin carrier reads the chain as src/ has it now.
+buildChainBundle();
 
 // On Linux, Bun before 1.4.4 can miss a spawnSync child's exit when a garbage collection
 // runs during the wait (oven-sh/bun#47257, fixed by #44581): the call blocks until the

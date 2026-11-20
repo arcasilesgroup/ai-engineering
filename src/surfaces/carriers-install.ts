@@ -481,7 +481,8 @@ const AI_ENG_BUNDLE_HEADER = "// @bun\n";
 const AI_ENG_BUNDLE_TRAILER = 'export default "ai-eng-chain";';
 
 /** Remove the retired bundle when it is one of ours, judged by the header and trailer every
- *  generated bundle carries — never by the machine.json record, which says ai-eng wrote the
+ *  bundle the releases that wrote this path carried (the trailer was dropped once nothing
+ *  imported the bundle as a typed asset) — never by the machine.json record, which says ai-eng wrote the
  *  surface, not this file. A file a person put at that path is kept, before and after the
  *  surface is recorded. Never reported as a write: it is a file leaving, not arriving. */
 function retireScannedChain(): "removed" | "kept" | "refused" | "absent" {
