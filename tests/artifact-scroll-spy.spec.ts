@@ -1,6 +1,6 @@
 /**
  * The nav highlight is a behaviour, not a colour. `nav a.active` is painted in
- * the artifact shell, and docs/blueprint.html is the one page that actually
+ * the artifact shell, and docs/history/blueprint.html is the one page that actually
  * toggles it while scrolling. recap, brainstorm and research copy the shell
  * (the templates, plus the script block in artifact-design.md) and used to
  * ship the paint without the listener, so the titles never selected.

@@ -402,8 +402,9 @@ receipt and in the commit.
 - **`update` delegates the install.** One version read, then `bun add -g` or `npm install -g`
   if you agree; the file sync that follows makes no network request.
 
-The design document is [docs/blueprint.html](docs/blueprint.html). [The recap](docs/recap.html)
-is a historical snapshot; use this README and the source tree for current guidance.
+The early design document ([docs/history/blueprint.html](docs/history/blueprint.html)) and
+[the recap](docs/history/recap.html) are historical records; use this README and the source
+tree for current guidance.
 
 ## Troubleshooting
 
