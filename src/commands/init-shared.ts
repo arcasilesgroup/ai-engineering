@@ -17,7 +17,7 @@ export function repoTemplateRoot(): string {
 
 /** One line for a file we were asked to merge into and could not. The file is left
  *  exactly as it was — and the line says what that costs, because a surface whose
- *  settings file could not be merged has no hooks behind it (§13). */
+ *  settings file could not be merged has no hooks behind it. */
 export function refuseLine(refused: { path: string; reason: string }): string {
   if (refused.reason === "identity-bound-settings-mutation-unavailable") {
     return `⚠ ${refused.path} — changed while ai-eng was writing it, or it is a hard link with a second name; left untouched, so this surface runs without guards — run ai-eng init again`;
@@ -139,7 +139,7 @@ export const AZURE_PORTAL_STEPS: Row[] = [
 
 /** The merge gate for one CI provider. It belongs to the project, not to one editor:
  *  it once hung off the claude-code case, so choosing any other surface installed
- *  guards and adapters with no workflow at all, and nothing said so (§17). */
+ *  guards and adapters with no workflow at all, and nothing said so. */
 export function ciEntries(provider: CiProvider): PlanEntry[] {
   if (provider === "github-actions") return [{ path: ".github/workflows/ai-eng-check.yml", ours: embeddedTemplate("ci.yml.tpl") }];
   if (provider === "azure-pipelines") return [{ path: AZURE_PIPELINE_PATH, ours: embeddedTemplate("azure-pipelines.yml.tpl") }];
@@ -165,10 +165,10 @@ export function planEntries(surfaces: string[], ci: CiProvider): PlanEntry[] {
 /** The files ONE surface generates INSIDE the repo: only the carriers whose readers
  *  live in the checkout (Cursor cloud). The other hosts read
  *  from the user's home, and `installMachineCarriers()` writes those once per machine —
- *  a repo that still carried them would be carrying a hook file nobody reads (§13.2).
+ *  a repo that still carried them would be carrying a hook file nobody reads.
  *
  *  A settings carrier is `merge: true`: it can be a file the user already owns, so ours
- *  go in by marker and the file is never written whole (§03). */
+ *  go in by marker and the file is never written whole. */
 function surfaceEntries(id: string): PlanEntry[] {
   const surface = SURFACES.find((s) => s.id === id);
   const placement = surface ? repoCarrier(surface) : null;

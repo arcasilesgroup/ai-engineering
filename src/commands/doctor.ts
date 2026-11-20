@@ -1,6 +1,6 @@
 // `ai-eng doctor` — 12 checks + one real test. The difference with theater: it
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
-// deny, or denies slow, is FAIL — not WARN (§14.2).
+// deny, or denies slow, is FAIL — not WARN.
 import { canonDrift } from "../embed.ts";
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
@@ -56,7 +56,7 @@ function checkConfig(gap: string | null, surfaces: string[]): CheckResult {
 
 async function checkMirrors(root: string | null): Promise<CheckResult | null> {
   // 3b. Skill mirrors: the canon only reaches IDEs through them. A mirror dir
-  //    missing its links is the P0-1 failure mode (silent ENOENT in installCanon).
+  //    missing its links fails in silence (an ENOENT inside installCanon).
   if (!root) return null;
   const { mirrorTargets } = await import("../surfaces/canon-install.ts");
   const mirrors = mirrorTargets();
@@ -102,7 +102,7 @@ function checkCanon(): CheckResult {
 
 function checkAssets(root: string | null): CheckResult | null {
   // 4b. Assets outdated: the installed lock records which binary version installed
-  //    it. Binary newer than lock → the repo runs stale hooks (§14.2: distinct
+  //    it. Binary newer than lock → the repo runs stale hooks (distinct
   //    from "a newer binary exists" — only update fixes this one).
   const lockPath = root ? join(root, ".ai-engineering", "ai-eng.lock") : null;
   if (!lockPath || !existsSync(lockPath)) {
@@ -287,9 +287,9 @@ function checkReceipts(root?: string | null): CheckResult {
 }
 
 function checkOverrides(root: string | null): CheckResult {
-  // 8. overrides: active → permanent WARN until they expire (§12.1); expired → the
+  // 8. overrides: active → permanent WARN until they expire; expired → the
   //    guard is live again but the entry is still dead config, so it is named with
-  //    the fix. §14.2 shows the days left; §14.5b wants the action, not just the fact.
+  //    the fix. The row shows the days left and the action, not just the fact.
   const overrides = readOverrides(root);
   const now = Date.now();
   const described = overrides.map((entry) => {
@@ -377,7 +377,7 @@ function checkArch(root: string | null): CheckResult {
 function checkSpecSlot(root: string | null): CheckResult {
   // 10. milestone slots: a live contract, and the artifacts a dead one leaves behind.
   //     A milestone that never opened a contract has no live contract to close, so its
-  //     brainstorm.html would stay immortal and doctor would call the slot clean (§21.2) —
+  //     brainstorm.html would stay immortal and doctor would call the slot clean —
   //     which is why orphans are reported.
   const specPath = root ? join(root, ".ai-engineering", "spec.html") : null;
   const hasContract = specPath !== null && existsSync(specPath);
@@ -385,7 +385,7 @@ function checkSpecSlot(root: string | null): CheckResult {
     const lockPath = join(root ?? "", ".ai-engineering", "ai-eng.lock");
     const pinned = existsSync(lockPath) ? Boolean(parseLock(readFileSync(lockPath, "utf8")).spec_sha256) : false;
     // A pre-rename brainstorm.md under a live contract is stale slot material: the
-    // slot is brainstorm.html since the artifact design landed (§21.2). Name it so
+    // slot is brainstorm.html since the artifact design landed. Name it so
     // the session deletes or migrates it instead of leaving it immortal.
     const legacy = root && existsSync(join(root, ".ai-engineering", "brainstorm.md"));
     if (pinned && legacy) return { name: "spec slot", status: "warn", detail: "contract approved (sha256 in lock) · legacy brainstorm.md present — migrate to brainstorm.html or delete it" };
@@ -447,7 +447,7 @@ function checkSurfaces(root: string | null, surfaces: string[]): CheckResult[] {
       } else if (machine.kind === "module") {
         // A missing chain bundle beside a current entry is drift, not a crash: the
         // half-installed module host is exactly the state this check exists to report,
-        // and a health check that throws on it reports nothing at all (§14.2).
+        // and a health check that throws on it reports nothing at all.
         const chainPath = machine.chain === undefined ? null : carrierPath(machine, machine.chain);
         const chainDrift =
           chainPath !== null && files.chain !== null && (!existsSync(chainPath) || readFileSync(chainPath, "utf8") !== files.chain);
@@ -519,7 +519,7 @@ function checkMachineState(surfaces: string[]): CheckResult | null {
 }
 
 function checkBehaviors(root: string | null): CheckResult {
-  // 12. behaviors lint (§21.5) — same frontmatter rules as skills.
+  // 12. behaviors lint — same frontmatter rules as skills.
   const behaviorsDir = root ? join(root, ".agents", "behaviors") : null;
   if (behaviorsDir && existsSync(behaviorsDir)) {
     const bad: string[] = [];
@@ -562,7 +562,7 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
 }
 
 /** The files whose citation protects an artifact from gc. spec.html, plan.html and
- *  brainstorm.html die at close, so immunity they granted would die with them (§21.3). */
+ *  brainstorm.html die at close, so immunity they granted would die with them. */
 const PERMANENT_GOVERNORS = ["DECISIONS.md", "NOTICE", join(".ai-engineering", "arch.rules.json")];
 
 /** Cited by a working file that outlives the milestone — the only immunity there is.
@@ -826,7 +826,7 @@ export async function doctorMain(flags: { gc?: boolean; cwd?: string }): Promise
   const { results, fail } = await runChecks(flags.cwd);
   spin.stop();
   // One block per status — the eye scans three ideas, not twelve lines
-  // (the ✓/▲/✗ families of §14.2).
+  // (the ✓/▲/✗ families).
   const toRow = (r: CheckResult): ui.Row => ({ mark: r.status, text: `${r.name} · ${r.detail}` });
   const oks = results.filter((r) => r.status === "ok");
   const warns = results.filter((r) => r.status === "warn");

@@ -1,10 +1,10 @@
 import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { spawnSync, execFileSync } from "node:child_process";
 import { PassThrough } from "node:stream";
-// `ai-eng init` — one verb, two phases (§14.0a). Outside a repo: phase 1, the
+// `ai-eng init` — one verb, two phases. Outside a repo: phase 1, the
 // machine (canon + mirrors). Inside a repo: both phases — first the canon (missing
 // is installed, never aborts), then the project contract. Idempotent: re-init
-// offers update/config/exit, never overwrites an edited file (§14.5b's six paths).
+// offers update/config/exit, never overwrites an edited file.
 // A first init that meets a foreign AGENTS.md names it and asks before replacing it.
 // Every line a human sees goes through src/ui.ts: the frame must survive the
 // whole flow (cli-ux-14 work point 02).
@@ -177,7 +177,7 @@ async function ensureRepo(
   cwd: string,
   confirmWithInput: ConfirmInput,
 ): Promise<number | null> {
-  // Outside a repo: a bare folder is not a refusal — §14.1 runs init in a bare
+  // Outside a repo: a bare folder is not a refusal — init runs in a bare
   // folder and init creates the repo itself (confirm, or --yes to proceed).
   if (!inRepo) {
     const ok = flags.yes === true || (await confirmWithInput("No git repo here. Create one? (git init -q)", true));
@@ -202,7 +202,7 @@ async function reinitHandoff(
   cwd: string,
   input: NodeJS.ReadStream | PassThrough,
 ): Promise<number | null> {
-  // ── Phase 2: the repo is governed — idempotent re-init never tramples your work (§14.5b).
+  // ── Phase 2: the repo is governed — idempotent re-init never tramples your work.
   if (existsSync(join(cwd, ".ai-engineering", "config.toml"))) {
     // --yes resolves the hand-off question: rewrite ours, never yours. Without
     // it, a non-TTY stdin cancels the select and init exits having installed
@@ -279,7 +279,7 @@ async function pickCi(flags: InitFlags, cwd: string, input: NodeJS.ReadStream | 
 
 /** Refuse a surface this release cannot actually enforce, before any promise is printed. */
 function validateSurfaces(picked: string[]): number | null {
-  // Abort before promising what a surface cannot deliver (§13): one that cannot deny
+  // Abort before promising what a surface cannot deliver: one that cannot deny
   // has nowhere for the guards to run, and one with no adapter would be declared in
   // config.toml with nothing to enforce it.
   for (const id of picked) {
@@ -349,7 +349,7 @@ async function scaffoldAndCarriers(
 /** Write the machine carriers for the surfaces that read their hooks from the user's home. */
 function installCarriers(picked: string[], rows: ui.Row[]): void {
   // Five of the seven hosts read their carrier from the user's home, so that is where it
-  // goes — once per machine, not once per repo (§13.2). Never asked (D-012): a surface
+  // goes — once per machine, not once per repo. Never asked (D-012): a surface
   // without its carrier runs with no guards at all, which is not what `init` was for, and
   // the merge keeps every setting of the person's own.
   const machineScoped = picked.filter((id) => {
