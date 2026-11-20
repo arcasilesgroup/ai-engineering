@@ -1,6 +1,6 @@
 // `ai-eng wrap test --base64 <cmd>` — the deterministic filter the guard rewrites to.
 // Runs the REAL command (vitest gets its JSON reporter), prints only failures
-// grouped by file (§15): 14 tests → 3 blocks, ~85% less context. Always prints its
+// grouped by file: 14 tests → 3 blocks, ~85% less context. Always prints its
 // line with the receipt id — the trace must not lie about which command ran.
 
 import { spawnSync } from "node:child_process";

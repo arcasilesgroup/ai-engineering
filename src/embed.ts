@@ -1,4 +1,4 @@
-// The binary IS the payload (blueprint 07): init/update/installCanon read every
+// The binary IS the payload: init/update/installCanon read every
 // skill and template from the payload folders the binary carries — never from the network.
 
 import { randomBytes } from "node:crypto";
@@ -562,7 +562,7 @@ export function embeddedTemplate(name: string, vars: Record<string, string> = {}
   return out;
 }
 
-/** Source of the chain bundle for in-process plugin hosts (P0-2): a self-contained module,
+/** Source of the chain bundle for in-process plugin hosts: a self-contained module,
  *  not a pointer into src/ (whose relative imports die in a foreign repo). Built by
  *  scripts/chain-bundle.ts into generated/ and carried like any other payload file. */
 export function embeddedChainBundle(): string {

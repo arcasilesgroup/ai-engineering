@@ -1,4 +1,4 @@
-// Entry for `ai-eng git <hook>` — the floor the 3-line shims exec into (§13.2).
+// Entry for `ai-eng git <hook>` — the floor the 3-line shims exec into.
 // commit-msg needs the receipt for its trailer; pre-commit/pre-push stay dry and fast.
 
 import { repoRoot, isGoverned } from "../env.ts";

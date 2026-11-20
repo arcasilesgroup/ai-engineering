@@ -11,7 +11,7 @@ let frameOpen = false;
 
 /** Open the frame: `┌  <title>` with repo/runtime context baked by the caller.
  *  A no-op when a frame is already open — a verb handed off mid-story (init →
- *  update) keeps ONE frame, like §14.3's continuous mockup. */
+ *  update) keeps ONE frame. */
 export function frame(title: string): void {
   if (frameOpen) {
     info(title);
@@ -114,7 +114,7 @@ function wrapMessage(message: string): string {
 /** One concept, one clack block: `│ ◆ Title · note` then the whole body
  *  inside a single log.message — every row rides the same spine line, so a
  *  list of related facts reads as ONE idea, not N staccato events. The mark
- *  grammar stays §14.2: the frame's own glyphs, no emoji. */
+ *  grammar is the frame's own glyphs, no emoji. */
 export function section(title: string, rows: readonly Row[] = [], note?: string): void {
   const head = `${styleText("bold", title)}${typeof note === "string" && note.length > 0 ? styleText("dim", `  ·  ${note}`) : ""}`;
   log.message([head, ...rows.map((row) => wrapMarked(renderRow(row)))].join("\n"), { symbol: MARKS.head });
@@ -153,7 +153,7 @@ export function info(message: string): void {
 }
 
 /** `│  ▲ <message>` — attention; the frame holds, only a security or quality
- *  failure blocks the step (§12). */
+ *  failure blocks the step. */
 export function warn(message: string): void {
   log.message(wrapMessage(message), { symbol: MARKS.warn });
 }

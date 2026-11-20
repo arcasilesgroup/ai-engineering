@@ -1,5 +1,5 @@
-// Test-command detector → input rewrite. The only primitiva universal: rewrite the
-// command BEFORE it runs, then let the deterministic filter print only failures (§15).
+// Test-command detector → input rewrite. The one primitive every host has: rewrite the
+// command BEFORE it runs, then let the deterministic filter print only failures.
 
 const RUNNERS = /\b(vitest|jest|playwright|turbo\s+run\s+test|bun\s+test|npm\s+test|npm\s+run\s+test|yarn\s+test|pnpm\s+test|pytest|go\s+test|cargo\s+test)\b/;
 const SKIPS = /(--watch|--ui|--help|-h\b|--list|--reporter|&\s*$|\|\s*[^|]*$|\bgrep\b|\btail\b|\bhead\b)/;

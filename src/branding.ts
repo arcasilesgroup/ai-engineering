@@ -1,4 +1,4 @@
-// §22 branding — the terminal identity of ai-eng. The palette is NOT declared here:
+// Branding — the terminal identity of ai-eng. The palette is NOT declared here:
 // it is generated from brand/tokens.json into src/theme.ts, so the CLI, the docs and
 // the landing site can never drift into three different greens.
 //

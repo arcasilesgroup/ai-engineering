@@ -58,7 +58,7 @@ type GovernanceGap = "no-repo" | "no-config" | "corrupt-config" | "no-surfaces";
  *  alone is not enough: `loadConfig()` answers `{}` for a TOML it cannot read and
  *  `enabledSurfaces()` then falls back to ["claude-code"], so a zero-byte file
  *  would be a governed repo running the strictest policy off the emptiest file
- *  (F2). Nothing else in the codebase may answer this question (§A). */
+ *  Nothing else in the codebase may answer this question. */
 export function declaration(root: string | null = repoRoot()): { surfaces: string[] } | { gap: GovernanceGap } {
   if (root === null) return { gap: "no-repo" };
   const path = configPath(root);
@@ -122,7 +122,7 @@ export function adoptSession(id: unknown): void {
   if (typeof id === "string" && id.trim()) SESSION_STATE.set("session", id.trim());
 }
 
-/** Where the installed version cache lives (24h update check, §14.0). */
+/** Where the installed version cache lives (24h update check). */
 export function versionFile(): string {
   return join(home(), "version.json");
 }

@@ -1,5 +1,5 @@
 // --no-verify, and everything else that skips .git/hooks — plus every linter silence
-// (§10's SILENCES row), because silencing a check is the same act as skipping a hook.
+// too, because silencing a check is the same act as skipping a hook.
 
 import { basename, resolve, isAbsolute, join } from "node:path";
 import { realpathSync } from "node:fs";

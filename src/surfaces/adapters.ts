@@ -31,14 +31,14 @@ export type Surface = {
      *  tool calls" about a host that can. */
     readonly deny: boolean | "throw" | "host-only";
     readonly rewriteOut: boolean | "total-replacement";
-    /** The native goal loop (§20.3) — "unverified" means plausible but never
+    /** The native goal loop — "unverified" means plausible but never
      *  measured with a receipt, "none" that the human loop is the honest mode
      *  there (Pi: extensions only; Zed: skills-only). Nothing is "native" until
      *  a receipt says so, and the field never guesses upward. */
     readonly loop: "native" | "unverified" | "none";
     /** The measurement behind `loop` — the installed version and the flag that
      *  grants it. A claim about a surface carries its evidence or it is a guess:
-     *  the registry test refuses `native` and `none` without one (§20.3). */
+     *  the registry test refuses `native` and `none` without one. */
     readonly loopEvidence?: string;
   };
   readonly carriers: readonly Carrier[];
@@ -46,10 +46,9 @@ export type Surface = {
 };
 
 /** Where a host READS its carrier, and the evidence for it. A path claimed from memory
- *  is the failure this table exists to end: ai-engineering wrote the OMP carrier into
- *  `.agents/hooks/`, which OMP never reads, and doctor called it green (§13.2). Every
- *  path here carries its source and the date it was read, so a stale claim is a delta
- *  against a recorded measurement instead of against somebody's memory. */
+ *  fails in silence: a carrier written where the host never reads it, with doctor green.
+ *  Every path here carries its source and the date it was read, so a stale claim is a
+ *  delta against a recorded measurement instead of against somebody's memory. */
 export type Carrier = {
   /** `machine` = the user's home, written once per machine; `repo` = inside the
    *  governed repo, for the readers that only exist there. */
@@ -110,7 +109,7 @@ export function carrierPath(placement: Carrier, relative?: string): string {
 /** surface id → the entry template and whether the host needs the chain bundle
  *  beside it. Copilot fails CLOSED on a missing binary, in both scopes, so its one
  *  template guards the call per shell (`bash` and `powershell`). Null for a surface
- *  with no generator (§13: no adapter, no offer). */
+ *  with no generator: no adapter, no offer. */
 const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean; isExitStatusRead?: boolean }> = {
   // Claude denies by exit status (2); every other JSON host reads the verdict from stdout.
   "claude-code": { main: "settings.claude.json.tpl", chain: false, isExitStatusRead: true },
@@ -228,7 +227,7 @@ export function surfaceDialect(id: string | undefined): Dialect {
 }
 
 /** init aborts if the chosen surface cannot carry a required guard: better not to
- *  promise than to promise falsely (§13). */
+ *  promise than to promise falsely. */
 export function surfaceCanGovern(surface: Surface): boolean {
   // Only the hosts that RUN us can be governed: a host that denies on its own, without
   // calling our chain, has nowhere for a guard to stand.
