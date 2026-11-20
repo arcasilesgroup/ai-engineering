@@ -13,6 +13,7 @@ import { isDeepStrictEqual } from "node:util";
 import { printable } from "../env.ts";
 import { assertCheckpointTransition, checkpointFileIdentity, parseCheckpoint, readCheckpoint, serializeCheckpoint, type Checkpoint, type CheckpointContext } from "../workflow/checkpoint.ts";
 import { resolveContext } from "./context.ts";
+import { MERGED_KEY } from "./lanes.ts";
 import { commitIdentityEnv, runGit, type GitResult } from "./run.ts";
 import {
   canonicalize,
@@ -41,6 +42,12 @@ const SHA = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 function git(cwd: string, args: string[]): GitResult {
   return runGit(args, { cwd, isolated: true });
+}
+
+/** Leaves the landing proof `ai-eng work` reads: this branch, at this tip, is merged. Best
+ *  effort: the merge is already published, and a missing note only costs a slower proof. */
+function recordMerged(repo: string, source: ReadySource): void {
+  git(repo, ["config", `branch.${source.branch}.${MERGED_KEY}`, source.featureTip]);
 }
 
 function fullCommit(cwd: string, revision: string): string | null {
@@ -549,6 +556,7 @@ export function worktreeMerge(slug: string, cwd = process.cwd()): { code: number
           canonicalize(context.root),
         )
         : [`${canonicalize(context.root)}: left untouched (base advanced from ${publishedMerge} to ${currentBase ?? "unreadable"})`];
+      recordMerged(repo, source);
       return {
         code: 0,
         out: `✓ merged ${slug} at ${publishedMerge} into ${source.baseRef}; the feature checkout remains at ${source.path}. When ready, remove it with \`ai-eng worktree rm ${slug}\`.\n`,
@@ -689,6 +697,7 @@ export function worktreeMerge(slug: string, cwd = process.cwd()): { code: number
   if (cleanup !== null) {
     return { code: 1, out: "", err: `worktree merge: ${mergeCommit} is published, but ${cleanup}; preserve the feature checkout.\n` };
   }
+  recordMerged(repo, source);
   return {
     code: 0,
     out: `✓ merged ${slug} at ${mergeCommit} into ${source.baseRef}; the feature checkout remains at ${source.path}. When ready, remove it with \`ai-eng worktree rm ${slug}\`.\n`,
