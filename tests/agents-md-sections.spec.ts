@@ -8,7 +8,7 @@ import { join } from "node:path";
 const ROOT = join(import.meta.dir, "..");
 const TEMPLATE = join(ROOT, "templates", "AGENTS.md.tpl");
 const DOCTOR = join(ROOT, "src", "commands", "doctor.ts");
-const SKILL = join(ROOT, "skills", "ai-agents-md", "SKILL.md");
+const SKILL = join(ROOT, "skills", "ai-refresh-project", "references", "agents-md.md");
 
 const REQUIRED_HEADINGS = [
   "Project config",
@@ -59,7 +59,7 @@ describe("workflow kit — AGENTS.md sections and doctor ceiling", () => {
     expect(doctor).not.toContain("lines <= 80");
   });
 
-  test("ai-agents-md skill names the four headings in its section list", () => {
+  test("ai-refresh-project names the four headings in its AGENTS.md section list", () => {
     const skill = readFileSync(SKILL, "utf8");
     for (const heading of REQUIRED_HEADINGS) {
       expect(skill).toContain(heading);

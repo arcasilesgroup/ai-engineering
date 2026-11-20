@@ -14,7 +14,6 @@ import { initMain } from "./commands/init.ts";
 import { updateMain } from "./commands/update.ts";
 import { uninstallMain } from "./commands/uninstall.ts";
 import { configMain } from "./commands/config.ts";
-import { adaptMain } from "./commands/adapt.ts";
 import { worktreeMain } from "./commands/worktree.ts";
 import { workMain } from "./commands/work.ts";
 import { wrapMain } from "./wrap/index.ts";
@@ -137,7 +136,6 @@ const verbMain: Record<string, () => number | Promise<number>> = {
     if (typeof flags.ci === "string") configFlags.ci = flags.ci;
     return configMain(configFlags);
   },
-  adapt: () => adaptMain(flags._.slice(1).map(String)),
   update: () => updateMain({ yes: flags.yes === true }),
   work: () => workMain(flags._.slice(1).map(String), { json: flags.json === true, ...(typeof flags.until === "string" ? { until: flags.until } : {}) }),
   uninstall: () => uninstallMain(),

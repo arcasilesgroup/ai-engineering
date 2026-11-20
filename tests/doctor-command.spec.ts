@@ -694,17 +694,17 @@ describe("doctor · arch", () => {
     writeFileSync(join(root, "go.mod"), "module example.com/x\n");
     run = await doctor();
     expect(row(run, "arch")).toContain("▲");
-    expect(detail(run, "arch")).toBe("no layer rules — run /ai-config-to-project to propose them");
+    expect(detail(run, "arch")).toBe("no layer rules — run /ai-refresh-project to propose them");
   });
 
   test("each language's standard tool holds the rules, and an empty legacy file holds none", async () => {
     const { root } = sandbox();
     mkdirSync(join(root, "src"));
     writeFileSync(join(root, ".ai-engineering", "arch.rules.json"), '{"layers": {}, "rules": []}');
-    expect(detail(await doctor(), "arch")).toBe("no layer rules — run /ai-config-to-project to propose them");
+    expect(detail(await doctor(), "arch")).toBe("no layer rules — run /ai-refresh-project to propose them");
 
     writeFileSync(join(root, ".golangci.yml"), "linters:\n  enable: [govet]\n");
-    expect(detail(await doctor(), "arch")).toBe("no layer rules — run /ai-config-to-project to propose them");
+    expect(detail(await doctor(), "arch")).toBe("no layer rules — run /ai-refresh-project to propose them");
     writeFileSync(join(root, ".golangci.yml"), "linters:\n  enable: [depguard]\n");
     expect(detail(await doctor(), "arch")).toBe("layer rules in .golangci.yml");
     rmSync(join(root, ".golangci.yml"));

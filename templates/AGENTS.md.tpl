@@ -67,7 +67,7 @@ See **Where to work** for checkout, worktree, and integration choices. `.ai-engi
 - Record spoken approval in the artifact and follow its next step. Never ask for a command or approve yourself.
 
 ## Architecture layers
-Layer rules live in the config of this language's own dependency tool, proposed by `/ai-config-to-project`. Change them by PR, never in silence to make a check pass.
+Layer rules live in the config of this language's own dependency tool, proposed by `/ai-refresh-project`. Change them by PR, never in silence to make a check pass.
 
 ## Voice
 - Follow `ai-write`'s `references/voice.md` (shipped in the binary and skill canon).

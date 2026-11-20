@@ -481,7 +481,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     for (const [key, value] of Object.entries(JSON.parse(machineSettingsBefore) as Record<string, unknown>)) {
       expect((JSON.parse(machineSettingsMerged) as Record<string, unknown>)[key]).toEqual(value);
     }
-    expect(out).toContain("run /ai-config-to-project once there is code"); // layer rules are judgement (D-014)
+    expect(out).toContain("run /ai-refresh-project once there is code"); // layer rules are judgement (D-014)
   });
 
   test("init leaves the existing commit alone, spawns no commit, and leaves global config untouched", async () => {

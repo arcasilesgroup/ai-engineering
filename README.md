@@ -169,8 +169,8 @@ GitHub releases separately ship compiled binaries for eight targets.
 5. **Keep working.** Open your agent and give it a task. Tool calls intercepted by the
    configured surface pass through the chain first.
 
-Optional, and worth it once: open the repo in your agent and run `/ai-config-to-project`. That
-skill adapts the rules and the architecture contract to this tree.
+Optional, and worth it once: open the repo in your agent and run `/ai-refresh-project`. That
+skill brings `AGENTS.md`, the docs, the layer rules and the config in line with this tree.
 
 ## How a tool call is decided
 
@@ -261,14 +261,12 @@ asked out loud, once. The UI trigger uses the `ai-audit-design` skill.
 | Skill | What it does |
 |---|---|
 | `ai-adversarial-loop` | Multi-round debate between a critic and a fixer until the code is clean. The review gate inside the orchestrator |
-| `ai-agents-md` | Creates, audits and maintains the `AGENTS.md` a repository owes its coding agents |
 | `ai-architect` | Research and advice on approach, stack, cost tradeoffs and prior art, before the build starts |
 | `ai-audit-code` | Forces the laziest solution that works: simplest, shortest, fewest dependencies |
 | `ai-audit-design` | Finds and fixes visual defects in a rendered page with measurements, not opinions |
 | `ai-audit-docs` | Audits documentation against the repo: dead links, false claims, stale versions |
 | `ai-brainstorm` | Interrogates a fuzzy idea until it can be said in plain language, then gates it for approval |
 | `ai-codegraph` | Semantic code intelligence: call chains, blast radius, cross-file relationships |
-| `ai-config-to-project` | Adapts the architecture rules, config, overrides and `AGENTS.md` to a governed tree after `init` |
 | `ai-debug` | Names the root cause at `file:line`, then writes the check that fails for that reason before the fix |
 | `ai-design-md-planner` | Writes a `DESIGN.md` design system and audits it with the official CLI until it lints clean |
 | `ai-explore` | Answers "where does this live" from the repository, anchored to `file:line` |
@@ -279,6 +277,7 @@ asked out loud, once. The UI trigger uses the `ai-audit-design` skill.
 | `ai-pr` | The pull-request loop: cut, push, open, watch CI, merge. Your verb decides how far it goes |
 | `ai-prototype` | Builds a single-file, clickable HTML prototype of a screen or flow |
 | `ai-read-docs` | Forces a documentation pass before you depend on versioned or external behaviour |
+| `ai-refresh-project` | Brings `AGENTS.md`, the docs, stale artifacts, orphan branches and the governance files back in line with the tree |
 | `ai-research` | Answers from outside the repository with numbered citations, or marks the claim `[unsourced]` |
 | `ai-review-ui` | Screenshots the live UI and its prototype, then diffs them for visual and behavioural gaps |
 | `ai-security` | Six-phase security audit, validated adversarially: the verifier is never the finder |
@@ -320,8 +319,8 @@ governed repo and choosing "config", rewrite only the `enabled` key under `[surf
 as you wrote it. When the file declares surfaces in a layout that command cannot rewrite
 that way, such as a dotted `surfaces.enabled` key or an inline `surfaces = { … }` table, it
 writes nothing, exits non-zero and asks you to edit `enabled` under `[surfaces]` by hand.
-`ai-eng adapt apply` is disabled: a proposal's hash cannot prove that a person approved it,
-so you apply an approved proposal by hand, outside the governed agent session.
+A governance change an agent proposes (`/ai-refresh-project` writes it as a page) is applied
+by hand, outside the governed agent session.
 
 ## Surfaces
 
@@ -351,8 +350,8 @@ ai-eng uninstall   # revert ours, keep yours
 
 `ai-eng update` installs a newer package with bun or npm, after asking you.
 
-Five machine verbs for hooks, CI and agents: `chain`, `git`, `wrap`, `worktree`,
-`adapt`. `--help` names them on one line. The three you will meet in the README:
+Four machine verbs for hooks, CI and agents: `chain`, `git`, `wrap`, `worktree`.
+`--help` names them on one line. The three you will meet in the README:
 
 ```bash
 echo "$PAYLOAD" | ai-eng chain PreToolUse       # the guard dispatcher, reads the host payload on stdin

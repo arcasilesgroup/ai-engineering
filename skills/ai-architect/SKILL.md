@@ -454,7 +454,7 @@ Cap high-priority items at five. Keep the report direct and useful; do not bury 
 ## The ai-engineering seam
 
 1. When the recommendation includes architecture rules worth enforcing, hand them to
-   `/ai-config-to-project`: it writes them for the language's own dependency tool, and the
+   `/ai-refresh-project`: it writes them for the language's own dependency tool, and the
    person applies them by PR. Never auto-write rules.
 2. Model routing follows the pin's tiers: mechanical sub-steps go cheap, the judgment
    calls stay on the strong model.
@@ -467,7 +467,7 @@ Lane: full
 Trigger: arch-change
 Trigger kind: judgment
 Trigger when: the milestone adds a subsystem, changes a layer contract, or points a dependency a different way
-Writes: nothing — layer rules go through /ai-config-to-project
+Writes: nothing — layer rules go through /ai-refresh-project
 Read by: ai-orchestrator
 Dies: on completion
 Next: ai-orchestrator

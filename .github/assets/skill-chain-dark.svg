@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1090" width="1400" height="1090" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1132" width="1400" height="1132" role="img">
 <defs>
 <marker id="head" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="#00ED64"/></marker>
 </defs>
-<rect width="1400" height="1090" fill="#001E2B"/>
-<defs><radialGradient id="tint" cx="50%" cy="0%" r="72%"><stop offset="0%" stop-color="#00ED64" stop-opacity="0.07"/><stop offset="100%" stop-color="#00ED64" stop-opacity="0"/></radialGradient></defs><rect width="1400" height="1090" fill="url(#tint)"/><path d="M 585 66 L 625 66" stroke="#00ED64" stroke-width="1.5"/>
+<rect width="1400" height="1132" fill="#001E2B"/>
+<defs><radialGradient id="tint" cx="50%" cy="0%" r="72%"><stop offset="0%" stop-color="#00ED64" stop-opacity="0.07"/><stop offset="100%" stop-color="#00ED64" stop-opacity="0"/></radialGradient></defs><rect width="1400" height="1132" fill="url(#tint)"/><path d="M 585 66 L 625 66" stroke="#00ED64" stroke-width="1.5"/>
 <text x="639" y="71" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00ED64" font-weight="700" letter-spacing="2.4">THE ORCHESTRATOR LOOP</text>
 <text x="690" y="142" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="42" fill="#FFFFFF" font-weight="800" text-anchor="end">One loop.</text>
 <text x="710" y="142" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="42" fill="#00ED64" font-weight="800" text-anchor="start">Everything else is optional.</text>
@@ -72,48 +72,66 @@
 <text x="1061" y="798" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#C1C7C6">optional · the diff, as a page</text>
 <text x="700" y="866" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" fill="#889397" text-anchor="middle">Every skill is optional except the loop · bring your own skills, and run them beside any other harness</text>
 <text x="40" y="916" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00ED64" font-weight="700" letter-spacing="1.8">ON DEMAND · ANYWHERE IN THE CHAIN</text>
-<rect x="40" y="932" width="181.14000000000001" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="130.57" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-adversarial-loop</text>
-<rect x="233.14000000000001" y="932" width="124.72" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="295.5" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-agents-md</text>
-<rect x="369.86" y="932" width="132.78" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="436.25" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-audit-code</text>
-<rect x="514.64" y="932" width="148.9" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="589.09" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-audit-design</text>
-<rect x="675.54" y="932" width="132.78" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="741.93" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-audit-docs</text>
-<rect x="820.3199999999999" y="932" width="140.84" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="890.7399999999999" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-code-review</text>
-<rect x="973.16" y="932" width="124.72" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="1035.52" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-codegraph</text>
-<rect x="1109.8799999999999" y="932" width="189.20000000000002" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="1204.4799999999998" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-config-to-project</text>
-<rect x="40" y="974" width="92.48" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="86.24000000000001" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-debug</text>
-<rect x="144.48000000000002" y="974" width="189.20000000000002" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="239.08000000000004" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-design-md-planner</text>
-<rect x="345.68000000000006" y="974" width="108.60000000000001" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="399.9800000000001" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-explore</text>
-<rect x="466.2800000000001" y="974" width="140.84" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="536.7" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-git-cleanup</text>
-<rect x="619.1200000000001" y="974" width="156.96" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="697.6000000000001" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-github-triage</text>
-<rect x="788.0800000000002" y="974" width="148.9" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="862.5300000000002" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-issue-report</text>
-<rect x="948.9800000000001" y="974" width="84.42" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="991.1900000000002" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-note</text>
-<rect x="1045.4" y="974" width="68.30000000000001" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="1079.5500000000002" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-pr</text>
-<rect x="1125.7" y="974" width="124.72" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="1188.06" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-prototype</text>
-<rect x="40" y="1016" width="124.72" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="102.36" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-read-docs</text>
-<rect x="176.72" y="1016" width="124.72" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="239.07999999999998" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-review-ui</text>
-<rect x="313.44" y="1016" width="140.84" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="383.86" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-stress-test</text>
-<rect x="466.28" y="1016" width="148.9" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="540.73" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-test-planner</text>
-<rect x="627.18" y="1016" width="181.14000000000001" height="30" rx="7" fill="#112733" stroke="#25505F"/>
-<text x="717.75" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-writing-behavior</text>
+<rect x="40" y="932" width="108.60000000000001" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="94.30000000000001" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">a11y-audit</text>
+<rect x="160.60000000000002" y="932" width="181.14000000000001" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="251.17000000000002" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-adversarial-loop</text>
+<rect x="353.74" y="932" width="132.78" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="420.13" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-audit-code</text>
+<rect x="498.52" y="932" width="148.9" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="572.97" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-audit-design</text>
+<rect x="659.42" y="932" width="132.78" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="725.81" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-audit-docs</text>
+<rect x="804.1999999999999" y="932" width="124.72" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="866.56" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-codegraph</text>
+<rect x="940.92" y="932" width="92.48" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="987.16" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-debug</text>
+<rect x="1045.3999999999999" y="932" width="189.20000000000002" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="1139.9999999999998" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-design-md-planner</text>
+<rect x="1246.6" y="932" width="108.60000000000001" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="1300.8999999999999" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-explore</text>
+<rect x="40" y="974" width="148.9" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="114.45" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-issue-report</text>
+<rect x="200.9" y="974" width="84.42" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="243.11" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-note</text>
+<rect x="297.32" y="974" width="68.30000000000001" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="331.47" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-pr</text>
+<rect x="377.62" y="974" width="124.72" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="439.98" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-prototype</text>
+<rect x="514.34" y="974" width="124.72" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="576.7" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-read-docs</text>
+<rect x="651.0600000000001" y="974" width="173.08" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="737.6" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-refresh-project</text>
+<rect x="836.1400000000001" y="974" width="124.72" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="898.5000000000001" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-review-ui</text>
+<rect x="972.8600000000001" y="974" width="140.84" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="1043.2800000000002" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-stress-test</text>
+<rect x="1125.7" y="974" width="148.9" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="1200.15" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-test-planner</text>
+<rect x="40" y="1016" width="100.54" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="90.27000000000001" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-triage</text>
+<rect x="152.54000000000002" y="1016" width="181.14000000000001" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="243.11" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">ai-writing-behavior</text>
+<rect x="345.68000000000006" y="1016" width="116.66000000000001" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="404.01000000000005" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">build-check</text>
+<rect x="474.3400000000001" y="1016" width="108.60000000000001" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="528.6400000000001" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">code-audit</text>
+<rect x="594.94" y="1016" width="124.72" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="657.3000000000001" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">design-check</text>
+<rect x="731.6600000000001" y="1016" width="140.84" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="802.08" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">feature-verify</text>
+<rect x="884.5000000000001" y="1016" width="116.66000000000001" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="942.8300000000002" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">full-review</text>
+<rect x="1013.1600000000001" y="1016" width="108.60000000000001" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="1067.46" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">perf-audit</text>
+<rect x="1133.76" y="1016" width="132.78" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="1200.15" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">review-router</text>
+<rect x="40" y="1058" width="140.84" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="110.42" y="1078" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">second-opinion</text>
+<rect x="192.84" y="1058" width="140.84" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="263.26" y="1078" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">security-audit</text>
+<rect x="345.68" y="1058" width="124.72" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="408.04" y="1078" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">spec-extract</text>
+<rect x="482.4" y="1058" width="140.84" height="30" rx="7" fill="#112733" stroke="#25505F"/>
+<text x="552.8199999999999" y="1078" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#FFFFFF" text-anchor="middle">verify-feature</text>
 </svg>
