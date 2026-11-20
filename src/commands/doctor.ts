@@ -121,7 +121,10 @@ function checkAssets(root: string | null): CheckResult | null {
 function checkGitFloor(root: string | null): CheckResult | null {
   // 5. git floor: marker-managed shims in .git/hooks/ + gitleaks present.
   if (!root) return null;
-  const hooksDir = join(root, ".git", "hooks");
+  // `--git-path hooks` is where git reads them: the shared git dir in a linked worktree,
+  // where `.git` is a file and `.git/hooks` does not exist.
+  const located = spawnSync("git", ["rev-parse", "--path-format=absolute", "--git-path", "hooks"], { cwd: root, encoding: "utf8" });
+  const hooksDir = located.status === 0 && located.stdout.trim() ? located.stdout.trim() : join(root, ".git", "hooks");
   const floorHooks = ["pre-commit", "commit-msg", "pre-push"];
   const wired = floorHooks.every((name) => {
     const p = join(hooksDir, name);

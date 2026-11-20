@@ -786,6 +786,34 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(lock).toInclude(`"${config}" = "${configHash}"`);
   });
 
+  test("in a linked worktree update leaves the shared hooks to the main checkout and keeps them in the lock", async () => {
+    const repo = governedRepo("repo-with-worktree");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const mainLock = readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8");
+    const shim = join(repo, ".git", "hooks", "pre-commit");
+    const shimBefore = readFileSync(shim, "utf8");
+    gitIn(repo, ["add", "-A"]);
+    gitIn(repo, ["-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "commit.gpgsign=false", "commit", "-q", "--no-verify", "-m", "governed"]);
+    const worktree = join(SANDBOX, "repo-with-worktree-lane");
+    gitIn(repo, ["worktree", "add", "-q", worktree, "-b", "lane"]);
+
+    process.chdir(worktree);
+    // An older lock, so this run rebuilds it rather than finding nothing to do.
+    const laneLockPath = join(worktree, ".ai-engineering", "ai-eng.lock");
+    writeFileSync(laneLockPath, readFileSync(laneLockPath, "utf8").replace(/^version = ".*"$/m, 'version = "0.0.1"'));
+    const run = await captured(() => updateMain({ yes: true }));
+    expect(run.value).toBe(0);
+    expect(run.out).not.toInclude("ENOTDIR");
+    // `.git` is still a file, the shims are the main checkout's, and the lock says the same.
+    expect(existsSync(join(worktree, ".git", "hooks"))).toBe(false);
+    expect(readFileSync(shim, "utf8")).toBe(shimBefore);
+    // Same entries in the same order: a lock committed from the lane diffs as none at all.
+    const assetLines = (text: string): string[] => text.split("\n").filter((line) => line.includes('" = "'));
+    expect(assetLines(mainLock).some((line) => line.startsWith('".git/hooks/pre-commit"'))).toBe(true);
+    expect(assetLines(readFileSync(laneLockPath, "utf8"))).toEqual(assetLines(mainLock));
+  });
+
   test("the arch.rules.json init no longer seeds leaves while untouched and stays once a person wrote rules (D-014)", async () => {
     const repo = governedRepo("repo-retired-arch");
     process.chdir(repo);

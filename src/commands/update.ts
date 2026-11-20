@@ -10,7 +10,7 @@
 // plan first, show it, confirm Apply, then write — never the reverse. Human-facing lines go through
 // src/ui.ts.
 
-import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, chmodSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { confirm, isCancel } from "@clack/prompts";
 import { install, buildLock, lockText, parseLock, sha256, mergeSharedText, SEEDED_CONFIG } from "../install.ts";
@@ -180,8 +180,14 @@ export async function updateMain(opts: { yes?: boolean; binary?: boolean } = {})
     return 2;
   }
   const shipped = planEntries(surfaces, ci);
+  // In a linked worktree `.git` is a file naming the shared git dir, and the hooks there are
+  // the main checkout's: git runs the same shims for every worktree. Writing them from here
+  // would mkdir under a file (ENOTDIR); the lock keeps their entries all the same, so a lock
+  // committed from a worktree still says ai-eng owns them.
+  const isLinkedWorktree = isLinkedWorktreeRoot(root);
+  const isSharedHook = (path: string): boolean => isLinkedWorktree && path.startsWith(".git/hooks/");
   // Config is user-owned; update must not rewrite legacy keys or their bytes.
-  const entries: PlanEntry[] = shipped.filter((entry) => entry.path !== CONFIG_PATH);
+  const entries: PlanEntry[] = shipped.filter((entry) => entry.path !== CONFIG_PATH && !isSharedHook(entry.path));
   const plan = syncPlan(entries, root, previous.assets);
   // Recorded by an earlier release and no longer shipped: still ai-eng's, so it goes.
   const retired = retiredPaths(previous.assets, shipped);
@@ -299,7 +305,9 @@ export async function updateMain(opts: { yes?: boolean; binary?: boolean } = {})
   const merged = entries.filter((entry) => entry.merge === true && !refused.has(entry.path)).map((entry) => entry.path);
   const oursNow = new Set([...report.written, ...plan.verbatim, ...merged]);
   const lock = buildLock(
-    entries.filter((entry) => oursNow.has(entry.path)),
+    // The shared hooks ride in plan order, so a lock written from a worktree diffs like one
+    // written from the main checkout.
+    shipped.filter((entry) => oursNow.has(entry.path) || isSharedHook(entry.path)),
     VERSION,
     { spec_sha256: previous.spec_sha256, base_sha: previous.base_sha },
   );
@@ -348,4 +356,13 @@ function updateNote(root: string, path: string, recorded: Record<string, string>
 function isEditedSinceWritten(root: string, path: string, recorded: Record<string, string>): boolean {
   const hash = recorded[path];
   return hash !== undefined && sha256(readFileSync(join(root, path), "utf8")) !== hash;
+}
+
+/** True when `root` is a linked worktree: its `.git` is a file pointing at the shared git dir. */
+function isLinkedWorktreeRoot(root: string): boolean {
+  try {
+    return statSync(join(root, ".git")).isFile();
+  } catch {
+    return false;
+  }
 }

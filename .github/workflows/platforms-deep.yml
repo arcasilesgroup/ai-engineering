@@ -36,7 +36,11 @@ jobs:
 
       - name: Full serial suite
         shell: bash
-        run: bun test --parallel=1
+        # Windows spawns a process several times slower than Linux or macOS, and a slow runner
+        # pushed spawn-heavy tests past Bun's 5 s default on a different test each attempt
+        # (1.35 s on one run, over 5 s on the next, same code). The longer limit is Windows only:
+        # elsewhere a test that slow is still a failure.
+        run: bun test --parallel=1 ${{ runner.os == 'Windows' && '--timeout 15000' || '' }}
 
       - name: Every verb from the source
         shell: bash

@@ -32,7 +32,16 @@ export function compileGitleaksShim(): string {
   const built = spawnSync(process.execPath, ["build", "--compile", join(import.meta.dir, "gitleaks-shim-main.ts"), "--outfile", binary], { encoding: "utf8", cwd: dir });
   if (built.status !== 0) {
     rmSync(dir, { recursive: true, force: true });
-    throw new Error(`cannot compile the gitleaks stand-in: ${built.stderr || String(built.error)}`);
+    // Every field, because a Windows runner once failed this with empty stderr and no
+    // error, and the message said only "undefined".
+    const why = [
+      `exit ${String(built.status)}`,
+      built.signal ? `signal ${built.signal}` : "",
+      built.error ? `error ${String(built.error)}` : "",
+      built.stderr.trim() ? `stderr: ${built.stderr.trim()}` : "",
+      built.stdout.trim() ? `stdout: ${built.stdout.trim()}` : "",
+    ].filter(Boolean).join(" · ");
+    throw new Error(`cannot compile the gitleaks stand-in: ${why}`);
   }
   return dir;
 }
