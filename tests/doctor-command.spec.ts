@@ -950,6 +950,63 @@ describe("doctor --gc", () => {
     expect(run.out).toContain("⚠ research/: 1 entries are not plain files — left alone (012-bundle)");
     expect(existsSync(join(ai, "research", "012-bundle", "index.html"))).toBe(true);
   });
+
+  test("the verdict cache keeps the last week and old retention claims go; today's claim stays", async () => {
+    const { root } = sandbox();
+    const cache = join(root, ".ai-engineering", "cache");
+    mkdirSync(join(cache, "verdicts"), { recursive: true });
+    const stale = join(cache, "verdicts", "a".repeat(32) + ".json");
+    const fresh = join(cache, "verdicts", "b".repeat(32) + ".json");
+    writeFileSync(stale, "{}");
+    writeFileSync(fresh, "{}");
+    const old = new Date(Date.now() - 8 * 86_400_000);
+    utimesSync(stale, old, old);
+    const today = `receipts-retention-${new Date().toISOString().slice(0, 10)}`;
+    writeFileSync(join(cache, "receipts-retention-2026-01-01"), "");
+    writeFileSync(join(cache, today), "");
+    // A link in the cache is never followed or removed.
+    const outside = tempDir("ai-eng-doc-verdict-outside-");
+    writeFileSync(join(outside, "keep.json"), "{}");
+    symlinkSync(join(outside, "keep.json"), join(cache, "verdicts", "c".repeat(32) + ".json"));
+
+    const run = await doctor({ gc: true });
+    expect(run.out).toContain("✓ cache/verdicts/: 1 older than 7 days deleted");
+    expect(run.out).toContain("✓ cache/: 1 old retention claim deleted");
+    expect(existsSync(stale)).toBe(false);
+    expect(existsSync(fresh)).toBe(true);
+    expect(existsSync(join(cache, "receipts-retention-2026-01-01"))).toBe(false);
+    expect(existsSync(join(cache, today))).toBe(true);
+    expect(existsSync(join(outside, "keep.json"))).toBe(true);
+  });
+
+  test("workflow leftovers git already holds go past older_than, in every subfolder; cited and untracked stay", async () => {
+    const { root } = sandbox(`${GOVERNED}\n[gc]\nolder_than = "90d"\n`);
+    const workflow = join(root, ".ai-engineering", "workflow");
+    mkdirSync(join(workflow, "test-plans"), { recursive: true });
+    mkdirSync(join(workflow, "features", "old-feature"), { recursive: true });
+    writeFileSync(join(workflow, "test-plans", "old-plan.json"), "{}");
+    writeFileSync(join(workflow, "test-plans", "cited-plan.json"), "{}");
+    writeFileSync(join(workflow, "features", "old-feature", "brainstorm.html"), "<html></html>");
+    writeFileSync(join(root, "DECISIONS.md"), "D-007 keeps cited-plan.json.\n");
+    gitInit(root);
+    commit(root, "old", { GIT_AUTHOR_DATE: "2026-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2026-01-01T00:00:00Z" });
+    const young = join(workflow, "test-plans", "young.json");
+    writeFileSync(young, "{}");
+    commit(root, "young");
+    // Old on disk, never committed: git has no copy to fall back on.
+    const untracked = join(workflow, "test-plans", "untracked.json");
+    writeFileSync(untracked, "{}");
+    const longAgo = new Date(Date.now() - 400 * 86_400_000);
+    utimesSync(untracked, longAgo, longAgo);
+
+    const run = await doctor({ gc: true });
+    expect(run.out).toContain("✓ workflow/: archived 2 in git and deleted (workflow/features/old-feature/brainstorm.html, workflow/test-plans/old-plan.json)");
+    expect(existsSync(join(workflow, "test-plans", "old-plan.json"))).toBe(false);
+    expect(existsSync(join(workflow, "features", "old-feature"))).toBe(false); // emptied, so removed
+    expect(existsSync(join(workflow, "test-plans", "cited-plan.json"))).toBe(true);
+    expect(existsSync(young)).toBe(true);
+    expect(existsSync(untracked)).toBe(true);
+  });
 });
 
 describe("a half-installed module host is a report, not a crash", () => {

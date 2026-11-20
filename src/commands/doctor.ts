@@ -3,7 +3,8 @@
 // deny, or denies slow, is FAIL — not WARN (§14.2).
 import { canonDrift } from "../embed.ts";
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
+import { safeProjectPath } from "../shared-project-fs.ts";
 import { spawnSync } from "node:child_process";
 import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, receiptsDir } from "../env.ts";
 import {
@@ -594,7 +595,6 @@ function committedAgeDays(root: string, path: string): number | null {
   return out.status === 0 && Number.isFinite(seconds) && seconds > 0 ? (Date.now() / 1000 - seconds) / 86_400 : null;
 }
 
-/** `doctor --gc` — execute what the audit proposes, in one commit (§21.3). */
 /** Should this entry be collected (deleted) during gc? Returns "immune" if cited
  *  by a governor, "collect" if old enough and tracked by git, "skip" otherwise. */
 function collectVerdict(root: string, folder: string, dir: string, name: string, olderDays: number): "immune" | "collect" | "skip" {
@@ -683,6 +683,88 @@ function gcResearchCache(root: string, olderDays: number): string[] {
   return [];
 }
 
+/** A verdict is cached per session; a week past its last write, no session is still asking. */
+const VERDICT_TTL_DAYS = 7;
+
+/** A plain file at this path, never a link: gc only removes what it can see is ours. */
+function isPlainFile(path: string): boolean {
+  try {
+    return lstatSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** The gitignored cache: verdicts past their week, and retention claims for days gone by.
+ *  Neither is in git, and neither is read again once stale. */
+function gcCache(root: string): string[] {
+  const cache = safeProjectPath(root, ".ai-engineering/cache");
+  if (cache === null || !existsSync(cache)) return [];
+  const lines: string[] = [];
+  const verdicts = safeProjectPath(root, ".ai-engineering/cache/verdicts");
+  if (verdicts !== null && existsSync(verdicts)) {
+    const cutoff = Date.now() - VERDICT_TTL_DAYS * 86_400_000;
+    let deleted = 0;
+    for (const name of readdirSync(verdicts)) {
+      const path = join(verdicts, name);
+      if (!name.endsWith(".json") || !isPlainFile(path) || statSync(path).mtimeMs >= cutoff) continue;
+      unlinkSync(path);
+      deleted += 1;
+    }
+    if (deleted > 0) lines.push(`✓ cache/verdicts/: ${deleted} older than ${VERDICT_TTL_DAYS} days deleted`);
+  }
+  const today = `receipts-retention-${new Date().toISOString().slice(0, 10)}`;
+  let claims = 0;
+  for (const name of readdirSync(cache)) {
+    if (!name.startsWith("receipts-retention-") || name === today || !isPlainFile(join(cache, name))) continue;
+    unlinkSync(join(cache, name));
+    claims += 1;
+  }
+  if (claims > 0) lines.push(`✓ cache/: ${claims} old retention claim${claims === 1 ? "" : "s"} deleted`);
+  return lines;
+}
+
+/** Every plain file under a folder, by path relative to it; links are never followed. */
+function filesUnder(dir: string, prefix = ""): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const relative = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
+    if (entry.isDirectory() && !entry.isSymbolicLink()) out.push(...filesUnder(join(dir, entry.name), relative));
+    else if (entry.isFile()) out.push(relative);
+  }
+  return out;
+}
+
+/** Removes the folders under `dir` that the collection left empty, deepest first. */
+function pruneEmptyFolders(dir: string): void {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+    const child = join(dir, entry.name);
+    pruneEmptyFolders(child);
+    if (readdirSync(child).length === 0) rmSync(child, { recursive: true });
+  }
+}
+
+/** The workflow artifacts (checkpoints, feature pages, test plans): the same rule as the
+ *  NNN folders, file by file through every subfolder. Cited is immune, young stays, and only
+ *  what git already holds is deleted. */
+function gcWorkflow(root: string, olderDays: number): string[] {
+  const dir = safeProjectPath(root, ".ai-engineering/workflow");
+  if (dir === null || !existsSync(dir)) return [];
+  const collected: string[] = [];
+  for (const relative of filesUnder(dir).sort()) {
+    const path = join(dir, relative);
+    if (collectVerdict(root, "workflow", dirname(path), basename(path), olderDays) !== "collect") continue;
+    unlinkSync(path);
+    collected.push(`workflow/${relative}`);
+  }
+  if (collected.length === 0) return [];
+  pruneEmptyFolders(dir);
+  return [`✓ workflow/: archived ${collected.length} in git and deleted (${collected.join(", ")})`];
+}
+
+/** `doctor --gc`: delete what ai-eng left behind and git no longer needs; the person
+ *  commits the deletions in one commit. */
 function gc(cwd = process.cwd()): string[] {
   const root = repoRoot(cwd);
   const lines: string[] = [];
@@ -705,6 +787,8 @@ function gc(cwd = process.cwd()): string[] {
   }
   lines.push(...gcResearchCache(root, olderDays));
   lines.push(...gcSecurity(root, join(root, ".ai-engineering", "security"), olderDays, keepRuns));
+  lines.push(...gcWorkflow(root, olderDays));
+  lines.push(...gcCache(root));
   if (lines.length === 0) lines.push("✓ gc: nothing to collect");
   return lines;
 }
