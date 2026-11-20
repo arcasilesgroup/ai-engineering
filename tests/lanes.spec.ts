@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { classify, laneSummary, lanes, type BranchFacts } from "../src/git/lanes.ts";
+import { azurePulls, classify, forgeOf, forgePulls, laneSummary, lanes, type BranchFacts } from "../src/git/lanes.ts";
 import { runNoStash } from "../src/guards/no-stash.ts";
 import { normalise } from "../src/payload.ts";
 
@@ -281,6 +281,59 @@ describe("the lane limit — a fourth active lane is refused", () => {
     expect(refused.out).toContain("[work] max_active");
     writeFileSync(join(dir, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n\n[work]\nmax_active = 4\n');
     expect(ai(dir, ["worktree", "new", "d"]).status).toBe(0);
+  });
+});
+
+describe("the forge — GitHub through gh, Azure DevOps through az", () => {
+  test("the remote URL names the forge", () => {
+    for (const url of [
+      "https://dev.azure.com/org/project/_git/repo",
+      "https://org@dev.azure.com/org/project/_git/repo",
+      "git@ssh.dev.azure.com:v3/org/project/repo",
+      "https://org.visualstudio.com/project/_git/repo",
+    ]) expect(forgeOf(url), url).toBe("azure");
+    for (const url of ["https://github.com/org/repo.git", "git@github.com:org/repo.git", "", "https://example.com/dev.azure.com.git"]) {
+      expect(forgeOf(url), url).toBe("github");
+    }
+  });
+
+  test("az's PR list becomes gh's shape; an entry missing a field is skipped", () => {
+    const tip = "d".repeat(40);
+    expect(azurePulls([
+      { pullRequestId: 4, status: "completed", sourceRefName: "refs/heads/feat/a", lastMergeSourceCommit: { commitId: tip } },
+      { pullRequestId: 5, status: "active", sourceRefName: "refs/heads/feat/b", lastMergeSourceCommit: { commitId: tip } },
+      { pullRequestId: 6, status: "abandoned", sourceRefName: "refs/heads/feat/c", lastMergeSourceCommit: { commitId: tip } },
+      { pullRequestId: 7, status: "completed", sourceRefName: "refs/tags/v1", lastMergeSourceCommit: { commitId: tip } },
+      { pullRequestId: 8, status: "notSet", sourceRefName: "refs/heads/feat/d", lastMergeSourceCommit: { commitId: tip } },
+      { pullRequestId: 9, status: "completed", sourceRefName: "refs/heads/feat/e", lastMergeSourceCommit: null },
+    ])).toEqual([
+      { number: 4, state: "MERGED", headRefName: "feat/a", headRefOid: tip },
+      { number: 5, state: "OPEN", headRefName: "feat/b", headRefOid: tip },
+      { number: 6, state: "CLOSED", headRefName: "feat/c", headRefOid: tip },
+    ]);
+    expect(() => azurePulls({ value: [] })).toThrow();
+  });
+
+  // A shell script stands in for az; Windows would need an .exe on PATH.
+  test.skipIf(process.platform === "win32")("an Azure DevOps remote is asked through az, and a merged PR lands its lane", () => {
+    const dir = repo();
+    git(dir, ["remote", "set-url", "origin", "https://dev.azure.com/org/project/_git/repo"]);
+    git(dir, ["checkout", "-q", "-b", "feat/azure"]);
+    const tip = commit(dir, "azure.txt", "a\n");
+    git(dir, ["checkout", "-q", "main"]);
+    const bin = mkdtempSync(join(tmpdir(), "ai-eng-fake-az-"));
+    roots.push(bin);
+    const answer = JSON.stringify([{ pullRequestId: 31, status: "completed", sourceRefName: "refs/heads/feat/azure", lastMergeSourceCommit: { commitId: tip } }]);
+    writeFileSync(join(bin, "az"), `#!/bin/sh\n[ "$1 $2 $3" = "repos pr list" ] || exit 9\nprintf '%s' '${answer}'\n`, { mode: 0o755 });
+    const pathBefore = process.env["PATH"];
+    process.env["PATH"] = `${bin}:${pathBefore ?? ""}`;
+    try {
+      // The forge directly: a board refresh would also fetch from the Azure URL over the network.
+      expect(forgePulls(dir, true)).toEqual({ pulls: [{ number: 31, state: "MERGED", headRefName: "feat/azure", headRefOid: tip }], note: null });
+      expect(lanes(dir, { refresh: false }).lanes.find((lane) => lane.name === "feat/azure")).toMatchObject({ state: "landed", detail: "PR #31 merged" });
+    } finally {
+      process.env["PATH"] = pathBefore;
+    }
   });
 });
 
