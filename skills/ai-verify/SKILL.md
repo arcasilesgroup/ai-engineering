@@ -7,31 +7,32 @@ description: >-
   verification tier and produce verdicts with evidence, not impressions.
   Not for milestone-declared security audits — use /ai-security. Not for
   diagnosing a failure — use /ai-debug.
-license: LicenseRef-Attributed
+license: Apache-2.0
 ---
 
 # ai-verify — verification in three tiers (Graph Engineering)
 
-Three ways to verify, depending on who fires them: skills you run on purpose,
-skills that fire themselves mid-workflow, and a chain of review lanes. The
+Three ways to verify, depending on who fires them: lanes you run on purpose,
+lanes that run themselves mid-workflow, and a chain of review lanes. Every lane is a file in
+`lanes/`: read it when its line below is the one you need. The
 chain's router decides which lanes run from the evidence in the diff, never
 from its size.
 
 ### Tier 1 — standalone (you run it on purpose)
 
-- Per-requirement verdict against what was actually asked, with a list of gaps → `verify-feature`
-- Extract the requirements from the conversation into numbered, falsifiable claims → `spec-extract`
+- Per-requirement verdict against what was actually asked, with a list of gaps → [lanes/verify-feature.md](lanes/verify-feature.md)
+- Extract the requirements from the conversation into numbered, falsifiable claims → [lanes/spec-extract.md](lanes/spec-extract.md)
 
 ### Tier 2 — embedded (fires by itself, mid-workflow)
 
-- Browser verification of the finished feature + blast radius of the routes that depend on the change → `feature-verify`, with its scripts and references
-- A second opinion from a fresh model instance with no visibility into your reasoning → `second-opinion`
+- Browser verification of the finished feature + blast radius of the routes that depend on the change → [lanes/feature-verify.md](lanes/feature-verify.md), with `scripts/blast_radius.ts`, `scripts/setup_harness.sh` and `references/feature-verify/`
+- A second opinion from a fresh model instance with no visibility into your reasoning → [lanes/second-opinion.md](lanes/second-opinion.md), with `scripts/second-opinion.sh`
 
 ### Tier 3 — chain (review lanes picked by evidence)
 
-- Router that picks lanes, estimates cost, and executes → `review-router`
-- Lanes: `code-audit` · `security-audit` · `a11y-audit` · `perf-audit` · `design-check` · `build-check`
-- Merge of all lanes into one deduplicated report → `full-review`; shared lane conventions are in `references/review/CONVENTIONS.md`
+- Router that picks lanes, estimates cost, and executes → [lanes/review-router.md](lanes/review-router.md)
+- Lanes: [code-audit](lanes/code-audit.md) · [security-audit](lanes/security-audit.md) · [a11y-audit](lanes/a11y-audit.md) · [perf-audit](lanes/perf-audit.md) · [design-check](lanes/design-check.md) · [build-check](lanes/build-check.md)
+- Merge of all lanes into one deduplicated report → [lanes/full-review.md](lanes/full-review.md); shared lane conventions are in `references/review/CONVENTIONS.md`
 
 Setup guide and entry router → [VERIFICATION-SETUP-GUIDE.md](VERIFICATION-SETUP-GUIDE.md). The internal eval fixtures apply real bugs and score the reviewer in ai-engineering's own tests.
 
@@ -43,7 +44,7 @@ Read by: CI, the human
 Dies: with the milestone
 Next: ai-security when the security trigger fired; ai-write when the public interface changed; ai-visual-recap otherwise
 
-Source: Graph Engineering — Verification Skills (skills from the video, generalized to any stack; attributed, no license — issue H4; no public repo declared in the source).
+Source: the Graph Engineering verification-skills lineage, generalized to any stack and supplied by the maintainer (rights attested 2026-11-06, see NOTICE.md).
 
 ## The ai-engineering seam
 

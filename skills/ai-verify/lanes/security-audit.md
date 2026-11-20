@@ -1,6 +1,6 @@
 ---
 name: security-audit
-license: LicenseRef-Attributed
+license: Apache-2.0
 description: The security lane of /ai-verify — reviews the change or paths ai-verify scopes, tracing attacker-controlled input to dangerous sinks across HTTP handlers, background jobs, auth and access control, and anything shipped to the client, and checks touched dependencies for known CVEs. Use when /ai-verify runs its lanes, or to check one change that handles auth, user input or external requests before it ships. Not for a whole-codebase or milestone audit with validated findings — use /ai-security.
 ---
 
@@ -10,7 +10,7 @@ Find issues an attacker could actually exploit. The unit of work is a **trace**:
 attacker-controlled input → the path it travels → the dangerous sink it reaches.
 A finding without that trace is a guess.
 
-Read `.claude/review/CONVENTIONS.md` first — stack detection, scope, severity,
+Read `../references/review/CONVENTIONS.md` first — stack detection, scope, severity,
 false-positive gate, report format, and the **installed-version rule**. That last
 one matters here more than anywhere: frameworks change their security defaults
 between versions, and half of what a reviewer "knows" about a framework's

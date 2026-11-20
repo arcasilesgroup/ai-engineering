@@ -1,7 +1,7 @@
 ---
 name: feature-verify
 description: Cross-verify a just-finished feature with throwaway browser tests driven by chrome-headless-shell — proves the feature actually does what it was supposed to do, and proves the change didn't break the routes and components that depend on it. Reports a verdict with evidence and never edits app code. Use this whenever a feature, fix, refactor, or UI change has just been completed — including when the user says "done", "that's implemented", "verify this", "does it work?", "make sure nothing broke", "check for regressions", or asks whether a change is safe to commit, merge, or ship. Applies to any web app with a dev server (Next.js, Vite, Remix, SvelteKit, CRA, static). Reach for it even when the user never says "e2e", "browser test", or "screenshot".
-license: LicenseRef-Attributed
+license: Apache-2.0
 ---
 
 # Feature Verification
@@ -91,7 +91,7 @@ The script does **not** start the dev server; backgrounding a long-lived process
 
 The run directory lives inside the repo so Node resolves `puppeteer-core` normally. Nothing outside `.feature-verify/` is written, so "no code changes" holds literally.
 
-If detection fails (unusual dev command, non-standard port, app needs seeded data or auth), read `references/harness.md`.
+If detection fails (unusual dev command, non-standard port, app needs seeded data or auth), read `../references/feature-verify/harness.md`.
 
 ## Step 5 — Write the specs
 
@@ -116,7 +116,7 @@ check('typing in the search box narrows the visible rows to matches', async (pag
 
 Selector discipline decides whether this run is trustworthy. Prefer, in order: `tag::-p-aria(Name)` (role/accessible name), `::-p-text(copy)`, then `[data-testid="…"]`. Always anchor an aria selector to a tag — an accessible name is computed from descendant text, so bare `::-p-aria(Delete)` also matches the `<td>` wrapping the button and doubles your counts. Reach for a plain CSS or XPath selector only when nothing else identifies the element — those bind to structure that legitimate refactors change, and they produce failures that look like regressions but aren't. If the app has no accessible handle on an element you need, say so in the report as a finding; don't paper over it with a brittle selector, and don't edit the app to add a testid.
 
-Never use fixed sleeps. Every assertion exported by the harness polls until it holds or times out, and puppeteer's `page.locator(...)` waits for the element to be visible and actionable before it acts — so waiting and asserting are the same operation. `references/puppeteer-patterns.md` covers the recurring cases: async data, navigation, forms, dialogs, auth state, and network stubbing.
+Never use fixed sleeps. Every assertion exported by the harness polls until it holds or times out, and puppeteer's `page.locator(...)` waits for the element to be visible and actionable before it acts — so waiting and asserting are the same operation. `../references/feature-verify/puppeteer-patterns.md` covers the recurring cases: async data, navigation, forms, dialogs, auth state, and network stubbing.
 
 Diagnostics come for free: `check()` attaches `pageerror`, console-error, and HTTP-5xx listeners, and on failure writes a full-page screenshot, the DOM, and the collected errors into `artifacts/`, then appends the evidence path to the error message. An uncaught exception in that log usually names the cause outright.
 
@@ -222,8 +222,8 @@ No edits to application code, config, or the user's existing tests — not to fi
 
 ## Reference files
 
-- `references/puppeteer-patterns.md` — selectors, waiting, forms, dialogs, network stubbing, auth, flake diagnosis
-- `references/harness.md` — the harness API, custom ports, dev-server handling, auth setup, seeded data, monorepos
+- `../references/feature-verify/puppeteer-patterns.md` — selectors, waiting, forms, dialogs, network stubbing, auth, flake diagnosis
+- `../references/feature-verify/harness.md` — the harness API, custom ports, dev-server handling, auth setup, seeded data, monorepos
 
 ## Lifecycle
 

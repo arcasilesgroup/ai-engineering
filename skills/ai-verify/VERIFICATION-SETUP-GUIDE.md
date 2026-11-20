@@ -17,7 +17,7 @@ your agent-rules file. Ten minutes, no skill-writing, no Skill Creator.
 > verification is worth the tokens before spending an afternoon on it. `second-opinion`
 > needs nothing configured — no conventions file, no thresholds, no stack assumptions,
 > just a way to spawn a fresh reviewer — so it works on any language from the first run.
-> (`skills/verify-feature/SKILL.md` is the other zero-config one, if you'd rather check
+> (`skills/ai-verify/lanes/verify-feature.md` is the other zero-config one, if you'd rather check
 > the build against the requirements than hunt
 > for bugs.)
 >
@@ -91,7 +91,7 @@ its own slice. It doesn't know the original requirement, so it *cannot* notice t
 drifted — there's nothing to compare against. It hands back work that is internally
 consistent and wrong, and the next node builds on top of it. *Fix: the criteria-first
 rule in §7 — the node writes down what was asked for before it looks at what was built.
-The ready-made version is `skills/verify-feature/SKILL.md`.*
+The ready-made version is `skills/ai-verify/lanes/verify-feature.md`.*
 
 The pattern across all three: verification has to happen **at each node, before its output
 becomes someone else's input.** Verifying at the end is too late by definition — by then
@@ -197,8 +197,8 @@ then shadow it in one repo with a stricter variant under the same name.
 
 The shipped verification skills are written to be project-agnostic — they detect the stack
 at runtime rather than hardcoding it — so most of them work at user scope as-is. The
-exception is the chain, which reads `.claude/review/CONVENTIONS.md` by project-relative
-path; that file has to exist in each repo even when the skills are installed globally.
+chain reads its shared conventions from `references/review/CONVENTIONS.md` inside the
+`ai-verify` skill, so it works at user scope too.
 
 ### Then verify the trigger, don't assume it
 
@@ -427,7 +427,7 @@ git diff --name-only HEAD          # what changed
 Then walk the import graph backwards to find which routes consume those files. A shared
 `Button.tsx` lights up ten routes; an isolated page lights up one. That spread is your
 regression surface. The source at
-`skills/feature-verify/scripts/blast_radius.ts` does exactly
+`skills/ai-verify/scripts/blast_radius.ts` does exactly
 this, following `tsconfig` path aliases.
 
 Two things an import graph can't see, so add them by hand:
@@ -513,21 +513,21 @@ verifier changing the code it's verifying defeats the point.
 ## 9. Add a second opinion
 
 If you only add one skill to a project, choose this one — it needs no configuration and
-applies to any language. It is installed at `skills/second-opinion/`; then, from your
+applies to any language. It ships inside `ai-verify` (`lanes/second-opinion.md`, `scripts/second-opinion.sh`); then, from your
 project root:
 
 ```bash
-# VERIFY = the installed second-opinion skill directory
+# VERIFY = the installed ai-verify skill directory
 # SKILLS = your harness's project skill directory (in Claude Code, .claude/skills)
-VERIFY=/path/to/skills/second-opinion
+VERIFY=/path/to/skills/ai-verify
 SKILLS=.claude/skills
 
 mkdir -p "$SKILLS"
 cp -R "$VERIFY" "$SKILLS/"
-chmod +x "$SKILLS/second-opinion/scripts/second-opinion.sh"
+chmod +x "$SKILLS/ai-verify/scripts/second-opinion.sh"
 ```
 
-The source is `skills/second-opinion/`.
+The source is `skills/ai-verify/`.
 
 Restart your agent and it will start firing on its own after implementations. The rest of
 this section is why it works and how not to waste it — read it before you trust its output.
@@ -545,8 +545,8 @@ them shows up as a gap. That's the entire mechanism.
 
 The wrapper spawns a whole separate reviewer session in the background by handing the
 `claude` CLI a prompt. Its source at
-`skills/second-opinion/scripts/second-opinion.sh` installs as
-`skills/second-opinion/scripts/second-opinion.sh`:
+`skills/ai-verify/scripts/second-opinion.sh` installs as
+`skills/ai-verify/scripts/second-opinion.sh`:
 
 ```bash
 claude -p "Read $PACKET and follow its instructions exactly." \
@@ -717,7 +717,7 @@ This is the payoff. When you build a graph, the only verification instruction yo
 
 Each node loads that one skill, and the whole review fans out underneath it on its own.
 
-`skills/full-review/SKILL.md` is a complete working version. Read it.
+`skills/ai-verify/lanes/full-review.md` is a complete working version. Read it.
 
 ---
 
@@ -999,7 +999,7 @@ Setup:
 - [ ] Skill Creator installed at user scope
 - [ ] your agent-rules file has your exact commands
 - [ ] your agent-rules file warns about anything that generates false positives (framework versions)
-- [ ] `.claude/review/CONVENTIONS.md` exists — shared severity, scope, output contract
+- [ ] `ai-verify/references/review/CONVENTIONS.md` is installed — shared severity, scope, output contract
 - [ ] `chrome-headless-shell` installed if you're verifying UI
 
 Skills:
@@ -1031,14 +1031,14 @@ Before trusting it:
 
 Read the real skills under `skills/`, in this order:
 
-1. `skills/second-opinion/SKILL.md`
-   (installed as `skills/second-opinion/SKILL.md`) — shortest, highest value, mostly portable
-2. `skills/code-audit/SKILL.md`
-   (installed as `skills/code-audit/SKILL.md`) — what a tight false-positive gate looks like
-3. `skills/full-review/SKILL.md`
-   (installed as `skills/full-review/SKILL.md`) — how orchestration and merging actually work
-4. `skills/feature-verify/SKILL.md`
-   (installed as `skills/feature-verify/SKILL.md`) — the browser harness, blast radius, evidence
+1. `skills/ai-verify/lanes/second-opinion.md`
+   (installed as `skills/ai-verify/lanes/second-opinion.md`) — shortest, highest value, mostly portable
+2. `skills/ai-verify/lanes/code-audit.md`
+   (installed as `skills/ai-verify/lanes/code-audit.md`) — what a tight false-positive gate looks like
+3. `skills/ai-verify/lanes/full-review.md`
+   (installed as `skills/ai-verify/lanes/full-review.md`) — how orchestration and merging actually work
+4. `skills/ai-verify/lanes/feature-verify.md`
+   (installed as `skills/ai-verify/lanes/feature-verify.md`) — the browser harness, blast radius, evidence
 
 They're written to be project-agnostic — each one detects the stack from your manifest
 and lockfile at runtime instead of hardcoding it, and verifies claims about a library

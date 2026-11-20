@@ -1,14 +1,14 @@
 ---
 name: code-audit
 description: Review code for correctness bugs, concurrency and lifecycle errors, type-safety holes, error handling gaps, API-contract breaks, and maintainability problems, with every finding gated on a concrete failure scenario. Use when asked to review code, check a diff or branch for bugs, look for problems before committing or opening a PR, or assess code quality.
-license: LicenseRef-Attributed
+license: Apache-2.0
 ---
 
 # Code audit
 
 Find defects that will actually bite.
 
-Read `.claude/review/CONVENTIONS.md` first — stack detection, scope, severity,
+Read `../references/review/CONVENTIONS.md` first — stack detection, scope, severity,
 the false-positive gate, and the report format. The **installed-version rule** is
 the single most important constraint here: verify against the installed source
 before calling any framework or library API misuse. Most false positives in a
