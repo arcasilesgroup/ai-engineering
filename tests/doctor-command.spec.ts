@@ -141,7 +141,7 @@ function healthy(config = GOVERNED): { home: string } {
   installCanon(VERSION);
   writeFileSync(join(box.root, ".ai-engineering", "ai-eng.lock"), lockText({ version: VERSION, assets: {} }));
   mkdirSync(join(box.root, "src"));
-  writeFileSync(join(box.root, ".ai-engineering", "arch.rules.json"), "{}");
+  writeFileSync(join(box.root, ".dependency-cruiser.cjs"), "module.exports = { forbidden: [] };\n");
   shipClaudeCarrier(box.home);
   return box;
 }
@@ -184,7 +184,7 @@ describe("doctor · a repo where everything is green", () => {
     expect(detail(run, "chain test")).toMatch(/^adversarial payload \(git commit -n\) → DENY in \d+ms$/);
     expect(detail(run, "receipts")).toMatch(/^last 14d: \d+ runs · \d+ denies · p50 \d+ms · p95 \d+ms \(ceiling 50\)( · top [^ ]+)?$/);
     expect(detail(run, "overrides")).toBe("none active");
-    expect(detail(run, "arch")).toBe("active — src/ present");
+    expect(detail(run, "arch")).toBe("layer rules in .dependency-cruiser.cjs");
     expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries");
     expect(detail(run, "behaviors")).toBe("no behaviors declared");
     expect(run.out).not.toContain("checkpoint gate");
@@ -276,7 +276,7 @@ describe("doctor · config.toml is the gate", () => {
     process.chdir(tempDir("ai-eng-doc-bare-"));
     const run = await doctor();
     expect(detail(run, "config.toml")).toBe("no repository above this directory");
-    expect(detail(run, "arch")).toBe("no arch.rules.json — nothing enforces the layer rules");
+    expect(detail(run, "arch")).toBe("no repo");
     expect(detail(run, "chain test")).toContain("not governed (no-repo)");
     expect(run.code).toBe(2);
   });
@@ -684,30 +684,40 @@ describe("doctor · receipts and overrides", () => {
 });
 
 describe("doctor · arch", () => {
-  test("arch is active with src/ present and bootstrap without it", async () => {
+  test("no code yet is fine; code with no layer rules points at the skill that proposes them (D-014)", async () => {
     const { root } = sandbox();
-    writeFileSync(join(root, ".ai-engineering", "arch.rules.json"), "{}");
     let run = await doctor();
-    expect(row(run, "arch")).toContain("▲");
-    expect(detail(run, "arch")).toBe("bootstrap mode — src/ empty");
-
-    mkdirSync(join(root, "src"));
-    run = await doctor();
     expect(row(run, "arch")).toContain("✓");
-    expect(detail(run, "arch")).toBe("active — src/ present");
+    expect(detail(run, "arch")).toBe("no code yet — layer rules come once there is");
+
+    // A flat Go module is code too: no src/ needed.
+    writeFileSync(join(root, "go.mod"), "module example.com/x\n");
+    run = await doctor();
+    expect(row(run, "arch")).toContain("▲");
+    expect(detail(run, "arch")).toBe("no layer rules — run /ai-config-to-project to propose them");
   });
 
-  test("arch active when code lives outside src", async () => {
+  test("each language's standard tool holds the rules, and an empty legacy file holds none", async () => {
     const { root } = sandbox();
-    writeFileSync(join(root, ".ai-engineering", "arch.rules.json"), "{}");
-    mkdirSync(join(root, "kit", "src"), { recursive: true });
-    writeFileSync(join(root, "kit", "src", "Button.tsx"), "export {}\n");
+    mkdirSync(join(root, "src"));
+    writeFileSync(join(root, ".ai-engineering", "arch.rules.json"), '{"layers": {}, "rules": []}');
+    expect(detail(await doctor(), "arch")).toBe("no layer rules — run /ai-config-to-project to propose them");
+
+    writeFileSync(join(root, ".golangci.yml"), "linters:\n  enable: [govet]\n");
+    expect(detail(await doctor(), "arch")).toBe("no layer rules — run /ai-config-to-project to propose them");
+    writeFileSync(join(root, ".golangci.yml"), "linters:\n  enable: [depguard]\n");
+    expect(detail(await doctor(), "arch")).toBe("layer rules in .golangci.yml");
+    rmSync(join(root, ".golangci.yml"));
+
+    writeFileSync(join(root, "pyproject.toml"), "[tool.importlinter]\nroot_package = \"app\"\n");
+    expect(detail(await doctor(), "arch")).toBe("layer rules in pyproject.toml");
+    rmSync(join(root, "pyproject.toml"));
+
+    writeFileSync(join(root, ".ai-engineering", "arch.rules.json"), '{"layers": {"cli": "src/cli/**"}, "rules": [{"from": "cli"}]}');
     const run = await doctor();
     expect(row(run, "arch")).toContain("✓");
-    expect(detail(run, "arch")).toBe("active — source outside src/");
-    expect(detail(run, "arch")).not.toBe("bootstrap mode — src/ empty");
+    expect(detail(run, "arch")).toBe("layer rules in .ai-engineering/arch.rules.json");
   });
-
 });
 
 describe("doctor · surface carriers", () => {

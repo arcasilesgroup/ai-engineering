@@ -321,7 +321,7 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
     const root = repoTemplateRoot();
     expect(root).toBe(resolve(root));
     expect(existsSync(join(root, "package.json"))).toBe(true);
-    expect(detectCommands()).toBe("typecheck: tsc --noEmit · lint: oxlint · test: bun test · arch: bun test arch.spec.ts");
+    expect(detectCommands()).toBe("typecheck: tsc --noEmit · lint: oxlint · test: bun test");
   });
 
   test("refuseLine names the reason and what the refusal costs", () => {
@@ -349,7 +349,7 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
     const entries = planEntries(["claude-code", "cursor"], "github-actions");
     const paths = entries.map((e) => e.path);
     expect(paths).toContain(".ai-engineering/overrides.toml");
-    expect(paths).toContain(".ai-engineering/arch.rules.json");
+    expect(paths).not.toContain(".ai-engineering/arch.rules.json"); // layer rules live in the project's own tool (D-014)
     expect(paths).toContain(".ai-engineering/config.toml");
     expect(paths).toContain(".github/workflows/ai-eng-check.yml");
     expect(paths).toContain(".git/hooks/pre-commit");
@@ -481,7 +481,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     for (const [key, value] of Object.entries(JSON.parse(machineSettingsBefore) as Record<string, unknown>)) {
       expect((JSON.parse(machineSettingsMerged) as Record<string, unknown>)[key]).toEqual(value);
     }
-    expect(out).toContain("Bootstrap mode"); // no src/ yet, so arch-tests hold off
+    expect(out).toContain("run /ai-config-to-project once there is code"); // layer rules are judgement (D-014)
   });
 
   test("init leaves the existing commit alone, spawns no commit, and leaves global config untouched", async () => {

@@ -67,7 +67,7 @@ See **Where to work** for checkout, worktree, and integration choices. `.ai-engi
 - Record spoken approval in the artifact and follow its next step. Never ask for a command or approve yourself.
 
 ## Architecture layers
-You may edit `src/**` freely; the arch-test reads `.ai-engineering/arch.rules.json` — propose layer changes there via PR, never by editing the test in silence.
+Layer rules live in the config of this language's own dependency tool, proposed by `/ai-config-to-project`. Change them by PR, never in silence to make a check pass.
 
 ## Voice
 - Follow `ai-write`'s `references/voice.md` (shipped in the binary and skill canon).

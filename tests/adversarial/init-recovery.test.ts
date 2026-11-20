@@ -216,7 +216,7 @@ test('install honors the "sha256:" sentinel: a recorded file takes ours, edited 
   expect(readFileSync(join(root, ".claude", "settings.json"), "utf8")).toBe(unrecorded);
 
   // Case D — seeded config: follows the sentinel while unedited, the project's once edited.
-  const config: PlanEntry = { path: [".ai-engineering", "arch.rules.json"].join("/"), ours: "{}\n" };
+  const config: PlanEntry = { path: [".ai-engineering", "overrides.toml"].join("/"), ours: "{}\n" };
   mkdirSync(join(root, ".ai-engineering"), { recursive: true });
   writeFileSync(join(root, config.path), "[]\n");
   expect(install(root, [config], () => `sha256:${sha("[]\n")}`).written).toEqual([config.path]);

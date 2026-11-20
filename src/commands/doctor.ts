@@ -324,16 +324,50 @@ function hasSourceTree(root: string): boolean {
   return false;
 }
 
+/** The manifests that say a folder holds code even with no src/ (a Go module, a Python
+ *  package laid out flat). */
+const CODE_MANIFESTS = ["package.json", "pyproject.toml", "setup.cfg", "go.mod", "Cargo.toml"];
+
+function readIfPresent(path: string): string {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+/** The file that holds this project's layer rules, or null. The rules belong to the
+ *  standard tool of the language (D-014) — dependency-cruiser, import-linter, depguard
+ *  inside golangci-lint — set up by /ai-config-to-project. A non-empty
+ *  .ai-engineering/arch.rules.json still counts: ai-engineering's own test reads one. */
+function archRulesFile(root: string): string | null {
+  const named = [".dependency-cruiser.js", ".dependency-cruiser.cjs", ".dependency-cruiser.mjs", ".dependency-cruiser.json", ".importlinter"];
+  const found = named.find((name) => existsSync(join(root, name)));
+  if (found) return found;
+  if (readIfPresent(join(root, "pyproject.toml")).includes("[tool.importlinter]")) return "pyproject.toml";
+  if (readIfPresent(join(root, "setup.cfg")).includes("[importlinter]")) return "setup.cfg";
+  const golangci = [".golangci.yml", ".golangci.yaml", ".golangci.toml", ".golangci.json"].find((name) => readIfPresent(join(root, name)).includes("depguard"));
+  if (golangci) return golangci;
+  const legacy = ".ai-engineering/arch.rules.json"; // named the same on every OS
+  try {
+    const parsed = JSON.parse(readIfPresent(join(root, ".ai-engineering", "arch.rules.json"))) as { rules?: unknown };
+    if (Array.isArray(parsed.rules) && parsed.rules.length > 0) return legacy;
+  } catch {
+    // absent or not JSON: not a rules file
+  }
+  return null;
+}
+
 function checkArch(root: string | null): CheckResult {
-  // 9. arch bootstrap vs active. The rules file is what makes the check a check: a path
-  //    that is only joined is never null, so a repo with src/ and no arch.rules.json
-  //    would report "ok · active" — the false green this project exists to refuse.
-  const archPath = root ? join(root, ".ai-engineering", "arch.rules.json") : null;
-  const hasRules = archPath !== null && existsSync(archPath);
-  if (!hasRules) return { name: "arch", status: "warn", detail: "no arch.rules.json — nothing enforces the layer rules" };
-  if (!root || !hasSourceTree(root)) return { name: "arch", status: "warn", detail: "bootstrap mode — src/ empty" };
-  const atRoot = existsSync(join(root, "src"));
-  return { name: "arch", status: "ok", detail: atRoot ? "active — src/ present" : "active — source outside src/" };
+  // 9. layer rules. A repo with no code has nothing to layer yet, and that is fine. A repo
+  //    with code and no rules is told where they come from: choosing layers is judgement,
+  //    so the remedy is the skill that proposes them, not a file doctor could write.
+  if (!root) return { name: "arch", status: "ok", detail: "no repo" };
+  const rulesFile = archRulesFile(root);
+  if (rulesFile) return { name: "arch", status: "ok", detail: `layer rules in ${rulesFile}` };
+  const hasCode = hasSourceTree(root) || CODE_MANIFESTS.some((name) => existsSync(join(root, name)));
+  if (!hasCode) return { name: "arch", status: "ok", detail: "no code yet — layer rules come once there is" };
+  return { name: "arch", status: "warn", detail: "no layer rules — run /ai-config-to-project to propose them" };
 }
 
 function checkSpecSlot(root: string | null): CheckResult {

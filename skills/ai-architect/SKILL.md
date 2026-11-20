@@ -453,8 +453,9 @@ Cap high-priority items at five. Keep the report direct and useful; do not bury 
 
 ## The ai-engineering seam
 
-1. When the recommendation includes architecture rules worth enforcing, propose them as a
-   diff of `.ai-engineering/arch.rules.json` in a PR — never auto-write that file.
+1. When the recommendation includes architecture rules worth enforcing, hand them to
+   `/ai-config-to-project`: it writes them for the language's own dependency tool, and the
+   person applies them by PR. Never auto-write rules.
 2. Model routing follows the pin's tiers: mechanical sub-steps go cheap, the judgment
    calls stay on the strong model.
 3. Run this before building: ai-engineering's existence-check plus a prior-art pass are
@@ -466,9 +467,9 @@ Lane: full
 Trigger: arch-change
 Trigger kind: judgment
 Trigger when: the milestone adds a subsystem, changes a layer contract, or points a dependency a different way
-Writes: .ai-engineering/arch.rules.json
-Read by: the arch test, ai-orchestrator
-Dies: never — it evolves by pull request and is never auto-written
+Writes: nothing — layer rules go through /ai-config-to-project
+Read by: ai-orchestrator
+Dies: on completion
 Next: ai-orchestrator
 
 Source: headstart (MIT; license declared in its upstream metadata, no LICENSE file in the

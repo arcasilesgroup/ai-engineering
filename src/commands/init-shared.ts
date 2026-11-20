@@ -96,7 +96,7 @@ function render(template: string, vars: Record<string, string>): string {
  *  checkout, which is what the unit seam asserts. `init` passes the target cwd:
  *  a Python project must not inherit this repo's bun/oxlint line. */
 export function detectCommands(root: string = repoTemplateRoot()): string {
-  if (existsSync(join(root, "package.json"))) return "typecheck: tsc --noEmit · lint: oxlint · test: bun test · arch: bun test arch.spec.ts";
+  if (existsSync(join(root, "package.json"))) return "typecheck: tsc --noEmit · lint: oxlint · test: bun test";
   if (existsSync(join(root, "Cargo.toml"))) return "typecheck: cargo check · lint: clippy · test: cargo test";
   if (existsSync(join(root, "go.mod"))) return "typecheck: go vet · lint: golangci-lint · test: go test";
   if (existsSync(join(root, "pyproject.toml"))) return "typecheck: mypy · lint: ruff · test: pytest";
@@ -149,7 +149,6 @@ export function ciEntries(provider: CiProvider): PlanEntry[] {
 export function planEntries(surfaces: string[], ci: CiProvider): PlanEntry[] {
   return [
     { path: ".ai-engineering/overrides.toml", ours: embeddedTemplate("overrides.toml.tpl") },
-    { path: ".ai-engineering/arch.rules.json", ours: embeddedTemplate("arch.rules.json.tpl") },
     {
       path: ".ai-engineering/config.toml",
       ours: embeddedTemplate("config.toml.tpl", {

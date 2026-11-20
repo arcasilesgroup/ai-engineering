@@ -294,3 +294,25 @@ Three generated files were committed so the payload could ride inside the binary
 ### Alternatives considered
 
 - **Keep the generated registry, move the bundle out of `skills/`:** fixes the misplaced folder and keeps two committed generated files. Rejected.
+
+## D-014: Layer rules are proposed by a skill, for the language's own tool
+
+Status: Accepted · Date: 2026-11-20
+
+### Context
+
+`init` wrote the same empty `.ai-engineering/arch.rules.json` into every repo, and nothing outside this repository ever read it: the only reader was ai-engineering's own `tests/arch.spec.ts`. `doctor` reported "active" once a `src/` folder existed, with no rule in the file, and "bootstrap mode" for ever in a repo whose code is not under `src/`. The AGENTS.md template promised an arch test the project did not have.
+
+### Decision
+
+`init` no longer writes `arch.rules.json`. Layer rules belong to the standard tool of the language (dependency-cruiser, import-linter, depguard in golangci-lint), and `/ai-config-to-project` proposes them from the real dependency graph, the stack's guidelines and the project's own documents; the person applies them. `doctor` recognises those tools, says nothing is wrong in a repo with no code yet, and points a repo with code and no rules at the skill. `update` retires the seeded file while it is untouched and keeps one a person edited. Approved by the owner on 2026-11-20.
+
+### Consequences
+
+- No deterministic layer engine to maintain inside ai-eng; each language keeps its own.
+- A JavaScript project's `arch` script runs in the ai-eng check workflow; other languages run their tool in a CI step of their own.
+- This repository keeps `tests/arch.spec.ts` and its non-empty `arch.rules.json`, which `doctor` still counts as rules.
+
+### Alternatives considered
+
+- **A new arch verb in the CLI, with scanners per language and a `--suggest` mode:** deterministic, and a second implementation of what each language's tool already does, with the judgement of choosing layers still missing. Rejected by the owner.

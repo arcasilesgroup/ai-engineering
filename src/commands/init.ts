@@ -372,17 +372,14 @@ function installCarriers(picked: string[], rows: ui.Row[]): void {
 type ScaffoldRows = { contract: ui.Row[]; files: ui.Row[] };
 
 /** Print the contract section, then the scaffold. */
-function renderSections(cwd: string, picked: string[], ci: CiProvider, rows: ScaffoldRows): void {
+function renderSections(picked: string[], ci: CiProvider, rows: ScaffoldRows): void {
   if (rows.contract.length > 0) ui.section("Your contract files", rows.contract, "yours to edit — ai-eng never rewrites them");
   const plural = picked.length === 1 ? "" : "s";
   ui.section("Scaffolded", rows.files, `${picked.length} surface${plural}: ${picked.join(", ")} · CI: ${ci}`);
-  // Bootstrap note (§14.1 mockup): no src/ yet — arch-tests hold off until there is code.
-  if (!existsSync(join(cwd, "src"))) {
-    ui.section("Bootstrap mode", [
-      { mark: "muted", text: "No code yet → arch-tests hold off (no failures on empty)." },
-      { mark: "sub", text: "doctor activates them automatically when src/ appears." },
-    ]);
-  }
+  ui.section("Layer rules", [
+    { mark: "muted", text: "Choosing layers is judgement: run /ai-config-to-project once there is code." },
+    { mark: "sub", text: "It proposes rules for your language's own tool; you review and apply them." },
+  ]);
 }
 
 /** Resolve every pre-scaffold step in one place — machine side, repo, re-init handoff,
@@ -420,7 +417,7 @@ export async function initMain(flags: InitFlags): Promise<number> {
   const resolved = await resolvePhase(flags, cwd, inRepo, input, confirmWithInput);
   if (typeof resolved === "number") return resolved;
   const lines = await scaffoldAndCarriers(flags, resolved.picked, resolved.ci, confirmWithInput);
-  renderSections(cwd, resolved.picked, resolved.ci, lines);
+  renderSections(resolved.picked, resolved.ci, lines);
   ui.section("Installed", [
     { mark: "warn", text: "Trust this workspace in your editor, or the hooks do not run." },
     { mark: "ok", text: "Nothing committed." },
