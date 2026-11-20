@@ -38,7 +38,11 @@ jobs:
       # Before the build, so no test can lean on a dist/ left behind by a later step.
       - name: Full serial suite on ${{ matrix.os }}
         shell: bash
-        run: bun test --parallel=1
+        # Windows spawns a process several times slower than Linux or macOS, and a slow runner
+        # pushed spawn-heavy tests past Bun's 5 s default on a different test each attempt
+        # (1.35 s on one run, over 5 s on the next, same code). The longer limit is Windows only:
+        # elsewhere a test that slow is still a failure.
+        run: bun test --parallel=1 ${{ runner.os == 'Windows' && '--timeout 15000' || '' }}
       - name: Build the real binary
         run: bun run build
       # The demo lives outside the checkout: a folder inside this governed repository is
