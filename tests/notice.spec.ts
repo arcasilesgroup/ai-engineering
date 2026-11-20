@@ -25,7 +25,11 @@ import {
 
 const [major, minor, patch] = VERSION.split(".").map((part) => Number.parseInt(part, 10));
 const NEXT = `${major}.${minor}.${(patch ?? 0) + 1}`;
-const PREVIOUS = `${major}.${minor}.${Math.max((patch ?? 1) - 1, 0)}`;
+// Strictly older than VERSION for every shape: decrementing the patch alone gave x.y.0 back
+// on a minor release, a repo "behind" its own binary, and every behind-test failed.
+const PREVIOUS = (patch ?? 0) > 0 ? `${major}.${minor}.${(patch ?? 0) - 1}`
+  : (minor ?? 0) > 0 ? `${major}.${(minor ?? 0) - 1}.0`
+  : `${(major ?? 1) - 1}.0.0`;
 const HOUR = 60 * 60 * 1000;
 
 const roots: string[] = [];
