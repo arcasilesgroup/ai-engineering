@@ -155,8 +155,8 @@ function tallyReceipt(receipt: Receipt, tally: ReceiptTally): void {
 }
 
 /** doctor's aggregate: without this you don't know whether the chain runs at all —
- *  nor who denies, on what tool, on which day (research/001 R1: the gc must stop
- *  throwing away the story the receipts already tell). */
+ *  nor who denies, on what tool, on which day. The gc keeps that story instead of
+ *  throwing it away with the receipts. */
 export function summarizeReceipts(dir?: string | null): ReceiptSummary {
   // `dir` is tri-state: `undefined` = resolve the caller's repo, `null` = no store
   // at all (the caller already knows this root has none), a string = that store.
@@ -174,7 +174,7 @@ export function summarizeReceipts(dir?: string | null): ReceiptSummary {
       for (const name of readdirSync(target)) {
         if (!name.endsWith(".json")) continue;
         // gc writes its own summary into this folder; counting it as a receipt would
-        // inflate the total by one on every collection (§21.3).
+        // inflate the total by one on every collection.
         if (name === "summary.json" || name === "denies.json") continue;
         if (/^\d{4}-\d{2}-\d{2}T/.test(name) && name.slice(0, 10).replaceAll("-", "") < cutoff) continue;
         try {
@@ -231,7 +231,7 @@ export function receiptId(receipt: Receipt): string {
   return createHash("sha256").update(`${receipt.ts}:${receipt.operation_id}`).digest("hex").slice(0, 8);
 }
 
-/** The cross-session deny ledger (research/001 R2): key → {times denied, last seen}.
+/** The cross-session deny ledger: key → {times denied, last seen}.
  *  One small file in the receipts folder that the gc prunes instead of sweeping.
  *  todo: read-modify-write races between concurrent hook processes lose an
  *  increment; this is a bell, not enforcement, and a lost count changes a clause's

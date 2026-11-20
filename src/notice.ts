@@ -1,4 +1,4 @@
-// src/notice.ts — two signals, decided in one place (§14.0): a newer ai-eng on the
+// src/notice.ts — two signals, decided in one place: a newer ai-eng on the
 // registry, and a repo installed by an older binary than the one running. A person
 // reads them as one line each at the end of a human verb; the agent reads them at
 // session start. One registry read a day at most, and the answer is remembered

@@ -16,7 +16,7 @@ export type PlanEntry = {
   ours: string; // the new content from the binary's templates
   /** A file the user also owns (settings, hooks.json). Ours are MERGED in by marker
    *  and never written whole — the difference between installing a hook and
-   *  overwriting the hooks, permissions and env of somebody's editor (§03). */
+   *  overwriting the hooks, permissions and env of somebody's editor. */
   merge?: boolean;
 };
 
@@ -36,7 +36,7 @@ export type InstallReport = {
   yours: string[]; // the project's: never written by ai-eng, or seeded config it edited
   /** Files we were asked to merge into and could not: not JSON, or not an object.
    *  Untouched, and named — an installer that quietly skips a surface's carrier
-   *  leaves a repo that believes it is governed and is not (§13). */
+   *  leaves a repo that believes it is governed and is not. */
   refused: Array<{ path: string; reason: string }>;
 };
 
@@ -108,7 +108,7 @@ const REMOVE = Symbol("remove");
  *  keep every foreign entry and append ours — dropping our own previous ones first,
  *  which is what makes a second install a no-op — and a scalar from our template is
  *  ours. Nothing foreign is ever dropped: an entry is ours only when it carries the
- *  marker command (§03). */
+ *  marker command. */
 function mergeValue(existing: unknown, ours: unknown): unknown {
   if (Array.isArray(ours)) {
     const stripped = Array.isArray(existing) ? stripValue(existing) : [];
@@ -183,8 +183,8 @@ const serialize = (value: unknown, shape: Shape): string => {
 };
 
 /** The file's own indentation, line endings and trailing newline — and only when this
- *  code can reproduce the file's bytes exactly with them. `nada ajeno se toca ni se
- *  reformatea` (§03): the layout (four spaces, tabs, CRLF, a compact one-liner) is the
+ *  code can reproduce the file's bytes exactly with them. Nothing of the user's is
+ *  touched or reformatted: the layout (four spaces, tabs, CRLF, a compact one-liner) is the
  *  user's, so a file we cannot reproduce is a file we do not merge into. Null means
  *  exactly that. */
 function shapeOf(text: string, parsed: unknown): Shape | null {
@@ -330,13 +330,13 @@ function rewriteInPlace(root: string, rel: string, contents: string): string | n
 }
 
 /** The lockfile: sha256 per installed asset + the approved-spec pin. Nothing downloads;
- *  it is an assertion of what this repo expects, not a package manager (§08). */
+ *  it is an assertion of what this repo expects, not a package manager. */
 export type Lock = {
   version: string;
   assets: Record<string, string>;
   spec_sha256?: string;
   /** The commit the live milestone started from: without it a conditional node has no
-   *  diff to judge, and "if it touches UI" stays a sentence nobody can check (§20.1). */
+   *  diff to judge, and "if it touches UI" stays a sentence nobody can check. */
   base_sha?: string;
 };
 
