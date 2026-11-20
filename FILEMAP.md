@@ -27,7 +27,6 @@ docs/
     reviews/                   /ai-adversarial-loop debate threads
     prototypes/                /ai-prototype HTML mockups + <name>.states.json scenarios
 src/
-  assets.ts                    Embedded skill, template and runtime asset registry
   payload.ts                   Normalized tool payloads and shared call fingerprints
   commands/
     worktree.ts                CLI parser for new, list, merge, request-changes and rm
@@ -52,14 +51,13 @@ tests/
   skills-lint.spec.ts           Skill frontmatter, Lifecycle, relative links and workflow contracts
   token-budget.spec.ts          Core token budgets and silent successful-hook output
 scripts/
-  gen-assets.ts                Generate embedded assets from skills/, agents/ and templates/
+  chain-bundle.ts              Build the chain module the in-process plugin hosts import (into generated/)
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
   tokens.ts                    `bun run tokens`: report skill-frontmatter and AGENTS-template byte/4 counts
   package-consumer-smoke.ts    Pack (or take `--tarball`), install in temp npm and Bun consumers, run `ai-eng --version`
   first-install-probe.ts       Init every surface, run each written hook line in the host's shells (CI job first-install)
   release-sbom.ts              Runtime-only CycloneDX SBOM for a packed tarball, named by its sha256
   release-policy.ts            Release gate: signed annotated tag on the dispatched SHA by an allowlisted key, verified NOTICE.md rights
-  .embed/<skill-name>/scripts/  Generated text payloads for skill scripts
 skills/                        Installed skill canon
   ai-brainstorm/SKILL.md       Interview, classify and record approved feature intent
   ai-orchestrator/SKILL.md     Gated feature workflow in the selected checkout

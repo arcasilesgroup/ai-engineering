@@ -47,11 +47,6 @@ function detectedCiProvider(cwd: string): CiProvider {
   return /dev\.azure\.com|visualstudio\.com/.test(url) ? "azure-pipelines" : "github-actions";
 }
 
-/** "a", "a and b", "a, b and c" — a list as a sentence says it. */
-function listed(items: string[]): string {
-  return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
-}
-
 /** The canon's drift in one line — the counts that matter, and only the ones that are
  *  non-zero beyond the first two. Nested template literals read as arithmetic. */
 function canonSummary(canon: { drift: number; missing: number; stale: number }): string {
@@ -135,12 +130,9 @@ function scaffoldProject(surfaces: string[], ci: CiProvider, contract: PlanEntry
 /** The local confirm closure — one shared prompt helper threaded into the machine/repo steps. */
 type ConfirmInput = (message: string, initial: boolean) => Promise<boolean>;
 
-/** Phase 1 machine side (§14.5b): install/repair the global canon, or report it healthy. */
-async function resolveMachineSide(
-  flags: InitFlags,
-  inRepo: boolean,
-  confirmWithInput: ConfirmInput,
-): Promise<number | { machineAgreed: boolean }> {
+/** Phase 1 machine side: install/repair the global canon, or report it healthy. An exit
+ *  code ends the verb (`--global` is done); null carries on with the repo. */
+function resolveMachineSide(flags: InitFlags): number | null {
   // Phase 1: global, or missing canon — installs/repairs the machine side either way.
   // home() (not HOME) so AI_ENG_HOME test installs stay isolated. The status
   // line always prints: the user must see the machine is healthy before the
@@ -154,43 +146,19 @@ async function resolveMachineSide(
   // version into.
   const canon = canonDrift(home());
   const canonHealthy = canon.drift === 0 && canon.missing === 0 && canon.stale === 0;
-  // Did a machine-side write get agreed in this run? The canon install asks once (§14.5b)
-  // and the carriers ride with the same answer — a second question for the same "write
-  // outside the repo" would be noise, and silence would be a write nobody agreed to.
-  const machineAgreed = flags.global === true || flags.yes === true || !canonHealthy;
-  const canonExit = await installCanonOrReport(flags, inRepo, canonDir, canon, canonHealthy, confirmWithInput);
-  if (canonExit !== null) return canonExit;
+  installCanonOrReport(flags, canonDir, canon, canonHealthy);
   if (flags.global) {
     ui.end("Next: ai-eng init inside a repo.");
     return 0;
   }
-  return { machineAgreed };
+  return null;
 }
 
-/** Install or report the global canon, one section either way. Returns an exit code only on the declined-offer path. */
-async function installCanonOrReport(
-  flags: InitFlags,
-  inRepo: boolean,
-  canonDir: string,
-  canon: CanonDrift,
-  canonHealthy: boolean,
-  confirmWithInput: ConfirmInput,
-): Promise<number | null> {
+/** Install or report the global canon, one section either way. Never asked (D-012): a repo
+ *  is not governed without the canon, and update and config write it without a question. */
+function installCanonOrReport(flags: InitFlags, canonDir: string, canon: CanonDrift, canonHealthy: boolean): void {
   if (flags.global || !canonHealthy) {
     const reinstalling: boolean = existsSync(canonDir) && !canonHealthy;
-    // §14.5b path 2: a repo on a machine that never had the canon. Writing all of
-    // ~/.ai-engineering is not what "govern this repo" asked for, so it is OFFERED
-    // ("one yes, two phases done") and a no ends the verb with the machine
-    // untouched. Repair of a canon that IS there stays silent: that half is already
-    // ours, and update repairs it without a question too. --global is the explicit
-    // ask; --yes is the zero-prompt CI path.
-    if (!flags.global && inRepo && !reinstalling && flags.yes !== true) {
-      const ok = await confirmWithInput(`No global canon at ${canonDir} — install it now and I continue with the repo?`, true);
-      if (isCancel(ok) || ok === false) {
-        ui.cancelled("Nothing installed. The machine side alone: ai-eng init --global");
-        return 0;
-      }
-    }
     const canonLines = installCanon(VERSION).map((line) => installLineRow(line));
     if (reinstalling) {
       ui.section("global canon outdated or incomplete — re-installing", canonLines, canonSummary(canon));
@@ -200,7 +168,6 @@ async function installCanonOrReport(
   } else {
     ui.section("global canon intact", [{ mark: "ok", text: `${home()} · ai-eng ${VERSION}`, dim: "nothing to install" }]);
   }
-  return null;
 }
 
 /** Outside a repo: init creates the repo itself (confirm, or --yes to proceed). */
@@ -337,12 +304,11 @@ function validateSurfaces(picked: string[]): number | null {
   return null;
 }
 
-/** Scaffold the repo, then ride the same machine-side permission for carriers and the git floor. */
+/** Scaffold the repo, then write the carriers the picked surfaces read from the home. */
 async function scaffoldAndCarriers(
   flags: InitFlags,
   picked: string[],
   ci: CiProvider,
-  machineAgreed: boolean,
   confirmWithInput: ConfirmInput,
 ): Promise<ScaffoldRows> {
   const cwd = process.cwd();
@@ -376,23 +342,16 @@ async function scaffoldAndCarriers(
   if (replacedExisting) rows.contract.unshift(ui.fileRow("updated", "AGENTS.md", "contract — replaced the file that was there"));
   if (keptExisting) rows.contract.unshift(ui.fileRow("unchanged", "AGENTS.md", "contract · yours, untouched"));
   sp.stop();
-  await installCarriers(flags, picked, machineAgreed, confirmWithInput, rows.files);
+  installCarriers(picked, rows.files);
   return rows;
 }
 
 /** Write the machine carriers for the surfaces that read their hooks from the user's home. */
-async function installCarriers(
-  flags: InitFlags,
-  picked: string[],
-  machineAgreed: boolean,
-  confirmWithInput: ConfirmInput,
-  rows: ui.Row[],
-): Promise<void> {
-  // The machine side of the declared surfaces: five of the seven hosts read their
-  // carrier from the user's home, so that is where it goes — once per machine, not once
-  // per repo (§13.2). Writing outside the repo is ASKED for (§14.5b); --yes is the
-  // zero-prompt path, and a canon that was just installed under the same permission
-  // already answered it.
+function installCarriers(picked: string[], rows: ui.Row[]): void {
+  // Five of the seven hosts read their carrier from the user's home, so that is where it
+  // goes — once per machine, not once per repo (§13.2). Never asked (D-012): a surface
+  // without its carrier runs with no guards at all, which is not what `init` was for, and
+  // the merge keeps every setting of the person's own.
   const machineScoped = picked.filter((id) => {
     const surface = SURFACES.find((s) => s.id === id);
     return surface !== undefined && machineCarrier(surface) !== null;
@@ -400,28 +359,12 @@ async function installCarriers(
   // Every init, whatever the surfaces: Cursor's repo-only hook is the one that needs it most.
   const retiredShim = retireNpmPowerShellShim();
   if (retiredShim !== null) rows.push(installLineRow(retiredShim));
-  if (machineScoped.length > 0) {
-    // Named by what the person sees — the tool and the file — not by ai-eng's word for it.
-    const tools = listed(machineScoped.map((id) => SURFACES.find((s) => s.id === id)?.label ?? id));
-    const files = listed(machineScoped.flatMap((id) => {
-      const surface = SURFACES.find((s) => s.id === id);
-      const carrier = surface ? machineCarrier(surface) : null;
-      return carrier ? [`~/${carrier.path}`] : [];
-    }));
-    const agreed =
-      machineAgreed ||
-      flags.yes === true ||
-      (await confirmWithInput(`${tools} only load hooks from your home folder, not from this repo. Add ai-eng's guard hook to ${files}? Your own settings there are kept.`, true)) === true;
-    if (!agreed) {
-      rows.push({ mark: "warn", text: `guard hook not added — ai-eng's guards do not run in ${tools} until you run ai-eng init again` });
-    } else {
-      const report = installMachineCarriers(machineScoped);
-      for (const path of report.written) rows.push(ui.fileRow("installed", path, "machine carrier"));
-      for (const path of report.retired) rows.push(ui.fileRow("removed", path, "OpenCode loads every file in its plugin folder"));
-      for (const path of report.untouched) rows.push(ui.fileRow("unchanged", path, "machine carrier already current"));
-      for (const refused of report.refused) rows.push(installLineRow(refuseLine(refused)));
-    }
-  }
+  if (machineScoped.length === 0) return;
+  const report = installMachineCarriers(machineScoped);
+  for (const path of report.written) rows.push(ui.fileRow("installed", path, "machine carrier"));
+  for (const path of report.retired) rows.push(ui.fileRow("removed", path, "OpenCode loads every file in its plugin folder"));
+  for (const path of report.untouched) rows.push(ui.fileRow("unchanged", path, "machine carrier already current"));
+  for (const refused of report.refused) rows.push(installLineRow(refuseLine(refused)));
 }
 
 /** The contract files and everything else, kept apart where they are written — never
@@ -429,17 +372,14 @@ async function installCarriers(
 type ScaffoldRows = { contract: ui.Row[]; files: ui.Row[] };
 
 /** Print the contract section, then the scaffold. */
-function renderSections(cwd: string, picked: string[], ci: CiProvider, rows: ScaffoldRows): void {
+function renderSections(picked: string[], ci: CiProvider, rows: ScaffoldRows): void {
   if (rows.contract.length > 0) ui.section("Your contract files", rows.contract, "yours to edit — ai-eng never rewrites them");
   const plural = picked.length === 1 ? "" : "s";
   ui.section("Scaffolded", rows.files, `${picked.length} surface${plural}: ${picked.join(", ")} · CI: ${ci}`);
-  // Bootstrap note (§14.1 mockup): no src/ yet — arch-tests hold off until there is code.
-  if (!existsSync(join(cwd, "src"))) {
-    ui.section("Bootstrap mode", [
-      { mark: "muted", text: "No code yet → arch-tests hold off (no failures on empty)." },
-      { mark: "sub", text: "doctor activates them automatically when src/ appears." },
-    ]);
-  }
+  ui.section("Layer rules", [
+    { mark: "muted", text: "Choosing layers is judgement: run /ai-config-to-project once there is code." },
+    { mark: "sub", text: "It proposes rules for your language's own tool; you review and apply them." },
+  ]);
 }
 
 /** Resolve every pre-scaffold step in one place — machine side, repo, re-init handoff,
@@ -451,10 +391,9 @@ async function resolvePhase(
   inRepo: boolean,
   input: NodeJS.ReadStream | PassThrough,
   confirmWithInput: ConfirmInput,
-): Promise<number | { machineAgreed: boolean; picked: string[]; ci: CiProvider }> {
-  const machineSide = await resolveMachineSide(flags, inRepo, confirmWithInput);
-  if (typeof machineSide === "number") return machineSide;
-  const machineAgreed = machineSide.machineAgreed;
+): Promise<number | { picked: string[]; ci: CiProvider }> {
+  const machineExit = resolveMachineSide(flags);
+  if (machineExit !== null) return machineExit;
   const repoCode = await ensureRepo(flags, inRepo, cwd, confirmWithInput);
   if (repoCode !== null) return repoCode;
   const handoff = await reinitHandoff(flags, cwd, input);
@@ -465,7 +404,7 @@ async function resolvePhase(
   if (invalid !== null) return invalid;
   const ci = await pickCi(flags, cwd, input);
   if (typeof ci === "number") return ci;
-  return { machineAgreed, picked: pickedResult, ci };
+  return { picked: pickedResult, ci };
 }
 
 export async function initMain(flags: InitFlags): Promise<number> {
@@ -477,8 +416,8 @@ export async function initMain(flags: InitFlags): Promise<number> {
   ui.frame(ui.frameTitle("init", subject, VERSION));
   const resolved = await resolvePhase(flags, cwd, inRepo, input, confirmWithInput);
   if (typeof resolved === "number") return resolved;
-  const lines = await scaffoldAndCarriers(flags, resolved.picked, resolved.ci, resolved.machineAgreed, confirmWithInput);
-  renderSections(cwd, resolved.picked, resolved.ci, lines);
+  const lines = await scaffoldAndCarriers(flags, resolved.picked, resolved.ci, confirmWithInput);
+  renderSections(resolved.picked, resolved.ci, lines);
   ui.section("Installed", [
     { mark: "warn", text: "Trust this workspace in your editor, or the hooks do not run." },
     { mark: "ok", text: "Nothing committed." },

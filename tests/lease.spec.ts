@@ -94,6 +94,19 @@ describe("runLease — one folder, one writer", () => {
     expect(readLease(dir)?.session).toBe("session-a");
   });
 
+  test("a file written outside the folder is not held: a temp file or another checkout", () => {
+    const dir = repo();
+    runLease(edit(dir, "session-a"), dir, NOW);
+    const outside = (path: string) =>
+      normalise({ tool_name: "Write", tool_input: { file_path: path, content: "x" }, cwd: dir, session_id: "session-b" }, undefined, "PreToolUse");
+    expect(runLease(outside(join(tmpdir(), "notes.txt")), dir, NOW + MINUTE)).toBeUndefined();
+    expect(runLease(outside(join(dir, "..", "other-checkout", "a.ts")), dir, NOW + MINUTE)).toBeUndefined();
+    // Inside the folder, by an absolute or a relative path, it is held.
+    expect(runLease(outside(join(dir, "src", "a.ts")), dir, NOW + MINUTE)?.deny).toBe(true);
+    expect(runLease(outside("src/a.ts"), dir, NOW + MINUTE)?.deny).toBe(true);
+    expect(readLease(dir)?.session).toBe("session-a");
+  });
+
   test("a host that names no session is never judged, and holds nothing", () => {
     const dir = repo();
     runLease(edit(dir, "session-a"), dir, NOW);

@@ -96,12 +96,11 @@ describe("the embedded payload", () => {
     }
   });
 
-  test("the canon proper is the payload minus the dot-entries that are plugin payload, not skills", () => {
-    const everyEmbeddedSkillPath = embeddedUnder("skills/");
+  test("the canon is skills/ alone: no dot-entry and no build artifact rides along", () => {
     const canon = canonSkills();
     expect(canon.size).toBeGreaterThan(0);
-    expect(canon.size).toBeLessThan(everyEmbeddedSkillPath.size);
     for (const key of canon.keys()) expect(key.slice("skills/".length).startsWith(".")).toBe(false);
+    expect([...canon.keys()].some((key) => key.includes("ai-eng-chain"))).toBe(false);
   });
 
   test("a template renders its {{vars}} and an unknown name is a loud error, not an empty file", () => {
@@ -120,7 +119,7 @@ describe("the embedded payload", () => {
   test("an absolute ref is its own path — round-tripping it through a URL is the Windows ENOENT", () => {
     expect(embeddedPath("/opt/ai-eng/asset.tpl")).toBe("/opt/ai-eng/asset.tpl");
     expect(embeddedPath("C:\\ai-eng\\asset.tpl")).toBe("C:\\ai-eng\\asset.tpl");
-    expect(existsSync(embeddedPath("./assets.ts"))).toBe(true);
+    expect(existsSync(embeddedPath("./embed.ts"))).toBe(true);
   });
 });
 

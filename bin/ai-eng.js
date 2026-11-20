@@ -62,7 +62,7 @@ function packageRoot() {
 }
 
 /** scripts/build.ts ships in the repo and not in the npm tarball (`files` lists
- *  scripts/.embed only). Its presence is the dev checkout, including `bun link`. */
+ *  no scripts). Its presence is the dev checkout, including `bun link`. */
 function isDevCheckout(root) {
   return existsSync(join(root, "scripts", "build.ts"));
 }

@@ -786,6 +786,28 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(lock).toInclude(`"${config}" = "${configHash}"`);
   });
 
+  test("the arch.rules.json init no longer seeds leaves while untouched and stays once a person wrote rules (D-014)", async () => {
+    const repo = governedRepo("repo-retired-arch");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const rules = join(repo, ".ai-engineering", "arch.rules.json");
+    const seeded = '{\n  "layers": {},\n  "rules": [],\n  "bootstrap": "allow-empty-while-files==0"\n}\n';
+    const recorded = `${readFileSync(lockPath, "utf8")}".ai-engineering/arch.rules.json" = "${sha256(seeded)}"\n`;
+
+    writeFileSync(rules, seeded);
+    writeFileSync(lockPath, recorded);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    expect(existsSync(rules)).toBe(false);
+    expect(readFileSync(lockPath, "utf8")).not.toInclude("arch.rules.json");
+
+    const written = '{"layers": {"cli": "src/cli/**"}, "rules": [{"from": "cli"}]}\n';
+    writeFileSync(rules, written);
+    writeFileSync(lockPath, recorded);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    expect(readFileSync(rules, "utf8")).toBe(written);
+  });
+
   test("an older lock's repo settings carrier is the project's file: only ai-eng's entries come out, its own keys stay", async () => {
     const repo = governedRepo("repo-retired-settings");
     process.chdir(repo);

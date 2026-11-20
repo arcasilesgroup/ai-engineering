@@ -251,3 +251,68 @@ A `lease` guard holds a folder for the session that writes in it: a file edit, o
 
 - **Every agent always in a worktree:** no hold to wait on, more friction for one session. Rejected by the owner.
 - **A shorter or longer window:** 5 minutes lets a pause lose the folder; 60 blocks for nothing. The owner chose 15.
+
+## D-012: init installs the machine side without asking
+
+Status: Accepted · Date: 2026-11-20
+
+### Context
+
+`ai-eng init` asked twice before writing outside the repo: once to install the global canon on a machine without it, and once to add the guard hook to the home-scoped carriers (Claude Code, Pi, Codex, Copilot, OpenCode). A "no" to either left a repo that called itself governed with no guards running in those tools. `update` and `config --add` already wrote the same files without a question, and the carrier merge keeps every setting of the person's own.
+
+### Decision
+
+`init` installs or repairs the canon and writes the home carriers of the picked surfaces every time, with no question. It still asks before creating a git repository in a bare folder and before overwriting an AGENTS.md that is already there: those touch the person's own files.
+
+### Consequences
+
+- A governed repo always has its guards running in the tools it declares.
+- A second `init` writes nothing twice: the carrier merge is by marker, and an up-to-date carrier is reported unchanged.
+
+### Alternatives considered
+
+- **Keep the questions with Yes as the default:** one Enter each, and a "no" still produced a repo governed by nothing. Rejected.
+
+## D-013: The binary carries its payload folders as they are
+
+Status: Accepted · Date: 2026-11-20
+
+### Context
+
+Three generated files were committed so the payload could ride inside the binary: `src/assets.ts` (one import per skill and template file), `scripts/.embed/` (`.txt` copies of skill scripts tsc would otherwise resolve) and `skills/.chain-bundle/` (the compiled chain, parked under `skills/` so the walk picked it up). Each change to a skill or to the chain meant regenerating and committing them, a test existed only to catch them stale, and the code skipped dot entries under `skills/` in five places to step around the bundle.
+
+### Decision
+
+`bun build --compile --asset <folder>` embeds `skills/`, `agents/`, `templates/` and `generated/` at their own relative paths, and `src/embed.ts` reads them by path: beside the binary's entry inside Bun's embedded filesystem when compiled, one level above `src/` from source. The tracked files are the one source of truth. The chain bundle is built into the ignored `generated/` folder by every compile, every `bun test` and every `npm pack`, and is never committed. Approved by the owner on 2026-11-20.
+
+### Consequences
+
+- Editing a skill or template needs no regeneration step; nothing generated is in git.
+- The payload root cannot come from `import.meta.dir`: `--bytecode` freezes it to the build machine's path. It comes from `Bun.main` when the binary carries embedded files.
+- The prepack script must stay silent on stdout, because the release job parses `npm pack --json`.
+
+### Alternatives considered
+
+- **Keep the generated registry, move the bundle out of `skills/`:** fixes the misplaced folder and keeps two committed generated files. Rejected.
+
+## D-014: Layer rules are proposed by a skill, for the language's own tool
+
+Status: Accepted · Date: 2026-11-20
+
+### Context
+
+`init` wrote the same empty `.ai-engineering/arch.rules.json` into every repo, and nothing outside this repository ever read it: the only reader was ai-engineering's own `tests/arch.spec.ts`. `doctor` reported "active" once a `src/` folder existed, with no rule in the file, and "bootstrap mode" for ever in a repo whose code is not under `src/`. The AGENTS.md template promised an arch test the project did not have.
+
+### Decision
+
+`init` no longer writes `arch.rules.json`. Layer rules belong to the standard tool of the language (dependency-cruiser, import-linter, depguard in golangci-lint), and `/ai-config-to-project` proposes them from the real dependency graph, the stack's guidelines and the project's own documents; the person applies them. `doctor` recognises those tools, says nothing is wrong in a repo with no code yet, and points a repo with code and no rules at the skill. `update` retires the seeded file while it is untouched and keeps one a person edited. Approved by the owner on 2026-11-20.
+
+### Consequences
+
+- No deterministic layer engine to maintain inside ai-eng; each language keeps its own.
+- A JavaScript project's `arch` script runs in the ai-eng check workflow; other languages run their tool in a CI step of their own.
+- This repository keeps `tests/arch.spec.ts` and its non-empty `arch.rules.json`, which `doctor` still counts as rules.
+
+### Alternatives considered
+
+- **A new arch verb in the CLI, with scanners per language and a `--suggest` mode:** deterministic, and a second implementation of what each language's tool already does, with the judgement of choosing layers still missing. Rejected by the owner.

@@ -1,4 +1,4 @@
-// ai-eng chain — the entry point gen-assets bundles for in-process plugin hosts
+// ai-eng chain — the entry point scripts/chain-bundle.ts bundles for in-process plugin hosts
 // (OMP/OpenCode). Exposes chain(event, payload, opts): the guard chain,
 // fail-closed, never process.exit inside the host — a deny returns the verdict
 // to the caller (inProcess: true).

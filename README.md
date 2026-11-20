@@ -426,7 +426,7 @@ is a historical snapshot; use this README and the source tree for current guidan
 | A legitimate command was denied | Add an entry to `.ai-engineering/overrides.toml` with a `reason` and an `until` date. `doctor` shows the time it has left |
 | `ai-eng: bun not found` | The launcher runs the source under Bun. Install Bun (>= 1.4.4) once; `npm install -g` works after that |
 | `ai-eng.ps1 cannot be loaded` on Windows | npm wrote it again on an install or upgrade. PowerShell picks it before `ai-eng.cmd`, and the default execution policy refuses it. Run `ai-eng.cmd update` once: init and update remove that `.ps1` |
-| Doctor reports canon drift | A payload file changed without `bun scripts/gen-assets.ts`. Run it, then `ai-eng update` |
+| Doctor reports canon drift | The installed skills differ from the ones this binary carries. Run `ai-eng update` |
 | You want no update notice | Set `AI_ENG_NO_UPDATE_NOTICES=1` |
 | You want it gone | `ai-eng uninstall` reverts ours and keeps your contract files |
 
@@ -434,15 +434,14 @@ is a historical snapshot; use this README and the source tree for current guidan
 
 ```bash
 bun install
-bun run build                  # compile dist/ai-eng, with skills and templates embedded
+bun run build                  # compile dist/ai-eng, with skills, agents and templates embedded
 bun test                       # unit, adversarial oracle, gates and arch
 bun run lint && bun run typecheck
-bun scripts/gen-assets.ts      # regenerate src/assets.ts after touching skills/ or templates/
 bun scripts/readme-diagrams.ts # regenerate .github/assets/*.svg from the repo
 ```
 
-`gen-assets.ts` is not optional after a payload change: the CLI reads `src/assets.ts`, and
-a file that is not in it does not ship. The brand is generated too: `bun scripts/brand.ts gen`
+`skills/`, `agents/` and `templates/` are embedded as they are, so nothing is regenerated after
+editing them. The brand is generated: `bun scripts/brand.ts gen`
 owns `src/theme.ts` and the landing site's tokens ([brand/README.md](brand/README.md)). The
 README captures are recorded with the external [VHS](https://github.com/charmbracelet/vhs)
 CLI. After installing it, run `vhs quickstart.tape` or `vhs chain.tape` from

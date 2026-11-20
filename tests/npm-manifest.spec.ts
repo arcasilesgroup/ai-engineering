@@ -16,6 +16,7 @@ const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
   optionalDependencies?: Record<string, string>;
   engines?: { bun?: string };
   files?: string[];
+  scripts?: Record<string, string>;
 };
 
 /** The files npm would pack below a folder. `.DS_Store` is on npm's always-ignored list, so
@@ -58,7 +59,7 @@ test("the manifest declares the Bun executable and exact runtime contract", () =
     "src",
     "skills",
     "agents",
-    "scripts/.embed",
+    "generated",
     "templates",
     "NOTICE.md",
     "THIRD-PARTY-NOTICES.md",
@@ -78,11 +79,16 @@ test("the platform-package scripts are gone with the scheme", () => {
 test("npm's packed runtime includes every launcher, source, and embedded asset file", () => {
   const files = packedFiles();
   const expectedRuntimeFiles = repositoryPaths(
-    ["bin", "src", "scripts/.embed"].flatMap((directory) => filesBelow(join(root, directory))),
+    ["bin", "src", "generated"].flatMap((directory) => filesBelow(join(root, directory))),
   );
   const actualRuntimeFiles = files
-    .filter((path) => path.startsWith("bin/") || path.startsWith("src/") || path.startsWith("scripts/.embed/"))
+    .filter((path) => path.startsWith("bin/") || path.startsWith("src/") || path.startsWith("generated/"))
     .sort();
+
+  // The chain bundle is ignored by git and still packed: `files` names it, and the
+  // prepack script rebuilds it before every real pack.
+  expect(files).toContain("generated/chain/ai-eng-chain.ts");
+  expect(pkg.scripts?.["prepack"]).toBe("bun scripts/chain-bundle.ts");
 
   expect(actualRuntimeFiles).toEqual(expectedRuntimeFiles);
   expect(files.filter((path) => path === "package.json")).toEqual(["package.json"]);

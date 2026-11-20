@@ -78,5 +78,5 @@ sh scripts/proof-cli-ux.sh     # R16: the hooks reach new clones, and a repo wit
 
 1. A measured declaration in [`src/surfaces/surfaces.json`](../src/surfaces/surfaces.json). A surface with no carrier can still be valid; `init` refuses it when it cannot provide a required guard.
 2. `carrierFiles(id, scope)` in `src/surfaces/adapters.ts`: a case returning the entry template and, for an in-process host, the chain bundle. No case means no adapter, and no offer at init.
-3. A template under `templates/` (`settings.<id>.json.tpl` for a settings host, `plugin.<id>.ts.tpl` for a module host). Then regenerate the payload: `bun scripts/gen-assets.ts` is not optional after touching `templates/`, because the binary carries `src/assets.ts` and a file that is not in it does not ship.
+3. A template under `templates/` (`settings.<id>.json.tpl` for a settings host, `plugin.<id>.ts.tpl` for a module host). The binary carries `templates/` as it is, so the new file ships with the next build.
 4. A load proof. A path is declared when the host loads it, not when it exists: add a proof script alongside `scripts/proof-cli-ux.sh` — drive the host's own loader, assert the handler blocks, and check the receipt the chain wrote.

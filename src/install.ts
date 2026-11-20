@@ -25,6 +25,8 @@ export type PlanEntry = {
 export const SEEDED_CONFIG: ReadonlySet<string> = new Set([
   ".ai-engineering/config.toml",
   ".ai-engineering/overrides.toml",
+  // No longer seeded by init (D-014), and kept here on purpose: update retires it from the
+  // repos that have it, and this entry is what keeps an edited one as the project's.
   ".ai-engineering/arch.rules.json",
 ]);
 

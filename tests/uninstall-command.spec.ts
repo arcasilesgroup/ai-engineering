@@ -287,7 +287,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(readFileSync(join(cwd, ".ai-engineering", "spec", "plan.md"), "utf8")).toBe(plan);
     expect(existsSync(join(cwd, ".ai-engineering"))).toBe(true); // the spec keeps it alive
     expect(out).toContain("✓ removed    .cursor/hooks.json · still the template ai-eng installed");
-    expect(out).toContain("✓ removed    ai-eng.lock · 8 owned files swept");
+    expect(out).toContain("✓ removed    ai-eng.lock · 7 owned files swept");
     expect(out).toContain("ai-eng is out of this repo. Contract files remain.");
   });
 
@@ -380,7 +380,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     const { cwd } = sandboxed();
     gitInit(cwd);
     initShaped(["claude-code"]);
-    const rules = join(cwd, ".ai-engineering", "arch.rules.json");
+    const rules = join(cwd, ".ai-engineering", "overrides.toml");
     const edited = `${readFileSync(rules, "utf8")}\n`;
     writeFileSync(rules, edited);
     const workflow = join(cwd, ".github", "workflows", "ai-eng-check.yml");
@@ -393,7 +393,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
 
     expect(result).toBe(0);
     expect(readFileSync(rules, "utf8")).toBe(edited);
-    expect(out).toContain("· unchanged  .ai-engineering/arch.rules.json · config you edited — yours");
+    expect(out).toContain("· unchanged  .ai-engineering/overrides.toml · config you edited — yours");
     expect(existsSync(workflow)).toBe(false);
     expect(out).toContain("✓ removed    .github/workflows/ai-eng-check.yml · edited since install — ai-eng's file all the same");
     expect(existsSync(join(cwd, ".github"))).toBe(false); // the workflow was all it held

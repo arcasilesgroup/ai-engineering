@@ -1,64 +1,38 @@
-// Generated payload artifacts match their source — the class, not one instance.
-//
-// gen-assets.ts writes three things: the chain bundle (a `bun build` of
-// scripts/chain-entry.ts), the `.embed` fixture copies, and src/assets.ts. All three
-// are committed, so all three can silently disagree with what they were made from.
-// Two of them disagree in silence and are gated here:
-//
-//   · the chain bundle — it is what every in-process surface installs as the guard that
-//     runs inside the host (gen-assets.ts:26-37); a bundle that drifts from src/ means
-//     every installed guard runs stale code while doctor reports the chain green.
-//   · the `.embed` fixture copies — a fixture is the SUBJECT an eval measures, so a
-//     stale copy measures a repo that does not exist (gen-assets.ts:43-46).
-//
-// The third, src/assets.ts, is left alone on purpose: a payload file that is missing
-// from it does not fail silently — `embeddedTemplate` throws "template not embedded"
-// (embed.ts:101) — and catching it here would mean reimplementing the generator.
+// The payload has one source of truth: the files git tracks under skills/, agents/ and
+// templates/. The binary carries those folders as they are (`bun build --compile --asset`,
+// scripts/build.ts) and src/embed.ts reads them back by path, so there is no generated
+// registry or copy to fall out of step. The one build artifact, the chain bundle, lives in
+// the ignored generated/ folder and is rebuilt by every compile, test run and pack.
 
 import { expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { EMBEDDED } from "../src/assets";
+import { embeddedChainBundle, embeddedUnder } from "../src/embed.ts";
 
 const root = join(import.meta.dir, "..");
+const git = (args: string[]): string => execFileSync("git", args, { cwd: root, encoding: "utf8" });
 
-test("triage skill script modules and declarations are embedded as their exact text", () => {
-  for (const filename of [
-    "resolve-target.mjs",
-    "resolve-target.d.mts",
-    "render-report.mjs",
-    "render-report.d.mts",
-    "collect-azure.mjs",
-    "collect-azure.d.mts",
-  ]) {
-    const assetPath = `skills/ai-triage/scripts/${filename}`;
-    expect(readFileSync(EMBEDDED[`../${assetPath}`]!, "utf8")).toBe(readFileSync(join(root, assetPath), "utf8"));
-  }
+test("the payload is exactly the tracked files under skills/, agents/ and templates/", () => {
+  const tracked = git(["ls-files", "skills", "agents", "templates"]).split("\n").filter(Boolean).sort();
+  const shipped = [...embeddedUnder("").keys()].filter((key) => !key.startsWith("generated/")).sort();
+  // Empty-test protection: a moved folder must fail loudly, not pass vacuously.
+  expect(tracked.length).toBeGreaterThan(100);
+  expect(shipped).toEqual(tracked);
 });
 
-test("rebuilding chain-entry.ts reproduces the committed chain bundle byte for byte", () => {
-  const dir = mkdtempSync(join(tmpdir(), "ai-eng-bundle-"));
-  const out = join(dir, "ai-eng-chain.ts");
-  execFileSync(process.execPath, ["build", "scripts/chain-entry.ts", "--target=bun", "--format=esm", `--outfile=${out}`], { cwd: root, stdio: "pipe" });
-  // gen-assets.ts:37 appends the default export that lets tsc type the asset import
-  // as a string. A bare rebuild does not carry it, so the expectation adds it back.
-  const rebuilt = `${readFileSync(out, "utf8")}\nexport default "ai-eng-chain";\n`;
-  expect(readFileSync(join(root, "skills", ".chain-bundle", "ai-eng-chain.ts"), "utf8")).toBe(rebuilt);
-  rmSync(dir, { recursive: true, force: true });
+test("nothing generated is committed, and generated/ is ignored", () => {
+  expect(git(["ls-files", "generated", "src/assets.ts", "scripts/.embed", "skills/.chain-bundle"]).trim()).toBe("");
+  expect(git(["check-ignore", "generated/chain/ai-eng-chain.ts"]).trim()).toBe("generated/chain/ai-eng-chain.ts");
 });
 
-test("every .embed fixture copy is the byte-for-byte twin of the skill it came from", () => {
-  const copyDir = join(root, "scripts", ".embed");
-  const copies = readdirSync(copyDir, { recursive: true }).filter((entry) => String(entry).endsWith(".txt"));
-  // Empty-test protection: a moved directory must fail loudly, not pass vacuously.
-  expect(copies.length).toBeGreaterThan(0);
-  for (const entry of copies) {
-    const rel = String(entry);
-    const sourcePath = rel.slice(0, -".txt".length);
-    const source = join(root, "skills", sourcePath);
-    expect(existsSync(source)).toBe(true);
-    expect(readFileSync(join(copyDir, rel), "utf8")).toBe(readFileSync(source, "utf8"));
-  }
+test("the bundle script prints nothing on success: as prepack, its stdout lands inside `npm pack --json`", () => {
+  expect(execFileSync(process.execPath, ["scripts/chain-bundle.ts"], { cwd: root, encoding: "utf8" })).toBe("");
+});
+
+test("the chain bundle is the current src/chain, self-contained", () => {
+  const bundle = embeddedChainBundle();
+  expect(bundle).toContain("export");
+  expect(bundle).not.toMatch(/from\s+["']\.\.?\//); // a relative import dies in a foreign repo
+  expect(bundle).toBe(readFileSync(join(root, "generated", "chain", "ai-eng-chain.ts"), "utf8"));
 });

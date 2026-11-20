@@ -1,5 +1,8 @@
 node_modules/
 dist/
+# Build artifacts the binary and the npm package carry (scripts/chain-bundle.ts): rebuilt
+# by every compile, test run and pack, so they never drift and are never committed.
+generated/
 # build.ts leaves an orphaned compile scratch in the cwd when it is interrupted;
 # `*.bun-build` already matches the dotted names (`*` swallows the leading dot).
 *.bun-build

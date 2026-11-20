@@ -321,7 +321,7 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
     const root = repoTemplateRoot();
     expect(root).toBe(resolve(root));
     expect(existsSync(join(root, "package.json"))).toBe(true);
-    expect(detectCommands()).toBe("typecheck: tsc --noEmit · lint: oxlint · test: bun test · arch: bun test arch.spec.ts");
+    expect(detectCommands()).toBe("typecheck: tsc --noEmit · lint: oxlint · test: bun test");
   });
 
   test("refuseLine names the reason and what the refusal costs", () => {
@@ -349,7 +349,7 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
     const entries = planEntries(["claude-code", "cursor"], "github-actions");
     const paths = entries.map((e) => e.path);
     expect(paths).toContain(".ai-engineering/overrides.toml");
-    expect(paths).toContain(".ai-engineering/arch.rules.json");
+    expect(paths).not.toContain(".ai-engineering/arch.rules.json"); // layer rules live in the project's own tool (D-014)
     expect(paths).toContain(".ai-engineering/config.toml");
     expect(paths).toContain(".github/workflows/ai-eng-check.yml");
     expect(paths).toContain(".git/hooks/pre-commit");
@@ -481,7 +481,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     for (const [key, value] of Object.entries(JSON.parse(machineSettingsBefore) as Record<string, unknown>)) {
       expect((JSON.parse(machineSettingsMerged) as Record<string, unknown>)[key]).toEqual(value);
     }
-    expect(out).toContain("Bootstrap mode"); // no src/ yet, so arch-tests hold off
+    expect(out).toContain("run /ai-config-to-project once there is code"); // layer rules are judgement (D-014)
   });
 
   test("init leaves the existing commit alone, spawns no commit, and leaves global config untouched", async () => {
@@ -806,14 +806,17 @@ describe("init · non-interactive default skill installation", () => {
     assertExecutedNothingFrom(home, recorder.executions);
   });
 
-  test("declining the canon offer installs nothing at all", async () => {
+  test("a machine without the canon gets it with no question, then the repo is governed (D-012)", async () => {
     const { cwd, machine: home } = sandboxed();
     mkdirSync(join(cwd, ".git"));
-    const { result, out } = await driven({}, [["install", "n"]]);
+    const { result, out } = await driven({}, [
+      ["governed", " \n"],
+      ["CI run", "\n"],
+    ]);
     expect(result).toBe(0);
-    expect(existsSync(join(home, "skills"))).toBe(false);
-    expect(existsSync(join(cwd, "AGENTS.md"))).toBe(false);
-    expect(out).toContain("Nothing installed");
+    expect(existsSync(join(home, "skills"))).toBe(true);
+    expect(existsSync(join(cwd, "AGENTS.md"))).toBe(true);
+    expect(out).not.toContain("install it now");
   });
 
   test("declining git init ends the verb with the folder untouched", async () => {
@@ -856,33 +859,43 @@ describe("init · non-interactive default skill installation", () => {
     expect(canonPacks(config)).toBeNull();
   });
 
-  test("detected surfaces are ticked by default, and the machine writes can be declined", async () => {
+  test("detected surfaces are ticked by default, and their home carriers are written with no question (D-012)", async () => {
     const { cwd, machine: home } = sandboxed();
-    await initMain({ yes: true, global: true }); // a machine that already has the canon: no canon question
+    await initMain({ yes: true, global: true }); // a machine that already has the canon
     for (const marker of [".claude", ".cursor", ".opencode", join(".agents", "hooks")]) mkdirSync(join(cwd, marker), { recursive: true });
     gitIn(["init", "-q"], cwd);
+    // A person's own Claude Code settings: kept, with ai-eng's hooks merged in beside them.
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    writeFileSync(join(home, ".claude", "settings.json"), '{\n  "model": "mine"\n}\n');
 
     const { result, out } = await driven({}, [
       ["governed", "\n"],
       ["CI run", "\n"],
-      ["guard hook", "n"],
     ]);
     expect(result).toBe(0);
-    expect(out).toContain("global canon intact"); // a healthy machine is never re-written without a question
+    expect(out).toContain("global canon intact");
+    expect(out).not.toContain("only load hooks from your home folder");
 
     const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
     const enabled = JSON.parse(`[${/enabled = \[(.*)\]/.exec(config)?.[1] ?? ""}]`) as string[];
     expect(new Set(enabled)).toEqual(new Set(["claude-code", "oh-my-pi", "opencode", "cursor"]));
-    // Cursor reads its carrier from the checkout, so that one is installed whatever the answer.
     expect(readFileSync(join(cwd, ".cursor", "hooks.json"), "utf8")).toContain("ai-eng chain");
-    // The three whose readers live in the home are exactly what "n" refused.
-    expect(existsSync(join(home, ".claude", "settings.json"))).toBe(false);
-    expect(existsSync(join(home, ".omp", "agent", "hooks", "pre", "ai-eng.ts"))).toBe(false);
-    expect(existsSync(join(home, ".config", "opencode", "plugins", "ai-eng.ts"))).toBe(false);
+    // The three whose readers live in the home get their carrier, and nothing is asked.
+    const claude = readFileSync(join(home, ".claude", "settings.json"), "utf8");
+    expect(claude).toContain('"model": "mine"');
+    // The launcher is `ai-eng` on POSIX and `ai-eng.cmd` on Windows: match what follows it.
+    expect(claude).toContain(" chain PreToolUse");
+    // Oh My Pi's lands where PI_CODING_AGENT_DIR points (the sandbox redirects it): the row says so.
+    expect(out).toContain(".omp/agent/hooks/pre/ai-eng.ts");
+    expect(existsSync(join(home, ".config", "opencode", "plugins", "ai-eng.ts"))).toBe(true);
     expect(existsSync(join(home, "gitconfig"))).toBe(false); // init does not write global Git config
-    expect(out).toContain("only load hooks from your home folder");
-    expect(out).toContain("guard hook not added");
     expect(out).toContain("4 surfaces");
+
+    // A second init writes nothing twice: the hook is there once, the person's key still there.
+    expect(await initMain({ yes: true })).toBe(0);
+    const again = readFileSync(join(home, ".claude", "settings.json"), "utf8");
+    expect(again.split(" chain PreToolUse").length - 1).toBe(1);
+    expect(again).toContain('"model": "mine"');
   });
 
   test("an already-governed repo: choosing Exit changes nothing", async () => {

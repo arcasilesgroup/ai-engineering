@@ -11,7 +11,7 @@
 // without an id, every call would look like a new session.
 
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative as relativePath, resolve } from "node:path";
 import { loadConfig } from "../env.ts";
 import type { Payload } from "../payload.ts";
 import type { GuardResult } from "./no-verify.ts";
@@ -92,8 +92,25 @@ function writesThroughGit(command: string): boolean {
   });
 }
 
-function isWrite(payload: Payload): boolean {
-  if (FILE_WRITES.has(payload.tool_name)) return true;
+/** The file a file-writing tool targets, as the host names it. */
+function targetPath(payload: Payload): string | null {
+  for (const key of ["file_path", "notebook_path", "path"]) {
+    const value = payload.tool_input[key];
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return null;
+}
+
+/** A write into this folder. A file written elsewhere (a temp file, another checkout) is
+ *  not this folder's to hold: only its own tree, or a git command run in it. */
+function isWriteInto(payload: Payload, root: string): boolean {
+  if (FILE_WRITES.has(payload.tool_name)) {
+    const target = targetPath(payload);
+    if (target === null) return true;
+    const cwd = typeof payload["cwd"] === "string" && payload["cwd"].length > 0 ? payload["cwd"] : root;
+    const relative = relativePath(resolve(root), resolve(cwd, target));
+    return relative === "" || !(relative.startsWith("..") || isAbsolute(relative));
+  }
   if (payload.tool_name !== "Bash" && payload.tool_name !== "PowerShell") return false;
   const command = payload.tool_input["command"];
   return typeof command === "string" && writesThroughGit(command);
@@ -102,7 +119,7 @@ function isWrite(payload: Payload): boolean {
 /** The guard: hold the folder on this session's write, or stop another session's write. */
 export function runLease(payload: Payload, root: string | null, now: number = Date.now()): GuardResult {
   const session = typeof payload.session_id === "string" ? payload.session_id.trim() : "";
-  if (root === null || session === "" || !isWrite(payload)) return undefined;
+  if (root === null || session === "" || !isWriteInto(payload, root)) return undefined;
   const lease = readLease(root);
   const minutes = leaseMinutes(root);
   const isHeldByOther = lease !== null && lease.session !== session && now - lease.ts < minutes * MINUTE_MS;

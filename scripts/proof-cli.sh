@@ -63,14 +63,19 @@ ai update --yes >"$SANDBOX/update.out" 2>&1 || die "update exited non-zero offli
 say "5 update: offline sync, exit 0"
 
 # ── 6. hooks: SessionStart answers, the lease and no-stash guards hold ──
-hook SessionStart "{\"cwd\":\"$R\"}" || die "SessionStart exited non-zero"
-edit() { printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/README.md","old_string":"base","new_string":"next"},"cwd":"%s","session_id":"%s","tool_use_id":"%s"}' "$R" "$R" "$1" "$1-$2"; }
+# A host names the folder the way its OS does. Under Git Bash on Windows, $R is an MSYS
+# path (/tmp/...) the native binary cannot open, so the repo would read as ungoverned
+# and every guard would let the call through: the payload gets C:/... instead.
+RJ="$R"
+if command -v cygpath >/dev/null 2>&1; then RJ="$(cygpath -m "$R")"; fi
+hook SessionStart "{\"cwd\":\"$RJ\"}" || die "SessionStart exited non-zero"
+edit() { printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/README.md","old_string":"base","new_string":"next"},"cwd":"%s","session_id":"%s","tool_use_id":"%s"}' "$RJ" "$RJ" "$1" "$1-$2"; }
 hook PreToolUse "$(edit session-a 1)" || die "the first session's edit was denied: $(cat "$SANDBOX/hook.out")"
 if hook PreToolUse "$(edit session-b 1)"; then die "a second session's edit in the same folder was allowed"; fi
 grep -q "another session" "$SANDBOX/hook.out" || die "the lease denial does not say why"
 ai work release >/dev/null 2>&1 || die "work release exited non-zero"
 hook PreToolUse "$(edit session-b 2)" || die "after release, the next session was still denied"
-if hook PreToolUse "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git stash\"},\"cwd\":\"$R\",\"session_id\":\"session-b\",\"tool_use_id\":\"stash-1\"}"; then
+if hook PreToolUse "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git stash\"},\"cwd\":\"$RJ\",\"session_id\":\"session-b\",\"tool_use_id\":\"stash-1\"}"; then
   die "git stash was allowed"
 fi
 say "6 hooks: SessionStart, one writer per folder, no stash"
