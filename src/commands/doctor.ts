@@ -700,19 +700,24 @@ function isPlainFile(path: string): boolean {
 function gcCache(root: string): string[] {
   const cache = safeProjectPath(root, ".ai-engineering/cache");
   if (cache === null || !existsSync(cache)) return [];
-  const lines: string[] = [];
+  return [...gcVerdicts(root), ...gcRetentionClaims(cache)];
+}
+
+function gcVerdicts(root: string): string[] {
   const verdicts = safeProjectPath(root, ".ai-engineering/cache/verdicts");
-  if (verdicts !== null && existsSync(verdicts)) {
-    const cutoff = Date.now() - VERDICT_TTL_DAYS * 86_400_000;
-    let deleted = 0;
-    for (const name of readdirSync(verdicts)) {
-      const path = join(verdicts, name);
-      if (!name.endsWith(".json") || !isPlainFile(path) || statSync(path).mtimeMs >= cutoff) continue;
-      unlinkSync(path);
-      deleted += 1;
-    }
-    if (deleted > 0) lines.push(`✓ cache/verdicts/: ${deleted} older than ${VERDICT_TTL_DAYS} days deleted`);
+  if (verdicts === null || !existsSync(verdicts)) return [];
+  const cutoff = Date.now() - VERDICT_TTL_DAYS * 86_400_000;
+  let deleted = 0;
+  for (const name of readdirSync(verdicts)) {
+    const path = join(verdicts, name);
+    if (!name.endsWith(".json") || !isPlainFile(path) || statSync(path).mtimeMs >= cutoff) continue;
+    unlinkSync(path);
+    deleted += 1;
   }
+  return deleted > 0 ? [`✓ cache/verdicts/: ${deleted} older than ${VERDICT_TTL_DAYS} days deleted`] : [];
+}
+
+function gcRetentionClaims(cache: string): string[] {
   const today = `receipts-retention-${new Date().toISOString().slice(0, 10)}`;
   let claims = 0;
   for (const name of readdirSync(cache)) {
@@ -720,8 +725,7 @@ function gcCache(root: string): string[] {
     unlinkSync(join(cache, name));
     claims += 1;
   }
-  if (claims > 0) lines.push(`✓ cache/: ${claims} old retention claim${claims === 1 ? "" : "s"} deleted`);
-  return lines;
+  return claims > 0 ? [`✓ cache/: ${claims} old retention claim${claims === 1 ? "" : "s"} deleted`] : [];
 }
 
 /** Every plain file under a folder, by path relative to it; links are never followed. */
@@ -752,7 +756,7 @@ function gcWorkflow(root: string, olderDays: number): string[] {
   const dir = safeProjectPath(root, ".ai-engineering/workflow");
   if (dir === null || !existsSync(dir)) return [];
   const collected: string[] = [];
-  for (const relative of filesUnder(dir).sort()) {
+  for (const relative of filesUnder(dir).sort((a, b) => a.localeCompare(b, "en"))) {
     const path = join(dir, relative);
     if (collectVerdict(root, "workflow", dirname(path), basename(path), olderDays) !== "collect") continue;
     unlinkSync(path);
@@ -785,10 +789,12 @@ function gc(cwd = process.cwd()): string[] {
   for (const folder of ["research", "reports", join("design", "audits")]) {
     lines.push(...gcFolder(root, folder, maxFiles, olderDays));
   }
-  lines.push(...gcResearchCache(root, olderDays));
-  lines.push(...gcSecurity(root, join(root, ".ai-engineering", "security"), olderDays, keepRuns));
-  lines.push(...gcWorkflow(root, olderDays));
-  lines.push(...gcCache(root));
+  lines.push(
+    ...gcResearchCache(root, olderDays),
+    ...gcSecurity(root, join(root, ".ai-engineering", "security"), olderDays, keepRuns),
+    ...gcWorkflow(root, olderDays),
+    ...gcCache(root),
+  );
   if (lines.length === 0) lines.push("✓ gc: nothing to collect");
   return lines;
 }
