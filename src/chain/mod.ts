@@ -70,7 +70,7 @@ const UNREADABLE_PAYLOAD = "BLOCKED: the hook payload could not be read, so noth
 
 export type ChainOptions = {
   surface?: string;
-  /** The host's denial vocabulary (§10.1). Absent = claude, the surface that has
+  /** The host's denial vocabulary. Absent = claude, the surface that has
    *  run since second zero. */
   dialect?: Dialect;
   /** In-process mode returns outcomes instead of exiting (OMP/OpenCode plugins). */
@@ -158,7 +158,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   // A repo that never declared itself in config.toml gets allow and nothing else:
   // no guards, no receipt, no receipts/ directory invented in a stranger's clone.
   // This is the one fail-open in the system, and it is bounded to one question,
-  // asked in one place (§A). Everything below assumes a repo that asked for policy.
+  // asked in one place. Everything below assumes a repo that asked for policy.
   if (root === null || !isGoverned(root)) return { action: "allow", guards: [], receiptId: null };
   if (rawPayload === null || Array.isArray(rawPayload) || typeof rawPayload !== "object") {
     return denyOutcome("chain", UNREADABLE_PAYLOAD, [], event, options, started, root, "unknown");
@@ -214,7 +214,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   // repo root, where it would be an unowned directory our own `git add -A` commits, with
   // the guard's own messages (absolute paths included) in it. The filename is
   // DERIVED, never the raw session id: a host-supplied string with a slash or `..` in it
-  // would put this write outside the cache directory (audit finding R3).
+  // would put this write outside the cache directory.
   const dedup = deduplicable(payload) && event === "PreToolUse";
   const cacheFile = join(root, ".ai-engineering", "cache", "verdicts", `${createHash("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
   if (dedup) {

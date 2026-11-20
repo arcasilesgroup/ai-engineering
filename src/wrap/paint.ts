@@ -1,4 +1,4 @@
-// Pure painters for `ai-eng wrap test` (§15): text in, failure blocks out.
+// Pure painters for `ai-eng wrap test`: text in, failure blocks out.
 // One shape per runner, grouped by file. No I/O here — the entry point spawns,
 // the painters parse. vitest gets a real JSON reporter; the rest are regex over
 // the runner's own output, which is stable enough and costs the agent nothing.

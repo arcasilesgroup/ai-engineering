@@ -1,5 +1,5 @@
 // The git floor: what the 3-line shims call. Independent of every agent surface —
-// this runs even for a person committing from Vim (§13.2). gitleaks missing is HARD
+// this runs even for a person committing from Vim. gitleaks missing is HARD
 // FAIL, never silent degradation.
 
 import { execFileSync, spawnSync } from "node:child_process";

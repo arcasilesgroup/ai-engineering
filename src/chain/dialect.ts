@@ -76,7 +76,7 @@ export function allowRewrite(command: string, dialect: Dialect = "claude", event
 /** The allowed-call envelope — silence, except where the host's own contract says
  *  otherwise. Cursor's project template declares `failClosed: true`, so an EMPTY stdout
  *  is read as a policy error and the call is refused: a permitted call that reads as a
- *  failure, which is the bug research/003 measured and this branch exists to close.
+ *  failure, which this branch exists to prevent.
  *  Codex documents silence with exit 0 as success, and Claude, Pi and the in-process
  *  hosts never read stdout for an allow — so they get nothing, on purpose. */
 export function allow(dialect: Dialect = "claude"): void {
@@ -86,7 +86,7 @@ export function allow(dialect: Dialect = "claude"): void {
 
 export type Override = { name: string; reason: string; until?: string };
 
-/** Read active overrides — the ONLY mechanism that turns a guard off (§09.1).
+/** Read active overrides — the ONLY mechanism that turns a guard off.
  *  `[[guard.off]]` parses to `{ guard: { off: [...] } }`: a TOML dotted key nests,
  *  it never survives as the literal `"guard.off"`. Reading the literal yields `[]`
  *  for every file and leaves the switch dead. */
@@ -116,7 +116,7 @@ export function readOverrides(repoRoot: string | null): Override[] {
 }
 
 /** Whole days until an override expires. `null` means it carries no usable `until`
- *  — which is itself a finding, not a neutral value: §12.1 asks for reason + date,
+ *  — which is itself a finding, not a neutral value: an override owes a reason and a date,
  *  and a missing date never expires, so the guard stays off forever. `0` = today.
  *  Negative ⇒ already expired: the guard is live again and the entry is dead
  *  config the human still has to delete. */
