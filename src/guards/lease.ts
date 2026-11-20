@@ -101,8 +101,10 @@ function gitWriteDirs(command: string, cwd: string): string[] {
     const name = values[at];
     if (name === "cd" || name === "pushd") {
       const target = words[at + 1];
-      // `cd` alone, `cd -` or a path with `$x`/`~`/`*` in it: a place this reading cannot name.
-      const isPlain = target !== undefined && values.length === at + 2 && !/[$~*?]/.test(target.unquoted) && target.value !== "-";
+      // `cd` alone, `cd -`, a path with `$x`/`*`/`?` in it, or one that starts with `~`: a place
+      // this reading cannot name. A `~` later in the word is a plain letter (`RUNNER~1`, the
+      // short name Windows gives its temp folder); the shell expands only a leading one.
+      const isPlain = target !== undefined && values.length === at + 2 && !/[$*?]/.test(target.unquoted) && !target.unquoted.startsWith("~") && target.value !== "-";
       if (isCdSure && isPlain && existsSync(resolve(dir, target.value))) dir = resolve(dir, target.value);
       else if (isCdSure) dir = cwd;
       continue;
@@ -149,10 +151,12 @@ function commonDirOf(checkout: string): string | null {
   } catch {
     /* the main checkout */
   }
-  // git writes a worktree's pointer as a real path (/private/var on macOS) while the root
-  // may arrive through a link (/var): compare where they really are.
+  // git writes a worktree's pointer as a real path (/private/var on macOS, the long
+  // C:\Users\runneradmin on Windows) while the root may arrive through a link (/var) or an
+  // 8.3 short name (RUNNER~1): compare where they really are. Only the native call expands
+  // a short name.
   try {
-    return realpathSync(common);
+    return realpathSync.native(common);
   } catch {
     return common;
   }

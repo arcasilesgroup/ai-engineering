@@ -194,6 +194,11 @@ describe("runLease — one folder, one writer", () => {
     expect(allowed(`cd ${slash(tree)} other && git commit -m x`)).toBe(false);
     expect(allowed(`cd ${slash(tree)} && cd - && git commit -m x`)).toBe(false);
     expect(allowed(`cd ${slash(tree)}* && git commit -m x`)).toBe(false);
+    // A leading `~` is the shell's; one inside a name is a letter (Windows: RUNNER~1).
+    expect(allowed("cd ~ && git commit -m x")).toBe(false);
+    const short = join(dir, "..", "LANE~1");
+    git(dir, ["worktree", "add", "-q", "-b", "feat/short", short]);
+    expect(allowed(`cd ${slash(short)} && git commit -m x`)).toBe(true);
     // A git with no subcommand after its options, and quoting the reader cannot follow: no write.
     expect(allowed("git -C")).toBe(true);
     expect(allowed('git commit -m "unterminated')).toBe(true);
