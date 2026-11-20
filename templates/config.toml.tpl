@@ -1,4 +1,4 @@
-# .ai-engineering/config.toml — what CANNOT be deduced from code (§08).
+# .ai-engineering/config.toml — what CANNOT be deduced from code.
 # This file is the right place for your thresholds and pins: edit it by hand or
 # run `ai-eng config` for surfaces. The chain reads it; it never edits it.
 # Skills: every shipped skill and its resources install by default; there is no
@@ -6,7 +6,7 @@
 
 [surfaces]
 # Which agent surfaces (IDEs/CLIs) this project is governed on. Every client uses
-# the same definitions from ai-eng — no per-IDE forks. Options: claude-code, oh-my-pi, opencode, cursor, codex, copilot, pi, zed.
+# the same definitions from ai-eng — no per-IDE forks. Options: claude-code, oh-my-pi, opencode, cursor, codex, copilot-cli, pi, zed.
 # `ai-eng config` rewrites this list and installs/removes each surface's adapter files.
 enabled = [{{surfaces}}]
 
@@ -19,7 +19,7 @@ enabled = [{{surfaces}}]
 provider = "{{ci}}"
 
 [guards]
-# Loop guard thresholds: identical-call repetition and failure streaks (§10).
+# Loop guard thresholds: identical-call repetition and failure streaks.
 loop_window = 6    # remembered calls
 loop_repeats = 3   # same exact call → deny
 loop_failures = 5  # same signature failing → deny
@@ -65,10 +65,14 @@ loop_failures = 5  # same signature failing → deny
 # lease_minutes = 15
 
 [gc]
-# Growth caps for the NNN folders (research/, audits/, security/, reports/,
-# receipts/). WARN thresholds, not FAIL — growth is hygiene, not security (§12.1).
-max_files = 25        # per NNN folder — exceeding → WARN
+# What `ai-eng doctor --gc` keeps. The artifact folders are research/, reports/,
+# design/audits/, security/ and workflow/; a file there goes only once git holds it,
+# it is older than older_than, and DECISIONS.md, NOTICE or the layer rules do not cite it.
+max_files = 25        # per artifact folder: more than this is a WARN, never a FAIL
 receipts_ttl = "30d"  # receipts: aggregate then delete
+# older_than = "90d"  # an artifact folder's file is collected past this age
+# keep_runs = 5       # the newest security runs, always kept
 
-
-# notices = false   # opt out of the new-version notice (or AI_ENG_NO_UPDATE_NOTICES=1)
+# Uncomment to turn off the new-version notice (AI_ENG_NO_UPDATE_NOTICES=1 does the same).
+# [notices]
+# enabled = false
