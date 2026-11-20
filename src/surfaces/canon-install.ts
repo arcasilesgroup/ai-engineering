@@ -20,9 +20,8 @@ type MirrorTarget = { dir: string; label: string };
 /** Re-exported for the callers that already know the surfaces layer: the definition is
  *  in env.ts, where the guards can reach it without dragging the templates in. */
 
-/** Where each surface discovers skills (§08): one canon, three mirrors beside the
- *  canon. Without the override the base is the physical home and the paths are
- *  exactly §08's. */
+/** Where each surface discovers skills: one canon, three mirrors beside the canon.
+ *  Without the override the base is the physical home. */
 export function mirrorTargets(): MirrorTarget[] {
   const base = machineBase();
   return [
@@ -36,7 +35,7 @@ export function mirrorTargets(): MirrorTarget[] {
  *  copy on Windows — symlinks where the OS supports them).
  *
  *  The carriers are NOT here: they follow the declared surfaces, not the canon, and
- *  `installMachineCarriers()` owns them (§13.2). */
+ *  `installMachineCarriers()` owns them. */
 export function installCanon(version: string): string[] {
   const lines: string[] = [];
   const canonDir = join(home(), "skills");
@@ -57,7 +56,7 @@ export function installCanon(version: string): string[] {
     const entries = readdirSync(canonDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith("."));
     return [`✓ ${home()}/skills/ — ${entries.length} skills installed`];
   }));
-  // Seeds the 24h notice cache (§14.0). Health never reads this file: init and
+  // Seeds the 24h notice cache. Health never reads this file: init and
   // doctor byte-compare the canon against the payload (canonDrift) — this same
   // path also carries the REGISTRY version after a notice check.
   lines.push(...refusalAsLines(versionFile(), () => writeVersionCache(version)));

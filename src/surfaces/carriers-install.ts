@@ -117,11 +117,9 @@ const REMOVAL_REFUSED = "removal-refused";
 
 /** Write the machine-side carriers of the declared surfaces, once per machine.
  *
- *  This is the inversion the milestone makes on purpose, said out loud: until now only
- *  `--global` wrote outside the repo, and every governed repo carried eight to ten hook
- *  files that aged with the repo instead of with the binary. A surface whose host reads
- *  from the user's home now gets its carrier there; the repo keeps only the carriers
- *  whose readers live in the repo (§13.2).
+ *  A surface whose host reads from the user's home gets its carrier there, once per
+ *  machine, so it ages with the binary and not with each repo; the repo keeps only the
+ *  carriers whose readers live in the repo.
  *
  *  A `settings` carrier can be user-owned. A missing one is created exclusively from our
  *  template; an existing one gets our entries merged in by marker and is replaced only
