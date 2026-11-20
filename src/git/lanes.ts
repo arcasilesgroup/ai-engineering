@@ -269,6 +269,47 @@ export function lanes(root: string, opts: { refresh: boolean; now?: number }): B
   return { repo: root, base, lanes: result, forgeNote: forge.note, maxActive };
 }
 
+/** Keeps a branch's tip at refs/archive/<branch>, or refs/archive/<branch>-<date> when that
+ *  name is taken. Created, never overwritten. Returns the ref, or null when git refused. */
+export function archiveTip(root: string, branch: string, tip: string, now: number = Date.now()): string | null {
+  const isTaken = git(root, ["rev-parse", "--verify", "--quiet", `refs/archive/${branch}`]) !== null;
+  const archive = isTaken ? `refs/archive/${branch}-${new Date(now).toISOString().slice(0, 10)}` : `refs/archive/${branch}`;
+  return runGit(["update-ref", archive, tip, "0".repeat(tip.length)], { cwd: root, isolated: true }).status === 0 ? archive : null;
+}
+
+export type Closing = { isClosed: boolean; text: string };
+
+/** Closes a landed lane: its tip goes to refs/archive first, then its folder if clean, then
+ *  the branch if it still points at that tip. Never the branch checked out where the closing
+ *  runs, never a folder with uncommitted work, never one `isHeldElsewhere` says another
+ *  session is writing in. Each refusal keeps everything and says why. */
+export function closeLane(root: string, lane: Lane, current: string | null, isHeldElsewhere: (path: string) => boolean = () => false): Closing {
+  const kept = (why: string): Closing => ({ isClosed: false, text: `${lane.name} kept — ${why}` });
+  if (lane.tip === undefined) return kept("its tip could not be read");
+  if (lane.name === current) return kept("it is checked out here; switch to the base, then run tidy again");
+  if (lane.path !== null) {
+    if (isHeldElsewhere(lane.path)) return kept(`another session is writing in ${lane.path}`);
+    const status = worktreeStatus(lane.path);
+    if (status.detail !== undefined) return kept(`its folder ${lane.path} could not be read: ${status.detail}`);
+    if (status.paths.length > 0) {
+      const shown = status.paths.slice(0, 3).join(", ");
+      const named = status.paths.length > 3 ? `${shown} and ${status.paths.length - 3} more` : shown;
+      return kept(`its folder ${lane.path} has uncommitted work (${named})`);
+    }
+  }
+  const archive = archiveTip(root, lane.name, lane.tip);
+  if (archive === null) return kept(`its tip could not be archived under refs/archive/${lane.name}`);
+  if (lane.path !== null) {
+    const removed = runGit(["worktree", "remove", lane.path], { cwd: root, isolated: true });
+    if (removed.status !== 0) return kept(`git worktree remove refused: ${removed.stderr.trim()} (tip kept at ${archive})`);
+  }
+  const deleted = runGit(["update-ref", "-d", `refs/heads/${lane.name}`, lane.tip], { cwd: root, isolated: true });
+  if (deleted.status !== 0) return kept(`it moved since the board read it (tip kept at ${archive})`);
+  runGit(["config", "--remove-section", `branch.${lane.name}`], { cwd: root, isolated: true });
+  const folder = lane.path === null ? "" : `, and its folder ${lane.path}`;
+  return { isClosed: true, text: `${lane.name} removed — ${lane.detail}${folder}; kept at ${archive}` };
+}
+
 /** The one line a session start shows; null when nothing needs a decision. */
 export function laneSummary(board: Board): string | null {
   const count = (state: LaneState): number => board.lanes.filter((lane) => lane.state === state).length;

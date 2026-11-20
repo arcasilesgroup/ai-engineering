@@ -13,7 +13,7 @@ import type { Payload } from "../payload.ts";
 import { deny, allow, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
 import { runNoStash } from "../guards/no-stash.ts";
-import { releaseLease, runLease } from "../guards/lease.ts";
+import { leaseMinutes, readLease, releaseLease, runLease } from "../guards/lease.ts";
 import { runSelfProtect } from "../guards/self-protect.ts";
 import { policyModeFor, runPolicy } from "../guards/policy.ts";
 import { runInjection, type GuardResult as InjectionGuardResult } from "../guards/injection.ts";
@@ -23,7 +23,8 @@ import { runCheckpointGuard } from "../guards/checkpoint.ts";
 import { isTestCommand, rewrite } from "../guards/wrap.ts";
 import { writeReceipt, upsertDenyLedger, retainReceipts, type Receipt } from "../receipts.ts";
 import { refreshInBackground, sessionStartContext } from "../notice.ts";
-import { lanes, laneSummary } from "../git/lanes.ts";
+import { closeLane, lanes, laneSummary } from "../git/lanes.ts";
+import { runGit } from "../git/run.ts";
 
 export type GuardName = "self-protect" | "no-verify" | "no-stash" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret" | "checkpoint" | "lease";
 
@@ -426,10 +427,28 @@ function rewriteOutcome(
 
 /** stdio entry used by `ai-eng chain <event>`: stdin payload → verdict on stdout. */
 /** The lanes that need a decision, in one line — from git and the cached forge answer,
- *  never the network. A board that cannot be read says nothing: this event never blocks. */
-function laneLine(root: string): string | null {
+ *  never the network. A lane whose landing is proven is closed first, without asking (D-015):
+ *  its tip goes to refs/archive, and a folder with uncommitted work, the branch checked out
+ *  here, or a folder another session is writing in is left alone. A board that cannot be
+ *  read says nothing: this event never blocks. */
+function laneLine(root: string, session: string): string | null {
   try {
-    return laneSummary(lanes(root, { refresh: false }));
+    const board = lanes(root, { refresh: false });
+    const current = runGit(["symbolic-ref", "--quiet", "--short", "HEAD"], { cwd: root, isolated: true }).stdout.trim() || null;
+    const minutes = leaseMinutes(root);
+    const isHeldElsewhere = (path: string): boolean => {
+      const lease = readLease(path);
+      return lease !== null && lease.session !== session && Date.now() - lease.ts < minutes * 60_000;
+    };
+    const closed = board.lanes
+      .filter((lane) => lane.state === "landed")
+      .filter((lane) => closeLane(root, lane, current, isHeldElsewhere).isClosed)
+      .map((lane) => lane.name);
+    const open = { ...board, lanes: board.lanes.filter((lane) => !closed.includes(lane.name)) };
+    const closedLine = closed.length === 0
+      ? null
+      : `lanes: closed ${closed.join(", ")} (landed; each tip kept in refs/archive/<branch>, back with git branch <branch> refs/archive/<branch>)`;
+    return [closedLine, laneSummary(open)].filter((line) => line !== null).join("\n") || null;
   } catch {
     return null;
   }
@@ -447,7 +466,10 @@ export function sessionStart(raw: string): void {
   }
   const root = repoRoot(hostCwd(body));
   if (root === null || !isGoverned(root)) return;
-  const context = [sessionStartContext(root, refreshInBackground), laneLine(root)].filter((line) => line !== null).join("\n");
+  const session = body !== null && typeof body === "object" && typeof (body as Record<string, unknown>)["session_id"] === "string"
+    ? String((body as Record<string, unknown>)["session_id"])
+    : "";
+  const context = [sessionStartContext(root, refreshInBackground), laneLine(root, session)].filter((line) => line !== null).join("\n");
   if (context === "") return;
   process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context } })}\n`);
 }
