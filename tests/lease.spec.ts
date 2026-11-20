@@ -7,8 +7,8 @@ import { sessionEnd, sessionStart } from "../src/chain/mod.ts";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { gitDirOf, readLease, releaseLease, runLease } from "../src/guards/lease.ts";
+import { join, resolve } from "node:path";
+import { gitDirOf, leaseMinutes, readLease, releaseLease, runLease } from "../src/guards/lease.ts";
 import { normalise, type Payload } from "../src/payload.ts";
 
 const MINUTE = 60 * 1000;
@@ -45,6 +45,8 @@ function repo(config = '[surfaces]\nenabled = ["claude-code"]\n'): string {
 
 const edit = (dir: string, session: string | undefined): Payload =>
   normalise({ tool_name: "Edit", tool_input: { file_path: join(dir, "README.md"), old_string: "base", new_string: "next" }, cwd: dir, ...(session === undefined ? {} : { session_id: session }) }, undefined, "PreToolUse");
+/** A path as a shell command spells it on every OS: `\` is an escape to the shell reader. */
+const slash = (path: string): string => path.split("\\").join("/");
 const bash = (dir: string, session: string, command: string): Payload =>
   normalise({ tool_name: "Bash", tool_input: { command }, cwd: dir, session_id: session }, undefined, "PreToolUse");
 
@@ -123,6 +125,148 @@ describe("runLease — one folder, one writer", () => {
     expect(gitDirOf(tree)).not.toBe(gitDirOf(dir));
     expect(readLease(dir)?.session).toBe("session-a");
     expect(readLease(tree)?.session).toBe("session-b");
+  });
+
+  test("a git write aimed at a worktree is the worktree's to hold, from wherever the session started", () => {
+    const dir = repo();
+    const tree = join(dir, "..", "lane-tree");
+    git(dir, ["worktree", "add", "-q", "-b", "feat/lane", tree]);
+    runLease(edit(dir, "session-a"), dir, NOW);
+    // Session b started in the checkout session a holds, and commits into its own worktree.
+    expect(runLease(bash(dir, "session-b", `git -C ${slash(tree)} commit -m x`), dir, NOW + MINUTE)).toBeUndefined();
+    expect(runLease(bash(dir, "session-b", `cd ${slash(tree)} && git add -A`), dir, NOW + MINUTE)).toBeUndefined();
+    expect(readLease(tree)?.session).toBe("session-b");
+    expect(readLease(dir)?.session).toBe("session-a");
+    // And the worktree is now held: session a cannot write there either.
+    expect(runLease(bash(dir, "session-a", `git -C ${slash(tree)} commit -m y`), dir, NOW + 2 * MINUTE)?.deny).toBe(true);
+  });
+
+  test("pointing a git write back at the held checkout is still stopped", () => {
+    const dir = repo();
+    const tree = join(dir, "..", "back-tree");
+    git(dir, ["worktree", "add", "-q", "-b", "feat/back", tree]);
+    runLease(edit(dir, "session-a"), dir, NOW);
+    const later = NOW + MINUTE;
+    expect(runLease(bash(tree, "session-b", `git -C ${slash(dir)} commit -m x`), dir, later)?.deny).toBe(true);
+    expect(runLease(bash(tree, "session-b", `cd ${slash(dir)} && git commit -m x`), dir, later)?.deny).toBe(true);
+    expect(runLease(bash(dir, "session-b", "git commit -m x"), dir, later)?.deny).toBe(true);
+    // A `cd` the shell may not have run first is not believed: judged where it started.
+    expect(runLease(bash(dir, "session-b", `cd ${slash(tree)} || git commit -m x`), dir, later)?.deny).toBe(true);
+    expect(runLease(bash(dir, "session-b", `(cd ${slash(tree)}) ; git commit -m x`), dir, later)?.deny).toBe(true);
+    expect(runLease(bash(dir, "session-b", "cd /no/such/folder; git commit -m x"), dir, later)?.deny).toBe(true);
+  });
+
+  test("a worktree nested inside the checkout is its own folder too", () => {
+    const dir = repo();
+    const nested = join(dir, ".claude", "worktrees", "inner");
+    git(dir, ["worktree", "add", "-q", "-b", "feat/inner", nested]);
+    runLease(edit(dir, "session-a"), dir, NOW);
+    expect(runLease(edit(nested, "session-b"), dir, NOW + MINUTE)).toBeUndefined();
+    expect(runLease(bash(nested, "session-b", "git commit -m x"), dir, NOW + MINUTE)).toBeUndefined();
+    expect(readLease(nested)?.session).toBe("session-b");
+  });
+
+  test("a git write into another repository is not this repository's to hold", () => {
+    const dir = repo();
+    const other = repo();
+    runLease(edit(dir, "session-a"), dir, NOW);
+    expect(runLease(bash(dir, "session-b", `git -C ${slash(other)} commit -m x`), dir, NOW + MINUTE)).toBeUndefined();
+    expect(readLease(other)).toBeNull();
+  });
+
+  test("the git words the reader follows: -C, -c, a path to git, pushd; a cd it cannot name resets", () => {
+    const dir = repo();
+    const tree = join(dir, "..", "words-tree");
+    git(dir, ["worktree", "add", "-q", "-b", "feat/words", tree]);
+    runLease(edit(dir, "session-a"), dir, NOW);
+    const later = NOW + MINUTE;
+    const allowed = (command: string): boolean => runLease(bash(dir, "session-b", command), dir, later) === undefined;
+    expect(allowed(`git -c core.x=1 -C ${slash(tree)} commit -m x`)).toBe(true);
+    expect(allowed(`/usr/bin/git -C ${slash(tree)} commit -m x`)).toBe(true);
+    expect(allowed(`pushd ${slash(tree)} && git commit -m x`)).toBe(true);
+    // -C adds to the folder before it.
+    expect(allowed(`git -C ${slash(join(dir, ".."))} -C words-tree commit -m x`)).toBe(true);
+    // Reading never takes a lease, wherever it points.
+    expect(allowed("git status")).toBe(true);
+    expect(allowed("git -C . log")).toBe(true);
+    // Not a plain path, two arguments, or `cd -`: the folder this reading cannot name.
+    expect(allowed(`cd ${slash(tree)} && cd $HOME && git commit -m x`)).toBe(false);
+    expect(allowed(`cd ${slash(tree)} other && git commit -m x`)).toBe(false);
+    expect(allowed(`cd ${slash(tree)} && cd - && git commit -m x`)).toBe(false);
+    expect(allowed(`cd ${slash(tree)}* && git commit -m x`)).toBe(false);
+    // A leading `~` is the shell's; one inside a name is a letter (Windows: RUNNER~1).
+    expect(allowed("cd ~ && git commit -m x")).toBe(false);
+    const short = join(dir, "..", "LANE~1");
+    git(dir, ["worktree", "add", "-q", "-b", "feat/short", short]);
+    expect(allowed(`cd ${slash(short)} && git commit -m x`)).toBe(true);
+    // A git with no subcommand after its options, and quoting the reader cannot follow: no write.
+    expect(allowed("git -C")).toBe(true);
+    expect(allowed('git commit -m "unterminated')).toBe(true);
+    // A file written in the worktree is the worktree's.
+    expect(runLease(edit(tree, "session-b"), dir, later)).toBeUndefined();
+    expect(readLease(tree)?.session).toBe("session-b");
+  });
+
+  test("PowerShell is read like Bash; a tool that writes nothing is never judged", () => {
+    const dir = repo();
+    runLease(edit(dir, "session-a"), dir, NOW);
+    const powershell = normalise({ tool_name: "PowerShell", tool_input: { command: "git commit -m x" }, cwd: dir, session_id: "session-b" }, undefined, "PreToolUse");
+    expect(runLease(powershell, dir, NOW + MINUTE)?.deny).toBe(true);
+    const read = normalise({ tool_name: "Read", tool_input: { file_path: join(dir, "README.md") }, cwd: dir, session_id: "session-b" }, undefined, "PreToolUse");
+    expect(runLease(read, dir, NOW + MINUTE)).toBeUndefined();
+    const noCommand = normalise({ tool_name: "Bash", tool_input: {}, cwd: dir, session_id: "session-b" }, undefined, "PreToolUse");
+    expect(runLease(noCommand, dir, NOW + MINUTE)).toBeUndefined();
+    // A session id of blanks names no session.
+    expect(runLease(edit(dir, "   "), dir, NOW + MINUTE)).toBeUndefined();
+    expect(runLease(edit(dir, "session-b"), null, NOW + MINUTE)).toBeUndefined();
+  });
+
+  test("the block names the folder held and the first eight characters of the session", () => {
+    const dir = repo();
+    runLease(edit(dir, "session-a-1234567890"), dir, NOW);
+    const blocked = runLease(edit(dir, "session-b"), dir, NOW + 3 * MINUTE);
+    const reason = blocked?.deny === true ? blocked.reason : "";
+    expect(reason).toContain("another session (session-, last write 3 min ago) is writing in ");
+    expect(reason).toContain(dir);
+    expect(reason).toContain("frees itself in 12 min");
+  });
+
+  test("a lease_minutes that is not a whole positive number falls back to 15", () => {
+    for (const value of ["0", "-5", "2.5", '"10"']) {
+      const dir = repo(`[surfaces]\nenabled = ["claude-code"]\n[work]\nlease_minutes = ${value}\n`);
+      expect(leaseMinutes(dir)).toBe(15);
+    }
+    expect(leaseMinutes(repo('[surfaces]\nenabled = ["claude-code"]\n[work]\nlease_minutes = 1\n'))).toBe(1);
+  });
+
+  test("a lease file that is not a lease is no lease; no git dir holds none", () => {
+    const dir = repo();
+    const file = join(dir, ".git", "ai-eng", "lease.json");
+    mkdirSync(join(dir, ".git", "ai-eng"), { recursive: true });
+    for (const text of ["not json", '{"session": 1, "ts": 2}', '{"session": "a", "ts": "2"}', '{"session": "a"}']) {
+      writeFileSync(file, text);
+      expect(readLease(dir)).toBeNull();
+    }
+    expect(releaseLease(dir)).toBe(false);
+    const bare = mkdtempSync(join(tmpdir(), "ai-eng-lease-bare-"));
+    roots.push(bare);
+    expect(gitDirOf(bare)).toBeNull();
+    expect(readLease(bare)).toBeNull();
+    expect(releaseLease(bare)).toBe(false);
+  });
+
+  test("a .git file is read by its gitdir line: spacing, a trailing blank, or no such line", () => {
+    const bare = mkdtempSync(join(tmpdir(), "ai-eng-lease-dotgit-"));
+    roots.push(bare);
+    const dotGit = join(bare, ".git");
+    writeFileSync(dotGit, "gitdir:/somewhere/wt  \n");
+    expect(gitDirOf(bare)).toBe(resolve(bare, "/somewhere/wt"));
+    writeFileSync(dotGit, "gitdir:   rel/wt\n");
+    expect(gitDirOf(bare)).toBe(join(bare, "rel", "wt"));
+    writeFileSync(dotGit, "notgitdir: /x\n");
+    expect(gitDirOf(bare)).toBeNull();
+    writeFileSync(dotGit, "first line\ngitdir: /y\n");
+    expect(gitDirOf(bare)).toBe(resolve(bare, "/y"));
   });
 
   test("a session releases only its own hold", () => {

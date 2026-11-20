@@ -4,14 +4,17 @@
 // 34 files, and how a mixed-tree commit became the base of six PRs nobody could merge.
 //
 // The lease lives in the folder's own git directory (`.git/`, or a worktree's gitdir), so
-// it is never committed and each worktree has its own. It lapses after `[work]
+// it is never committed and each worktree has its own. A write is judged in the checkout it
+// lands in, not the one the session started in: the file's folder, or the folder a git
+// command acts in (`-C`, a `cd` the shell surely ran first). Otherwise the guard would send
+// a session to a worktree and then stop its first commit there. It lapses after `[work]
 // lease_minutes` (15) without a write: a session that ended without saying so frees the
 // folder by itself. SessionEnd frees it at once where the host sends one, and
 // `ai-eng work release` frees it by hand. A host that names no session is never judged:
 // without an id, every call would look like a new session.
 
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, join, relative as relativePath, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { loadConfig } from "../env.ts";
 import type { Payload } from "../payload.ts";
 import type { GuardResult } from "./no-verify.ts";
@@ -78,18 +81,44 @@ export function leaseMinutes(root: string): number {
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 15;
 }
 
-/** A shell command that writes the index, a ref or the tree through git. */
-function writesThroughGit(command: string): boolean {
+/** A `cd` before the git command only moves it when the shell surely ran that `cd` first and
+ *  in the same shell: no subshell, pipeline, `||` branch or substitution anywhere in the line.
+ *  Otherwise the command is judged where it started, which is the stricter answer. */
+const UNSURE_CD = /[|()`]|\$\(/;
+
+/** The folders the git writes in this command act in: the folder `-C` names (each `-C` adds to
+ *  the last), else the folder a plain `cd <dir>` before it leads to, else `cwd`. */
+function gitWriteDirs(command: string, cwd: string): string[] {
   const segments = shellSegments(command);
-  if (segments === null) return false;
-  return segments.some((segment) => {
-    const words = shellWords(segment.text).filter((word) => !word.isOperator).map((word) => word.value);
-    const at = commandIndex(words);
-    if (words[at] === undefined || !/(^|[\\/])git(\.exe)?$/.test(words[at])) return false;
+  if (segments === null) return [];
+  const isCdSure = !UNSURE_CD.test(command);
+  let dir = cwd;
+  const dirs: string[] = [];
+  for (const segment of segments) {
+    const words = shellWords(segment.text).filter((word) => !word.isOperator);
+    const values = words.map((word) => word.value);
+    const at = commandIndex(values);
+    const name = values[at];
+    if (name === "cd" || name === "pushd") {
+      const target = words[at + 1];
+      // `cd` alone, `cd -`, a path with `$x`/`*`/`?` in it, or one that starts with `~`: a place
+      // this reading cannot name. A `~` later in the word is a plain letter (`RUNNER~1`, the
+      // short name Windows gives its temp folder); the shell expands only a leading one.
+      const isPlain = target !== undefined && values.length === at + 2 && !/[$*?]/.test(target.unquoted) && !target.unquoted.startsWith("~") && target.value !== "-";
+      if (isCdSure && isPlain && existsSync(resolve(dir, target.value))) dir = resolve(dir, target.value);
+      else if (isCdSure) dir = cwd;
+      continue;
+    }
+    if (name === undefined || !/(^|[\\/])git(\.exe)?$/.test(name)) continue;
+    let gitDir = dir;
     let index = at + 1;
-    while (index < words.length && words[index]!.startsWith("-")) index += GIT_VALUE_OPTIONS.has(words[index]!) ? 2 : 1;
-    return GIT_WRITES.has(words[index] ?? "");
-  });
+    while (index < values.length && values[index]!.startsWith("-")) {
+      if (values[index] === "-C" && values[index + 1] !== undefined) gitDir = resolve(gitDir, values[index + 1]!);
+      index += GIT_VALUE_OPTIONS.has(values[index]!) ? 2 : 1;
+    }
+    if (GIT_WRITES.has(values[index] ?? "")) dirs.push(gitDir);
+  }
+  return dirs;
 }
 
 /** The file a file-writing tool targets, as the host names it. */
@@ -101,38 +130,82 @@ function targetPath(payload: Payload): string | null {
   return null;
 }
 
-/** A write into this folder. A file written elsewhere (a temp file, another checkout) is
- *  not this folder's to hold: only its own tree, or a git command run in it. */
-function isWriteInto(payload: Payload, root: string): boolean {
-  if (FILE_WRITES.has(payload.tool_name)) {
-    const target = targetPath(payload);
-    if (target === null) return true;
-    const cwd = typeof payload["cwd"] === "string" && payload["cwd"].length > 0 ? payload["cwd"] : root;
-    const relative = relativePath(resolve(root), resolve(cwd, target));
-    return relative === "" || !(relative.startsWith("..") || isAbsolute(relative));
+/** The checkout a path lies in: the nearest folder at or above it that holds a `.git`. */
+function checkoutOf(path: string): string | null {
+  let dir = resolve(path);
+  for (;;) {
+    if (existsSync(join(dir, ".git"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
   }
-  if (payload.tool_name !== "Bash" && payload.tool_name !== "PowerShell") return false;
-  const command = payload.tool_input["command"];
-  return typeof command === "string" && writesThroughGit(command);
 }
 
-/** The guard: hold the folder on this session's write, or stop another session's write. */
+/** The repository's shared git directory: `.git` itself, or what a worktree's gitdir names. */
+function commonDirOf(checkout: string): string | null {
+  const gitDir = gitDirOf(checkout);
+  if (gitDir === null) return null;
+  let common = gitDir; // no commondir file: this is the main checkout's own .git
+  try {
+    common = resolve(gitDir, readFileSync(join(gitDir, "commondir"), "utf8").trim());
+  } catch {
+    /* the main checkout */
+  }
+  // git writes a worktree's pointer as a real path (/private/var on macOS, the long
+  // C:\Users\runneradmin on Windows) while the root may arrive through a link (/var) or an
+  // 8.3 short name (RUNNER~1): compare where they really are. Only the native call expands
+  // a short name.
+  try {
+    return realpathSync.native(common);
+  } catch {
+    return common;
+  }
+}
+
+/** The checkouts of this repository a call writes into. A file or a git command aimed at a
+ *  temp folder or another repository is nobody's here; one aimed at a worktree of this
+ *  repository is that worktree's to hold, not the main checkout's. */
+function writtenCheckouts(payload: Payload, root: string): string[] {
+  const cwd = typeof payload["cwd"] === "string" && payload["cwd"].length > 0 ? resolve(payload["cwd"]) : resolve(root);
+  let dirs: string[];
+  if (FILE_WRITES.has(payload.tool_name)) {
+    const target = targetPath(payload);
+    dirs = [target === null ? cwd : dirname(resolve(cwd, target))];
+  } else if (payload.tool_name === "Bash" || payload.tool_name === "PowerShell") {
+    const command = payload.tool_input["command"];
+    dirs = typeof command === "string" ? gitWriteDirs(command, cwd) : [];
+  } else {
+    return [];
+  }
+  const repository = commonDirOf(root);
+  const checkouts = new Set<string>();
+  for (const dir of dirs) {
+    const checkout = checkoutOf(dir);
+    if (checkout !== null && repository !== null && commonDirOf(checkout) === repository) checkouts.add(checkout);
+  }
+  return [...checkouts];
+}
+
+/** The guard: hold each folder written on this session's write, or stop another session's. */
 export function runLease(payload: Payload, root: string | null, now: number = Date.now()): GuardResult {
   const session = typeof payload.session_id === "string" ? payload.session_id.trim() : "";
-  if (root === null || session === "" || !isWriteInto(payload, root)) return undefined;
-  const lease = readLease(root);
+  if (root === null || session === "") return undefined;
   const minutes = leaseMinutes(root);
-  const isHeldByOther = lease !== null && lease.session !== session && now - lease.ts < minutes * MINUTE_MS;
-  if (!isHeldByOther) {
-    writeLease(root, { session, ts: now });
+  const checkouts = writtenCheckouts(payload, root);
+  const held = checkouts
+    .map((checkout) => ({ checkout, lease: readLease(checkout) }))
+    .find(({ lease }) => lease !== null && lease.session !== session && now - lease.ts < minutes * MINUTE_MS);
+  if (held === undefined) {
+    for (const checkout of checkouts) writeLease(checkout, { session, ts: now });
     return undefined;
   }
+  const lease = held.lease!;
   const idle = Math.floor((now - lease.ts) / MINUTE_MS);
   const left = Math.max(1, minutes - idle);
   return {
     deny: true,
     reason:
-      `BLOCKED: another session (${lease.session.slice(0, 8)}, last write ${idle} min ago) is writing in ${root}. ` +
+      `BLOCKED: another session (${lease.session.slice(0, 8)}, last write ${idle} min ago) is writing in ${held.checkout}. ` +
       "One folder, one writer: do this work in a worktree — your host's worktree support, or `ai-eng worktree new <branch>` and its reported path. " +
       `If that session has ended, \`ai-eng work release\` frees the folder now; otherwise it frees itself in ${left} min.`,
   };
