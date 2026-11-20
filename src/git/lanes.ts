@@ -16,6 +16,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const FORGE_TTL_MS = 10 * 60 * 1000;
 /** The git config key a parked branch carries: `<reason>` or `<reason>|<YYYY-MM-DD>`. */
 export const PARK_KEY = "aiengparked";
+/** The git config key `ai-eng worktree merge` leaves on a branch it merged: the tip it merged. */
+export const MERGED_KEY = "aiengmerged";
 
 export type LaneState = "active" | "ready" | "landed" | "parked" | "orphan" | "ghost";
 
@@ -33,6 +35,8 @@ export type BranchFacts = {
   upstreamGone: boolean;
   /** Reachable from the base: nothing of its own is left outside it. */
   inBase: boolean;
+  /** How git proves the branch landed without the forge, or null: see `landingProof`. */
+  landing: string | null;
   pr: PullRequest | null;
   parked: { reason: string; until: string | null } | null;
 };
@@ -43,10 +47,11 @@ export type Lane = { state: LaneState; name: string; path: string | null; detail
 export function classify(facts: BranchFacts, now: number, orphanDays: number): Lane {
   const ageDays = Math.floor((now - facts.lastCommitMs) / DAY_MS);
   const lane = (state: LaneState, detail: string): Lane => ({ state, name: facts.branch, path: facts.path, detail, ageDays, tip: facts.tip });
-  // Landed only on proof: the forge merged exactly this tip, or the base already holds it
-  // and its remote branch is gone. A branch the base merely contains could be one
-  // created a minute ago; that is not a landing.
+  // Landed only on proof: the forge merged exactly this tip, git can show the base took it,
+  // or the base holds it and its remote branch is gone. A branch the base merely contains
+  // could be one created a minute ago; that is not a landing.
   if (facts.pr?.state === "MERGED" && facts.pr.headRefOid === facts.tip) return lane("landed", `PR #${facts.pr.number} merged`);
+  if (facts.landing !== null) return lane("landed", facts.landing);
   if (facts.inBase && facts.upstreamGone) return lane("landed", "in the base, remote branch gone");
   if (facts.parked !== null) {
     const expired = facts.parked.until !== null && facts.parked.until < new Date(now).toISOString().slice(0, 10);
@@ -121,6 +126,63 @@ export function forgePulls(root: string, refresh: boolean, now: number = Date.no
   }
 }
 
+/** The tips `ai-eng worktree merge` recorded, by branch. */
+function mergedTips(root: string): Map<string, string> {
+  const merged = new Map<string, string>();
+  for (const line of (git(root, ["config", "--get-regexp", MERGED_KEY]) ?? "").split("\n")) {
+    const match = /^branch\.(.+)\.aiengmerged ([0-9a-f]{40,64})$/.exec(line);
+    if (match !== null) merged.set(match[1]!, match[2]!);
+  }
+  return merged;
+}
+
+/** The base's own line of commits since `sinceUnix`: what a branch created on the base
+ *  points at, and what a merge into the base does not add to. */
+function firstParentLine(root: string, baseCommit: string, sinceUnix: number): Set<string> {
+  const out = git(root, ["rev-list", "--first-parent", `--since=${sinceUnix}`, baseCommit]) ?? "";
+  return new Set(out.split("\n").filter(Boolean));
+}
+
+/** Git's own proof that the base took this branch, without asking the forge. Null when
+ *  there is none, including for a branch freshly created on the base: it points at a
+ *  commit on the base's own line, which no merge produced.
+ *  - `ai-eng worktree merge` recorded merging exactly this tip;
+ *  - the tip is in the base but off its first-parent line, so a merge commit brought it;
+ *  - the branch's whole change, squashed into one commit, is already in the base: a squash
+ *    merge. `withSquash` is the human verbs only: it writes one throwaway object per branch. */
+export function landingProof(
+  root: string,
+  branch: { name: string; tip: string; lastCommitUnix: number },
+  base: { name: string; commit: string },
+  merged: Map<string, string>,
+  withSquash: boolean,
+): string | null {
+  if (merged.get(branch.name) === branch.tip) return "merged by ai-eng worktree merge";
+  const mergeBase = git(root, ["merge-base", branch.tip, base.commit])?.trim();
+  if (!mergeBase) return null;
+  if (mergeBase === branch.tip) {
+    // A day of slack: commit dates are the committer's clock, and a merge can be older than its parent.
+    const line = firstParentLine(root, base.commit, branch.lastCommitUnix - 86_400);
+    return line.has(branch.tip) ? null : `merged into ${base.name}`;
+  }
+  if (!withSquash) return null;
+  const tree = git(root, ["rev-parse", `${branch.tip}^{tree}`])?.trim();
+  if (!tree || tree === git(root, ["rev-parse", `${mergeBase}^{tree}`])?.trim()) return null; // no change of its own
+  const identity = { GIT_AUTHOR_NAME: "ai-eng", GIT_AUTHOR_EMAIL: "ai-eng@localhost", GIT_COMMITTER_NAME: "ai-eng", GIT_COMMITTER_EMAIL: "ai-eng@localhost" };
+  const squash = runGit(["commit-tree", tree, "-p", mergeBase, "-m", "ai-eng landing proof"], { cwd: root, isolated: true, env: identity });
+  if (squash.status !== 0) return null;
+  // `git cherry` marks with "-" a commit whose change the base already has.
+  const cherry = git(root, ["cherry", base.commit, squash.stdout.trim()])?.trim() ?? "";
+  return cherry.startsWith("-") ? `squash-merged into ${base.name}` : null;
+}
+
+/** Brings the remote branches up to date so a deleted one reads as gone. Best effort with a
+ *  ten-second ceiling: offline, unreachable or no remote leaves the board as it was. */
+function fetchPrune(root: string): void {
+  if ((git(root, ["remote"]) ?? "").trim() === "") return;
+  Bun.spawnSync(["git", "fetch", "--prune", "--quiet"], { cwd: root, stdout: "ignore", stderr: "ignore", timeout: 10_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
+}
+
 function parkedBranches(root: string): Map<string, { reason: string; until: string | null }> {
   const parked = new Map<string, { reason: string; until: string | null }>();
   // A plain word as the pattern: every key holding it, filtered to branch keys below.
@@ -139,6 +201,7 @@ function parkedBranches(root: string): Map<string, { reason: string; until: stri
 export function lanes(root: string, opts: { refresh: boolean; now?: number }): Board {
   const now = opts.now ?? Date.now();
   const { maxActive, orphanDays } = workSettings(root);
+  if (opts.refresh) fetchPrune(root);
   const tracking = (() => {
     try {
       return namedBaseTrackingRef(root);
@@ -152,6 +215,7 @@ export function lanes(root: string, opts: { refresh: boolean; now?: number }): B
   const pullFor = (branch: string, tip: string): PullRequest | null =>
     forge.pulls.find((pull) => pull.headRefName === branch && pull.headRefOid === tip) ?? forge.pulls.find((pull) => pull.headRefName === branch && pull.state === "OPEN") ?? null;
   const parked = parkedBranches(root);
+  const merged = mergedTips(root);
   const current = git(root, ["symbolic-ref", "--quiet", "--short", "HEAD"])?.trim() ?? null;
   const listed = listWorktrees(root);
   const worktrees = "worktrees" in listed ? listed.worktrees : [];
@@ -166,6 +230,12 @@ export function lanes(root: string, opts: { refresh: boolean; now?: number }): B
     // active lane with uncommitted work from an orphan — the board a person asks for reads it.
     const status = opts.refresh && worktree !== null && !worktree.prunable ? worktreeStatus(worktree.path) : null;
     const inBase = baseCommit !== null && runGit(["merge-base", "--is-ancestor", tip, baseCommit], { cwd: root, isolated: true }).status === 0;
+    const pr = pullFor(branch, tip);
+    // The forge already answered for a merged PR: no need to prove it twice.
+    const isForgeMerged = pr?.state === "MERGED" && pr.headRefOid === tip;
+    const landing = base === null || baseCommit === null || isForgeMerged
+      ? null
+      : landingProof(root, { name: branch, tip, lastCommitUnix: Number(unix) }, { name: base, commit: baseCommit }, merged, opts.refresh);
     result.push(
       classify(
         {
@@ -177,7 +247,8 @@ export function lanes(root: string, opts: { refresh: boolean; now?: number }): B
           dirty: status?.paths.length ?? 0,
           upstreamGone: track === "[gone]",
           inBase,
-          pr: pullFor(branch, tip),
+          landing,
+          pr,
           parked: parked.get(branch) ?? null,
         },
         now,

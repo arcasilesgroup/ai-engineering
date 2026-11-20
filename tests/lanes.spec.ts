@@ -31,6 +31,7 @@ function facts(overrides: Partial<BranchFacts>): BranchFacts {
     dirty: 0,
     upstreamGone: false,
     inBase: false,
+    landing: null,
     pr: null,
     parked: null,
     ...overrides,
@@ -140,6 +141,77 @@ describe("the board — every lane, from git and the cached forge answer", () =>
     expect(board.lanes.find((lane) => lane.name === "feat/wip")?.state).toBe("active");
     expect(board.lanes.find((lane) => lane.name.startsWith("stash@{0}"))).toMatchObject({ state: "orphan" });
     expect(ai(dir, ["work", "--json"]).out).toContain('"state": "landed"');
+  });
+
+  test("git proves a landing with no forge: a merge, a squash, a worktree merge; a fresh branch is not one", () => {
+    const dir = repo();
+    // Merged into main by a merge commit, never pushed: no upstream, no forge.
+    git(dir, ["checkout", "-q", "-b", "feat/merged"]);
+    commit(dir, "merged.txt", "merged\n");
+    git(dir, ["checkout", "-q", "main"]);
+    commit(dir, "main-moves.txt", "main moved\n");
+    git(dir, ["merge", "-q", "--no-ff", "-m", "merge feat/merged", "feat/merged"]);
+    // Squash-merged: main holds its change as one new commit, the branch tip is not in main.
+    git(dir, ["checkout", "-q", "-b", "feat/squashed"]);
+    commit(dir, "squash-a.txt", "a\n");
+    commit(dir, "squash-b.txt", "b\n");
+    git(dir, ["checkout", "-q", "main"]);
+    git(dir, ["merge", "-q", "--squash", "feat/squashed"]);
+    git(dir, ["commit", "-q", "-m", "squash feat/squashed"]);
+    // Partly in main: one of its two changes was squashed in, the other was not.
+    git(dir, ["checkout", "-q", "-b", "feat/partial"]);
+    commit(dir, "partial-a.txt", "a\n");
+    git(dir, ["checkout", "-q", "main"]);
+    git(dir, ["merge", "-q", "--squash", "feat/partial"]);
+    git(dir, ["commit", "-q", "-m", "squash half of feat/partial"]);
+    git(dir, ["checkout", "-q", "feat/partial"]);
+    commit(dir, "partial-b.txt", "b\n");
+    git(dir, ["checkout", "-q", "main"]);
+    // Created on main a minute ago, nothing of its own: on main's own line.
+    git(dir, ["branch", "feat/fresh"]);
+    // A worktree merge recorded the tip it merged.
+    git(dir, ["checkout", "-q", "-b", "feat/recorded"]);
+    const recorded = commit(dir, "recorded.txt", "r\n");
+    git(dir, ["checkout", "-q", "main"]);
+    git(dir, ["config", "branch.feat/recorded.aiengmerged", recorded]);
+    git(dir, ["update-ref", "refs/remotes/origin/main", "main"]);
+    forgeSays(dir, []);
+
+    const byName = (board: ReturnType<typeof lanes>, name: string) => board.lanes.find((lane) => lane.name === name);
+    const asked = lanes(dir, { refresh: true });
+    expect(byName(asked, "feat/merged")).toMatchObject({ state: "landed", detail: "merged into main" });
+    expect(byName(asked, "feat/squashed")).toMatchObject({ state: "landed", detail: "squash-merged into main" });
+    expect(byName(asked, "feat/recorded")).toMatchObject({ state: "landed", detail: "merged by ai-eng worktree merge" });
+    expect(byName(asked, "feat/partial")?.state).toBe("active");
+    expect(byName(asked, "feat/fresh")?.state).toBe("active");
+    // A session start writes nothing: the squash proof waits for a human verb.
+    const started = lanes(dir, { refresh: false });
+    expect(byName(started, "feat/merged")?.state).toBe("landed");
+    expect(byName(started, "feat/squashed")?.state).toBe("active");
+    // A tip the worktree merge did not record is not the one it merged.
+    git(dir, ["config", "branch.feat/recorded.aiengmerged", "f".repeat(40)]);
+    expect(byName(lanes(dir, { refresh: false }), "feat/recorded")?.state).toBe("active");
+  });
+
+  test("ai-eng work prunes remote branches first, so one deleted upstream reads as gone", () => {
+    const parent = mkdtempSync(join(tmpdir(), "ai-eng-lanes-remote-"));
+    roots.push(parent);
+    const remote = join(parent, "remote.git");
+    git(parent, ["init", "-q", "--bare", "-b", "main", remote]);
+    const dir = repo();
+    git(dir, ["remote", "set-url", "origin", remote]);
+    git(dir, ["push", "-q", "origin", "main"]);
+    git(dir, ["checkout", "-q", "-b", "feat/pushed"]);
+    commit(dir, "pushed.txt", "p\n");
+    git(dir, ["push", "-q", "-u", "origin", "feat/pushed"]);
+    git(dir, ["checkout", "-q", "main"]);
+    git(dir, ["merge", "-q", "--ff-only", "feat/pushed"]);
+    git(dir, ["push", "-q", "origin", "main"]);
+    // The forge deletes the branch on merge; this checkout has not fetched since.
+    git(parent, ["--git-dir", remote, "branch", "-D", "feat/pushed"]);
+    forgeSays(dir, []);
+    expect(lanes(dir, { refresh: false }).lanes.find((lane) => lane.name === "feat/pushed")?.state).toBe("active");
+    expect(lanes(dir, { refresh: true }).lanes.find((lane) => lane.name === "feat/pushed")).toMatchObject({ state: "landed", detail: "in the base, remote branch gone" });
   });
 
   test("tidy removes a provably landed lane and keeps the one checked out here", () => {
