@@ -36,8 +36,8 @@ To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
 - After moving files or changing imports, re-run lint and typecheck.
 - Match the existing architecture: `src/cli.ts` dispatches to command entry
   points; implementation lives in `src/{chain,floor,guards,git,surfaces,workflow,wrap}/`.
-  The source and its tests define behavior. `docs/blueprint.html` records design
-  context; update the user-facing docs and tests when behavior changes.
+  The source and its tests define behavior; `docs/history/` keeps the early design
+  records. Update the user-facing docs and tests when behavior changes.
 - When a feature needs synchronization, use native `git rebase <detected base>`
   from the selected feature checkout after its implementation checkpoints and
   behavior and review gates pass (a UI gate may be `n/a`). The CLI does not run

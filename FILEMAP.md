@@ -11,9 +11,8 @@ FILEMAP.md                     This file
 PERMISSIONS.md                 Azure DevOps triage read routes and scope boundaries
 .gitattributes                 Keeps LF line endings on every checkout, Windows included
 docs/
-  blueprint.html               Product design context and decisions
-  recap.html                   Historical product snapshot; use README.md and the source tree for current guidance
   global-carriers.md           Host carrier paths and their machine/repository scope
+  history/                     Records, never rewritten: the early blueprint, the recap, the learnings log
 .changeset/
   <slug>.md                    Pending package version and release summary
 .ai-engineering/

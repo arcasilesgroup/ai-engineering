@@ -51,7 +51,7 @@ Replies to a person, and handoffs to another agent, follow the voice standard in
 2. One folder, one writer: if another session writes here, use a worktree (host support or `ai-eng worktree new <branch>`). The person approves the branch.
 3. Never stash or commit a mixed tree. To stop: commit WIP, then `ai-eng work park <branch> "<reason>"`.
 4. Every branch leaves by one door: land, park (reason + date), or `ai-eng work drop <branch>` (kept in `refs/archive/`).
-5. Landing closes the lane: a PR with a forge, else `ai-eng worktree merge <slug>`; after the merge, `ai-eng work tidy` or `ai-eng worktree rm <slug>`.
+5. Landing closes the lane: a PR with a forge, else `ai-eng worktree merge <slug>`; the next session start or `ai-eng work tidy` then closes it.
 6. At most 3 active lanes (`[work] max_active`); `ai-eng worktree new` refuses a fourth.
 7. Git and the forge are the truth: `ai-eng work`. Never reset, overwrite or remove foreign work; ask.
 

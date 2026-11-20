@@ -437,7 +437,7 @@ describe("workflow kit — visual recap is opt-in", () => {
     const recapSkill = readFileSync(recapSkillPath, "utf8");
     const agents = readFileSync(join(SKILLS, "..", "AGENTS.md"), "utf8");
     const agentsTemplate = readFileSync(join(SKILLS, "..", "templates", "AGENTS.md.tpl"), "utf8");
-    const blueprint = readFileSync(join(SKILLS, "..", "docs", "blueprint.html"), "utf8");
+    const blueprint = readFileSync(join(SKILLS, "..", "docs", "history", "blueprint.html"), "utf8");
 
     const phase3 = markdownSection(orchestratorSkill, "## Phase 3: Wrap-up").replace(/\s+/g, " ");
     const appReview = markdownSection(orchestratorSkill, "## Phase 4: Human stop 2, app review");
