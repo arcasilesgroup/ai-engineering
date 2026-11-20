@@ -261,7 +261,7 @@ function removeSurfaceFiles(root: string, id: string): void {
  *  table that has no `enabled` key yet. Each appends a fresh header, which makes the
  *  file unparseable — `declaration()` then reports the repository as undeclared and the
  *  command that manages governance silently turns it off. That is the one class of bug
- *  this product exists to prevent (§09.2), so the rewrite is table-aware: the key is
+ *  this product exists to prevent, so the rewrite is table-aware: the key is
  *  scoped to `[surfaces]` (a bare `enabled =` also matched the `[notices]` key of the
  *  same name), and a file with no table gets one, at the end. New lines use the file's
  *  own line ending. Null: a list this edit cannot change item by item. */

@@ -1,7 +1,7 @@
 // `ai-eng update` — brings the machine and this repo up to date. First the binary
 // (update-binary.ts): one registry read, the install delegated to the package manager
 // that installed ai-eng, and a relaunch of the new binary. Then the sync, which is
-// still ZERO network: the payload leaves the binary now installed (§14.3). What
+// still ZERO network: the payload leaves the binary now installed. What
 // What ai-eng wrote is ai-eng's and always receives this binary's bytes, edited or not
 // (an edit is overwritten: commit or copy it first to keep it); what it never wrote, and seeded config the project edited, is the
 // project's and is never rewritten.
@@ -52,7 +52,7 @@ export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Rec
     }
     // A file we share with the user is never written whole: install() merges our entries
     // into it by marker, so the merge IS the update — and a settings file the user already
-    // had before init is exactly the file that must receive our hooks (§03). Planned as an
+    // had before init is exactly the file that must receive our hooks. Planned as an
     // update only when the merge would really change it, so a second update says nothing.
     if (entry.merge === true) {
       const merged = mergeSharedText(readFileSync(absolute, "utf8"), entry.ours);
@@ -241,7 +241,7 @@ export async function updateMain(opts: { yes?: boolean; binary?: boolean } = {})
     );
     return 0;
   }
-  // Concept blocks, not line-spam (§14.3 mockup): one block per idea, and Apply only
+  // Concept blocks, not line-spam: one block per idea, and Apply only
   // when something will actually be written. There is no decision to ask about: a file
   // ai-eng wrote takes this binary's bytes, and a file of the project's is never touched.
   // A shared settings file is merged by marker: only ai-eng's entries change, so it is
