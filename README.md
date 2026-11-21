@@ -163,9 +163,21 @@ the hook carriers and the git hooks all live in your user folder or in the repos
   (`%APPDATA%\npm`); on macOS and Linux point npm at your home first with
   `npm config set prefix ~/.local`.
 - **gitleaks** (the commit floor refuses without it): on Windows
-  `winget install --id Gitleaks.Gitleaks -e`, or put `gitleaks.exe` from the
-  [releases page](https://github.com/gitleaks/gitleaks/releases) in a folder on your user
-  PATH; on Linux the same binary goes in `~/.local/bin`.
+  `winget install --id Gitleaks.Gitleaks -e`, which also keeps it updated. Where the company
+  blocks winget, `curl.exe` and `tar.exe` ship with Windows 10 and 11 and need nothing else;
+  in PowerShell, with the version from the
+  [releases page](https://github.com/gitleaks/gitleaks/releases):
+
+  ```powershell
+  $v = "8.30.0"; $dir = "$env:LOCALAPPDATA\Programs\gitleaks"
+  New-Item -ItemType Directory -Force $dir | Out-Null
+  curl.exe -sSfL -o "$env:TEMP\gitleaks.zip" "https://github.com/gitleaks/gitleaks/releases/download/v$v/gitleaks_${v}_windows_x64.zip"
+  tar -xf "$env:TEMP\gitleaks.zip" -C $dir gitleaks.exe
+  [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";$dir", "User")
+  ```
+
+  The last line adds the folder to your user PATH only; open a new terminal for it to apply.
+  On Linux the release binary goes in `~/.local/bin`.
 
 ## Quick start
 
