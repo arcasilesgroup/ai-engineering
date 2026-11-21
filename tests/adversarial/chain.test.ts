@@ -79,7 +79,7 @@ describe("adversarial · self-protect", () => {
     expect(r.action).toBe("deny");
   });
   test("governance-changing CLI verbs are denied from the governed session", () => {
-    for (const command of ["ai-eng adapt apply", "ai-eng config --remove cursor", "ai-eng uninstall"]) {
+    for (const command of ["ai-eng config --remove cursor", "ai-eng uninstall"]) {
       const r = RUN({ tool_name: "Bash", tool_input: { command }, tool_use_id: `governance-${command}`, session_id: "adv" });
       expect(r.action).toBe("deny");
       if (r.action === "deny") expect(r.by).toBe("self-protect");

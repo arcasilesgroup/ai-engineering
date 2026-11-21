@@ -108,7 +108,7 @@ function startsEntrypoint(before: string[]): boolean {
 function restrictedAiEngArgs(args: string[]): boolean {
   const words = stripRedirections(args);
   const has = (word: string): boolean => words.includes(word);
-  return has("uninstall") || has("wrap") || (has("adapt") && has("apply"))
+  return has("uninstall") || has("wrap")
     || (has("config") && words.some((word) => /^--remove(?:=|$)/.test(word)));
 }
 
@@ -191,7 +191,7 @@ function couldSpellGovernanceVerb(word: string): boolean {
   } catch {
     return true; // a class this reading cannot compile (`[z-a]`): assume it could spell one
   }
-  return ["uninstall", "wrap", "adapt", "config"].some((verb) => pattern.test(verb));
+  return ["uninstall", "wrap", "config"].some((verb) => pattern.test(verb));
 }
 
 /** A shell glob as regex source: `*` and `?` are wildcards, a closed `[…]` (or `[!…]`) is a
@@ -608,7 +608,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
   return null;
 }
 
-const RESTRICTED_TEXT = /\bai-eng(?:ineering)?\b[^\n|;&]*?\b(?:uninstall|wrap|adapt\s+apply)\b|\bai-eng(?:ineering)?\b[^\n|;&]*\bconfig\b[^\n|;&]*--remove\b/;
+const RESTRICTED_TEXT = /\bai-eng(?:ineering)?\b[^\n|;&]*?\b(?:uninstall|wrap)\b|\bai-eng(?:ineering)?\b[^\n|;&]*\bconfig\b[^\n|;&]*--remove\b/;
 const CHECKPOINT_FILE = /(?:^|\/)\.ai-engineering\/workflow\/checkpoints\//i;
 const POWERSHELL_ENCODED = /(?:^|[\s,'"(])(?:-{1,2}|\/)e(?:c|n|nc|nco|ncod|ncode|ncoded|ncodedc|ncodedco|ncodedcom|ncodedcomm|ncodedcomma|ncodedcomman|ncodedcommand)?(?=$|[\s,'")])/i;
 

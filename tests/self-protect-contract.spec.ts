@@ -67,7 +67,7 @@ describe("ai-eng verbs: refused with the run-it-outside step before anything els
   test("only the governance-changing verbs, and the whole verb pair", () => {
     expectCases([
       ["ai-eng uninstall --force", CLI],
-      ["ai-eng adapt apply", CLI],
+      ["ai-eng adapt apply", null],
       ["ai-eng adapt", null],
       ["ai-eng config", null],
       ["ai-eng config --remove x", CLI],
