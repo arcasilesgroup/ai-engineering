@@ -152,6 +152,33 @@ cd ai-engineering && bun install && bun run build && bun link
 The npm package ships the CLI launcher, source, skills, agents and templates.
 GitHub releases separately ship compiled binaries for eight targets.
 
+### Without administrator rights
+
+Nothing ai-eng installs or writes needs administrator rights: the binary, the skill canon,
+the hook carriers and the git hooks all live in your user folder or in the repository.
+
+- **Bun:** on Windows `powershell -c "irm bun.sh/install.ps1 | iex"`, on macOS and Linux
+  `curl -fsSL https://bun.sh/install | bash`. Both install into `~/.bun` for your user.
+- **ai-eng:** `bun add -g` installs into `~/.bun`. `npm install -g` is per-user on Windows
+  (`%APPDATA%\npm`); on macOS and Linux point npm at your home first with
+  `npm config set prefix ~/.local`.
+- **gitleaks** (the commit floor refuses without it): on Windows
+  `winget install --id Gitleaks.Gitleaks -e`, which also keeps it updated. Where the company
+  blocks winget, `curl.exe` and `tar.exe` ship with Windows 10 and 11 and need nothing else;
+  in PowerShell, with the version from the
+  [releases page](https://github.com/gitleaks/gitleaks/releases):
+
+  ```powershell
+  $v = "8.30.0"; $dir = "$env:LOCALAPPDATA\Programs\gitleaks"
+  New-Item -ItemType Directory -Force $dir | Out-Null
+  curl.exe -sSfL -o "$env:TEMP\gitleaks.zip" "https://github.com/gitleaks/gitleaks/releases/download/v$v/gitleaks_${v}_windows_x64.zip"
+  tar -xf "$env:TEMP\gitleaks.zip" -C $dir gitleaks.exe
+  [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";$dir", "User")
+  ```
+
+  The last line adds the folder to your user PATH only; open a new terminal for it to apply.
+  On Linux the release binary goes in `~/.local/bin`.
+
 ## Quick start
 
 <p align="center">
