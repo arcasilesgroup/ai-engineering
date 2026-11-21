@@ -335,9 +335,9 @@ describe("runSelfProtect — shell commands", () => {
   test("agent tool calls cannot invoke governance-changing CLI commands", () => {
     const repo = tempRepo();
     for (const command of [
-      "ai-eng adapt apply",
-      "ai-eng adapt --yes apply",
-      "ai-eng --surface config adapt apply",
+      "ai-eng uninstall --force",
+      "ai-eng --yes uninstall",
+      "ai-eng --surface config uninstall",
       "ai-eng --x config uninstall",
       "ai-eng >/dev/null wrap test --base64 ZWNobyB4",
       "ai-eng >&2 wrap test --base64 ZWNobyB4",
@@ -350,13 +350,13 @@ describe("runSelfProtect — shell commands", () => {
       "ai-eng {fd}>/dev/null wrap test --base64 ZWNobyB4",
       "ai-eng 2>/dev/null uninstall",
       "ai-eng </dev/null config --remove cursor",
-      "ai-eng <&0 adapt apply",
+      "ai-eng <&0 uninstall",
       "/usr/local/bin/ai-eng config --remove cursor",
       "ai-eng uninstall",
-      "bun src/cli.ts adapt apply",
-      "node bin/ai-eng.js adapt apply",
-      "bash -c 'ai-eng adapt apply'",
-      "env -i HOME=/tmp ai-eng adapt apply",
+      "bun src/cli.ts uninstall",
+      "node bin/ai-eng.js uninstall",
+      "bash -c 'ai-eng uninstall'",
+      "env -i HOME=/tmp ai-eng uninstall",
       "true && ai-eng wrap test --base64 ZWNobyB4",
       "true; ai-eng uninstall",
       "printf '\\ny\\n' | ai-eng uninstall",
@@ -375,7 +375,7 @@ describe("runSelfProtect — shell commands", () => {
       const result = runSelfProtect({ tool_name: "Bash", tool_input: { command } }, repo);
       expect(result?.deny, command).toBe(true);
     }
-    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "echo 'ai-eng adapt apply'" } }, repo)).toBeUndefined();
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "echo 'ai-eng uninstall'" } }, repo)).toBeUndefined();
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "git commit -m 'ai-eng uninstall'" } }, repo)).toBeUndefined();
   });
 
@@ -384,7 +384,7 @@ describe("runSelfProtect — shell commands", () => {
     const config = ".ai-engineering/config.toml";
     for (const command of [
       `>/dev/null ai-eng uninstall`, `> /dev/null ai-eng uninstall`, `>&2 ai-eng uninstall`, `2>&1 ai-eng uninstall`,
-      `&>/dev/null ai-eng uninstall`, `{fd}>/dev/null ai-eng uninstall`, `<&0 ai-eng adapt apply`,
+      `&>/dev/null ai-eng uninstall`, `{fd}>/dev/null ai-eng uninstall`, `<&0 ai-eng uninstall`,
       `echo x >| ${config}`, `echo x >! ${config}`, `echo x >& ${config}`, `echo x &> ${config}`,
       `echo x &>> ${config}`, `echo x >>| ${config}`, `echo x {fd}>${config}`, `>|${config} echo x`,
       `>/dev/null rm ${config}`, `2>&1 rm ${config}`, `command rm ${config}`,
@@ -683,7 +683,7 @@ const STILL_DENIED: Array<[string, string]> = [
   ["a python3 heredoc that writes a git hook", "python3 - <<'EOF'\nopen('.git/hooks/pre-commit', 'w').write('exit 0')\nEOF"],
   // gh stores the value of these keys as a command and runs it later.
   ["a gh browser that runs ai-eng", "gh config set browser 'sh -c \"ai-eng uninstall\"' && gh browse"],
-  ["a gh editor that runs ai-eng", "gh config set editor \"sh -c 'ai-eng adapt apply'\""],
+  ["a gh editor that runs ai-eng", "gh config set editor \"sh -c 'ai-eng uninstall'\""],
   ["a gh pager that runs ai-eng", "gh config set pager \"sh -c 'ai-eng uninstall'\""],
   ["a gh editor that copies the binary", "gh config set editor \"sh -c 'cp ~/.bun/bin/ai-eng /tmp/x'\""],
   ["GH_BROWSER carrying ai-eng", "GH_BROWSER='sh -c \"ai-eng uninstall\"' gh browse"],
