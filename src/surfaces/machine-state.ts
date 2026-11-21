@@ -313,10 +313,13 @@ export function machineSettingsAliasMachineState(snapshot: MachineSettingsSnapsh
     if (!missingPath(error)) return null;
   }
   try {
-    const stateFile = statSync(machineStateFile());
-    return stateFile.isFile()
-      && stateFile.dev === snapshot.file.stat.dev
-      && stateFile.ino === snapshot.file.stat.ino;
+    // As bigints: an NTFS file id is 64 bits (sequence number above the MFT index), and once
+    // it passes 2^53 a JS number drops its low bits, so two files created a moment apart
+    // round to one id and the settings file reads as a hard link of the machine record.
+    const stateFile = statSync(machineStateFile(), { bigint: true });
+    if (!stateFile.isFile() || snapshot.targetPath === null) return false;
+    const settings = statSync(snapshot.targetPath, { bigint: true });
+    return stateFile.dev === settings.dev && stateFile.ino === settings.ino;
   } catch (error) {
     return missingPath(error) ? false : null;
   }
