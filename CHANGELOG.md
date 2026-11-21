@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.2.1
+
+### Patch Changes
+
+- [#803](https://github.com/arcasilesgroup/ai-engineering/pull/803) [`faac0cb`](https://github.com/arcasilesgroup/ai-engineering/commit/faac0cb65a5e5a8dce7068368f24ad8ea2ddf9b8) Thanks [@soydachi](https://github.com/soydachi)! - Every check that a file is still the one ai-eng read before writing or removing it — project files, machine settings, the machine record and its lock, skill links in the canon — now reads file ids as exact bigints and compares times in nanoseconds. On Windows an NTFS file id passes 2^53, where a JavaScript number drops its low bits, so a file swapped in a moment later could have passed for the one that was judged.
+
+- [#800](https://github.com/arcasilesgroup/ai-engineering/pull/800) [`ecec5f1`](https://github.com/arcasilesgroup/ai-engineering/commit/ecec5f1fe19e5fa576bbcdb2c986ac224b9dc8f4) Thanks [@soydachi](https://github.com/soydachi)! - The command-scope policy no longer blocks `git add` of a file whose name contains "token", "secret" or "credential" (a design-token `tokens.json`, a `secrets-handling.md` page). `git add` copies files into the repository's index; it does not write the files it names, so those paths are now judged as reads, the way `git commit` already judged its message. A real write to such a path is still refused, and a secret staged by mistake is still stopped by the gitleaks commit floor.
+
+- [#801](https://github.com/arcasilesgroup/ai-engineering/pull/801) [`c835dfe`](https://github.com/arcasilesgroup/ai-engineering/commit/c835dfed446cd8eb97dfcf3f1a8b7de3bcc51c16) Thanks [@soydachi](https://github.com/soydachi)! - The self-protect guard no longer carries a rule for `ai-eng adapt apply`: the `adapt` verb was removed in 3.2.0, so the rule guarded a command that no longer exists. `uninstall`, `wrap` and `config --remove` stay refused from inside a governed session.
+
+- [#799](https://github.com/arcasilesgroup/ai-engineering/pull/799) [`06acd8a`](https://github.com/arcasilesgroup/ai-engineering/commit/06acd8a79d990a8be52db8e6c0c201ae2d89ef47) Thanks [@soydachi](https://github.com/soydachi)! - The gitleaks install hint the commit floor prints now leads with what works without administrator rights. On Windows it suggested `choco install`, which needs an administrator; it now suggests `winget install --id Gitleaks.Gitleaks -e`, or putting `gitleaks.exe` from the releases page in a folder on your user PATH. On Linux it suggested `apt install`, which needs sudo; it now suggests the release binary in `~/.local/bin` first. The README gains a short section on installing Bun, ai-eng and gitleaks on a managed PC with no administrator rights.
+
+- [#798](https://github.com/arcasilesgroup/ai-engineering/pull/798) [`24f5084`](https://github.com/arcasilesgroup/ai-engineering/commit/24f50845cb02c31caaf1b4a20fce04909d3de854) Thanks [@soydachi](https://github.com/soydachi)! - On Windows, `ai-eng uninstall` (and the carrier install) sometimes refused to touch `~/.copilot/hooks/ai-eng.json`, saying it "changed while ai-eng was removing its entries, or it is a hard link with a second name". The check that the settings file is not the machine record under a second name compared file ids as JavaScript numbers; an NTFS file id is 64 bits, and past 2^53 two files created a moment apart rounded to the same id. The ids are now compared as exact bigints, so only a real hard link is refused. The checkpoint guard, which finds the checkpoint file a write really lands on by the same id, compares them the same way.
+
 ## 3.2.0
 
 ### Minor Changes
