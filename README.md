@@ -152,6 +152,21 @@ cd ai-engineering && bun install && bun run build && bun link
 The npm package ships the CLI launcher, source, skills, agents and templates.
 GitHub releases separately ship compiled binaries for eight targets.
 
+### Without administrator rights
+
+Nothing ai-eng installs or writes needs administrator rights: the binary, the skill canon,
+the hook carriers and the git hooks all live in your user folder or in the repository.
+
+- **Bun:** on Windows `powershell -c "irm bun.sh/install.ps1 | iex"`, on macOS and Linux
+  `curl -fsSL https://bun.sh/install | bash`. Both install into `~/.bun` for your user.
+- **ai-eng:** `bun add -g` installs into `~/.bun`. `npm install -g` is per-user on Windows
+  (`%APPDATA%\npm`); on macOS and Linux point npm at your home first with
+  `npm config set prefix ~/.local`.
+- **gitleaks** (the commit floor refuses without it): on Windows
+  `winget install --id Gitleaks.Gitleaks -e`, or put `gitleaks.exe` from the
+  [releases page](https://github.com/gitleaks/gitleaks/releases) in a folder on your user
+  PATH; on Linux the same binary goes in `~/.local/bin`.
+
 ## Quick start
 
 <p align="center">

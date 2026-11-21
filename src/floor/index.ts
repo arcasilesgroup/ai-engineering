@@ -12,12 +12,15 @@ import { runGit } from "../git/run.ts";
 
 type FloorResult = { ok: boolean; lines: string[] };
 
-/** The package-manager line both gitleaks hints print: pre-commit and pre-push must
- *  never drift apart, and the specs read this same source. */
+/** The install line both gitleaks hints print: pre-commit and pre-push must never drift
+ *  apart, and the specs read this same source. Each one works without administrator
+ *  rights first, because a managed PC may allow nothing above the user's own folders. */
 export function gitleaksInstallHint(): string {
-  if (process.platform === "win32") return "choco install gitleaks (or scoop install gitleaks)";
+  if (process.platform === "win32") {
+    return "winget install --id Gitleaks.Gitleaks -e, or with no package manager: put gitleaks.exe from the gitleaks releases page in a folder on your user PATH";
+  }
   if (process.platform === "darwin") return "brew install gitleaks";
-  return "apt install gitleaks (or download the binary from the gitleaks releases page)";
+  return "download the binary from the gitleaks releases page into ~/.local/bin (or, with sudo, apt install gitleaks)";
 }
 
 /** pre-commit: diff --check · gitleaks --staged · DECISIONS.md if >10 files or new dep. */
