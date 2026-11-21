@@ -274,7 +274,6 @@ const WRITES = (segment: string): boolean =>
   segment.startsWith("git fetch") ||
   segment.startsWith("git pull") ||
   segment.startsWith("git clone") ||
-  segment.startsWith("git add") ||
   segment.startsWith("git checkout") ||
   segment.startsWith("git merge") ||
   segment.startsWith("git rebase") ||
@@ -285,12 +284,13 @@ const WRITES = (segment: string): boolean =>
   segment.startsWith("go test") ||
   segment.startsWith("npm test");
 
-/** Git verbs that write the workspace itself and take a `-m` message: their
- *  arguments are message data and pathspecs, never files the verb writes, so
- *  their tokens are judged read-only — a commit message that mentions a secret,
- *  token or `.env` is prose, not a sensitive write. */
+/** Git verbs that write only the repository's own index and history: their arguments
+ *  are message data and pathspecs, never files the verb writes, so their tokens are
+ *  judged read-only — a commit message that mentions a secret, or `git add` of a design
+ *  file called tokens.json, is not a sensitive write. A secret staged this way is the
+ *  commit floor's to stop (gitleaks), not this guard's. */
 const WRITES_MESSAGE_VERBS = (segment: string): boolean =>
-  segment.startsWith("git commit") || segment.startsWith("git stash");
+  segment.startsWith("git commit") || segment.startsWith("git stash") || segment.startsWith("git add");
 
 /** A redirection, optionally fd-prefixed (`2>`, `{fd}>`): the operator and the target
  *  when it is attached. Heredocs (`<<`) and process substitution (`<(`, `>(`) are not
