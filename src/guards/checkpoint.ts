@@ -11,7 +11,7 @@ import {
   statSync,
   unlinkSync,
   writeFileSync,
-  type Stats,
+  type BigIntStats,
 } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -120,8 +120,8 @@ function isCaseInsensitive(path: string): boolean {
   const swapped = path.replace(/[a-z]/gi, (letter) => (letter === letter.toLowerCase() ? letter.toUpperCase() : letter.toLowerCase()));
   if (swapped === path) return false;
   try {
-    const named = statSync(path);
-    const other = statSync(swapped);
+    const named = statSync(path, { bigint: true });
+    const other = statSync(swapped, { bigint: true });
     return named.dev === other.dev && named.ino === other.ino;
   } catch {
     return false;
@@ -148,11 +148,12 @@ function landsInCheckpoints(repo: RealRepo, absolutePath: string): boolean {
 }
 
 /** The checkpoint file that is the same file as `path` (a hard link, a symlink, a
- *  case-variant name), by device and inode. */
+ *  case-variant name), by device and inode. Both as bigints: an NTFS file id passes 2^53,
+ *  and as a JS number two checkpoints written a moment apart round to one id. */
 function checkpointWithSameInode(folder: string, path: string): string | null {
-  let target: Stats;
+  let target: BigIntStats;
   try {
-    target = statSync(path);
+    target = statSync(path, { bigint: true });
   } catch {
     return null;
   }
@@ -166,7 +167,7 @@ function checkpointWithSameInode(folder: string, path: string): string | null {
   for (const name of names) {
     if (!name.endsWith(".json")) continue;
     try {
-      const candidate = statSync(join(folder, name));
+      const candidate = statSync(join(folder, name), { bigint: true });
       if (candidate.dev === target.dev && candidate.ino === target.ino) return name.slice(0, -".json".length);
     } catch {
       /* gone since the listing */
