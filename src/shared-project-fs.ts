@@ -4,7 +4,7 @@
 // assets so the chain bundle can import it.
 
 import { createHash } from "node:crypto";
-import { closeSync, constants, fstatSync, ftruncateSync, lstatSync, openSync, readFileSync, readSync, realpathSync, rmdirSync, unlinkSync, writeSync, type Stats } from "node:fs";
+import { closeSync, constants, fstatSync, ftruncateSync, lstatSync, openSync, readFileSync, readSync, realpathSync, rmdirSync, unlinkSync, writeSync, type BigIntStats } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 export function safeProjectPath(root: string, rel: string): string | null {
@@ -115,15 +115,15 @@ export function takeCheckedProjectFile(canonicalRoot: string, absolute: string):
   let descriptor: number | null = null;
   try {
     if (!isCheckedFolder(canonicalRoot, folder)) return null;
-    const entryBefore = lstatSync(absolute);
+    const entryBefore = lstatSync(absolute, { bigint: true });
     if (entryBefore.isSymbolicLink() || !entryBefore.isFile()) return null;
     descriptor = openSync(absolute, constants.O_RDONLY | constants.O_NOFOLLOW);
-    const opened = fstatSync(descriptor);
+    const opened = fstatSync(descriptor, { bigint: true });
     if (!sameFileVersion(entryBefore, opened)) return null;
     const content = readFileSync(descriptor);
-    const afterRead = fstatSync(descriptor);
-    if (!sameFileVersion(opened, afterRead) || content.length !== afterRead.size) return null;
-    if (!isCheckedFolder(canonicalRoot, folder) || !sameFileVersion(afterRead, lstatSync(absolute))) return null;
+    const afterRead = fstatSync(descriptor, { bigint: true });
+    if (!sameFileVersion(opened, afterRead) || BigInt(content.length) !== afterRead.size) return null;
+    if (!isCheckedFolder(canonicalRoot, folder) || !sameFileVersion(afterRead, lstatSync(absolute, { bigint: true }))) return null;
     unlinkSync(absolute);
     return content;
   } catch {
@@ -133,27 +133,33 @@ export function takeCheckedProjectFile(canonicalRoot: string, absolute: string):
   }
 }
 
-export type ProjectFileSnapshot = Pick<Stats, "dev" | "ino" | "nlink" | "size" | "mtimeMs" | "ctimeMs"> & {
+/** Identity and times stay exact bigints; the counts (links, bytes) are small and read as numbers. */
+export type ProjectFileSnapshot = Pick<BigIntStats, "dev" | "ino" | "mtimeNs" | "ctimeNs"> & {
+  nlink: number;
+  size: number;
   content: Buffer;
   hash: string;
 };
 
-function sameFileVersion(left: Stats, right: Stats): boolean {
+// Stats are read as bigints: an NTFS file id is 64 bits and passes 2^53, where a JS number
+// drops its low bits and two files created a moment apart would share an id; the times are
+// compared in nanoseconds, the precision a bigint stat keeps.
+function sameFileVersion(left: BigIntStats, right: BigIntStats): boolean {
   return left.isFile() && right.isFile()
     && left.dev === right.dev
     && left.ino === right.ino
     && left.size === right.size
-    && left.mtimeMs === right.mtimeMs
-    && left.ctimeMs === right.ctimeMs;
+    && left.mtimeNs === right.mtimeNs
+    && left.ctimeNs === right.ctimeNs;
 }
 
-function matchesProjectFile(stat: Stats, snapshot: ProjectFileSnapshot): boolean {
+function matchesProjectFile(stat: BigIntStats, snapshot: ProjectFileSnapshot): boolean {
   return stat.isFile()
     && stat.dev === snapshot.dev
     && stat.ino === snapshot.ino
-    && stat.size === snapshot.size
-    && stat.mtimeMs === snapshot.mtimeMs
-    && stat.ctimeMs === snapshot.ctimeMs;
+    && stat.size === BigInt(snapshot.size)
+    && stat.mtimeNs === snapshot.mtimeNs
+    && stat.ctimeNs === snapshot.ctimeNs;
 }
 
 export function readProjectFileSnapshot(root: string, absolute: string, bindParent: ParentBinding = withSafeProjectParent): ProjectFileSnapshot | null {
@@ -161,24 +167,24 @@ export function readProjectFileSnapshot(root: string, absolute: string, bindPare
   const didRead = bindParent(root, absolute, (name) => {
     let descriptor: number | null = null;
     try {
-      const entryBefore = lstatSync(name);
+      const entryBefore = lstatSync(name, { bigint: true });
       if (entryBefore.isSymbolicLink() || !entryBefore.isFile()) return false;
       descriptor = openSync(name, constants.O_RDONLY | constants.O_NOFOLLOW);
-      const opened = fstatSync(descriptor);
+      const opened = fstatSync(descriptor, { bigint: true });
       if (!sameFileVersion(entryBefore, opened)) return false;
       const content = readFileSync(descriptor);
-      const afterRead = fstatSync(descriptor);
-      const entryAfter = lstatSync(name);
-      if (!sameFileVersion(opened, afterRead) || !sameFileVersion(afterRead, entryAfter) || content.length !== afterRead.size) {
+      const afterRead = fstatSync(descriptor, { bigint: true });
+      const entryAfter = lstatSync(name, { bigint: true });
+      if (!sameFileVersion(opened, afterRead) || !sameFileVersion(afterRead, entryAfter) || BigInt(content.length) !== afterRead.size) {
         return false;
       }
       snapshot = {
         dev: afterRead.dev,
         ino: afterRead.ino,
-        nlink: afterRead.nlink,
-        size: afterRead.size,
-        mtimeMs: afterRead.mtimeMs,
-        ctimeMs: afterRead.ctimeMs,
+        nlink: Number(afterRead.nlink),
+        size: content.length,
+        mtimeNs: afterRead.mtimeNs,
+        ctimeNs: afterRead.ctimeNs,
         content,
         hash: createHash("sha256").update(content).digest("hex"),
       };
@@ -194,7 +200,7 @@ export function readProjectFileSnapshot(root: string, absolute: string, bindPare
 
 function fileMatchesSnapshotAtPath(name: string, descriptor: number, snapshot: ProjectFileSnapshot): boolean {
   try {
-    const beforeRead = fstatSync(descriptor);
+    const beforeRead = fstatSync(descriptor, { bigint: true });
     if (!matchesProjectFile(beforeRead, snapshot)) return false;
     const content = Buffer.alloc(snapshot.size);
     let bytesRead = 0;
@@ -203,8 +209,8 @@ function fileMatchesSnapshotAtPath(name: string, descriptor: number, snapshot: P
       if (count === 0) return false;
       bytesRead += count;
     }
-    const afterRead = fstatSync(descriptor);
-    const currentEntry = lstatSync(name);
+    const afterRead = fstatSync(descriptor, { bigint: true });
+    const currentEntry = lstatSync(name, { bigint: true });
     return content.equals(snapshot.content)
       && matchesProjectFile(afterRead, snapshot)
       && sameFileVersion(beforeRead, afterRead)
@@ -218,10 +224,10 @@ function openMatchingProjectFile(name: string, snapshot: ProjectFileSnapshot, fl
   let descriptor: number | null = null;
   let isValid = false;
   try {
-    const entryBefore = lstatSync(name);
+    const entryBefore = lstatSync(name, { bigint: true });
     if (!matchesProjectFile(entryBefore, snapshot)) return null;
     descriptor = openSync(name, flags | constants.O_NOFOLLOW);
-    const opened = fstatSync(descriptor);
+    const opened = fstatSync(descriptor, { bigint: true });
     if (!sameFileVersion(entryBefore, opened) || !fileMatchesSnapshotAtPath(name, descriptor, snapshot)) return null;
     isValid = true;
     return descriptor;
@@ -252,7 +258,7 @@ export function writeProjectFile(root: string, absolute: string, snapshot: Proje
     if (descriptor === null) return false;
     try {
       // A second name (a hard link from the user's home) would receive the rewrite too.
-      if (fstatSync(descriptor).nlink !== 1 || !fileMatchesSnapshotAtPath(name, descriptor, snapshot)) return false;
+      if (fstatSync(descriptor, { bigint: true }).nlink !== 1n || !fileMatchesSnapshotAtPath(name, descriptor, snapshot)) return false;
       const bytes = Buffer.from(contents);
       try {
         ftruncateSync(descriptor, 0);

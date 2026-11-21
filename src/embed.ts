@@ -2,7 +2,7 @@
 // skill and template from the payload folders the binary carries — never from the network.
 
 import { randomBytes } from "node:crypto";
-import { closeSync, constants, fstatSync, ftruncateSync, openSync, writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, lstatSync, realpathSync, type Dirent, type Stats } from "node:fs";
+import { closeSync, constants, fstatSync, ftruncateSync, openSync, writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, lstatSync, realpathSync, type BigIntStats, type Dirent, type Stats } from "node:fs";
 import { basename, join, dirname, resolve, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hashFile } from "./shared-hash.ts";
@@ -293,16 +293,18 @@ export function removeMachineEntry(homeDir: string, key: string): boolean {
   const parent = safeProjectPath(homeDir, dirname(key));
   if (parent === null) return false;
   const absolute = join(parent, basename(key));
-  let entry: Stats;
+  // Bigint ids: as JS numbers an NTFS file id past 2^53 rounds, and a link swapped in a moment
+  // later could share the judged link's id.
+  let entry: BigIntStats;
   try {
-    entry = lstatSync(absolute);
+    entry = lstatSync(absolute, { bigint: true });
   } catch {
     return true; // already gone
   }
   if (entry.isSymbolicLink()) {
     return withSafeProjectParent(homeDir, absolute, (name) => {
       // Still the very link that was judged: a file swapped in at the name is not removed.
-      const current = lstatSync(name);
+      const current = lstatSync(name, { bigint: true });
       if (!current.isSymbolicLink() || current.dev !== entry.dev || current.ino !== entry.ino) return false;
       unlinkSync(name);
       return true;

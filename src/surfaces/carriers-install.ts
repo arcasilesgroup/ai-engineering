@@ -287,7 +287,7 @@ function createMachineSettings(snapshot: MachineSettingsSnapshot, absolute: stri
     try {
       descriptor = openSync(snapshot.sourceName, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o644);
       writeFileSync(descriptor, content);
-      return fstatSync(descriptor);
+      return fstatSync(descriptor, { bigint: true });
     } catch {
       return null;
     } finally {
@@ -316,16 +316,16 @@ function createMachineSettings(snapshot: MachineSettingsSnapshot, absolute: stri
  *  hooks at all. */
 function replaceMachineSettings(snapshot: MachineSettingsSnapshot, absolute: string, content: string): MachineSettingsSnapshot | null {
   const original = snapshot.file;
-  if (original === null || original.stat.nlink !== 1 || !machineSettingsSnapshotMatches(snapshot)) return null;
+  if (original === null || original.stat.nlink !== 1n || !machineSettingsSnapshotMatches(snapshot)) return null;
   const parent = snapshot.link === null ? snapshot.sourceParent : snapshot.targetParent;
   const name = snapshot.link === null ? snapshot.sourceName : snapshot.targetName;
   const staged = `.${name}.ai-eng-${randomBytes(6).toString("hex")}`;
   const isReplaced = withMachineSettingsDirectory(parent, () => {
     let descriptor: number | null = null;
     try {
-      descriptor = openSync(staged, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, original.stat.mode & 0o777);
+      descriptor = openSync(staged, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, Number(original.stat.mode & 0o777n));
       // The umask trims the mode open() was given: a 0664 file would come back 0644.
-      if (process.platform !== "win32") fchmodSync(descriptor, original.stat.mode & 0o777);
+      if (process.platform !== "win32") fchmodSync(descriptor, Number(original.stat.mode & 0o777n));
       writeFileSync(descriptor, content);
       closeSync(descriptor);
       descriptor = null;
@@ -350,7 +350,7 @@ function replaceMachineSettings(snapshot: MachineSettingsSnapshot, absolute: str
 /** Remove a settings file that held only ai-eng's entries, while it is still the file read. */
 function unlinkMachineSettings(snapshot: MachineSettingsSnapshot): boolean {
   const original = snapshot.file;
-  if (original === null || snapshot.link !== null || original.stat.nlink !== 1) return false;
+  if (original === null || snapshot.link !== null || original.stat.nlink !== 1n) return false;
   return withMachineSettingsDirectory(snapshot.sourceParent, () => {
     if (!sameMachineSettingsFile(readMachineSettingsFile(snapshot.sourceName), original)) return false;
     unlinkSync(snapshot.sourceName);
@@ -560,14 +560,14 @@ export function removeMachineArtifacts(refused: string[] = []): number {
   const isCanonPath = (candidate: string): boolean => pathIsWithin(canonReal, candidate);
   const removeCanonLink = (directory: string, name: string): boolean => {
     const link = join(directory, name);
-    const originalStat = lstatSync(link);
+    const originalStat = lstatSync(link, { bigint: true });
     if (!originalStat.isSymbolicLink()) return false;
     const originalTarget = readlinkSync(link);
     // Only the exact pair linkSkills writes is ours; any other name or target is a user's alias.
     if (name.startsWith(".") || originalTarget !== join(canonDir, name)) return false;
     const originalCanonical = canonical(link);
     if (!isCanonPath(originalCanonical)) return false;
-    const verifiedStat = lstatSync(link);
+    const verifiedStat = lstatSync(link, { bigint: true });
     if (verifiedStat.dev !== originalStat.dev || verifiedStat.ino !== originalStat.ino || readlinkSync(link) !== originalTarget) {
       return false;
     }
@@ -577,7 +577,7 @@ export function removeMachineArtifacts(refused: string[] = []): number {
     try {
       process.chdir(parent);
       if (realpathSync(".") !== parent) return false;
-      const currentStat = lstatSync(name);
+      const currentStat = lstatSync(name, { bigint: true });
       if (
         !currentStat.isSymbolicLink()
         || currentStat.dev !== originalStat.dev

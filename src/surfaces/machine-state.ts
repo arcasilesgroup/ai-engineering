@@ -7,7 +7,7 @@
 // machinery lives here too: an install or a removal must act on the exact bytes it read,
 // and refuse instead of guessing when the file changed, or the path could reach it.
 
-import { constants, closeSync, fstatSync, linkSync, lstatSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
+import { constants, closeSync, fstatSync, linkSync, lstatSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, statSync, symlinkSync, unlinkSync, writeFileSync, type BigIntStats, type Stats } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
 import { basename, dirname, join } from "node:path";
@@ -80,18 +80,18 @@ function parseMachineState(text: string): MachineState {
 type MachineSettingsDirectory = {
   path: string;
   requestedPath: string;
-  dev: number;
-  ino: number;
-  link: { dev: number; ino: number; target: string } | null;
+  dev: bigint;
+  ino: bigint;
+  link: { dev: bigint; ino: bigint; target: string } | null;
 };
-type MachineSettingsFile = { stat: Stats; content: Buffer };
+type MachineSettingsFile = { stat: BigIntStats; content: Buffer };
 export type MachineSettingsSnapshot = {
   sourceParent: MachineSettingsDirectory;
   sourceName: string;
   targetParent: MachineSettingsDirectory;
   targetName: string;
   targetPath: string | null;
-  link: { stat: Stats; target: string } | null;
+  link: { stat: BigIntStats; target: string } | null;
   file: MachineSettingsFile | null;
 };
 
@@ -100,9 +100,9 @@ export function missingPath(error: unknown): boolean {
 }
 
 function machineSettingsDirectory(path: string): MachineSettingsDirectory {
-  const requestedEntry = lstatSync(path);
+  const requestedEntry = lstatSync(path, { bigint: true });
   const canonicalPath = realpathSync(path);
-  const stat = lstatSync(canonicalPath);
+  const stat = lstatSync(canonicalPath, { bigint: true });
   if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("Machine settings parent is not a directory");
   return {
     path: canonicalPath,
@@ -122,7 +122,7 @@ export function withMachineSettingsDirectory<T>(directory: MachineSettingsDirect
     try {
       if (realpathSync(directory.requestedPath) !== directory.path) return null;
       if (directory.link !== null) {
-        const requestedEntry = lstatSync(directory.requestedPath);
+        const requestedEntry = lstatSync(directory.requestedPath, { bigint: true });
         if (
           !requestedEntry.isSymbolicLink()
           || requestedEntry.dev !== directory.link.dev
@@ -134,7 +134,7 @@ export function withMachineSettingsDirectory<T>(directory: MachineSettingsDirect
       }
       process.chdir(directory.path);
       changedDirectory = true;
-      const currentStat = lstatSync(".");
+      const currentStat = lstatSync(".", { bigint: true });
       if (
         realpathSync(".") !== directory.path
         || !currentStat.isDirectory()
@@ -152,41 +152,41 @@ export function withMachineSettingsDirectory<T>(directory: MachineSettingsDirect
   }
 }
 
-function sameMachineSettingsStat(left: Stats, right: Stats): boolean {
+function sameMachineSettingsStat(left: BigIntStats, right: BigIntStats): boolean {
   return left.isFile() === right.isFile()
     && left.isSymbolicLink() === right.isSymbolicLink()
     && left.dev === right.dev
     && left.ino === right.ino
     && left.size === right.size
-    && left.mtimeMs === right.mtimeMs
-    && left.ctimeMs === right.ctimeMs
+    && left.mtimeNs === right.mtimeNs
+    && left.ctimeNs === right.ctimeNs
     && left.mode === right.mode;
 }
 
-function machineSettingsEntry(name: string): Stats | null {
+function machineSettingsEntry(name: string): BigIntStats | null {
   try {
-    return lstatSync(name);
+    return lstatSync(name, { bigint: true });
   } catch (error) {
     if (missingPath(error)) return null;
     throw error;
   }
 }
 
-export function readMachineSettingsFile(name: string, expected?: Stats): MachineSettingsFile | null {
+export function readMachineSettingsFile(name: string, expected?: BigIntStats): MachineSettingsFile | null {
   let descriptor: number | null = null;
   let file: MachineSettingsFile | null = null;
   try {
-    const entry = lstatSync(name);
+    const entry = lstatSync(name, { bigint: true });
     if (entry.isFile() && (!expected || sameMachineSettingsStat(entry, expected))) {
       descriptor = openSync(name, constants.O_RDONLY | constants.O_NOFOLLOW);
-      const opened = fstatSync(descriptor);
+      const opened = fstatSync(descriptor, { bigint: true });
       if (sameMachineSettingsStat(entry, opened)) {
         const content = readFileSync(descriptor);
-        const afterRead = fstatSync(descriptor);
+        const afterRead = fstatSync(descriptor, { bigint: true });
         if (
           sameMachineSettingsStat(opened, afterRead)
-          && sameMachineSettingsStat(afterRead, lstatSync(name))
-          && content.length === afterRead.size
+          && sameMachineSettingsStat(afterRead, lstatSync(name, { bigint: true }))
+          && BigInt(content.length) === afterRead.size
         ) {
           file = { stat: afterRead, content };
         }
@@ -410,11 +410,11 @@ export function machineStateLockFile(): string {
   return join(home(), MACHINE_STATE_LOCK);
 }
 
-type MachineStateFile = { dev: number; ino: number; content: Buffer };
-type OwnedMachineEntry = { name: string; dev: number; ino: number };
+type MachineStateFile = { dev: bigint; ino: bigint; content: Buffer };
+type OwnedMachineEntry = { name: string; dev: bigint; ino: bigint };
 type MachineStateLockScope = { bootId: string | null; pidNamespace: string | null };
 type MachineStateLockOwner = MachineStateLockScope & { pid: number; hostname: string; startedAt: string };
-type MachineStateLock = { dev: number; ino: number; content: Buffer; owner: MachineStateLockOwner | null };
+type MachineStateLock = { dev: bigint; ino: bigint; content: Buffer; owner: MachineStateLockOwner | null };
 /** The state file as this run read it, bound to the directory that holds it. `unsafe`
  *  means another path could see its bytes: a link, not a regular file, or a second name.
  *  `stranded` means machine.json is gone and an interrupted run's copies could not be put
@@ -428,15 +428,15 @@ type MachineStateRecord =
 
 /** The bytes behind a descriptor, only while that inode has exactly one name. */
 function soleMachineStateFile(descriptor: number): MachineStateFile | null {
-  const before = fstatSync(descriptor);
-  if (!before.isFile() || before.nlink !== 1) return null;
+  const before = fstatSync(descriptor, { bigint: true });
+  if (!before.isFile() || before.nlink !== 1n) return null;
   const content = readFileSync(descriptor);
-  const after = fstatSync(descriptor);
-  const isUnchanged = after.nlink === 1
+  const after = fstatSync(descriptor, { bigint: true });
+  const isUnchanged = after.nlink === 1n
     && after.dev === before.dev
     && after.ino === before.ino
-    && after.mtimeMs === before.mtimeMs
-    && after.size === content.length;
+    && after.mtimeNs === before.mtimeNs
+    && after.size === BigInt(content.length);
   return isUnchanged ? { dev: after.dev, ino: after.ino, content } : null;
 }
 
@@ -530,7 +530,7 @@ function restoreLoneClaim(): string[] {
   if (claims.length !== 1 || pathEntryExists(MACHINE_STATE_NAME)) return claims;
   const name = claims[0]!;
   try {
-    const stat = lstatSync(name);
+    const stat = lstatSync(name, { bigint: true });
     if (restoreClaimedMachineState({ name, dev: stat.dev, ino: stat.ino })) return [];
   } catch {
     /* not restorable: kept and named below */
@@ -592,7 +592,7 @@ function readMachineStateLock(path: string): MachineStateLock | null {
   try {
     if (!lstatSync(path).isFile()) return null;
     descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
-    const stat = fstatSync(descriptor);
+    const stat = fstatSync(descriptor, { bigint: true });
     if (!stat.isFile()) return null;
     const content = readFileSync(descriptor);
     return { dev: stat.dev, ino: stat.ino, content, owner: parseLockOwner(content.toString("utf8")) };
@@ -683,7 +683,7 @@ function stageMachineState(content: string): OwnedMachineEntry | null {
   }
   let entry: OwnedMachineEntry | null = null;
   try {
-    const stat = fstatSync(descriptor);
+    const stat = fstatSync(descriptor, { bigint: true });
     entry = { name, dev: stat.dev, ino: stat.ino };
     writeFileSync(descriptor, content);
     return entry;
@@ -717,10 +717,10 @@ function claimMachineState(file: MachineStateFile): { entry: OwnedMachineEntry; 
   }
   // From here the original lives under `name`: every outcome must name it, never drop it.
   try {
-    const stat = lstatSync(name);
+    const stat = lstatSync(name, { bigint: true });
     return { entry: { name, dev: stat.dev, ino: stat.ino }, isOurs: claimedMachineStateMatches(name, file) };
   } catch {
-    return { entry: { name, dev: -1, ino: -1 }, isOurs: false };
+    return { entry: { name, dev: -1n, ino: -1n }, isOurs: false };
   }
 }
 
@@ -729,7 +729,7 @@ function claimMachineState(file: MachineStateFile): { entry: OwnedMachineEntry; 
  *  caller has to say where. */
 function restoreClaimedMachineState(entry: OwnedMachineEntry): boolean {
   try {
-    const stat = lstatSync(entry.name);
+    const stat = lstatSync(entry.name, { bigint: true });
     if (stat.dev !== entry.dev || stat.ino !== entry.ino) return false;
     if (stat.isFile()) linkSync(entry.name, MACHINE_STATE_NAME);
     else if (stat.isSymbolicLink()) symlinkSync(readlinkSync(entry.name), MACHINE_STATE_NAME);
@@ -743,7 +743,7 @@ function restoreClaimedMachineState(entry: OwnedMachineEntry): boolean {
 
 function removeOwnedMachineEntry(entry: OwnedMachineEntry): void {
   try {
-    const stat = lstatSync(entry.name);
+    const stat = lstatSync(entry.name, { bigint: true });
     if (stat.dev === entry.dev && stat.ino === entry.ino) unlinkSync(entry.name);
   } catch {
     /* already gone or replaced: not ours to remove */
