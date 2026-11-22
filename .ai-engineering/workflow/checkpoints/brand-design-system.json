@@ -122,9 +122,9 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 1, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "passed", "attempts": 1, "findings": ["Round 1 raised F1-F3 (template health check, uninstall and ownership record claimed every shipped template); fixed in 3ab4e676; round 2 PASS. MINOR: a templates/ that is a link or a plain file counts every page as missing, so each init and update repeats the refusal warning."] }
       },
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "id": 3,
