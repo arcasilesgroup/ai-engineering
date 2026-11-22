@@ -23,7 +23,7 @@ or merge.
 2. **Read the local format.** Start with `templates/recap.html.tpl`, follow
    [the artifact design](../../skills/ai-brainstorm/references/artifact-design.md), and
    use [the wireframe guidance](references/wireframe.md) only when the change
-   alters a visible interface.
+   alters a visible interface. Copy `templates/recap.html.tpl` and fill its sections; write no CSS and no script.
 3. **Write the recap.** Replace each template placeholder with accurate,
    HTML-escaped text. Add matching navigation links and sections inside the
    template's main container. Summarize the outcome, meaningful decisions,

@@ -12,21 +12,28 @@
  *
  * Scope: every sectioned page under .ai-engineering/ (research, recap,
  * brainstorm, audits — not workflow/, which is product UI wearing the tokens)
- * and the three shipped carriers in templates/. A page with <section> is a
- * reading artifact and takes the contract whole.
+ * and every carrier in templates/. A page with <section> is a reading artifact
+ * and takes the contract whole.
  *
- * The doc itself is under gate too: it carries the CSS block twice ("The
- * tokens" and "The block"), and the two copies had already drifted — an agent
- * copying from one and an agent copying from the other ship different skip
- * links. One document, one block.
+ * The shell has one source: brand/components.css and brand/components.js,
+ * spliced between markers into every template by `bun scripts/brand.ts gen`.
+ * The design doc used to carry the CSS block twice, and the two copies drifted
+ * — an agent copying from one and an agent copying from the other shipped
+ * different skip links. So the doc carries no block at all.
  */
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { templateDrift } from "../scripts/brand.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const DESIGN = "skills/ai-brainstorm/references/artifact-design.md";
-const CARRIERS = ["templates/recap.html.tpl", "templates/brainstorm.html.tpl", "templates/research.html.tpl", "templates/triage.html.tpl"] as const;
+const BRAND_CSS = "brand/components.css";
+/** Re-derived from templates/: a handwritten list would hide the next template. */
+const CARRIERS = readdirSync(join(ROOT, "templates"))
+  .filter((name) => name.endsWith(".html.tpl"))
+  .map((name) => `templates/${name}`)
+  .sort();
 
 function read(path: string): string {
   return readFileSync(join(ROOT, path), "utf8");
@@ -106,13 +113,10 @@ describe("artifact layout — rule 4, the left edge everything shares", () => {
     expect(violations.join("\n")).toBe("");
   });
 
-  test("artifact-design.md carries one CSS block, not two drifting copies", () => {
-    const blocks = [...read(DESIGN).matchAll(/```css\r?\n([\s\S]*?)```/g)].map((m) =>
-      (m[1] ?? "").replace(/\s+/g, ""),
-    );
-    expect(blocks.length).toBeGreaterThanOrEqual(2);
-    const drift = blocks.filter((block) => block !== blocks[0]);
-    expect(drift.length).toBe(0);
+  test("artifact-design.md carries no CSS block and no scroll-spy script", () => {
+    const design = read(DESIGN);
+    expect(design.match(/```css/g) ?? []).toEqual([]);
+    expect(design.includes("/* scroll-spy:")).toBe(false);
   });
 
   test("every var() a checked page uses is declared in its own :root", () => {
@@ -126,12 +130,11 @@ describe("artifact layout — rule 4, the left edge everything shares", () => {
       if (missing.length > 0) undeclared.push(`${label}: ${missing.join(", ")}`);
     };
     // An undeclared var() invalidates the whole declaration: border-radius
-    // computes to 0px and every card and table renders square. The canonical
-    // block first — every artifact copies from it — then each page's own
+    // computes to 0px and every card and table renders square. The brand
+    // source first — every template is spliced from it — then each page's own
     // inline block, because pages frozen before the block was fixed still
     // carry the dangling reference.
-    const block = read(DESIGN).match(/```css\r?\n([\s\S]*?)```/)?.[1] ?? "";
-    check(DESIGN, block);
+    check(BRAND_CSS, read(BRAND_CSS));
     for (const file of sectionedArtifacts()) {
       const style = /<style[^>]*>([\s\S]*?)<\/style>/.exec(read(file))?.[1];
       if (style !== undefined) check(file, style);
@@ -139,19 +142,14 @@ describe("artifact layout — rule 4, the left edge everything shares", () => {
     expect(undeclared.join("\n")).toBe("");
   });
 
-  test("the shipped carriers carry the canonical block whole", () => {
-    const block = read(DESIGN).match(/```css\r?\n([\s\S]*?)```/)?.[1] ?? "";
-    const strip = (css: string): string =>
-      css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, "").replace(/;}/g, "}");
-    const canonical = strip(block);
-    const missing: string[] = [];
-    for (const carrier of CARRIERS) {
-      // The design doc promises "the shipped templates carry the same
-      // block"; a carrier missing a component rule ships an unstyled element
-      // the moment a writer uses it.
-      const style = /<style[^>]*>([\s\S]*?)<\/style>/.exec(read(carrier))?.[1] ?? "";
-      if (!strip(style).includes(canonical)) missing.push(carrier);
-    }
-    expect(missing.join("\n")).toBe("");
+  test("every carrier carries the brand region, and it equals brand/", async () => {
+    // A carrier with no region ships whatever styles it was born with, and
+    // parity never looks at it.
+    const unmarked = CARRIERS.filter((carrier) => {
+      const page = read(carrier);
+      return !page.includes("/* brand:begin */") || !page.includes("<!-- brand:js:begin -->");
+    });
+    expect(unmarked).toEqual([]);
+    expect(await templateDrift()).toEqual([]);
   });
 });

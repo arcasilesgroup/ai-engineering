@@ -284,12 +284,11 @@ they finish at `ai-verify`. The grounding duty in step 3 applies on every lane.
    tools, or with a redirect: `rm`, `mv` and `tee` into `.ai-engineering/` are denied,
    because a verb that can act on several paths is judged as a whole command.
    Render it with the artifact design system —
-   [references/artifact-design.md](references/artifact-design.md):
-   copy that document's whole CSS block in verbatim — tokens, layout rules and
-   components, not tokens alone — same family as the research pages and the recap.
-   Before
-   `</body>`, copy that file's scroll-spy script verbatim (it is already in
-   `templates/brainstorm.html.tpl`): it marks the nav link for the section in view.
+   [references/artifact-design.md](references/artifact-design.md).
+   Copy `templates/brainstorm.html.tpl` and fill its sections; write no CSS and no script.
+   The conclusions go to `.ai-engineering/PRD.html`: Copy `templates/PRD.html.tpl` and fill its sections; write no CSS and no script.
+   The templates already carry the brand styles and the scroll-spy, so the page is the
+   same family as the research pages and the recap.
    The markdown
    structure in §Doc structure maps to sections of that page; the file is HTML only,
    no `.md` twin.

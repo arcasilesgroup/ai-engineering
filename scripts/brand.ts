@@ -686,22 +686,15 @@ export function spliceBrandRegions(html: string, css: string, js: string, templa
   return spliced;
 }
 
-function carriesBrandMarkers(html: string): boolean {
-  return (
-    html.includes(CSS_MARKER_BEGIN) ||
-    html.includes(CSS_MARKER_END) ||
-    html.includes(JS_MARKER_BEGIN) ||
-    html.includes(JS_MARKER_END)
-  );
-}
-
-/** Re-derived from templates/*.html.tpl. A handwritten list would hide the next template. */
-async function markedTemplatePaths(root: string): Promise<string[]> {
+/**
+ * Re-derived from templates/*.html.tpl. A handwritten list would hide the next
+ * template, and so would skipping one without markers: every template must
+ * carry both pairs, so a missing pair is a refusal, not a template parity skips.
+ */
+function templatePaths(root: string): string[] {
   const relativePaths: string[] = [];
   for (const match of new Bun.Glob('templates/*.html.tpl').scanSync({ cwd: root, onlyFiles: true })) {
-    const relativePath = match.split('\\').join('/');
-    const html = await readFile(join(root, relativePath), 'utf8');
-    if (carriesBrandMarkers(html)) relativePaths.push(relativePath);
+    relativePaths.push(match.split('\\').join('/'));
   }
   relativePaths.sort();
   return relativePaths;
@@ -714,13 +707,18 @@ async function readBrandComponents(root: string): Promise<{ readonly css: string
   };
 }
 
-/** Relative paths of marked templates whose regions differ from the brand sources. */
+/** Relative paths of templates whose regions differ from the brand sources, or whose markers are refused. */
 export async function templateDrift(root: string = ROOT): Promise<readonly string[]> {
   const { css, js } = await readBrandComponents(root);
   const drifted: string[] = [];
-  for (const relativePath of await markedTemplatePaths(root)) {
+  for (const relativePath of templatePaths(root)) {
     const html = await readFile(join(root, relativePath), 'utf8');
-    if (spliceBrandRegions(html, css, js, relativePath) !== html) drifted.push(relativePath);
+    try {
+      if (spliceBrandRegions(html, css, js, relativePath) !== html) drifted.push(relativePath);
+    } catch (error) {
+      if (!(error instanceof BrandMarkerError)) throw error;
+      drifted.push(relativePath);
+    }
   }
   return drifted;
 }
@@ -751,7 +749,7 @@ async function sameAsOnDisk(path: string, contents: string): Promise<boolean> {
 async function renderArtifacts(t: Tokens): Promise<[string, string][]> {
   const { css, js } = await readBrandComponents(ROOT);
   const templates: [string, string][] = [];
-  for (const relativePath of await markedTemplatePaths(ROOT)) {
+  for (const relativePath of templatePaths(ROOT)) {
     const templatePath = join(ROOT, relativePath);
     const html = await readFile(templatePath, 'utf8');
     templates.push([templatePath, spliceBrandRegions(html, css, js, relativePath)]);
@@ -838,7 +836,16 @@ function parityAgreementSummary(tokenCount: number, templateCount: number): stri
 }
 
 async function cmdParity(t: Tokens): Promise<number> {
-  const artifacts = await renderArtifacts(t);
+  let artifacts: [string, string][];
+  try {
+    artifacts = await renderArtifacts(t);
+  } catch (error) {
+    if (error instanceof BrandMarkerError) {
+      console.error(error.message);
+      return 1;
+    }
+    throw error;
+  }
   let tokenDrift = 0;
   let templateDrift = 0;
   for (const [path, contents] of artifacts) {

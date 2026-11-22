@@ -114,6 +114,14 @@ function markedTemplatePaths(root: string): string[] {
     .sort();
 }
 
+/** Every page template, marked or not: the set parity has to cover. */
+function allTemplatePaths(root: string): string[] {
+  return readdirSync(join(root, "templates"), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".html.tpl"))
+    .map((entry) => `templates/${entry.name}`)
+    .sort();
+}
+
 function copyBrandTree(destination: string): void {
   assertScratchOutsideRepo(destination);
   const templatesDir = join(destination, "templates");
@@ -313,6 +321,33 @@ describe("templateDrift", () => {
     }
   });
 
+  test("every templates/*.html.tpl carries both marker pairs", () => {
+    const all = allTemplatePaths(ROOT);
+    expect(all.length).toBeGreaterThan(0);
+    expect(markedTemplatePaths(ROOT)).toEqual(all);
+  });
+
+  test("names a template that lost one marker or a whole marker pair", async () => {
+    const scratchRoot = mkdtempSync(join(tmpdir(), "brand-template-unmarked-"));
+    try {
+      copyBrandTree(scratchRoot);
+      for (const relativePath of allTemplatePaths(scratchRoot)) {
+        const templatePath = join(scratchRoot, relativePath);
+        const committed = readFileSync(templatePath, "utf8");
+        const lostOneMarker = committed.replace(CSS_BEGIN, "");
+        const lostScriptPair = committed.replace(JS_BEGIN, "").replace(JS_END, "");
+        for (const unmarked of [lostOneMarker, lostScriptPair]) {
+          expect(unmarked).not.toBe(committed);
+          writeFileSync(templatePath, unmarked);
+          expect(await templateDrift(scratchRoot)).toEqual([relativePath]);
+        }
+        writeFileSync(templatePath, committed);
+      }
+    } finally {
+      rmSync(scratchRoot, { recursive: true, force: true });
+    }
+  });
+
   test("names a one-byte edit inside the brainstorm region and keeps an edit outside", async () => {
     const scratchRoot = mkdtempSync(join(tmpdir(), "brand-template-drift-"));
     const relativePath = "templates/brainstorm.html.tpl";
@@ -344,6 +379,24 @@ describe("templateDrift", () => {
     } finally {
       rmSync(scratchRoot, { recursive: true, force: true });
     }
+  });
+});
+
+describe("tokens live only in the brand region", () => {
+  test("no template declares a :root block or a custom property outside its brand region", () => {
+    const declarations: string[] = [];
+    for (const relativePath of allTemplatePaths(ROOT)) {
+      const html = readFileSync(join(ROOT, relativePath), "utf8");
+      const beginAt = html.indexOf(CSS_BEGIN);
+      const endAt = html.indexOf(CSS_END);
+      const outside = beginAt >= 0 && endAt > beginAt ? html.slice(0, beginAt) + html.slice(endAt + CSS_END.length) : html;
+      for (const [, style = ""] of outside.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)) {
+        for (const [found] of style.matchAll(/:root\s*\{|(?<![\w-])--[a-z0-9-]+\s*:/g)) {
+          declarations.push(`${relativePath}: ${found}`);
+        }
+      }
+    }
+    expect(declarations).toEqual([]);
   });
 });
 

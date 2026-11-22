@@ -193,13 +193,13 @@
         "bun run lint"
       ],
       "ui": null,
-      "changed_files": [],
+      "changed_files": ["scripts/brand.ts", "brand/tokens.json", "brand/README.md", "templates/PRD.html.tpl", "templates/plan.html.tpl", "templates/recap.html.tpl", "templates/research.html.tpl", "templates/spec.html.tpl", "templates/triage.html.tpl", "templates/viewer.html.tpl", "skills/ai-brainstorm/references/artifact-design.md", "skills/ai-brainstorm/SKILL.md", "skills/ai-research/SKILL.md", "skills/ai-triage/SKILL.md", "skills/ai-issue-report/SKILL.md", "skills/ai-visual-recap/SKILL.md", "skills/ai-refresh-project/SKILL.md", "skills/ai-audit-design/SKILL.md", "skills/ai-triage/references/github.md", "skills/ai-triage/references/azure-devops.md", "skills/ai-refresh-project/references/proposal-page.md", ".ai-engineering/workflow/checkpoints/viewer.html", "tests/brand-templates.spec.ts", "tests/artifact-layout.spec.ts", "tests/artifact-scroll-spy.spec.ts", "tests/artifact-brand.spec.ts", "tests/viewer-audit.spec.ts"],
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["Builder receipt: 109 pass after the owner copied templates/viewer.html.tpl over the guarded .ai-engineering/workflow/checkpoints/viewer.html (viewer-audit 31 pass); brand.ts artifact PASS; gen twice byte-identical; typecheck and lint exit 0."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": 4,

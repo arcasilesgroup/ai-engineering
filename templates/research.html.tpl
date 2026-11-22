@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Research · {{nnn}} · {{name}}</title>
 <style>
+/* brand:begin */
 :root{
   --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
   --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
@@ -191,6 +192,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 @media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
 @media (prefers-contrast:more){:root{--dim:#E8EDEB;--comment:#C1C7C6}.card,.note,p,li,td{color:var(--dim)}nav a{color:#E8EDEB}}
 @media print{nav,.skip{display:none}body{background:#fff;color:#111}section{page-break-inside:avoid}}
+/* brand:end */
 </style>
 </head>
 <body>
@@ -241,7 +243,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   {{footer}}
   <a href="#main">↑ top</a>
 </footer>
-<script>
+<!-- brand:js:begin --><script>
 /* scroll-spy: mark the nav link for the section in view.
    Lead matches scroll-margin-top (88px): the highlight flips when the
    heading clears the sticky nav. */
@@ -267,6 +269,6 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   window.addEventListener("scroll", updateNav, { passive: true });
   updateNav();
 })();
-</script>
+</script><!-- brand:js:end -->
 </body>
 </html>

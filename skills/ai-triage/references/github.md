@@ -213,8 +213,9 @@ colour the reader cannot look up is decoration, not a ranking.
 
 ## The page
 
-Start from [templates/triage.html.tpl](../../../templates/triage.html.tpl), fill it, and keep
-its structure: the working page is that template with the `{{placeholders}}` replaced.
+Copy `templates/triage.html.tpl` and fill its sections; write no CSS and no script. Keep
+[the template](../../../templates/triage.html.tpl)'s structure: the working page is that
+template with the `{{placeholders}}` replaced.
 
 - `<header class="hero">` carries the stamp `Triage · <owner/repo> · <date>`, the h1
   `What to work on next`, a `.sub` with the count of open items and the date of the last
@@ -277,8 +278,8 @@ its structure: the working page is that template with the `{{placeholders}}` rep
   `id="i<number>-s<NN>"`, so no id repeats and a cross-ref lands on the row it
   meant. The evidence line names the other sections. The page must let a reader
   see it is one item, not two.
-- The shell is copied, never retyped: the `{ai}` favicon, the `<nav>`, the CSS
-  block and the scroll-spy script come from the template byte for byte. A
+- The shell is copied, never retyped: the `{ai}` favicon, the `<nav>`, the brand
+  styles and the scroll-spy come from the template byte for byte. A
   hand-rolled scroll-spy is how the nav stops marking the section in view;
   `bun test tests/artifact-scroll-spy.spec.ts` is the gate that catches it.
 - The `<title>` leads with the artifact and the repository
@@ -291,9 +292,10 @@ The page is an ai-engineering artifact, so its style is the artifact design syst
 carrier is the template, never a stylesheet invented for the report:
 [ai-brainstorm › references/artifact-design.md](../../../skills/ai-brainstorm/references/artifact-design.md).
 
-The template carries the canonical CSS block, the `{ai}` favicon and the scroll-spy script
-verbatim. Copy the file and fill it; do not write a `<style>` block, and do not add a
-colour, a font or a component the block does not have. The layout gate fails a page whose
+The template carries the brand styles, the `{ai}` favicon and the scroll-spy verbatim,
+generated from `brand/components.css` and `brand/components.js`. Copy the file and fill
+it; write no CSS and no script, and do not add a colour, a font or a component the
+template does not have. The layout gate fails a page whose
 prose is centred or capped, or whose sections sit outside `.container`.
 
 Hierarchy, spacing and reading order are a separate craft, and when those skills are

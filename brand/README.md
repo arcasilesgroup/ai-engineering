@@ -36,7 +36,7 @@ Run these from the repository root.
 |---|---|
 | `bun scripts/brand.ts check` | Is `tokens.json` itself valid — every reference resolvable, every colour family running dark to light, every required section present? |
 | `bun scripts/brand.ts gen` | Write everything the tokens produce. Never hand-edit those files; this command owns them. |
-| `bun scripts/brand.ts parity` | Do the committed token outputs still match `brand/tokens.json`, and the marked templates `brand/components.css` and `brand/components.js`? Also fails when the `theme-color` meta tag, the one palette value that lives in hand-written markup, has gone stale. |
+| `bun scripts/brand.ts parity` | Do the committed token outputs still match `brand/tokens.json`, and every template `brand/components.css` and `brand/components.js`? Also fails when the `theme-color` meta tag, the one palette value that lives in hand-written markup, has gone stale. |
 | `bun scripts/brand.ts contrast` | Is every text-on-surface pair legible? Prints each measured WCAG 2.1 ratio and the level it must reach. |
 | `bun scripts/brand.ts artifact` | Do the inline token blocks in the generated artifacts still match the brand? |
 
@@ -64,12 +64,15 @@ Run them with `bun test tests/brand-*.spec.ts`, or as part of `bun test`.
 | `../ai-engineering-web/.impeccable/design.json` | The design record the `impeccable` skill reads: every colour with its ramp, the type scale, the shadows, and the contrast table. |
 | `brand/components.css` | The style body. `gen` reads it and writes those bytes between `/* brand:begin */` and `/* brand:end */` inside `<style>`. |
 | `brand/components.js` | The scroll-spy, with no `<script>` tags. `gen` writes one classic `<script>` of these bytes between `<!-- brand:js:begin -->` and `<!-- brand:js:end -->`. |
-| `templates/*.html.tpl` | Every template that carries those marker pairs, found by glob. Only the marked bytes are rewritten; `{{placeholders}}` and every byte outside the markers stay. A missing, doubled, reversed or nested marker names the file and the marker, and that file is not written. |
+| `templates/*.html.tpl` | Every template, found by glob; each must carry both marker pairs. Only the marked bytes are rewritten; `{{placeholders}}` and every byte outside the markers stay. A missing, doubled, reversed or nested marker names the file and the marker, and that file is not written. No template declares a token outside its brand region. |
 
 `gen` is idempotent: running it twice changes nothing the second time. `parity` is what
-proves that, and it is the reason a hand edit to `tokens.css` — or to a marked template
+proves that, and it is the reason a hand edit to `tokens.css` — or to a template's brand
 region — cannot survive a review. A missing website checkout is not template drift:
-`parity` still reports each marked template.
+`parity` still reports every template.
+
+`artifact` reads `artifact.files` in `tokens.json`: `brand/components.css` first, as the
+reference block, then every template, then the two frozen pages in `docs/history/`.
 
 Two ways to check it, depending on whether the work is committed:
 
