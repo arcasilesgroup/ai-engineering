@@ -108,3 +108,25 @@ describe("self-protect — a static file server only reads its directory", () =>
     }
   });
 });
+
+describe("self-protect — json.tool with one file only reads it", () => {
+  test("python3 -m json.tool on one checkpoint or governed file is a read", () => {
+    for (const command of [
+      "python3 -m json.tool .ai-engineering/workflow/checkpoints/brand-design-system.json",
+      "python3 -m json.tool --sort-keys .ai-engineering/workflow/checkpoints/brand-design-system.json > /dev/null",
+      "python -m json.tool -- .ai-engineering/config.toml",
+    ]) {
+      expect(verdict(command), command).toBeUndefined();
+    }
+  });
+
+  test("json.tool with an output file, or reading stdin into one, stays denied", () => {
+    for (const command of [
+      "python3 -m json.tool in.json .ai-engineering/workflow/checkpoints/brand-design-system.json",
+      "python3 -m json.tool - .ai-engineering/workflow/checkpoints/brand-design-system.json",
+      "python3 -m json.tool .ai-engineering/workflow/checkpoints/a.json .ai-engineering/workflow/checkpoints/b.json",
+    ]) {
+      expect(verdict(command)?.deny, command).toBe(true);
+    }
+  });
+});

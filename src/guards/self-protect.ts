@@ -17,7 +17,7 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
-import { commandIndex, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, type ShellSegment } from "./shell.ts";
+import { commandIndex, jsonToolOperands, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, type ShellSegment } from "./shell.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
  *  `sed` joins them only with -i. The list may over-deny: that is a person told to
@@ -176,10 +176,13 @@ function pythonModule(name: string, args: readonly string[]): string | null {
 }
 
 /** The indexes in `args` that a command only reads although it is not a reader: the script
- *  an interpreter runs, and the directory `python -m http.server` serves. */
+ *  an interpreter runs, the one file `python -m json.tool` reads, and the directory
+ *  `python -m http.server` serves. */
 function readOperands(name: string, args: readonly string[]): number[] {
   const script = scriptOperand(name, args);
   if (script >= 0) return [script];
+  const jsonTool = jsonToolOperands([name, ...args]);
+  if (jsonTool?.length === 1 && jsonTool[0] !== "-") return [args.lastIndexOf(jsonTool[0]!)];
   if (pythonModule(name, args) !== "http.server") return [];
   return args.flatMap((arg, index) => {
     if (arg.startsWith("--directory=")) return [index];

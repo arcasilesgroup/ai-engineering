@@ -18,6 +18,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { isDeepStrictEqual } from "node:util";
 import { resolveContext } from "../git/context.ts";
 import { runGit } from "../git/run.ts";
+import { jsonToolOperands } from "./shell.ts";
 import {
   assertCheckpointTransition,
   brainstormApprovalProblem,
@@ -486,23 +487,6 @@ function writeTargets(segment: string, words: readonly string[]): string[] {
   if (name === "cp") targets.push(...operands.slice(-1));
   if (name === "tee" || name === "mv" || name === "rm" || name === "truncate" || isInPlaceSed) targets.push(...operands);
   return targets.filter((target) => target.length > 0);
-}
-
-/** The operands of `python3 -m json.tool …`, or null for any other command. A bare `-`
- *  is an operand (stdin), everything after `--` is an operand, and `--indent` takes the
- *  next word as its value. */
-function jsonToolOperands(words: readonly string[]): string[] | null {
-  const [name, flag, module, ...rest] = words;
-  if (!/^(?:.*\/)?python3?$/.test(name ?? "") || flag !== "-m" || module !== "json.tool") return null;
-  const operands: string[] = [];
-  for (let index = 0; index < rest.length; index += 1) {
-    const word = rest[index]!;
-    if (word === "--") return [...operands, ...rest.slice(index + 1)];
-    const isOption = word.length > 1 && word.startsWith("-");
-    if (!isOption) operands.push(word);
-    if (word === "--indent") index += 1;
-  }
-  return operands;
 }
 
 /** json.tool only reads when its one operand is the checkpoint file. A second operand is
