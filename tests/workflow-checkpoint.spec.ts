@@ -292,6 +292,23 @@ describe("workflow checkpoint state (CP4)", () => {
     });
   });
 
+  test("reads an older ui.scope list as its comma-joined text, without a warning", () => {
+    const older = checkpoint(fixture.slug, "implementation");
+    const ui = { route: "/", prototype: "proto.html", scope: ["header", "footer"], states: ["empty"] };
+    older.checkpoints[0]!.ui = ui as unknown as NonNullable<Checkpoint["checkpoints"][number]["ui"]>;
+    const warnings: unknown[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => warnings.push(args);
+    try {
+      expect(readPlan(fixture, older).checkpoints[0]!.ui).toEqual({ ...ui, scope: "header, footer" });
+    } finally {
+      console.warn = originalWarn;
+    }
+    expect(warnings).toEqual([]);
+    older.checkpoints[0]!.ui = { ...ui, scope: ["header", 7] } as unknown as NonNullable<Checkpoint["checkpoints"][number]["ui"]>;
+    expect(() => readPlan(fixture, older)).toThrow("checkpoint checkpoints[0].ui.scope: must be text");
+  });
+
   test("allows approved plan approval to enter implementation", () => {
     const awaitingApproval = checkpoint(fixture.slug, "awaiting-plan-approval");
     const implementation = checkpoint(fixture.slug, "implementation");
