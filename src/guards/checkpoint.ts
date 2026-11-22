@@ -595,16 +595,20 @@ function checkBash(payload: Payload, repoRoot: string): CheckpointGuardResult {
 /** True when this session is driving the plan: it started the orchestrator and dispatched a
  *  checkpoint marker for this slug. A plan path that merely appears in the transcript (git
  *  status, a listing, a refusal quoting it) is another feature's plan, not this session's. */
-function orchestratorTranscript(payload: Payload, slug: string): boolean {
+function drivesPlan(transcript: string, slug: string): boolean {
+  const marker = new RegExp(`\\[checkpoint\\s+${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}#\\d+\\s+\\w+\\]`);
+  return marker.test(transcript);
+}
+
+/** The transcript of a session that started the orchestrator, or null: read once per Stop. */
+function orchestratorTranscript(payload: Payload): string | null {
   const transcriptPath = payload.transcript_path;
-  if (typeof transcriptPath !== "string" || transcriptPath.length === 0) return false;
+  if (typeof transcriptPath !== "string" || transcriptPath.length === 0) return null;
   try {
     const transcript = readFileSync(transcriptPath, "utf8");
-    const startedOrchestrator = /"skill"\s*:\s*"ai-orchestrator"|<command-name>\/ai-orchestrator<\/command-name>/.test(transcript);
-    const marker = new RegExp(`\\[checkpoint\\s+${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}#\\d+\\s+\\w+\\]`);
-    return startedOrchestrator && marker.test(transcript);
+    return /"skill"\s*:\s*"ai-orchestrator"|<command-name>\/ai-orchestrator<\/command-name>/.test(transcript) ? transcript : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -697,13 +701,16 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
     return { deny: false };
   }
 
-  let root: string;
+  // One resolution serves every plan: the base is the repository's, not the plan's.
+  let repository: ReturnType<typeof resolveContext>;
   try {
-    root = resolveContext(repoRoot).root;
+    repository = resolveContext(repoRoot);
   } catch (error) {
     return faultRefusal(payload, deny("Checkpoint", "Stop gate", `cannot resolve the repository (${error instanceof Error ? error.message : String(error)})`, "return to the repository and retry the Stop event"));
   }
 
+  const root = repository.root;
+  const baseRef = repository.base === null ? "" : `refs/heads/${repository.base}`;
   const folder = join(root, ".ai-engineering", "workflow", "checkpoints");
   let files: string[];
   try {
@@ -713,14 +720,15 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
     return faultRefusal(payload, deny("Checkpoint", "Stop gate", `cannot list ${folder} (${error instanceof Error ? error.message : String(error)})`, "restore access to the checkpoint directory before stopping"));
   }
 
+  const transcript = orchestratorTranscript(payload);
   const problems: string[] = [];
   for (const file of files) {
     const slug = file.slice(0, -".json".length);
-    if (!orchestratorTranscript(payload, slug)) continue;
+    if (transcript === null || !drivesPlan(transcript, slug)) continue;
     const path = join(folder, file);
     let checkpoint: Checkpoint;
     try {
-      checkpoint = readCheckpoint(path, checkpointContext(root, slug));
+      checkpoint = readCheckpoint(path, { repoPath: root, slug, baseRef });
     } catch (error) {
       warnOnce(root, payload.session_id, `[ai-eng] checkpoint: warning: Stop gate cannot validate ${path} (${error instanceof Error ? error.message : String(error)}); repair it with Edit or Write`);
       continue;

@@ -1,6 +1,7 @@
 // The checkpoint guard's refusal contract: every refusal names the checkpoint, the gate
 // and the next step in exact words, and every allowed path answers exactly.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import * as fs from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
@@ -18,6 +19,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, relative, sep } from "node:path";
+import * as gitContext from "../src/git/context.ts";
 import { normalise, type Payload } from "../src/payload.ts";
 import { runCheckpointGuard } from "../src/guards/checkpoint.ts";
 
@@ -763,6 +765,23 @@ describe("Stop gate", () => {
       expect(said).toEqual([
         `[ai-eng] checkpoint: warning: Stop gate cannot validate ${path} (checkpoint checkpoints: must be a non-empty array); repair it with Edit or Write\n`,
       ]);
+    });
+  });
+
+  test("a Stop resolves the repository once and reads the transcript once, however many plans there are", () => {
+    withFixture((fixture) => {
+      transcript(fixture, `{"skill":"ai-orchestrator"} [checkpoint alpha#2 implement] [checkpoint beta#2 implement]`);
+      for (const slug of ["alpha", "beta", "gamma"]) save(join(fixture.folder, `${slug}.json`), plan([done(1), open(2)], lifecycle(), slug));
+      const resolved = spyOn(gitContext, "resolveContext");
+      const read = spyOn(fs, "readFileSync");
+      try {
+        expect(run(fixture, stop(fixture))).toEqual(ALLOWED);
+        expect(resolved).toHaveBeenCalledTimes(1);
+        expect(read.mock.calls.filter(([path]) => path === fixture.transcriptPath)).toHaveLength(1);
+      } finally {
+        resolved.mockRestore();
+        read.mockRestore();
+      }
     });
   });
 
