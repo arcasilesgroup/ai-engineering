@@ -12,6 +12,10 @@
     "reviewed_base": null,
     "reviewed_feature": null
   },
+  "halted": {
+    "reason": "Owner stopped the run on 2026-11-22: too slow and too token-heavy. Checkpoint 3 behavior passed; its one review fix is committed (40bf89b0) and awaits the critic's second round.",
+    "checkpoint": 3
+  },
   "checkpoints": [
     {
       "id": 1,
