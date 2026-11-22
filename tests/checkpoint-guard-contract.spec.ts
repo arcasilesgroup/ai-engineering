@@ -309,11 +309,26 @@ describe("write gate refusals name the checkpoint, the gate and the next step", 
     });
   });
 
-  test("an unreadable plan on disk refuses the write and names the file", () => {
+  test("a plan on disk that does not validate can be repaired by a write whose result does", () => {
     withFixture((fixture) => {
-      save(fixture.planPath, JSON.stringify({ ...plan(), checkpoints: [] }));
-      expect(run(fixture, write(fixture.planPath, plan()))).toEqual(refused(
-        `Checkpoint demo cannot pass: checkpoint gate cannot read ${fixture.planPath} (checkpoint checkpoints: must be a non-empty array). Next: repair the checkpoint file and retry the guarded write.`,
+      const finished = { ...plan([done(1), done(2), done(3)]), lifecycle: reviewed(fixture, "ready-to-merge") };
+      const broken = JSON.stringify({ ...finished, notes: "not a list" }, null, 2);
+      save(fixture.planPath, broken);
+      expect(run(fixture, write(fixture.planPath, finished))).toEqual(refused(
+        `Checkpoint demo cannot pass: checkpoint gate cannot repair ${FOLDER}/demo.json: it does not validate and is not the committed plan. Next: restore the committed plan, then repair it with Edit or Write.`,
+      ));
+      git(["add", "--", fixture.planPath], fixture.root);
+      git(["commit", "-q", "-m", "an older plan"], fixture.root);
+      expect(run(fixture, write(fixture.planPath, finished))).toEqual(ALLOWED);
+      expect(run(fixture, write(fixture.planPath, { ...finished, lifecycle: lifecycle() }))).toEqual(refused(
+        `Checkpoint demo cannot pass: checkpoint gate cannot repair ${FOLDER}/demo.json: a repair keeps the committed lifecycle. Next: restore the committed plan, then repair it with Edit or Write.`,
+      ));
+      expect(run(fixture, tool("Edit", { file_path: fixture.planPath, old_string: '"notes": "not a list"', new_string: '"notes": []' }))).toEqual(ALLOWED);
+      expect(run(fixture, write(fixture.planPath, { ...plan(), checkpoints: [] }))).toEqual(refused(
+        "Checkpoint demo cannot pass: checkpoint schema checkpoint checkpoints: must be a non-empty array. Next: repair the checkpoint JSON schema and retry the guarded write.",
+      ));
+      expect(run(fixture, write(fixture.planPath, plan([open(1), item(2, "pending", "failed", "n/a", "pending"), open(3)])))).toEqual(refused(
+        "CP2 cannot pass: checkpoint order cannot change while an earlier checkpoint is still open. Next: finish every earlier checkpoint first.",
       ));
     });
   });

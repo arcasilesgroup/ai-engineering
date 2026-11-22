@@ -17,6 +17,7 @@ import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { resolveContext } from "../git/context.ts";
+import { runGit } from "../git/run.ts";
 import {
   assertCheckpointTransition,
   brainstormApprovalProblem,
@@ -318,6 +319,29 @@ function checkFirstPlan(root: string, checkpoint: Checkpoint): CheckpointGuardRe
   return undefined;
 }
 
+function rawLifecycle(text: string): unknown {
+  try {
+    return (JSON.parse(text) as { lifecycle?: unknown }).lifecycle;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Why a plan on disk that does not validate cannot be repaired by this write, or null. It
+ *  can when it is the committed plan, so nothing wrote it behind the gates, and the repair
+ *  keeps its lifecycle, so a broken file never becomes a new approval. */
+function repairProblem(context: CheckpointContext, previousText: string, nextText: string): string | null {
+  const committed = runGit(["show", `HEAD:${CHECKPOINTS_DIR}/${context.slug}.json`], { cwd: context.repoPath, isolated: true });
+  if (committed.status !== 0 || committed.stdout !== previousText) {
+    return `cannot repair ${CHECKPOINTS_DIR}/${context.slug}.json: it does not validate and is not the committed plan`;
+  }
+  const lifecycle = rawLifecycle(previousText);
+  if (lifecycle === undefined || !isDeepStrictEqual(lifecycle, rawLifecycle(nextText))) {
+    return `cannot repair ${CHECKPOINTS_DIR}/${context.slug}.json: a repair keeps the committed lifecycle`;
+  }
+  return null;
+}
+
 function checkPlanWrite(payload: Payload, repoRoot: string): CheckpointGuardResult {
   const target = checkpointTarget(repoRoot, payload.tool_input.file_path);
   if (target === null) {
@@ -336,9 +360,16 @@ function checkPlanWrite(payload: Payload, repoRoot: string): CheckpointGuardResu
   let previousText: string | null;
   try {
     previousText = readCheckpointText(target.path, context, true);
-    if (previousText !== null) previous = parseCheckpoint(previousText, context);
   } catch (error) {
     return deny(`Checkpoint ${target.slug}`, "checkpoint gate", `cannot read ${target.path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint file and retry the guarded write");
+  }
+  // A plan on disk that does not validate has no state to order against: only the write's
+  // result is judged, so the file can be repaired from inside a session.
+  let isRepair = false;
+  try {
+    if (previousText !== null) previous = parseCheckpoint(previousText, context);
+  } catch {
+    isRepair = true;
   }
 
   const text = proposedContents(payload, target, context);
@@ -361,6 +392,10 @@ function checkPlanWrite(payload: Payload, repoRoot: string): CheckpointGuardResu
 
   const progressError = assertProgress(previous, next);
   if (progressError !== undefined) return progressError;
+  if (isRepair) {
+    const problem = repairProblem(context, previousText ?? "", text);
+    return problem === null ? { deny: false } : deny(`Checkpoint ${target.slug}`, "checkpoint gate", problem, "restore the committed plan, then repair it with Edit or Write");
+  }
 
   if (previous === null) {
     return checkFirstPlan(context.repoPath, next) ?? { deny: false };
