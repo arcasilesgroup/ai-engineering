@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   assertCheckpointTransition,
+  brainstormApprovalProblem,
   parseBrainstormApproval,
   readCheckpoint,
   serializeCheckpoint,
@@ -292,6 +293,23 @@ describe("workflow checkpoint state (CP4)", () => {
     });
   });
 
+  test("reads an older ui.scope list as its comma-joined text, without a warning", () => {
+    const older = checkpoint(fixture.slug, "implementation");
+    const ui = { route: "/", prototype: "proto.html", scope: ["header", "footer"], states: ["empty"] };
+    older.checkpoints[0]!.ui = ui as unknown as NonNullable<Checkpoint["checkpoints"][number]["ui"]>;
+    const warnings: unknown[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => warnings.push(args);
+    try {
+      expect(readPlan(fixture, older).checkpoints[0]!.ui).toEqual({ ...ui, scope: "header, footer" });
+    } finally {
+      console.warn = originalWarn;
+    }
+    expect(warnings).toEqual([]);
+    older.checkpoints[0]!.ui = { ...ui, scope: ["header", 7] } as unknown as NonNullable<Checkpoint["checkpoints"][number]["ui"]>;
+    expect(() => readPlan(fixture, older)).toThrow("checkpoint checkpoints[0].ui.scope: must be text");
+  });
+
   test("allows approved plan approval to enter implementation", () => {
     const awaitingApproval = checkpoint(fixture.slug, "awaiting-plan-approval");
     const implementation = checkpoint(fixture.slug, "implementation");
@@ -527,5 +545,24 @@ describe("workflow checkpoint state (CP4)", () => {
     ] as const) {
       expect(parseBrainstormApproval(input[0], input[1], now)).toBeNull();
     }
+  });
+
+  test("the brainstorm template keeps the status alone on the first line of .meta", () => {
+    const now = new Date("2026-11-22T12:00:00.000Z");
+    const filled = readFileSync(join(import.meta.dir, "..", "templates", "brainstorm.html.tpl"), "utf8")
+      .replaceAll("{{status}}", "complete · 2026-11-22")
+      .replaceAll("{{meta}}", "lane: full · approved by the owner")
+      .replace(/\{\{\w+\}\}/g, "x")
+      .replace("</head>", '<meta name="ai-feature" content="brand"><meta name="ai-approved" content="2026-11-22"></head>');
+    expect(brainstormApprovalProblem(filled, "brand", now)).toBeNull();
+  });
+
+  test("a status line that is not alone names the line it read and the line it expected", () => {
+    const now = new Date("2026-11-22T12:00:00.000Z");
+    expect(brainstormApprovalProblem(brainstorm("brand", "2026-11-22", "complete · 2026-11-22 · lane: full"), "brand", now))
+      .toBe('brainstorm status line reads "complete · 2026-11-22 · lane: full"; expected "complete · 2026-11-22" alone on the first line of .meta');
+    const twoBlocks = brainstorm("brand", "2026-11-22").replace("</body>", '<p class="meta">complete · 2026-11-22</p></body>');
+    expect(brainstormApprovalProblem(twoBlocks, "brand", now))
+      .toBe('brainstorm has 2 .meta blocks; expected one whose first line is "complete · 2026-11-22"');
   });
 });

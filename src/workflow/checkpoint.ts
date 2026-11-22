@@ -73,8 +73,12 @@ function fail(field: string, message: string): never {
   throw new Error(`checkpoint ${field}: ${message}`);
 }
 
+function isTextList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
 function textList(value: unknown, field: string): value is string[] {
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+  if (!isTextList(value)) {
     fail(field, "must be an array of strings");
   }
   return true;
@@ -337,10 +341,13 @@ function normalizeCheckpoint(value: unknown, context: CheckpointContext): Checkp
     if (!legacyShape && checkpoint.ui === undefined) fail(`${prefix}.ui`, "is required");
     if (checkpoint.ui !== undefined && checkpoint.ui !== null) {
       if (!isRecord(checkpoint.ui)) fail(`${prefix}.ui`, "must be null or an object");
+      const ui = checkpoint.ui;
+      // Older committed plans hold scope as a list; it reads as the text it is now.
+      if (isTextList(ui.scope)) ui.scope = ui.scope.join(", ");
       for (const field of ["route", "prototype", "scope"] as const) {
-        if (typeof checkpoint.ui[field] !== "string") fail(`${prefix}.ui.${field}`, "must be text");
+        if (typeof ui[field] !== "string") fail(`${prefix}.ui.${field}`, "must be text");
       }
-      textList(checkpoint.ui.states, `${prefix}.ui.states`);
+      textList(ui.states, `${prefix}.ui.states`);
     }
   }
   if (value.halted !== undefined && value.halted !== null) {
@@ -687,8 +694,12 @@ function brainstormApprovalResult(
     return { approval: null, problem: "brainstorm approval date is malformed" };
   }
   const statusLines = decodedStatusLine(html);
-  if (statusLines.length !== 1 || statusLines[0] !== `complete · ${approvedOn}`) {
-    return { approval: null, problem: "brainstorm approval does not match its complete status" };
+  const expected = `complete · ${approvedOn}`;
+  if (statusLines.length !== 1) {
+    return { approval: null, problem: `brainstorm has ${statusLines.length} .meta blocks; expected one whose first line is "${expected}"` };
+  }
+  if (statusLines[0] !== expected) {
+    return { approval: null, problem: `brainstorm status line reads "${statusLines[0]}"; expected "${expected}" alone on the first line of .meta` };
   }
   const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const ageDays = (todayStart - approvedDate.getTime()) / 86_400_000;

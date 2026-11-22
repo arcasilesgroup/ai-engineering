@@ -1,6 +1,7 @@
 // The checkpoint guard's refusal contract: every refusal names the checkpoint, the gate
 // and the next step in exact words, and every allowed path answers exactly.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import * as fs from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
@@ -18,6 +19,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, relative, sep } from "node:path";
+import * as gitContext from "../src/git/context.ts";
 import { normalise, type Payload } from "../src/payload.ts";
 import { runCheckpointGuard } from "../src/guards/checkpoint.ts";
 
@@ -309,11 +311,26 @@ describe("write gate refusals name the checkpoint, the gate and the next step", 
     });
   });
 
-  test("an unreadable plan on disk refuses the write and names the file", () => {
+  test("a plan on disk that does not validate can be repaired by a write whose result does", () => {
     withFixture((fixture) => {
-      save(fixture.planPath, JSON.stringify({ ...plan(), checkpoints: [] }));
-      expect(run(fixture, write(fixture.planPath, plan()))).toEqual(refused(
-        `Checkpoint demo cannot pass: checkpoint gate cannot read ${fixture.planPath} (checkpoint checkpoints: must be a non-empty array). Next: repair the checkpoint file and retry the guarded write.`,
+      const finished = { ...plan([done(1), done(2), done(3)]), lifecycle: reviewed(fixture, "ready-to-merge") };
+      const broken = JSON.stringify({ ...finished, notes: "not a list" }, null, 2);
+      save(fixture.planPath, broken);
+      expect(run(fixture, write(fixture.planPath, finished))).toEqual(refused(
+        `Checkpoint demo cannot pass: checkpoint gate cannot repair ${FOLDER}/demo.json: it does not validate and is not the committed plan. Next: restore the committed plan, then repair it with Edit or Write.`,
+      ));
+      git(["add", "--", fixture.planPath], fixture.root);
+      git(["commit", "-q", "-m", "an older plan"], fixture.root);
+      expect(run(fixture, write(fixture.planPath, finished))).toEqual(ALLOWED);
+      expect(run(fixture, write(fixture.planPath, { ...finished, lifecycle: lifecycle() }))).toEqual(refused(
+        `Checkpoint demo cannot pass: checkpoint gate cannot repair ${FOLDER}/demo.json: a repair keeps the committed lifecycle. Next: restore the committed plan, then repair it with Edit or Write.`,
+      ));
+      expect(run(fixture, tool("Edit", { file_path: fixture.planPath, old_string: '"notes": "not a list"', new_string: '"notes": []' }))).toEqual(ALLOWED);
+      expect(run(fixture, write(fixture.planPath, { ...plan(), checkpoints: [] }))).toEqual(refused(
+        "Checkpoint demo cannot pass: checkpoint schema checkpoint checkpoints: must be a non-empty array. Next: repair the checkpoint JSON schema and retry the guarded write.",
+      ));
+      expect(run(fixture, write(fixture.planPath, plan([open(1), item(2, "pending", "failed", "n/a", "pending"), open(3)])))).toEqual(refused(
+        "CP2 cannot pass: checkpoint order cannot change while an earlier checkpoint is still open. Next: finish every earlier checkpoint first.",
       ));
     });
   });
@@ -598,6 +615,8 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a bare cd home", "cd && printf x > notes.txt"],
     ["a trailing separator", "echo done;"],
     ["a sed script containing -i", `cd ${FOLDER} && sed 's/a-i/b/' demo.json`],
+    ["staging and committing the plan after writing a message elsewhere", `printf 'msg' > /tmp/msg.txt && git add -- ${FOLDER}/demo.json && git commit -F /tmp/msg.txt --only -- ${FOLDER}/demo.json`],
+    ["staging the plan with its errors logged elsewhere", `git add -- ${FOLDER}/demo.json 2> git-errors.log`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());
@@ -647,7 +666,7 @@ describe("Bash writes into the checkpoint folder", () => {
 });
 
 describe("Stop gate", () => {
-  function transcript(fixture: Fixture, text = `{"name":"Skill","input":{"skill":"ai-orchestrator"}} read ${FOLDER}/demo.json\n`): void {
+  function transcript(fixture: Fixture, text = `{"name":"Skill","input":{"skill":"ai-orchestrator"}} {"prompt":"[checkpoint demo#2 implement] go"}\n`): void {
     writeFileSync(fixture.transcriptPath, text);
   }
 
@@ -663,6 +682,11 @@ describe("Stop gate", () => {
     return refused(
       `Checkpoint cannot pass: Stop gate demo CP2 Checkpoint 2: gates not yet proven (review=failed) at ${path}; demo CP3 Checkpoint 3: gates not yet proven (behavior=failed, ui=pending, review=pending) at ${path}. Continue the checkpoint loop; if a human must take over, record halted with its reason and checkpoint. Next: continue the loop or set the top-level halted reason before stopping.`,
     );
+  }
+
+  function problemsOf(refusal: { reason: string }): string {
+    const prefix = "Checkpoint cannot pass: Stop gate ";
+    return refusal.reason.slice(prefix.length, refusal.reason.indexOf(". Continue the checkpoint loop"));
   }
 
   function counterFolder(fixture: Fixture): string {
@@ -693,11 +717,14 @@ describe("Stop gate", () => {
       save(fixture.planPath, midway());
       expect(run(fixture, stop(fixture, randomUUID(), { transcript_path: undefined }))).toEqual(ALLOWED);
       expect(run(fixture, stop(fixture))).toEqual(ALLOWED);
-      transcript(fixture, `{"skill" : "ai-orchestrator"} ${FOLDER}/demo.json`);
+      transcript(fixture, `{"skill" : "ai-orchestrator"} [checkpoint demo#2 implement]`);
       expect(run(fixture, stop(fixture))).toEqual(stopRefusal(fixture));
-      transcript(fixture, `<command-name>/ai-orchestrator</command-name> ${FOLDER}/demo.json`);
+      transcript(fixture, `<command-name>/ai-orchestrator</command-name> [checkpoint  demo#3 review]`);
       expect(run(fixture, stop(fixture))).toEqual(stopRefusal(fixture));
-      transcript(fixture, `{"skill":"ai-orchestrator"} ${FOLDER}/other.json`);
+      transcript(fixture, `{"skill":"ai-orchestrator"} [checkpoint other#1 implement] [checkpoint demo-two#1 implement]`);
+      expect(run(fixture, stop(fixture))).toEqual(ALLOWED);
+      // Naming the plan (git status, a listing, a refusal quoting it) is not working on it.
+      transcript(fixture, `{"skill":"ai-orchestrator"} git status: modified ${FOLDER}/demo.json`);
       expect(run(fixture, stop(fixture))).toEqual(ALLOWED);
     });
   });
@@ -705,7 +732,7 @@ describe("Stop gate", () => {
   test("plans are checked in name order, and an unreadable plan names its file", () => {
     withFixture((fixture) => {
       const root = realpathSync(fixture.root);
-      transcript(fixture, `{"skill":"ai-orchestrator"} ${FOLDER}/beta.json ${FOLDER}/alpha.json`);
+      transcript(fixture, `{"skill":"ai-orchestrator"} [checkpoint beta#2 implement] [checkpoint alpha#2 implement]`);
       for (const slug of ["beta", "alpha"]) {
         save(join(fixture.folder, `${slug}.json`), plan([done(1), item(2, "pending", "failed", "n/a", "pending")], lifecycle(), slug));
       }
@@ -713,44 +740,72 @@ describe("Stop gate", () => {
       expect(run(fixture, stop(fixture))).toEqual(refused(
         `Checkpoint cannot pass: Stop gate alpha CP2 Checkpoint 2: gates not yet proven (behavior=failed, review=pending) at ${path("alpha")}; beta CP2 Checkpoint 2: gates not yet proven (behavior=failed, review=pending) at ${path("beta")}. Continue the checkpoint loop; if a human must take over, record halted with its reason and checkpoint. Next: continue the loop or set the top-level halted reason before stopping.`,
       ));
-      save(join(fixture.folder, "alpha.json"), JSON.stringify({ ...plan(undefined, lifecycle(), "alpha"), checkpoints: [] }));
-      expect(run(fixture, stop(fixture))).toEqual(refused(
-        `Checkpoint alpha cannot pass: Stop gate cannot validate ${path("alpha")} (checkpoint checkpoints: must be a non-empty array). Next: repair the checkpoint JSON before ending the turn.`,
-      ));
       save(join(fixture.folder, "alpha.json"), plan([done(1), open(3)], lifecycle(), "alpha"));
       expect(run(fixture, stop(fixture))).toEqual(refused(
-        `CP3 cannot pass: checkpoint schema IDs in ${path("alpha")} must be sequential starting at 1. Next: renumber the checkpoints and retry the guarded write.`,
+        `Checkpoint cannot pass: Stop gate alpha: checkpoint IDs in ${path("alpha")} are not sequential; beta CP2 Checkpoint 2: gates not yet proven (behavior=failed, review=pending) at ${path("beta")}. Continue the checkpoint loop; if a human must take over, record halted with its reason and checkpoint. Next: continue the loop or set the top-level halted reason before stopping.`,
       ));
     });
   });
 
-  test("a corrupt checkpoint cannot hold a continuing turn forever: it is counted like an open gate", () => {
-    // Exit 2 on Stop makes Claude continue. A corrupt checkpoint the agent is not allowed
-    // to edit would otherwise refuse every Stop; continuing, it is bounded by the counter.
+  test("a plan that cannot be validated never holds the turn: it is warned about once per session", () => {
     withFixture((fixture) => {
       const path = join(realpathSync(fixture.root), ...FOLDER.split("/"), "alpha.json");
-      transcript(fixture, `{"skill":"ai-orchestrator"} ${FOLDER}/alpha.json`);
+      transcript(fixture, `{"skill":"ai-orchestrator"} [checkpoint alpha#2 implement]`);
       save(join(fixture.folder, "alpha.json"), JSON.stringify({ ...plan(undefined, lifecycle(), "alpha"), checkpoints: [] }));
-      expect(run(fixture, stop(fixture))).toEqual(refused(
-        `Checkpoint alpha cannot pass: Stop gate cannot validate ${path} (checkpoint checkpoints: must be a non-empty array). Next: repair the checkpoint JSON before ending the turn.`,
-      ));
+      const said: string[] = [];
+      const write = process.stderr.write.bind(process.stderr);
+      process.stderr.write = ((chunk: string) => said.push(String(chunk)) > 0) as typeof process.stderr.write;
+      const session = randomUUID();
+      try {
+        expect(run(fixture, stop(fixture, session))).toEqual(ALLOWED);
+        expect(run(fixture, stop(fixture, session, { stop_hook_active: true }))).toEqual(ALLOWED);
+      } finally {
+        process.stderr.write = write;
+      }
+      expect(said).toEqual([
+        `[ai-eng] checkpoint: warning: Stop gate cannot validate ${path} (checkpoint checkpoints: must be a non-empty array); repair it with Edit or Write\n`,
+      ]);
+    });
+  });
+
+  test("a Stop resolves the repository once and reads the transcript once, however many plans there are", () => {
+    withFixture((fixture) => {
+      transcript(fixture, `{"skill":"ai-orchestrator"} [checkpoint alpha#2 implement] [checkpoint beta#2 implement]`);
+      for (const slug of ["alpha", "beta", "gamma"]) save(join(fixture.folder, `${slug}.json`), plan([done(1), open(2)], lifecycle(), slug));
+      const resolved = spyOn(gitContext, "resolveContext");
+      const read = spyOn(fs, "readFileSync");
+      try {
+        expect(run(fixture, stop(fixture))).toEqual(ALLOWED);
+        expect(resolved).toHaveBeenCalledTimes(1);
+        expect(read.mock.calls.filter(([path]) => path === fixture.transcriptPath)).toHaveLength(1);
+      } finally {
+        resolved.mockRestore();
+        read.mockRestore();
+      }
+    });
+  });
+
+  test("a non-sequential plan is counted like an open gate, from the first Stop", () => {
+    withFixture((fixture) => {
+      transcript(fixture, `{"skill":"ai-orchestrator"} [checkpoint alpha#2 implement]`);
+      save(join(fixture.folder, "alpha.json"), plan([done(1), open(3)], lifecycle(), "alpha"));
       const session = randomUUID();
       for (let attempt = 0; attempt < 3; attempt++) {
-        const result = run(fixture, stop(fixture, session, { stop_hook_active: true }));
-        expect(result?.deny === true ? result.reason : "").toContain(`alpha: cannot validate ${path}`);
+        const result = run(fixture, stop(fixture, session));
+        expect(result?.deny === true ? result.reason : "").toContain("alpha: checkpoint IDs in");
       }
-      expect(run(fixture, stop(fixture, session, { stop_hook_active: true }))).toEqual(ALLOWED);
+      expect(run(fixture, stop(fixture, session))).toEqual(ALLOWED);
     });
   });
 
   test("a corrupt checkpoint does not hide another checkpoint's open gates", () => {
     withFixture((fixture) => {
-      transcript(fixture, `{"skill":"ai-orchestrator"} ${FOLDER}/alpha.json ${FOLDER}/beta.json`);
+      transcript(fixture, `{"skill":"ai-orchestrator"} [checkpoint alpha#2 implement] [checkpoint beta#2 implement]`);
       save(join(fixture.folder, "alpha.json"), JSON.stringify({ ...plan(undefined, lifecycle(), "alpha"), checkpoints: [] }));
       save(join(fixture.folder, "beta.json"), plan([done(1), item(2, "pending", "failed", "n/a", "pending")], lifecycle(), "beta"));
-      const result = run(fixture, stop(fixture, randomUUID(), { stop_hook_active: true }));
+      const result = run(fixture, stop(fixture, randomUUID()));
       const reason = result?.deny === true ? result.reason : "";
-      expect(reason).toContain("alpha: cannot validate");
+      expect(reason).not.toContain("alpha");
       expect(reason).toContain("beta CP2 Checkpoint 2: gates not yet proven (behavior=failed, review=pending)");
     });
   });
@@ -785,6 +840,27 @@ describe("Stop gate", () => {
     );
   });
 
+  test("after the limit the same open checkpoint lets every Stop through, warned once; a new reason counts again", () => {
+    withFixture((fixture) => {
+      transcript(fixture);
+      save(fixture.planPath, midway());
+      const session = `waiting-${randomUUID()}`;
+      for (let attempt = 0; attempt < 3; attempt += 1) expect(run(fixture, stop(fixture, session))).toEqual(stopRefusal(fixture));
+      const said: string[] = [];
+      const write = process.stderr.write.bind(process.stderr);
+      process.stderr.write = ((chunk: string) => said.push(String(chunk)) > 0) as typeof process.stderr.write;
+      try {
+        expect(run(fixture, stop(fixture, session))).toEqual(ALLOWED);
+        expect(run(fixture, stop(fixture, session))).toEqual(ALLOWED);
+      } finally {
+        process.stderr.write = write;
+      }
+      expect(said).toEqual([`[ai-eng] checkpoint: warning: Stop allowed after 3 refusals; the checkpoint is still open: ${problemsOf(stopRefusal(fixture))}\n`]);
+      save(fixture.planPath, plan([done(1), item(2, "pending", "passed", "n/a", "pending"), open(3)]));
+      expect(run(fixture, stop(fixture, session))?.deny).toBe(true);
+    });
+  });
+
   test("the consecutive-stop counter is one private file per session, cleared once gates close", () => {
     withFixture((fixture) => {
       transcript(fixture);
@@ -793,7 +869,7 @@ describe("Stop gate", () => {
       expect(run(fixture, stop(fixture, session))).toEqual(stopRefusal(fixture));
       const counter = counterFile(fixture, session);
       expect(readdirSync(counterFolder(fixture))).toEqual([counter.slice(counterFolder(fixture).length + 1)]);
-      expect(readFileSync(counter, "utf8")).toBe("1");
+      expect(readFileSync(counter, "utf8")).toBe(`1\n${problemsOf(stopRefusal(fixture))}`);
       // Windows keeps no owner/group/other bits: every file reports 0o666 there.
       if (process.platform !== "win32") expect(statSync(counter).mode & 0o777).toBe(0o600);
       save(fixture.planPath, plan([done(1), done(2), done(3)]));
@@ -809,13 +885,14 @@ describe("Stop gate", () => {
       mkdirSync(counterFolder(fixture), { recursive: true });
       const session = `stored-${randomUUID()}`;
       const counter = counterFile(fixture, session);
-      writeFileSync(counter, "3");
+      const problems = problemsOf(stopRefusal(fixture));
+      writeFileSync(counter, `3\n${problems}`);
       expect(run(fixture, stop(fixture, session))).toEqual(ALLOWED);
-      expect(existsSync(counter)).toBe(false);
-      for (const stored of ["abc", "-5", "0"]) {
-        writeFileSync(counter, stored);
+      expect(readFileSync(counter, "utf8")).toBe(`4\n${problems}`);
+      for (const stored of ["abc", "-5", "0", "3", `3\nanother reason`]) {
+        writeFileSync(counter, stored.includes("\n") || stored === "3" ? stored : `${stored}\n${problems}`);
         expect(run(fixture, stop(fixture, session))).toEqual(stopRefusal(fixture));
-        expect(readFileSync(counter, "utf8")).toBe("1");
+        expect(readFileSync(counter, "utf8")).toBe(`1\n${problems}`);
       }
     });
   });

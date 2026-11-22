@@ -1,0 +1,156 @@
+// tests/self-protect-readers.spec.ts — running or reading a governed file is not writing
+// it. A shipped skill script is there to be run, a static server only reads, and a quoted
+// glob names only its own text; every write into a governed path stays denied.
+
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { machineBase } from "../src/env.ts";
+import { runSelfProtect } from "../src/guards/self-protect.ts";
+
+const HOME_BEFORE = process.env.AI_ENG_HOME;
+let repo = "";
+let skills = "";
+
+beforeAll(() => {
+  process.env.AI_ENG_HOME = mkdtempSync(join(tmpdir(), "ai-eng-readers-home-"));
+  repo = join(mkdtempSync(join(tmpdir(), "ai-eng-readers-")), "repo");
+  mkdirSync(join(repo, ".ai-engineering", "workflow", "checkpoints"), { recursive: true });
+  spawnSync("git", ["init", "-q", "--template=", repo]);
+  writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+  writeFileSync(join(repo, ".gitleaksrc.toml"), "");
+  // A pinned spec makes .ai-engineering/spec.html governed.
+  writeFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), `spec_sha256 = "${"a".repeat(64)}"\n`);
+  writeFileSync(join(repo, ".ai-engineering", "spec.html"), "<html></html>\n");
+  skills = join(machineBase(), ".claude", "skills");
+});
+
+afterAll(() => {
+  rmSync(join(repo, ".."), { recursive: true, force: true });
+  rmSync(process.env.AI_ENG_HOME!, { recursive: true, force: true });
+  if (HOME_BEFORE === undefined) delete process.env.AI_ENG_HOME;
+  else process.env.AI_ENG_HOME = HOME_BEFORE;
+});
+
+const verdict = (command: string) => runSelfProtect({ tool_name: "Bash", tool_input: { command }, cwd: repo }, repo);
+
+describe("self-protect — an interpreter may run a governed script", () => {
+  test("the script operand of node, bun, deno and python is a run, not a write", () => {
+    for (const command of [
+      `node ${skills}/ai-audit-design/scripts/audit.mjs --routes / --widths 320 390`,
+      `bun ${skills}/archify/bin/archify.mjs finalize out.html`,
+      `deno run --allow-read ${skills}/x/mod.ts`,
+      `python3 -u "${skills}/x/run.py" report.txt`,
+    ]) {
+      expect(verdict(command), command).toBeUndefined();
+    }
+  });
+
+  test("inline code, a governed path past the script, and a write into a governed path stay denied", () => {
+    for (const command of [
+      `node -e "require('fs').writeFileSync('${skills}/x/a.mjs', '')"`,
+      `node -p "require('fs').rmSync('${skills}/x')"`,
+      `python3 -c "open('${skills}/x/a.py', 'w')"`,
+      `node build.mjs ${skills}/x/a.mjs`,
+      `node ${skills}/x/a.mjs ${skills}/x/b.mjs`,
+      `node ${skills}/x/a.mjs > ${skills}/x/b.mjs`,
+      `node ${skills}/x/a.mjs > .ai-engineering/config.toml`,
+    ]) {
+      expect(verdict(command)?.deny, command).toBe(true);
+    }
+  });
+});
+
+describe("self-protect — a quoted glob names only its own text", () => {
+  test("a quoted glob handed to a program that does not write files is not expanded", () => {
+    for (const command of [
+      'impeccable hooks ignore-value side-tab "*" --file "**/brainstorm.html" --local',
+      "impeccable hooks ignore-value side-tab '*' --file '.ai-engineering/*.html' --local",
+    ]) {
+      expect(verdict(command), command).toBeUndefined();
+    }
+  });
+
+  test("an unquoted glob, and a quoted one handed to a tree writer, are still expanded", () => {
+    for (const command of [
+      "impeccable hooks ignore-value side-tab * --local",
+      "impeccable --file .ai-engineering/*.html --local",
+      'impeccable --file ".ai-engineering/"*.html --local',
+      "git rm '.ai-engineering/*.toml'",
+      "rm -f '.ai-engineering/*.toml'",
+    ]) {
+      expect(verdict(command)?.deny, command).toBe(true);
+    }
+  });
+});
+
+describe("self-protect — a static file server only reads its directory", () => {
+  test("the --directory or -d of python3 -m http.server is a read", () => {
+    for (const command of [
+      `python3 -m http.server 4399 --bind 127.0.0.1 --directory ${repo}/.ai-engineering`,
+      "python3 -m http.server 4399 -d .ai-engineering",
+      "python -m http.server --directory=.ai-engineering",
+    ]) {
+      expect(verdict(command), command).toBeUndefined();
+    }
+  });
+
+  test("another module, another argument, or a redirect into a governed path stays denied", () => {
+    for (const command of [
+      "python3 -m zipfile -e archive.zip .ai-engineering",
+      "python3 -m http.server .ai-engineering",
+      "python3 -m http.server --directory .ai-engineering > .ai-engineering/config.toml",
+      "python3 -m http.server --directory . --bind .ai-engineering",
+    ]) {
+      expect(verdict(command)?.deny, command).toBe(true);
+    }
+  });
+});
+
+describe("self-protect — json.tool with one file only reads it", () => {
+  test("python3 -m json.tool on one checkpoint or governed file is a read", () => {
+    for (const command of [
+      "python3 -m json.tool .ai-engineering/workflow/checkpoints/brand-design-system.json",
+      "python3 -m json.tool --sort-keys .ai-engineering/workflow/checkpoints/brand-design-system.json > /dev/null",
+      "python -m json.tool -- .ai-engineering/config.toml",
+    ]) {
+      expect(verdict(command), command).toBeUndefined();
+    }
+  });
+
+  test("json.tool with an output file, or reading stdin into one, stays denied", () => {
+    for (const command of [
+      "python3 -m json.tool in.json .ai-engineering/workflow/checkpoints/brand-design-system.json",
+      "python3 -m json.tool - .ai-engineering/workflow/checkpoints/brand-design-system.json",
+      "python3 -m json.tool .ai-engineering/workflow/checkpoints/a.json .ai-engineering/workflow/checkpoints/b.json",
+    ]) {
+      expect(verdict(command)?.deny, command).toBe(true);
+    }
+  });
+});
+
+describe("self-protect — a URL is not a file path", () => {
+  test("an http or https URL whose path looks governed names no file", () => {
+    for (const command of [
+      "curl -s http://127.0.0.1:8765/.ai-engineering/workflow/checkpoints/viewer.html?plan=x",
+      'agent-browser open "http://127.0.0.1:8765/.ai-engineering/workflow/checkpoints/viewer.html?plan=x"',
+      "curl -s https://example.com/.ai-engineering/config.toml",
+    ]) {
+      expect(verdict(command), command).toBeUndefined();
+    }
+  });
+
+  test("a file URL is still a path, and a governed output file is still a write", () => {
+    for (const command of [
+      `curl -s file://${repo}/.ai-engineering/workflow/checkpoints/viewer.html`,
+      "curl -s http://127.0.0.1:8765/x -o .ai-engineering/config.toml",
+      "curl -s http://127.0.0.1:8765/x -o.git/hooks/pre-commit",
+      "sqlite3 http://x/../../.ai-engineering/config.toml",
+      "cp payload http://x/.ai-engineering/config.toml",
+    ]) {
+      expect(verdict(command)?.deny, command).toBe(true);
+    }
+  });
+});

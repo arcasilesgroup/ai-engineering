@@ -17,6 +17,8 @@ import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { resolveContext } from "../git/context.ts";
+import { runGit } from "../git/run.ts";
+import { jsonToolOperands } from "./shell.ts";
 import {
   assertCheckpointTransition,
   brainstormApprovalProblem,
@@ -38,7 +40,10 @@ const STAGES = new Set(["tests", "implement", "behavior", "ui", "review", "fix"]
 const MARKER = /^\s*\[checkpoint\s+([\w.-]+)#(\d+)\s+(\w+)\]/;
 const CHECKPOINT_PATH = /^\.ai-engineering\/workflow\/checkpoints\/([a-z0-9][a-z0-9._-]*)\.json$/;
 const CHECKPOINT_TARGET = /\.ai-engineering\/workflow\/checkpoints\/[^\s/]+\.json/;
-const BASH_WRITE = />|\btee\b|\bsed\s+-i|\bpython3?\b|\bnode\b|\bperl\b|\bjq\b.*>|\bmv\b|\bcp\b|\brm\b|\btruncate\b/;
+// Interpreters that can write any file their code names. Every other write form
+// (redirection, tee, sed -i, cp, mv, rm, truncate) is judged by its target in
+// shellWritesIntoCheckpoints.
+const OPAQUE_WRITE = /\bpython3?\b|\bnode\b|\bperl\b/;
 const CHECKPOINTS_DIR = ".ai-engineering/workflow/checkpoints";
 const MAX_LINK_HOPS = 40;
 // Command separators: `&&`, `||`, `;`, newlines, pipes and a background `&` — but not the
@@ -315,6 +320,29 @@ function checkFirstPlan(root: string, checkpoint: Checkpoint): CheckpointGuardRe
   return undefined;
 }
 
+function rawLifecycle(text: string): unknown {
+  try {
+    return (JSON.parse(text) as { lifecycle?: unknown }).lifecycle;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Why a plan on disk that does not validate cannot be repaired by this write, or null. It
+ *  can when it is the committed plan, so nothing wrote it behind the gates, and the repair
+ *  keeps its lifecycle, so a broken file never becomes a new approval. */
+function repairProblem(context: CheckpointContext, previousText: string, nextText: string): string | null {
+  const committed = runGit(["show", `HEAD:${CHECKPOINTS_DIR}/${context.slug}.json`], { cwd: context.repoPath, isolated: true });
+  if (committed.status !== 0 || committed.stdout !== previousText) {
+    return `cannot repair ${CHECKPOINTS_DIR}/${context.slug}.json: it does not validate and is not the committed plan`;
+  }
+  const lifecycle = rawLifecycle(previousText);
+  if (lifecycle === undefined || !isDeepStrictEqual(lifecycle, rawLifecycle(nextText))) {
+    return `cannot repair ${CHECKPOINTS_DIR}/${context.slug}.json: a repair keeps the committed lifecycle`;
+  }
+  return null;
+}
+
 function checkPlanWrite(payload: Payload, repoRoot: string): CheckpointGuardResult {
   const target = checkpointTarget(repoRoot, payload.tool_input.file_path);
   if (target === null) {
@@ -333,9 +361,16 @@ function checkPlanWrite(payload: Payload, repoRoot: string): CheckpointGuardResu
   let previousText: string | null;
   try {
     previousText = readCheckpointText(target.path, context, true);
-    if (previousText !== null) previous = parseCheckpoint(previousText, context);
   } catch (error) {
     return deny(`Checkpoint ${target.slug}`, "checkpoint gate", `cannot read ${target.path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint file and retry the guarded write");
+  }
+  // A plan on disk that does not validate has no state to order against: only the write's
+  // result is judged, so the file can be repaired from inside a session.
+  let isRepair = false;
+  try {
+    if (previousText !== null) previous = parseCheckpoint(previousText, context);
+  } catch {
+    isRepair = true;
   }
 
   const text = proposedContents(payload, target, context);
@@ -358,6 +393,10 @@ function checkPlanWrite(payload: Payload, repoRoot: string): CheckpointGuardResu
 
   const progressError = assertProgress(previous, next);
   if (progressError !== undefined) return progressError;
+  if (isRepair) {
+    const problem = repairProblem(context, previousText ?? "", text);
+    return problem === null ? { deny: false } : deny(`Checkpoint ${target.slug}`, "checkpoint gate", problem, "restore the committed plan, then repair it with Edit or Write");
+  }
 
   if (previous === null) {
     return checkFirstPlan(context.repoPath, next) ?? { deny: false };
@@ -450,23 +489,6 @@ function writeTargets(segment: string, words: readonly string[]): string[] {
   return targets.filter((target) => target.length > 0);
 }
 
-/** The operands of `python3 -m json.tool …`, or null for any other command. A bare `-`
- *  is an operand (stdin), everything after `--` is an operand, and `--indent` takes the
- *  next word as its value. */
-function jsonToolOperands(words: readonly string[]): string[] | null {
-  const [name, flag, module, ...rest] = words;
-  if (!/^(?:.*\/)?python3?$/.test(name ?? "") || flag !== "-m" || module !== "json.tool") return null;
-  const operands: string[] = [];
-  for (let index = 0; index < rest.length; index += 1) {
-    const word = rest[index]!;
-    if (word === "--") return [...operands, ...rest.slice(index + 1)];
-    const isOption = word.length > 1 && word.startsWith("-");
-    if (!isOption) operands.push(word);
-    if (word === "--indent") index += 1;
-  }
-  return operands;
-}
-
 /** json.tool only reads when its one operand is the checkpoint file. A second operand is
  *  the file it writes, and `-` makes it read stdin, so the operand after `-` is written. */
 function isJsonToolRead(words: readonly string[], isCheckpointFile: (operand: string) => boolean): boolean {
@@ -476,12 +498,12 @@ function isJsonToolRead(words: readonly string[], isCheckpointFile: (operand: st
   return operand !== "-" && isCheckpointFile(operand);
 }
 
-/** Whether one segment of a command that names a checkpoint has a write form. Output thrown
- *  away (`> /dev/null`, `2>&1`, `>&2`) writes no file, and json.tool on the checkpoint only reads it. */
-function hasWriteForm(segment: string): boolean {
+/** Whether one segment of a command that names a checkpoint runs an interpreter that could
+ *  write it. json.tool with the checkpoint as its one operand only reads it. */
+function hasOpaqueWriteForm(segment: string): boolean {
   const kept = segment.replace(DISCARD_REDIRECTION, " ");
-  if (isJsonToolRead(commandWords(kept), (operand) => CHECKPOINT_TARGET.test(operand))) return kept.includes(">");
-  return BASH_WRITE.test(kept);
+  if (isJsonToolRead(commandWords(kept), (operand) => CHECKPOINT_TARGET.test(operand))) return false;
+  return OPAQUE_WRITE.test(kept);
 }
 
 /** A path as the shell would resolve it from `cwd`, or null when it hangs off a variable,
@@ -549,20 +571,28 @@ function checkBash(payload: Payload, repoRoot: string): CheckpointGuardResult {
       return deny("Checkpoint", "shell gate", `does not accept a patch to ${gated}`, "use Edit or Write so checkpoint gates are validated");
     }
   }
-  const isNamedWrite = CHECKPOINT_TARGET.test(command) && command.split(SHELL_SEGMENT).some(hasWriteForm);
+  const isNamedWrite = CHECKPOINT_TARGET.test(command) && command.split(SHELL_SEGMENT).some(hasOpaqueWriteForm);
   if (!isNamedWrite && !shellWritesIntoCheckpoints(command, cwd, realRepo(repoRoot))) return undefined;
   return deny("Checkpoint", "shell gate", "does not allow direct Bash writes to checkpoint JSON", "use Edit or Write so checkpoint gates are validated");
 }
 
-function orchestratorTranscript(payload: Payload, slug: string): boolean {
+/** True when this session is driving the plan: it started the orchestrator and dispatched a
+ *  checkpoint marker for this slug. A plan path that merely appears in the transcript (git
+ *  status, a listing, a refusal quoting it) is another feature's plan, not this session's. */
+function drivesPlan(transcript: string, slug: string): boolean {
+  const marker = new RegExp(`\\[checkpoint\\s+${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}#\\d+\\s+\\w+\\]`);
+  return marker.test(transcript);
+}
+
+/** The transcript of a session that started the orchestrator, or null: read once per Stop. */
+function orchestratorTranscript(payload: Payload): string | null {
   const transcriptPath = payload.transcript_path;
-  if (typeof transcriptPath !== "string" || transcriptPath.length === 0) return false;
+  if (typeof transcriptPath !== "string" || transcriptPath.length === 0) return null;
   try {
     const transcript = readFileSync(transcriptPath, "utf8");
-    const startedOrchestrator = /"skill"\s*:\s*"ai-orchestrator"|<command-name>\/ai-orchestrator<\/command-name>/.test(transcript);
-    return startedOrchestrator && transcript.includes(`.ai-engineering/workflow/checkpoints/${slug}.json`);
+    return /"skill"\s*:\s*"ai-orchestrator"|<command-name>\/ai-orchestrator<\/command-name>/.test(transcript) ? transcript : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -594,20 +624,45 @@ function resetStopCounter(path: string): void {
   }
 }
 
-function bumpStopCounter(path: string, root: string): number {
+/** How many consecutive Stops this session was refused for `reason`, this one included.
+ *  The file holds the count, a newline, and the reason; another reason starts again at one. */
+function bumpStopCounter(path: string, root: string, reason: string): number {
   ensureCounterDirectory(dirname(path), root);
   let count = 0;
   try {
     const stat = lstatSync(path);
     if (stat.isSymbolicLink() || !stat.isFile()) throw new Error(`${path} is not a regular file`);
-    const previous = Number(readFileSync(path, "utf8"));
-    if (Number.isSafeInteger(previous) && previous > 0) count = previous;
+    const stored = readFileSync(path, "utf8");
+    const newline = stored.indexOf("\n");
+    const previous = Number(stored.slice(0, newline));
+    if (newline > 0 && stored.slice(newline + 1) === reason && Number.isSafeInteger(previous) && previous > 0) count = previous;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
   const next = count + 1;
-  writeFileSync(path, String(next), { mode: 0o600 });
+  writeFileSync(path, `${next}\n${reason}`, { mode: 0o600 });
   return next;
+}
+
+/** A plan the Stop gate cannot read is a file to repair, not a reason to hold the turn: it
+ *  is said once per session, on stderr. A warning that cannot be remembered is still said. */
+function warnOnce(root: string, sessionId: unknown, line: string): void {
+  const path = `${stopCounterPath(root, sessionId).slice(0, -".txt".length)}.warned`;
+  try {
+    ensureCounterDirectory(dirname(path), root);
+    let seen = "";
+    try {
+      if (!lstatSync(path).isFile()) throw new Error(`${path} is not a regular file`);
+      seen = readFileSync(path, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    if (seen.split("\n").includes(line)) return;
+    writeFileSync(path, `${seen}${line}\n`, { mode: 0o600 });
+  } catch {
+    /* said below, unremembered */
+  }
+  process.stderr.write(`${line}\n`);
 }
 
 /** Exit 2 on Stop makes Claude continue, and it then sends the next Stop with
@@ -615,8 +670,8 @@ function bumpStopCounter(path: string, root: string): number {
  *  itself guarded) must not hold the turn forever:
  *  - a fault that leaves nothing to judge (no repo, an unreadable folder, a counter that
  *    cannot be saved) is refused once, then the stop goes through;
- *  - a fault in one checkpoint file becomes one more problem beside the other files' open
- *    gates, so it is still reported and bounded by MAX_STOP_BLOCKS like they are. */
+ *  - a checkpoint file that cannot be validated is a warning (warnOnce), never a refusal;
+ *  - every other refusal is counted and bounded by MAX_STOP_BLOCKS. */
 function isContinuingAfterStop(payload: Payload): boolean {
   return payload["stop_hook_active"] === true;
 }
@@ -630,13 +685,16 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
     return { deny: false };
   }
 
-  let root: string;
+  // One resolution serves every plan: the base is the repository's, not the plan's.
+  let repository: ReturnType<typeof resolveContext>;
   try {
-    root = resolveContext(repoRoot).root;
+    repository = resolveContext(repoRoot);
   } catch (error) {
     return faultRefusal(payload, deny("Checkpoint", "Stop gate", `cannot resolve the repository (${error instanceof Error ? error.message : String(error)})`, "return to the repository and retry the Stop event"));
   }
 
+  const root = repository.root;
+  const baseRef = repository.base === null ? "" : `refs/heads/${repository.base}`;
   const folder = join(root, ".ai-engineering", "workflow", "checkpoints");
   let files: string[];
   try {
@@ -646,23 +704,20 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
     return faultRefusal(payload, deny("Checkpoint", "Stop gate", `cannot list ${folder} (${error instanceof Error ? error.message : String(error)})`, "restore access to the checkpoint directory before stopping"));
   }
 
+  const transcript = orchestratorTranscript(payload);
   const problems: string[] = [];
   for (const file of files) {
     const slug = file.slice(0, -".json".length);
-    if (!orchestratorTranscript(payload, slug)) continue;
+    if (transcript === null || !drivesPlan(transcript, slug)) continue;
     const path = join(folder, file);
     let checkpoint: Checkpoint;
     try {
-      checkpoint = readCheckpoint(path, checkpointContext(root, slug));
+      checkpoint = readCheckpoint(path, { repoPath: root, slug, baseRef });
     } catch (error) {
-      const detail = `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`;
-      if (!isContinuingAfterStop(payload)) return deny(`Checkpoint ${slug}`, "Stop gate", detail, "repair the checkpoint JSON before ending the turn");
-      problems.push(`${slug}: ${detail}`);
+      warnOnce(root, payload.session_id, `[ai-eng] checkpoint: warning: Stop gate cannot validate ${path} (${error instanceof Error ? error.message : String(error)}); repair it with Edit or Write`);
       continue;
     }
-    const sequenceError = requireSequentialCheckpoints(checkpoint, path);
-    if (sequenceError !== undefined) {
-      if (!isContinuingAfterStop(payload)) return sequenceError;
+    if (requireSequentialCheckpoints(checkpoint, path) !== undefined) {
       problems.push(`${slug}: checkpoint IDs in ${path} are not sequential`);
       continue;
     }
@@ -691,17 +746,20 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
     return { deny: false };
   }
 
+  const reason = problems.join("; ");
   let blocks: number;
   try {
-    blocks = bumpStopCounter(counter, root);
+    blocks = bumpStopCounter(counter, root, reason);
   } catch (error) {
     return faultRefusal(payload, deny("Checkpoint", "Stop gate", `cannot persist the consecutive-stop limit (${error instanceof Error ? error.message : String(error)})`, "restore access to .ai-engineering/cache and retry"));
   }
+  // Past the limit the same open checkpoint (a background worker still running) lets every
+  // Stop through: refusing again only burns the turns it is waiting with.
   if (blocks > MAX_STOP_BLOCKS) {
-    resetStopCounter(counter);
+    warnOnce(root, payload.session_id, `[ai-eng] checkpoint: warning: Stop allowed after ${MAX_STOP_BLOCKS} refusals; the checkpoint is still open: ${reason}`);
     return { deny: false };
   }
-  return deny("Checkpoint", "Stop gate", `${problems.join("; ")}. Continue the checkpoint loop; if a human must take over, record halted with its reason and checkpoint`, "continue the loop or set the top-level halted reason before stopping");
+  return deny("Checkpoint", "Stop gate", `${reason}. Continue the checkpoint loop; if a human must take over, record halted with its reason and checkpoint`, "continue the loop or set the top-level halted reason before stopping");
 }
 
 export function runCheckpointGuard(payload: Payload, repoRoot: string | null): CheckpointGuardResult {
