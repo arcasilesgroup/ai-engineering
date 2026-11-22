@@ -65,7 +65,7 @@
         "FILEMAP.md"
       ],
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
