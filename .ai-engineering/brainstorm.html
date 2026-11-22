@@ -275,7 +275,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <li><b>The base is the deterministic floor plus AI validation.</b> A skill adds no stop, step or agent turn unless it catches what the floor misses.</li>
     <li><b>The forge's review policy is the human gate.</b> That means GitHub branch protection or a ruleset with a required review, or an Azure DevOps branch policy with a minimum number of reviewers. ai-engineering does not block <code>gh</code> or <code>az</code> merge verbs. <code>ai-eng doctor</code> reports a base branch that has no required review. A headless run starts only when <code>ai-eng doctor</code> passes: the floor hooks are installed and the review policy is on. Without a forge, <code>ai-eng worktree merge</code> accepts a plan whose every checkpoint passed; the merge is local and can be undone. (The no-forge line is the recommended default, taken under the owner's rule.)</li>
     <li><b>The app review leaves the lifecycle.</b> Phase 4 becomes a report: routes to try, the checkpoint summary, the assumptions and the "Decided by the agent" list. The same change removes the app-review states, the reviewed-SHA pinning in Phase 3 and <code>ai-eng worktree request-changes</code>. A change request is a new run that resumes the slug.</li>
-    <li><b>The approval stamp shrinks.</b> The guard keeps the slug match and the 14-day age, and drops the status-line equality check. No <code>ai-approved-by</code> field: "Decided by the agent" already says who chose.</li>
+    <li><b>The approval stamp shrinks.</b> The guard keeps the slug match and the 14-day age, and drops the status-line equality check. The page carries no <code>ai-approved-by</code> field: "Decided by the agent" already says who chose.</li>
     <li><b>AGENTS.md</b> "never approve on your own initiative" becomes "approve when the request is clear; record what the agent decided". This applies to <code>templates/AGENTS.md.tpl</code> too.</li>
     <li><b>EU AI Act, enforced by the guard.</b> Every brainstorm carries <code>&lt;meta name="ai-act-class"&gt;</code> with one value: <code>none</code>, <code>minimal</code>, <code>transparency</code> (Art. 50), <code>high-risk</code> (Art. 6, Annex III) or <code>prohibited</code> (Art. 5) of Regulation 2024/1689. When in doubt, the class is high-risk. The guard refuses the plan write when the class is missing or <code>prohibited</code>. It also refuses <code>high-risk</code> unless the slug is listed in <code>[work] ai_act_high_risk</code> in <code>config.toml</code>, a file that self-protect already keeps from the agent, so only a person can list it. Art. 50 duties (tell people they deal with AI, mark generated content) become acceptance criteria that Gate 1 tests.</li>
     <li><b>Untrusted input is scanned.</b> The PostToolUse matcher adds <code>mcp__.*</code>, so issue text read through MCP passes the injection guard.</li>
@@ -290,7 +290,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <li><b>Gate 3 is one critic pass per attempt.</b> The next critic receives the stored findings and the fixer's <code>ROOT CAUSE</code> and <code>FIX</code> lines in the same prompt. The fixer may return <code>DISPUTED F&lt;n&gt; &lt;file:line&gt;</code>, and the next critic rules on it. The nested debate leaves the loop; <code>/ai-adversarial-loop</code> stays as a skill on request.</li>
     <li><b>Prototypes and the two UI reviewer agents run only when a design reference exists or the person asks.</b> This cut ships with A3, because only then does Gate 2 run axe and <code>audit.mjs</code> as <code>verify</code> commands against a served build.</li>
     <li><b>checkpoint-planner writes the test plan in the same turn.</b> The unhappy-path, <code>why_ui</code> and lowest-layer rules of <code>ai-test-planner</code> move into the planner, and the critic judges coverage against the brainstorm, not only against the planner's own <code>acceptance</code>.</li>
-    <li><b>The viewer is opt-in</b>, started only when a person is watching. The planner validates its JSON with bun. No <code>python3</code> on the default path.</li>
+    <li><b>The viewer is opt-in</b>, started only when a person is watching. The planner validates its JSON with bun, so the default path needs no <code>python3</code>.</li>
     <li><b>The brainstorm is one pass.</b> It writes the sections into <code>templates/brainstorm.html.tpl</code> and never copies the CSS reference. It asks only under the batch rule and writes no <code>PRD.html</code>. The approval commit lands on the feature branch, never on main.</li>
     <li><b>Phase 4 is a report</b>, as decided above.</li>
     <li><b>A LEARNINGS entry is written on a halt, or when the root cause differs from the finding.</b> <code>review-noise</code> entries stay, because they are the only feedback on critic false positives.</li>
@@ -300,7 +300,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 
 <section id="s7">
   <h2><span class="num">07</span>Decisions still open</h2>
-  <div class="note warn"><p>None. Every line in section 06 can be reversed by the owner.</p></div>
+  <div class="note warn"><p>Every decision is closed. The owner can reverse any line in section 06.</p></div>
 </section>
 
 <section id="s8">
@@ -360,7 +360,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   <ul>
     <li><b>A2.</b> The architect's output is a section of <code>brainstorm.html</code>. The "new dependency" trigger fires only for a runtime dependency. One architect turn per feature, never per checkpoint.</li>
     <li><b>A3.</b> The 1.4.12, 1.4.4 and forced-colors passes run at the narrowest width only, in the same page load. Only deterministic results block: axe violations and <code>audit.mjs</code> high findings. Every new check ships with a failing and a clean fixture. <code>prefers-contrast</code> leaves the blocking set, and a disabled-zoom check joins it. axe-core is vendored and pinned.</li>
-    <li><b>A4.</b> Two lines of "Code style" change and two are added. The rule covers code, comments, docs and UI copy. No history-word script.</li>
+    <li><b>A4.</b> Two lines of "Code style" change and two are added. The rule covers code, comments, docs and UI copy, and the reviewer reads the diff for history words instead of a script.</li>
     <li><b>A5.</b> ai-audit-docs leaves Phase 3. Its deterministic checks (local links, commands, versions) become a script beside the skill, as <code>skills/ai-audit-design/scripts/audit.mjs</code> is beside its own, and Gate 1 runs it on changed docs only. ai-write calls the script. Phase 3 is one wave: ai-write, ai-security and perf, each only when its trigger fires.</li>
     <li><b>Gate 3 rubric.</b> One line for the A4 rule on code and UI copy (Nielsen's usability heuristics), one line for Art. 50 duties. Same single pass.</li>
     <li><b>A6.</b> The red test record keeps the command, the exit code and the first failing line.</li>
