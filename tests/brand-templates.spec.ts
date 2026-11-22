@@ -419,4 +419,26 @@ describe("parity", () => {
       rmSync(parityRoot, { recursive: true, force: true });
     }
   });
+
+  test("fails and names the file and marker when a template is missing a marker", () => {
+    // brand.ts resolves its root from its own folder, so a copy in a scratch tree checks that tree.
+    const scratchRoot = mkdtempSync(join(tmpdir(), "brand-parity-unmarked-"));
+    try {
+      copyBrandTree(scratchRoot);
+      mkdirSync(join(scratchRoot, "scripts"));
+      copyFileSync(join(ROOT, "scripts", "brand.ts"), join(scratchRoot, "scripts", "brand.ts"));
+      copyFileSync(join(ROOT, "brand", "tokens.json"), join(scratchRoot, "brand", "tokens.json"));
+      const templatePath = join(scratchRoot, "templates", "plan.html.tpl");
+      writeFileSync(templatePath, readFileSync(templatePath, "utf8").replace(JS_BEGIN, ""));
+      const run = spawnSync(process.execPath, [join(scratchRoot, "scripts", "brand.ts"), "parity"], {
+        cwd: scratchRoot,
+        encoding: "utf8",
+        env: { ...process.env, AI_ENGINEERING_WEB_DIR: join(scratchRoot, "missing-web"), NO_COLOR: "1" },
+      });
+      expect(run.status).toBe(1);
+      expect((run.stderr ?? "").trim()).toBe(`templates/plan.html.tpl: missing marker ${JS_BEGIN}`);
+    } finally {
+      rmSync(scratchRoot, { recursive: true, force: true });
+    }
+  });
 });

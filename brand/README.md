@@ -36,7 +36,7 @@ Run these from the repository root.
 |---|---|
 | `bun scripts/brand.ts check` | Is `tokens.json` itself valid — every reference resolvable, every colour family running dark to light, every required section present? |
 | `bun scripts/brand.ts gen` | Write everything the tokens produce. Never hand-edit those files; this command owns them. |
-| `bun scripts/brand.ts parity` | Do the committed token outputs still match `brand/tokens.json`, and every template `brand/components.css` and `brand/components.js`? Also fails when the `theme-color` meta tag, the one palette value that lives in hand-written markup, has gone stale. |
+| `bun scripts/brand.ts parity` | Do the committed token outputs still match `brand/tokens.json`, and does every template's brand region still match `brand/components.css` and `brand/components.js`? A template missing a marker fails with the file and the marker named. Also fails when the `theme-color` meta tag, the one palette value that lives in hand-written markup, has gone stale. |
 | `bun scripts/brand.ts contrast` | Is every text-on-surface pair legible? Prints each measured WCAG 2.1 ratio and the level it must reach. |
 | `bun scripts/brand.ts artifact` | Do the inline token blocks in the generated artifacts still match the brand? |
 

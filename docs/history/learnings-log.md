@@ -1960,3 +1960,10 @@ Archived from the repo-root LEARNINGS.md at rev 2026-11-08 (`git log -1 --format
 - **Fix:** The health check counts page templates like skills. A template is recorded only as a regular file, not reached through a link, holding the shipped bytes. Uninstall removes a template only when the record names it or it still holds the shipped bytes.
 - **Lesson:** When a new kind of file joins the installed payload, route it through the same health check and the same "ai-eng wrote this" test as skills, and prove both through init, update and uninstall, not only installCanon.
 - **Tags:** review, install, brand
+
+### L276 · 2026-11-22 · brand-design-system #3 · review
+- **Failure:** The brainstorm skill's step 1 copied the PRD template to .ai-engineering/PRD.html on every run, so a second feature's brainstorm would overwrite the earlier features.
+- **Root cause:** Rewording the skill to "copy the template" put the PRD copy in step 1, which runs every time, while step 5 already owned the PRD write and its create-versus-update rule.
+- **Fix:** The PRD template copy lives only in step 5 and only when PRD.html does not exist yet; the parity refusal path got its own test.
+- **Lesson:** When rewording a skill step that writes a file, find the step that already owns that file and its create-versus-update rule and put the wording there, never in an earlier step that runs every time.
+- **Tags:** review, skills, brand
