@@ -667,10 +667,11 @@ export function spliceBrandRegions(html: string, css: string, js: string, templa
   const style = markerSpan(html, CSS_MARKER_BEGIN, CSS_MARKER_END, templatePath);
   const script = markerSpan(html, JS_MARKER_BEGIN, JS_MARKER_END, templatePath);
   // Each pair can be in order and unique while one still opens inside the other.
-  // Splicing the later span first reuses the earlier indexes on a shorter string
-  // and tears the template. Name the marker that opens inside, and do not slice.
-  if (style.start < script.end && script.start < style.end) {
-    const isScriptInsideStyle = script.start >= style.start && script.start < style.end;
+  // A begin marker that ends on the other interior's edge is inside that interior:
+  // the later splice drops the closing marker. The touching endpoint counts.
+  // Name the marker that sits inside, and do not slice.
+  if (style.start <= script.end && script.start <= style.end) {
+    const isScriptInsideStyle = script.start >= style.start && script.start <= style.end;
     const marker = isScriptInsideStyle ? JS_MARKER_BEGIN : CSS_MARKER_BEGIN;
     throw new BrandMarkerError(templatePath, 'nested', marker);
   }
