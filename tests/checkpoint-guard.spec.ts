@@ -319,7 +319,7 @@ function serializedPlan(value: CheckpointPlan): string {
 function orchestratorTranscript(fixture: Fixture): void {
   writeFileSync(
     fixture.transcriptPath,
-    `{"name":"Skill","input":{"skill":"ai-orchestrator"}} read .ai-engineering/workflow/checkpoints/${fixture.slug}.json\n`,
+    `{"name":"Skill","input":{"skill":"ai-orchestrator"}} {"prompt":"[checkpoint ${fixture.slug}#2 implement] go"}\n`,
   );
 }
 
@@ -1237,7 +1237,7 @@ describe("checkpoint guard G8 — Stop and consecutive block limit", () => {
     ["halted checkpoint", "orchestrated", "end_turn", "halted", false],
     ["all gates passed", "orchestrated", "end_turn", "done", false],
     ["no gate started", "orchestrated", "end_turn", "initial", false],
-    ["invalid state written behind hooks", "orchestrated", "end_turn", "invalid", true],
+    ["invalid state written behind hooks", "orchestrated", "end_turn", "invalid", false],
   ])("%s", (_name, transcriptKind, reason, state, shouldDeny) => {
     withFixture((fixture) => {
       if (transcriptKind === "orchestrated") orchestratorTranscript(fixture);

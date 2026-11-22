@@ -17,7 +17,7 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
-import { commandIndex, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, type ShellSegment } from "./shell.ts";
+import { commandIndex, jsonToolOperands, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, type ShellSegment } from "./shell.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
  *  `sed` joins them only with -i. The list may over-deny: that is a person told to
@@ -149,6 +149,49 @@ function readsProgramFromStdin(name: string, args: string[]): boolean {
   const inline = SHELLS.has(name) ? /^-[A-Za-z]*c[A-Za-z]*$/ : /^-[A-Za-z]*[ceE][A-Za-z]*$/;
   if (args.some((arg) => INFO_FLAGS.test(arg) || inline.test(arg))) return false;
   return !args.some((arg) => !arg.startsWith("-"));
+}
+
+/** A URL with a scheme other than file: its path lives on a server, never on this disk.
+ *  A file:// URL is a path and is judged as one. */
+const NETWORK_URL = /^(?!file:)[a-z][a-z\d+.-]*:\/\//i;
+
+/** Interpreters that run a script file. Running a governed script (a shipped skill's) reads
+ *  it; what the script then writes is the one class only an OS sandbox closes. */
+const SCRIPT_RUNNERS = new Set(["node", "bun", "deno", "python", "python3"]);
+const INLINE_PROGRAM = /^(?:-[A-Za-z]*[ceEpm][A-Za-z]*|--(?:eval|print|command)(?:=.*)?)$/;
+// A script by its name: `node .ai-engineering/ai-eng.lock` is not running a script.
+const SCRIPT_FILE = /\.(?:[cm]?[jt]sx?|py)["']?$/i;
+
+/** Where in `args` the script an interpreter runs sits: its first non-flag argument (past
+ *  `run` for bun and deno), or -1 when it runs inline code, a module, or no script file. */
+function scriptOperand(name: string, args: readonly string[]): number {
+  if (!SCRIPT_RUNNERS.has(name) || args.some((arg) => INLINE_PROGRAM.test(arg))) return -1;
+  let index = args.findIndex((arg) => !arg.startsWith("-"));
+  if ((name === "bun" || name === "deno") && args[index] === "run") {
+    index = args.findIndex((arg, at) => at > index && !arg.startsWith("-"));
+  }
+  return index >= 0 && SCRIPT_FILE.test(args[index]!) ? index : -1;
+}
+
+/** The module `python -m <module>` runs, or null. */
+function pythonModule(name: string, args: readonly string[]): string | null {
+  const flag = args.indexOf("-m");
+  return (name === "python" || name === "python3") && flag >= 0 ? args[flag + 1] ?? null : null;
+}
+
+/** The indexes in `args` that a command only reads although it is not a reader: the script
+ *  an interpreter runs, the one file `python -m json.tool` reads, and the directory
+ *  `python -m http.server` serves. */
+function readOperands(name: string, args: readonly string[]): number[] {
+  const script = scriptOperand(name, args);
+  if (script >= 0) return [script];
+  const jsonTool = jsonToolOperands([name, ...args]);
+  if (jsonTool?.length === 1 && jsonTool[0] !== "-") return [args.lastIndexOf(jsonTool[0]!)];
+  if (pythonModule(name, args) !== "http.server") return [];
+  return args.flatMap((arg, index) => {
+    if (arg.startsWith("--directory=")) return [index];
+    return args[index - 1] === "--directory" || args[index - 1] === "-d" ? [index] : [];
+  });
 }
 
 const READERS = new Set([
@@ -304,8 +347,9 @@ function expandBraces(pattern: string, found: string[] = []): string[] {
 }
 
 /** The absolute paths one word can stand for, as the shell (or the program, for a quoted
- *  glob) would expand it from every base the command can run in. Null: too broad to read. */
-function pathCandidates(word: string, bases: string[]): string[] | null {
+ *  glob) would expand it from every base the command can run in. Null: too broad to read.
+ *  A literal word (a quoted glob no program expands) stands only for its own text. */
+function pathCandidates(word: string, bases: string[], isLiteral = false): string[] | null {
   const forms = [word];
   const equals = word.indexOf("=");
   if (equals > 0) forms.push(word.slice(equals + 1));
@@ -315,9 +359,9 @@ function pathCandidates(word: string, bases: string[]): string[] | null {
   const found: string[] = [];
   for (const form of forms) {
     if (form.length === 0 || (form.startsWith("-") && !form.includes("/"))) continue;
-    for (const pattern of expandBraces(expandTilde(form))) {
+    for (const pattern of isLiteral ? [expandTilde(form)] : expandBraces(expandTilde(form))) {
       for (const base of bases) {
-        if (!GLOB_CHARS.test(pattern)) {
+        if (isLiteral || !GLOB_CHARS.test(pattern)) {
           found.push(resolve(base, pattern));
           continue;
         }
@@ -395,6 +439,8 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
   const parsed = segments.map((segment) => {
     const words = shellWords(resolveSubstitutions(segment)).map((word) => ({ ...word, original: word.value, value: substitute(word.value, variables) }));
     const plain: string[] = [];
+    // Whether the shell expands each plain word: a glob or brace it reads unquoted.
+    const isExpanded: boolean[] = [];
     const writeTargets: string[] = [];
     // Here-strings: text the verb reads on stdin (`at now <<< '…'`).
     const inputs: string[] = [];
@@ -402,6 +448,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       const word = words[index]!;
       if (!word.isOperator) {
         plain.push(word.value);
+        isExpanded.push(GLOB_CHARS.test(word.unquoted) || /\{[^}]*,/.test(word.unquoted));
         continue;
       }
       const target = words[index + 1];
@@ -410,7 +457,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       index++;
     }
     const verb = verbOf(plain);
-    return { segment, words, plain, writeTargets, inputs, verb, name: verb.name.toLowerCase(), args: plain.slice(verb.index + 1) };
+    return { segment, words, plain, writeTargets, inputs, verb, name: verb.name.toLowerCase(), args: plain.slice(verb.index + 1), argIsExpanded: isExpanded.slice(verb.index + 1) };
   });
   // Every directory a `cd` in this command can land in is a base for the relative paths
   // after it; a directory computed at run time makes those paths unknowable.
@@ -425,14 +472,14 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       else bases.push(...(pathCandidates(target, [...bases]) ?? []));
     }
   }
-  const names = (word: string, includesCheckpoints = true): string | null => {
-    const candidates = pathCandidates(word, bases);
+  const names = (word: string, includesCheckpoints = true, isLiteral = false): string | null => {
+    const candidates = pathCandidates(word, bases, isLiteral);
     if (candidates === null) return word;
     const hit = candidates.find((candidate) => offendingTarget(context.paths, candidate, bases) !== null || (includesCheckpoints && CHECKPOINT_FILE.test(slashed(candidate))));
-    return hit ?? globNamesProtected(word, bases, context.paths);
+    return hit ?? (isLiteral ? null : globNamesProtected(word, bases, context.paths));
   };
   const isRelative = (word: string): boolean => !isAbsolute(expandTilde(word)) && !word.startsWith("-");
-  for (const { segment, words, plain, writeTargets, inputs, verb, name, args } of parsed) {
+  for (const { segment, words, plain, writeTargets, inputs, verb, name, args, argIsExpanded } of parsed) {
     // Judged as written, before substitution: `IFS=,; c=rm,x; $c` is still a computed verb.
     const verbWord = words.find((word) => !word.isOperator && word.value === plain[verb.index]);
     const rawVerb = verbWord?.original ?? "";
@@ -509,13 +556,23 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       // paths, and their heredocs are messages. gh is trusted by allowlist: an alias the
       // agent defines, `gh ext`, `gh config` and `gh repo clone -- -c …` can all run code.
       const isProse = name === "git" || (name === "gh" && GH_PROSE_SUBCOMMANDS.has(args[0] ?? ""));
+      const reads = readOperands(name, args);
       for (const [index, arg] of args.entries()) {
+        // A URL handed to a program that writes no tree is fetched, not opened. Read as a
+        // local path it lands under `./http:/`, unless `..` climbs out of it.
+        const isUrl = !isWriter && NETWORK_URL.test(arg) && !/(?:^|\/)\.\.(?:\/|$)/.test(arg);
+        if (reads.includes(index) || isUrl) continue;
         if (isWriter && (arg.includes("$") || arg.includes("`"))) return `${name} acts on a path computed at run time`;
         if (isWriter && hasUnknownBase && isRelative(arg)) return `${name} acts on a relative path after a cd to a directory computed at run time`;
         // Git records checkpoint files; it is the edit tools that must write them.
-        const embedded = isProse ? [] : (arg.match(EMBEDDED_PATH) ?? []).filter((path) => path !== arg);
+        // A quoted glob reaches the program as text: only a tree writer (git rm, find) may
+        // expand it itself. Its `.ai-engineering/` before a `*` is a prefix, not a path.
+        const isLiteral = !isWriter && argIsExpanded[index] === false;
+        const embedded = isProse ? [] : [...arg.matchAll(EMBEDDED_PATH)]
+          .filter((match) => match[0] !== arg && !(isLiteral && GLOB_CHARS.test(arg[(match.index ?? 0) + match[0].length] ?? "")))
+          .map((match) => match[0]);
         for (const path of [arg, ...embedded]) {
-          const hit = names(path, name !== "git");
+          const hit = names(path, name !== "git", isLiteral);
           if (hit !== null) return `${name} names ${hit}, which governs this session, and ${name} is not a read-only command`;
         }
         if (isWriter && !workingDirs.includes(index) && (pathCandidates(arg, bases) ?? []).some((candidate) => isAncestorOfProtected(context.paths, candidate))) {
@@ -827,9 +884,12 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
 export function writesTo(paths: ProtectedPaths, command: string): string | null {
   const words = command.trim().split(/\s+/).filter((w) => w.length > 0);
   if (words.length === 0) return null;
-  const verb = verbOf(words).name;
+  const { index: verbIndex, name: verb } = verbOf(words);
   if (WRITERS[verb] === true || (verb === "sed" && words.includes("-i"))) {
-    return offendingPath(paths, command);
+    // What the command only reads (the script it runs, the folder it serves) is not written:
+    // judge the rest of the command.
+    const reads = readOperands(verb, words.slice(verbIndex + 1)).map((index) => verbIndex + 1 + index);
+    return offendingPath(paths, reads.length === 0 ? command : words.filter((_word, index) => !reads.includes(index)).join(" "));
   }
   // A writer downstream of a pipe (echo x | tee <path>): its arguments carry the
   // destination. Judge the writer verb's own words, not the whole pipeline.

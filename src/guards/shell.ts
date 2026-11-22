@@ -351,6 +351,23 @@ const ANSI_ESCAPES: Record<string, string> = { n: "\n", t: "\t", r: "\r", "\\": 
 
 /** The words of one segment as the shell hands them to the program: quotes removed,
  *  escapes applied, `$'…'` decoded, and `<`/`>` runs split off as operators. */
+/** The operands of `python3 -m json.tool …`, or null for any other command. A bare `-`
+ *  is an operand (stdin), everything after `--` is an operand, and `--indent` takes the
+ *  next word as its value. With one operand json.tool only reads it; a second is written. */
+export function jsonToolOperands(words: readonly string[]): string[] | null {
+  const [name, flag, module, ...rest] = words;
+  if (!/^(?:.*\/)?python3?$/.test(name ?? "") || flag !== "-m" || module !== "json.tool") return null;
+  const operands: string[] = [];
+  for (let index = 0; index < rest.length; index += 1) {
+    const word = rest[index]!;
+    if (word === "--") return [...operands, ...rest.slice(index + 1)];
+    const isOption = word.length > 1 && word.startsWith("-");
+    if (!isOption) operands.push(word);
+    if (word === "--indent") index += 1;
+  }
+  return operands;
+}
+
 export function shellWords(text: string): ShellWord[] {
   const words: ShellWord[] = [];
   let value = "";

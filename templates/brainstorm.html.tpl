@@ -202,7 +202,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   <div class="stamp">Brainstorm · {{date}} · {{status}}</div>
   <h1>{{title}}</h1>
   <p class="sub">{{subtitle}}</p>
-  <div class="meta">{{meta}}</div>
+  <div class="meta">{{status}}<br>{{meta}}</div>
 </header>
 
 <nav>
