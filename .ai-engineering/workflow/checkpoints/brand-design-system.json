@@ -13,7 +13,7 @@
     "reviewed_feature": null
   },
   "halted": {
-    "reason": "Owner stopped the run on 2026-11-22: too slow and too token-heavy. Checkpoint 3 behavior passed; its one review fix is committed (40bf89b0) and awaits the critic's second round.",
+    "reason": "Owner stopped the run on 2026-11-22: too slow and too token-heavy. Checkpoint 3 behavior passed; its one review fix is committed (40bf89b0) and its critic round never resumed. Resumed on 2026-11-22 under the owner's own instruction: implement the approved brainstorm directly, keep this list as the acceptance criteria only, and prove each checkpoint by running the gates; review moved to the no-mistakes pipeline on the pull request.",
     "checkpoint": 3
   },
   "checkpoints": [
@@ -201,9 +201,9 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 1, "findings": ["Builder receipt: 109 pass after the owner copied templates/viewer.html.tpl over the guarded .ai-engineering/workflow/checkpoints/viewer.html (viewer-audit 31 pass); brand.ts artifact PASS; gen twice byte-identical; typecheck and lint exit 0."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "n/a", "attempts": 0, "findings": ["The owner halted the run mid-review on 2026-11-22 and changed the method: the critic round never resumed, and the diff review now happens in the no-mistakes pipeline on the pull request. The one review fix (40bf89b0) is committed."] }
       },
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "id": 4,
@@ -262,13 +262,31 @@
         "bun run lint"
       ],
       "ui": null,
-      "changed_files": [],
+      "changed_files": [
+        "brand/tokens.json",
+        "brand/components.css",
+        "brand/components.js",
+        "scripts/brand.ts",
+        "templates/PRD.html.tpl",
+        "templates/brainstorm.html.tpl",
+        "templates/plan.html.tpl",
+        "templates/recap.html.tpl",
+        "templates/research.html.tpl",
+        "templates/spec.html.tpl",
+        "templates/triage.html.tpl",
+        "templates/viewer.html.tpl",
+        ".ai-engineering/workflow/checkpoints/viewer.html",
+        "tests/artifact-layout.spec.ts",
+        "tests/brand-contrast.spec.ts",
+        "skills/ai-brainstorm/references/artifact-design.md",
+        "brand/README.md"
+      ],
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 0, "findings": ["brand.ts check, contrast (52/52 pairs), artifact (11 files) all exit 0; gen twice byte-identical; the 8 page suites pass 83 tests once templates/viewer.html.tpl was recopied over the guarded viewer (U6/U9/U14 compare the two byte for byte); typecheck and lint exit 0."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "n/a", "attempts": 0, "findings": ["The owner halted the per-checkpoint review loop as too slow and too token-heavy, and changed the method to implementing the approved brainstorm directly; the diff review now happens in the no-mistakes pipeline on the pull request, so this gate is n/a here rather than silently passed."] }
       },
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": 5,
@@ -321,13 +339,27 @@
         "bun run lint"
       ],
       "ui": null,
-      "changed_files": [],
+      "changed_files": [
+        "scripts/artifact-a11y.ts",
+        "tests/artifact-a11y.spec.ts",
+        "brand/gallery.html.tpl",
+        "scripts/brand.ts",
+        "templates/PRD.html.tpl",
+        "templates/brainstorm.html.tpl",
+        "templates/plan.html.tpl",
+        "templates/recap.html.tpl",
+        "templates/research.html.tpl",
+        "templates/triage.html.tpl",
+        "skills/ai-brainstorm/references/artifact-design.md",
+        "brand/README.md",
+        "FILEMAP.md"
+      ],
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 0, "findings": ["tests/artifact-a11y.spec.ts passes 25 tests: every carrier has zero problems and each of the 18 rules fires on its own fixture with its exact message; contrast 52/52; gen twice byte-identical including brand/gallery.html.tpl; a planted byte inside the gallery brand region makes parity name it. The 8 suites in verify pass 86 tests."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "n/a", "attempts": 0, "findings": ["The owner halted the per-checkpoint review loop as too slow and too token-heavy, and changed the method to implementing the approved brainstorm directly; the diff review now happens in the no-mistakes pipeline on the pull request, so this gate is n/a here rather than silently passed."] }
       },
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": 6,
@@ -379,13 +411,32 @@
         "bun audit --audit-level=high"
       ],
       "ui": null,
-      "changed_files": [],
+      "changed_files": [
+        "package.json",
+        "bun.lock",
+        "scripts/artifact-axe.ts",
+        "brand/components.css",
+        "templates/brainstorm.html.tpl",
+        "templates/recap.html.tpl",
+        "templates/viewer.html.tpl",
+        "templates/PRD.html.tpl",
+        "templates/plan.html.tpl",
+        "templates/research.html.tpl",
+        "templates/spec.html.tpl",
+        "templates/triage.html.tpl",
+        ".ai-engineering/workflow/checkpoints/viewer.html",
+        ".github/workflows/check.yml",
+        "THIRD-PARTY-NOTICES.md",
+        "brand/README.md",
+        "FILEMAP.md",
+        ".changeset/brand-design-system.md"
+      ],
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 0, "findings": ["bun run a11y exits 0: 9 pages, 8 axe runs each (320/390/768/1440px screen and forced colours), keys, reflow and the no-script reading ok. A planted dark-on-dark paragraph makes it exit 1 naming templates/brainstorm.html.tpl, 320px, color-contrast. actionlint 1.7.12 passes check.yml; bun install --frozen-lockfile, bun audit --audit-level=high, typecheck, lint and the full bun test suite pass (2 init housekeeping tests fail only under this harness's exported core.hooksPath)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "n/a", "attempts": 0, "findings": ["The owner halted the per-checkpoint review loop as too slow and too token-heavy, and changed the method to implementing the approved brainstorm directly; the diff review now happens in the no-mistakes pipeline on the pull request, so this gate is n/a here rather than silently passed."] }
       },
-      "status": "pending"
+      "status": "passed"
     }
   ],
   "assumptions": [
