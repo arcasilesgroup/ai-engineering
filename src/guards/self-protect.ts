@@ -322,8 +322,9 @@ function expandBraces(pattern: string, found: string[] = []): string[] {
 }
 
 /** The absolute paths one word can stand for, as the shell (or the program, for a quoted
- *  glob) would expand it from every base the command can run in. Null: too broad to read. */
-function pathCandidates(word: string, bases: string[]): string[] | null {
+ *  glob) would expand it from every base the command can run in. Null: too broad to read.
+ *  A literal word (a quoted glob no program expands) stands only for its own text. */
+function pathCandidates(word: string, bases: string[], isLiteral = false): string[] | null {
   const forms = [word];
   const equals = word.indexOf("=");
   if (equals > 0) forms.push(word.slice(equals + 1));
@@ -333,9 +334,9 @@ function pathCandidates(word: string, bases: string[]): string[] | null {
   const found: string[] = [];
   for (const form of forms) {
     if (form.length === 0 || (form.startsWith("-") && !form.includes("/"))) continue;
-    for (const pattern of expandBraces(expandTilde(form))) {
+    for (const pattern of isLiteral ? [expandTilde(form)] : expandBraces(expandTilde(form))) {
       for (const base of bases) {
-        if (!GLOB_CHARS.test(pattern)) {
+        if (isLiteral || !GLOB_CHARS.test(pattern)) {
           found.push(resolve(base, pattern));
           continue;
         }
@@ -413,6 +414,8 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
   const parsed = segments.map((segment) => {
     const words = shellWords(resolveSubstitutions(segment)).map((word) => ({ ...word, original: word.value, value: substitute(word.value, variables) }));
     const plain: string[] = [];
+    // Whether the shell expands each plain word: a glob or brace it reads unquoted.
+    const isExpanded: boolean[] = [];
     const writeTargets: string[] = [];
     // Here-strings: text the verb reads on stdin (`at now <<< '…'`).
     const inputs: string[] = [];
@@ -420,6 +423,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       const word = words[index]!;
       if (!word.isOperator) {
         plain.push(word.value);
+        isExpanded.push(GLOB_CHARS.test(word.unquoted) || /\{[^}]*,/.test(word.unquoted));
         continue;
       }
       const target = words[index + 1];
@@ -428,7 +432,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       index++;
     }
     const verb = verbOf(plain);
-    return { segment, words, plain, writeTargets, inputs, verb, name: verb.name.toLowerCase(), args: plain.slice(verb.index + 1) };
+    return { segment, words, plain, writeTargets, inputs, verb, name: verb.name.toLowerCase(), args: plain.slice(verb.index + 1), argIsExpanded: isExpanded.slice(verb.index + 1) };
   });
   // Every directory a `cd` in this command can land in is a base for the relative paths
   // after it; a directory computed at run time makes those paths unknowable.
@@ -443,14 +447,14 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       else bases.push(...(pathCandidates(target, [...bases]) ?? []));
     }
   }
-  const names = (word: string, includesCheckpoints = true): string | null => {
-    const candidates = pathCandidates(word, bases);
+  const names = (word: string, includesCheckpoints = true, isLiteral = false): string | null => {
+    const candidates = pathCandidates(word, bases, isLiteral);
     if (candidates === null) return word;
     const hit = candidates.find((candidate) => offendingTarget(context.paths, candidate, bases) !== null || (includesCheckpoints && CHECKPOINT_FILE.test(slashed(candidate))));
-    return hit ?? globNamesProtected(word, bases, context.paths);
+    return hit ?? (isLiteral ? null : globNamesProtected(word, bases, context.paths));
   };
   const isRelative = (word: string): boolean => !isAbsolute(expandTilde(word)) && !word.startsWith("-");
-  for (const { segment, words, plain, writeTargets, inputs, verb, name, args } of parsed) {
+  for (const { segment, words, plain, writeTargets, inputs, verb, name, args, argIsExpanded } of parsed) {
     // Judged as written, before substitution: `IFS=,; c=rm,x; $c` is still a computed verb.
     const verbWord = words.find((word) => !word.isOperator && word.value === plain[verb.index]);
     const rawVerb = verbWord?.original ?? "";
@@ -533,9 +537,14 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
         if (isWriter && (arg.includes("$") || arg.includes("`"))) return `${name} acts on a path computed at run time`;
         if (isWriter && hasUnknownBase && isRelative(arg)) return `${name} acts on a relative path after a cd to a directory computed at run time`;
         // Git records checkpoint files; it is the edit tools that must write them.
-        const embedded = isProse ? [] : (arg.match(EMBEDDED_PATH) ?? []).filter((path) => path !== arg);
+        // A quoted glob reaches the program as text: only a tree writer (git rm, find) may
+        // expand it itself. Its `.ai-engineering/` before a `*` is a prefix, not a path.
+        const isLiteral = !isWriter && argIsExpanded[index] === false;
+        const embedded = isProse ? [] : [...arg.matchAll(EMBEDDED_PATH)]
+          .filter((match) => match[0] !== arg && !(isLiteral && GLOB_CHARS.test(arg[(match.index ?? 0) + match[0].length] ?? "")))
+          .map((match) => match[0]);
         for (const path of [arg, ...embedded]) {
-          const hit = names(path, name !== "git");
+          const hit = names(path, name !== "git", isLiteral);
           if (hit !== null) return `${name} names ${hit}, which governs this session, and ${name} is not a read-only command`;
         }
         if (isWriter && !workingDirs.includes(index) && (pathCandidates(arg, bases) ?? []).some((candidate) => isAncestorOfProtected(context.paths, candidate))) {

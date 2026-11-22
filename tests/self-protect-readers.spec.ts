@@ -21,6 +21,9 @@ beforeAll(() => {
   spawnSync("git", ["init", "-q", "--template=", repo]);
   writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
   writeFileSync(join(repo, ".gitleaksrc.toml"), "");
+  // A pinned spec makes .ai-engineering/spec.html governed.
+  writeFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), `spec_sha256 = "${"a".repeat(64)}"\n`);
+  writeFileSync(join(repo, ".ai-engineering", "spec.html"), "<html></html>\n");
   skills = join(machineBase(), ".claude", "skills");
 });
 
@@ -54,6 +57,29 @@ describe("self-protect — an interpreter may run a governed script", () => {
       `node ${skills}/x/a.mjs ${skills}/x/b.mjs`,
       `node ${skills}/x/a.mjs > ${skills}/x/b.mjs`,
       `node ${skills}/x/a.mjs > .ai-engineering/config.toml`,
+    ]) {
+      expect(verdict(command)?.deny, command).toBe(true);
+    }
+  });
+});
+
+describe("self-protect — a quoted glob names only its own text", () => {
+  test("a quoted glob handed to a program that does not write files is not expanded", () => {
+    for (const command of [
+      'impeccable hooks ignore-value side-tab "*" --file "**/brainstorm.html" --local',
+      "impeccable hooks ignore-value side-tab '*' --file '.ai-engineering/*.html' --local",
+    ]) {
+      expect(verdict(command), command).toBeUndefined();
+    }
+  });
+
+  test("an unquoted glob, and a quoted one handed to a tree writer, are still expanded", () => {
+    for (const command of [
+      "impeccable hooks ignore-value side-tab * --local",
+      "impeccable --file .ai-engineering/*.html --local",
+      'impeccable --file ".ai-engineering/"*.html --local',
+      "git rm '.ai-engineering/*.toml'",
+      "rm -f '.ai-engineering/*.toml'",
     ]) {
       expect(verdict(command)?.deny, command).toBe(true);
     }
