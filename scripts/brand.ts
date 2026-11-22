@@ -10,7 +10,7 @@
  * a machine can read:
  *
  *   bun scripts/brand.ts gen       — write every artifact it produces
- *   bun scripts/brand.ts parity    — does what is committed still match the tokens?
+ *   bun scripts/brand.ts parity    — do committed files still match the tokens and the component sources?
  *   bun scripts/brand.ts contrast  — is every declared text/surface pair legible?
  *   bun scripts/brand.ts artifact  — do the inline artifact blocks agree with the brand?
  *
@@ -603,7 +603,8 @@ const COMPONENT_SPECIMENS = [
 //
 // brand/components.css and brand/components.js are the shell. A template keeps
 // every byte outside the markers, including {{placeholders}}. A pair that is
-// missing, doubled or reversed is refused before the file is opened for write.
+// missing, doubled, reversed or nested is refused before any byte is sliced,
+// so the file is never opened for write.
 // ---------------------------------------------------------------------------
 
 const CSS_MARKER_BEGIN = '/* brand:begin */';
@@ -611,7 +612,7 @@ const CSS_MARKER_END = '/* brand:end */';
 const JS_MARKER_BEGIN = '<!-- brand:js:begin -->';
 const JS_MARKER_END = '<!-- brand:js:end -->';
 
-type MarkerFault = 'missing' | 'doubled' | 'reversed';
+type MarkerFault = 'missing' | 'doubled' | 'reversed' | 'nested';
 
 /** The refusal names the template and the marker, so the broken pair can be found without a diff. */
 export class BrandMarkerError extends Error {
@@ -665,6 +666,14 @@ function classicBrandScript(source: string): string {
 export function spliceBrandRegions(html: string, css: string, js: string, templatePath: string): string {
   const style = markerSpan(html, CSS_MARKER_BEGIN, CSS_MARKER_END, templatePath);
   const script = markerSpan(html, JS_MARKER_BEGIN, JS_MARKER_END, templatePath);
+  // Each pair can be in order and unique while one still opens inside the other.
+  // Splicing the later span first reuses the earlier indexes on a shorter string
+  // and tears the template. Name the marker that opens inside, and do not slice.
+  if (style.start < script.end && script.start < style.end) {
+    const isScriptInsideStyle = script.start >= style.start && script.start < style.end;
+    const marker = isScriptInsideStyle ? JS_MARKER_BEGIN : CSS_MARKER_BEGIN;
+    throw new BrandMarkerError(templatePath, 'nested', marker);
+  }
   const regions = [
     { start: style.start, end: style.end, replacement: css },
     { start: script.start, end: script.end, replacement: classicBrandScript(js) },
@@ -807,18 +816,43 @@ function templateParityLine(matchesDisk: boolean, relativePath: string): string 
   return `${mark} ${relativePath}`;
 }
 
+/**
+ * Token outputs are compared with brand/tokens.json. Marked templates are
+ * compared with brand/components.css and brand/components.js. A template
+ * mismatch is not a token mismatch.
+ */
+function parityMismatchSummary(tokenDrift: number, templateDrift: number): string {
+  const clauses: string[] = [];
+  if (tokenDrift > 0) clauses.push(`${tokenDrift} generated file(s) do not match brand/tokens.json`);
+  if (templateDrift > 0) {
+    clauses.push(`${templateDrift} template(s) do not match brand/components.css and brand/components.js`);
+  }
+  return `${clauses.join('. ')}. Run: bun scripts/brand.ts gen`;
+}
+
+function parityAgreementSummary(tokenCount: number, templateCount: number): string {
+  const tokenClause = `${tokenCount} generated file(s) and the theme-color meta match brand/tokens.json.`;
+  if (templateCount === 0) return tokenClause;
+  return `${tokenClause} ${templateCount} template(s) match brand/components.css and brand/components.js.`;
+}
+
 async function cmdParity(t: Tokens): Promise<number> {
   const artifacts = await renderArtifacts(t);
-  let drifted = 0;
+  let tokenDrift = 0;
+  let templateDrift = 0;
   for (const [path, contents] of artifacts) {
     const matchesDisk = await sameAsOnDisk(path, contents);
-    if (path.endsWith('.html.tpl')) {
+    const isTemplate = path.endsWith('.html.tpl');
+    if (isTemplate) {
       const relativePath = relative(ROOT, path).split('\\').join('/');
       console.log(templateParityLine(matchesDisk, relativePath));
     } else {
       console.log(`${matchesDisk ? 'ok  ' : 'DRIFT'} ${relative(process.cwd(), path) || path}`);
     }
-    if (!matchesDisk) drifted++;
+    if (!matchesDisk) {
+      if (isTemplate) templateDrift++;
+      else tokenDrift++;
+    }
   }
 
   // `theme-color` is the one palette value that lives in a hand-written file: the
@@ -832,11 +866,12 @@ async function cmdParity(t: Tokens): Promise<number> {
     console.error('  Fix: edit the meta tag. `gen` owns the generated files, not markup.');
     return 1;
   }
-  if (drifted > 0) {
-    console.error(`\n${drifted} generated file(s) do not match brand/tokens.json. Run: bun scripts/brand.ts gen`);
+  if (tokenDrift > 0 || templateDrift > 0) {
+    console.error(`\n${parityMismatchSummary(tokenDrift, templateDrift)}`);
     return 1;
   }
-  console.log(`\n${artifacts.length} generated files and the theme-color meta match brand/tokens.json.`);
+  const templateCount = artifacts.filter(([path]) => path.endsWith('.html.tpl')).length;
+  console.log(`\n${parityAgreementSummary(artifacts.length - templateCount, templateCount)}`);
   return 0;
 }
 
