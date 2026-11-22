@@ -10,6 +10,10 @@
     "app_review": "not-started",
     "reviewed_main": null
   },
+  "halted": {
+    "reason": "Not this session's feature: left in implementation by an earlier run with CP6 review and CP10 behavior/ui failed. A person decides whether to resume or drop it.",
+    "checkpoint": 6
+  },
   "checkpoints": [
     {
       "id": 1,
