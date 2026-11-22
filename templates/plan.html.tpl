@@ -387,7 +387,8 @@ footer{font-size:12px;letter-spacing:.02em}
 <section id="s1">
   <h2><span class="num">01</span>Steps → gates</h2>
   <div class="tbl-wrap">
-  <table>
+  <table class="is-stackable">
+    <caption>Each step and the gate that closes it</caption>
     <thead><tr><th scope="col">#</th><th scope="col">Step</th><th scope="col">Closes</th><th scope="col">State</th></tr></thead>
     <tbody>
       <tr><td>1</td><td>…</td><td>G1</td><td>🟡</td></tr>
@@ -406,7 +407,8 @@ footer{font-size:12px;letter-spacing:.02em}
 <section id="s3">
   <h2><span class="num">03</span>Gates ledger</h2>
   <div class="tbl-wrap">
-  <table>
+  <table class="is-stackable">
+    <caption>Every gate, its state and its receipt</caption>
     <thead><tr><th scope="col">Gate</th><th scope="col">State</th><th scope="col">Receipt</th></tr></thead>
     <tbody>
       <tr><td>G1</td><td>🟡</td><td>—</td></tr>

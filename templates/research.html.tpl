@@ -361,7 +361,6 @@ footer{font-size:12px;letter-spacing:.02em}
 <header class="hero">
   <span class="corner tl"></span><span class="corner tr"></span>
   <span class="corner bl"></span><span class="corner br"></span>
-  <div class="stamp">Research · {{nnn}} · {{date}}</div>
   <h1>{{title}}</h1>
   <p class="sub">{{subtitle}}</p>
   <div class="meta">{{meta}}</div>

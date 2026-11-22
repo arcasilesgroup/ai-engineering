@@ -51,6 +51,7 @@ is itself a failing build:
 | `tests/brand-check.spec.ts` | the validator, fed a declaration that breaks each rule | a validator must **report** a malformed entry, never crash on it, and must accept the declared `lineHeight` type — a build that fails on a valid file is a bug the suite catches |
 | `tests/brand-contrast.spec.ts` | the WCAG maths, against published values (`#767676` passes AA on white, `#777777` does not) | pins the border decision: `--border` is `gray.base` because `#5C6C75` measures 2.76:1 on a raised surface, below the level a border pair must reach |
 | `tests/brand-generated.spec.ts` | that `gen` computes the *right* thing, not merely a stable thing | a breakpoint derivation that leaves `design.json` claiming the site has no responsive thresholds fails here even with `parity` green |
+| `tests/artifact-a11y.spec.ts` | the static accessibility gate, on both sides | every shipped page passes; and each rule gets a fixture that breaks exactly it, so the message it prints is proven to come from that rule and no other |
 
 Run them with `bun test tests/brand-*.spec.ts`, or as part of `bun test`.
 
@@ -65,6 +66,7 @@ Run them with `bun test tests/brand-*.spec.ts`, or as part of `bun test`.
 | `brand/components.css` | The style body. `gen` reads it and writes those bytes between `/* brand:begin */` and `/* brand:end */` inside `<style>`. |
 | `brand/components.js` | The scroll-spy, with no `<script>` tags. `gen` writes one classic `<script>` of these bytes between `<!-- brand:js:begin -->` and `<!-- brand:js:end -->`. |
 | `templates/*.html.tpl` | Every template, found by glob; each must carry both marker pairs. Only the marked bytes are rewritten; `{{placeholders}}` and every byte outside the markers stay. A missing, doubled, reversed or nested marker names the file and the marker, and that file is not written. No template declares a token outside its brand region. |
+| `brand/gallery.html.tpl` | The reference page: every component live, its markup with a copy button, its keyboard behaviour and a do and don't. Hand-written like a template, spliced in place by the same markers, and checked by the same parity line — a hand edit to its brand region is drift. It stays in this repository: it does not install with the templates. |
 
 `gen` is idempotent: running it twice changes nothing the second time. `parity` is what
 proves that, and it is the reason a hand edit to `tokens.css` — or to a template's brand

@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="ai-engineering, written by an AI agent">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <title>PRD — product requirements</title>
 <style>
@@ -373,6 +374,9 @@ footer{font-size:12px;letter-spacing:.02em}
   <a href="#s3"><b>03</b>Users &amp; roles</a>
   <a href="#s4"><b>04</b>Features</a>
   <a href="#s5"><b>05</b>Out of scope</a>
+  <a href="#s6"><b>06</b>Decisions</a>
+  <a href="#s7"><b>07</b>By the numbers</a>
+  <a href="#s8"><b>08</b>How it fits together</a>
 </nav>
 
 <main id="main">
@@ -390,8 +394,10 @@ footer{font-size:12px;letter-spacing:.02em}
 
 <section id="s3">
   <h2><span class="num">03</span>Users &amp; roles</h2>
+  <p>&lt;Who uses the product and what each role can do; one row per role.&gt;</p>
   <div class="tbl-wrap">
-  <table>
+  <table class="is-stackable">
+    <caption>Each role and what it can do</caption>
     <thead><tr><th scope="col">Role</th><th scope="col">Who</th><th scope="col">Can</th></tr></thead>
     <tbody>
       <tr><td><strong>&lt;Role&gt;</strong></td><td>&lt;who they are&gt;</td><td>&lt;what they can do&gt;</td></tr>
@@ -402,6 +408,7 @@ footer{font-size:12px;letter-spacing:.02em}
 
 <section id="s4">
   <h2><span class="num">04</span>Features</h2>
+  <p>&lt;One plain sentence naming the features below, then one card per feature.&gt;</p>
   <div class="card">
     <h3>&lt;Feature&gt;</h3>
     <ul>
@@ -413,9 +420,68 @@ footer{font-size:12px;letter-spacing:.02em}
 
 <section id="s5">
   <h2><span class="num">05</span>Out of scope</h2>
+  <p>&lt;One sentence: what this product deliberately does not do.&gt;</p>
   <ul>
     <li>&lt;Things deliberately not built, and why. Link a decision if there is one.&gt;</li>
   </ul>
+</section>
+
+<section id="s6">
+  <h2><span class="num">06</span>Decisions</h2>
+  <p>One line per settled decision, closed; the body says what it changes.</p>
+  <div class="toolbar"><button class="tool" type="button" data-expand="decisions" hidden>Expand all</button></div>
+  <div class="items" id="decisions">
+    <details class="item" id="i1"><summary><span class="iid">D1</span><span class="ititle">&lt;Decision&gt;</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>&lt;the reason it is settled&gt;</span></div><div class="kv"><span class="ilbl">Effect</span><span>&lt;what changes because of it&gt;</span></div></div></details>
+    <details class="item" id="i2"><summary><span class="iid">D2</span><span class="ititle">&lt;Decision&gt;</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>&lt;the reason it is settled&gt;</span></div><div class="kv"><span class="ilbl">Effect</span><span>&lt;what changes because of it&gt;</span></div></div></details>
+  </div>
+</section>
+
+<section id="s7">
+  <h2><span class="num">07</span>By the numbers</h2>
+  <p>Three counts that change the decision, then the options side by side.</p>
+  <div class="stats">
+    <div class="stat"><div class="v">&lt;n&gt;</div><div class="l">&lt;label&gt;</div></div>
+    <div class="stat"><div class="v">&lt;n&gt;</div><div class="l">&lt;label&gt;</div></div>
+    <div class="stat"><div class="v">&lt;n&gt;</div><div class="l">&lt;label&gt;</div></div>
+  </div>
+  <div class="tabs">
+    <div class="tabpanel" id="panel-a" data-tab="&lt;Option A&gt;" data-key="A">
+      <h3 class="tab-h">&lt;Option A&gt;</h3>
+      <p>&lt;What this option gives and what it costs.&gt;</p>
+    </div>
+    <div class="tabpanel" id="panel-b" data-tab="&lt;Option B&gt;" data-key="B">
+      <h3 class="tab-h">&lt;Option B&gt;</h3>
+      <p>&lt;What this option gives and what it costs.&gt;</p>
+    </div>
+  </div>
+</section>
+
+<section id="s8">
+  <h2><span class="num">08</span>How it fits together</h2>
+  <p>One plain sentence, then the picture a reader can also read as text.</p>
+  <figure class="diagram" aria-labelledby="d1-cap">
+    <div class="canvas">
+      <svg viewBox="0 0 960 200" role="img" aria-labelledby="d1-title d1-desc">
+        <title id="d1-title">&lt;What the picture shows&gt;</title>
+        <desc id="d1-desc">&lt;A sentence a reader hears instead of seeing.&gt;</desc>
+        <g class="dg-node is-source"><rect x="20" y="60" width="220" height="64" rx="8"/><text class="t" x="38" y="88">&lt;input&gt;</text><text class="d" x="38" y="108">&lt;where it starts&gt;</text></g>
+        <path class="dg-edge" d="M240 92 L354 92"/><path class="dg-head" d="M354 87 L364 92 L354 97 Z"/>
+        <g class="dg-node is-gate"><rect x="370" y="60" width="220" height="64" rx="8"/><text class="t" x="388" y="88">&lt;step&gt;</text><text class="d" x="388" y="108">&lt;the check in the middle&gt;</text></g>
+        <path class="dg-edge" d="M590 92 L704 92"/><path class="dg-head" d="M704 87 L714 92 L704 97 Z"/>
+        <g class="dg-node"><rect x="720" y="60" width="220" height="64" rx="8"/><text class="t" x="738" y="88">&lt;output&gt;</text><text class="d" x="738" y="108">&lt;what it produces&gt;</text></g>
+      </svg>
+    </div>
+    <figcaption id="d1-cap"><b>Figure 1.</b> &lt;What the picture shows, in one line.&gt;</figcaption>
+    <details><summary>Text version of figure 1</summary>
+      <ol>
+        <li>&lt;Step one.&gt;</li>
+        <li>&lt;Step two.&gt;</li>
+        <li>&lt;Step three.&gt;</li>
+      </ol>
+    </details>
+  </figure>
 </section>
 
 </div>
@@ -423,6 +489,7 @@ footer{font-size:12px;letter-spacing:.02em}
 
 <footer>
   <span class="x">{</span>ai<span class="x">}</span> Engineering · PRD<br>
+  written by an AI agent
   <a href="#main">↑ top</a>
 </footer>
 <!-- brand:js:begin --><script>

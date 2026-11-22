@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="ai-engineering, written by an AI agent">
 <title>Recap · {{milestone}}</title>
 <style>
 /* brand:begin */
@@ -361,34 +362,83 @@ footer{font-size:12px;letter-spacing:.02em}
 <header class="hero">
   <span class="corner tl"></span><span class="corner tr"></span>
   <span class="corner bl"></span><span class="corner br"></span>
-  <div class="stamp">Recap · {{date}} · {{status}}</div>
   <h1>{{title}}</h1>
   <p class="sub">{{subtitle}}</p>
   <div class="meta">{{meta}}</div>
 </header>
 
 <nav>
-  <!-- Add nav links here: <a href="#s1"><b>01</b>Section</a> -->
+  <a href="#s1"><b>01</b>{{navOne}}</a>
+  <a href="#s2"><b>02</b>Decisions</a>
+  <a href="#s3"><b>03</b>By the numbers</a>
 </nav>
 
 <main id="main">
 <div class="container">
 
-<!-- Add sections here using the standard components:
-     <section id="sN">
-       <h2><span class="num">NN</span>Section title</h2>
-       content...
-     </section>
+<!-- Ready slots. Keep the markup and write the words: each section opens with
+     one plain sentence, then the visual (D13). Delete a slot the page does not
+     need; never add a style or a script of your own.
 
-     Available components:
-     - .stats > .stat > .v + .l     (stat cards)
-     - .tbl-wrap > table            (data tables)
-     - .card > h4 + p               (info cards)
-     - .note > h4 + p               (callouts: .ok, .warn, .danger)
-     - .grid.g2/.g3/.g4 > *         (grid layouts)
-     - .bracket > .tag + pre        (code panels)
-     - pre > pre .c/.k/.s/.t/.n/.b  (highlighted code)
--->
+     The rest of the vocabulary is on the reference page: brand/gallery.html. -->
+
+<section id="s1" aria-labelledby="h-s1">
+  <h2 id="h-s1"><span class="num">01</span>{{slotOneTitle}}</h2>
+  <p>{{slotOneLead}}</p>
+  <figure class="diagram" aria-labelledby="d1-cap">
+    <div class="canvas">
+      <svg viewBox="0 0 960 200" role="img" aria-labelledby="d1-title d1-desc">
+        <title id="d1-title">{{diagramTitle}}</title>
+        <desc id="d1-desc">{{diagramDescription}}</desc>
+        <g class="dg-node is-source"><rect x="20" y="60" width="220" height="64" rx="8"/><text class="t" x="38" y="88">{{nodeOne}}</text><text class="d" x="38" y="108">&lt;where it starts&gt;</text></g>
+        <path class="dg-edge" d="M240 92 L354 92"/><path class="dg-head" d="M354 87 L364 92 L354 97 Z"/>
+        <g class="dg-node is-gate"><rect x="370" y="60" width="220" height="64" rx="8"/><text class="t" x="388" y="88">{{nodeTwo}}</text><text class="d" x="388" y="108">&lt;the check in the middle&gt;</text></g>
+        <path class="dg-edge" d="M590 92 L704 92"/><path class="dg-head" d="M704 87 L714 92 L704 97 Z"/>
+        <g class="dg-node"><rect x="720" y="60" width="220" height="64" rx="8"/><text class="t" x="738" y="88">{{nodeThree}}</text><text class="d" x="738" y="108">&lt;what it produces&gt;</text></g>
+      </svg>
+    </div>
+    <figcaption id="d1-cap"><b>Figure 1.</b> {{diagramCaption}}</figcaption>
+    <details><summary>Text version of figure 1</summary>
+      <ol>
+        <li>{{stepOne}}</li>
+        <li>{{stepTwo}}</li>
+        <li>{{stepThree}}</li>
+      </ol>
+    </details>
+  </figure>
+</section>
+
+<section id="s2" aria-labelledby="h-s2">
+  <h2 id="h-s2"><span class="num">02</span>Decisions</h2>
+  <p>One line per decision, closed; the body says what it changes.</p>
+  <div class="toolbar"><button class="tool" type="button" data-expand="decisions" hidden>Expand all</button></div>
+  <div class="items" id="decisions">
+    <details class="item" id="i1"><summary><span class="iid">D1</span><span class="ititle">{{decisionOneTitle}}</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>{{decisionOneWhy}}</span></div><div class="kv"><span class="ilbl">Effect</span><span>{{decisionOneEffect}}</span></div></div></details>
+    <details class="item" id="i2"><summary><span class="iid">D2</span><span class="ititle">{{decisionTwoTitle}}</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>{{decisionTwoWhy}}</span></div><div class="kv"><span class="ilbl">Effect</span><span>{{decisionTwoEffect}}</span></div></div></details>
+  </div>
+</section>
+
+<section id="s3" aria-labelledby="h-s3">
+  <h2 id="h-s3"><span class="num">03</span>By the numbers</h2>
+  <p>Three counts that change the decision, then the options side by side.</p>
+  <div class="stats">
+    <div class="stat"><div class="v">{{statOneValue}}</div><div class="l">{{statOneLabel}}</div></div>
+    <div class="stat"><div class="v">{{statTwoValue}}</div><div class="l">{{statTwoLabel}}</div></div>
+    <div class="stat"><div class="v">{{statThreeValue}}</div><div class="l">{{statThreeLabel}}</div></div>
+  </div>
+  <div class="tabs">
+    <div class="tabpanel" id="panel-a" data-tab="{{optionOneName}}" data-key="A">
+      <h3 class="tab-h">{{optionOneName}}</h3>
+      <p>{{optionOneBody}}</p>
+    </div>
+    <div class="tabpanel" id="panel-b" data-tab="{{optionTwoName}}" data-key="B">
+      <h3 class="tab-h">{{optionTwoName}}</h3>
+      <p>{{optionTwoBody}}</p>
+    </div>
+  </div>
+</section>
 
 </div>
 </main>
@@ -396,6 +446,7 @@ footer{font-size:12px;letter-spacing:.02em}
 <footer>
   <span class="x">{</span>ai<span class="x">}</span> Engineering · Recap · {{milestone}}<br>
   {{footer}}
+  written by an AI agent
   <a href="#main">↑ top</a>
 </footer>
 <!-- brand:js:begin --><script>

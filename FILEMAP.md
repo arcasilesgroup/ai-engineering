@@ -12,7 +12,8 @@ PERMISSIONS.md                 Azure DevOps triage read routes and scope boundar
 .gitattributes                 Keeps LF line endings on every checkout, Windows included
 brand/
   components.css               Style body spliced between the brand CSS markers
-  components.js                Scroll-spy spliced between the brand script markers
+  components.js                The page script: scroll-spy, tabs, copy, filters, expand all
+  gallery.html.tpl             The reference page: every component live, its markup and its do and don't
 docs/
   global-carriers.md           Host carrier paths and their machine/repository scope
   history/                     Records, never rewritten: the early blueprint, the recap, the learnings log
@@ -53,6 +54,7 @@ tests/
   skills-lint.spec.ts           Skill frontmatter, Lifecycle, relative links and workflow contracts
   token-budget.spec.ts          Core token budgets and silent successful-hook output
 scripts/
+  artifact-a11y.ts             The static accessibility gate: markup rules WCAG lets a test prove
   chain-bundle.ts              Build the chain module the in-process plugin hosts import (into generated/)
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
   tokens.ts                    `bun run tokens`: report skill-frontmatter and AGENTS-template byte/4 counts
@@ -74,6 +76,7 @@ skills/                        Installed skill canon
   <skill-name>/                Every other shipped skill and its resources
 tests/
   brand-templates.spec.ts      Exact-byte brand marker splice, drift and parity line
+  artifact-a11y.spec.ts        The static accessibility gate on every page, and one failing fixture per rule
   skills.spec.ts               Skill contracts, including the local recap handoff
   ceremony-contract.spec.ts    Every skill, agent, script and template ai-orchestrator cites exists and ships embedded
   generated-payload.test.ts   Assert generated assets match their source files

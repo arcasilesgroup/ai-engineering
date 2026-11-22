@@ -37,6 +37,14 @@ before `</body>` of every template, so they arrive inside every template.
 `bun scripts/brand.ts artifact` checks the tokens against `brand/tokens.json`.
 Never edit the marked bytes of a template or of a page copied from one.
 
+## Read the gallery before you write
+
+`brand/gallery.html.tpl` is the reference: every component live, its markup in a
+copyable block, its keyboard behaviour, and a do and a don't beside it. It arrives
+as `brand/gallery.html` after `bun scripts/brand.ts gen`. If a page needs a part
+that is not on the gallery, the part is added there first — a component that
+lives only inside one artifact is a second design system.
+
 ## The rules that hold across every artifact
 
 1. **Dark only, one signal.** Light mode is never generated. `--accent` is the
@@ -149,6 +157,11 @@ the same bytes.
 - No heading level is skipped; the nav's links all resolve.
 - The page carries its template's brand region unchanged — a diff in a token or
   a rule is a defect, not a preference.
+- The static gate passes for the page: one `h1`, no skipped heading level, a
+  caption on every table and a scope on every header cell, a `title` on every inline SVG, ids
+  that resolve and stay unique, no external request, no inline handler, zoom not
+  blocked, and the forced-colors, reduced-motion and print layers present. It
+  runs inside `bun test`, so it fails on your machine first.
 - Scrolling marks the nav link of the section in view with `.active`, because
   the template's brand script is in the page, unchanged.
 - Every chip on the page resolves in its `.legend`, and every `.item` opens to a

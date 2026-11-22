@@ -700,6 +700,20 @@ function templatePaths(root: string): string[] {
   return relativePaths;
 }
 
+/** The gallery is hand-written and ships with the repository, not with a project. */
+const GALLERY_PATH = 'brand/gallery.html.tpl';
+
+/**
+ * Every page `gen` rewrites in place: the eight templates a project copies, then
+ * the gallery. The gallery is absent from a scratch copy of the brand tree, so
+ * its absence is not a carrier — only the files that exist are checked.
+ */
+export function carrierPaths(root: string = ROOT): string[] {
+  const carriers = templatePaths(root);
+  if (existsSync(join(root, GALLERY_PATH))) carriers.push(GALLERY_PATH);
+  return carriers;
+}
+
 async function readBrandComponents(root: string): Promise<{ readonly css: string; readonly js: string }> {
   return {
     css: await readFile(join(root, 'brand', 'components.css'), 'utf8'),
@@ -711,7 +725,7 @@ async function readBrandComponents(root: string): Promise<{ readonly css: string
 export async function templateDrift(root: string = ROOT): Promise<readonly string[]> {
   const { css, js } = await readBrandComponents(root);
   const drifted: string[] = [];
-  for (const relativePath of templatePaths(root)) {
+  for (const relativePath of carrierPaths(root)) {
     const html = await readFile(join(root, relativePath), 'utf8');
     try {
       if (spliceBrandRegions(html, css, js, relativePath) !== html) drifted.push(relativePath);
@@ -749,7 +763,7 @@ async function sameAsOnDisk(path: string, contents: string): Promise<boolean> {
 async function renderArtifacts(t: Tokens): Promise<[string, string][]> {
   const { css, js } = await readBrandComponents(ROOT);
   const templates: [string, string][] = [];
-  for (const relativePath of templatePaths(ROOT)) {
+  for (const relativePath of carrierPaths(ROOT)) {
     const templatePath = join(ROOT, relativePath);
     const html = await readFile(templatePath, 'utf8');
     templates.push([templatePath, spliceBrandRegions(html, css, js, relativePath)]);
@@ -815,6 +829,22 @@ function templateParityLine(matchesDisk: boolean, relativePath: string): string 
   return `${mark} ${relativePath}`;
 }
 
+/** A page over this weight is worth a line, never a failure (O: weight informs). */
+const WEIGHT_BUDGET_BYTES = 30 * 1024;
+
+/**
+ * One line per heavy carrier. It informs: a page that carries more than its
+ * share is a prompt to look, and the exit code stays the parity result.
+ */
+function weightLines(carriers: readonly [string, string][]): string[] {
+  return carriers
+    .filter(([, contents]) => Buffer.byteLength(contents) > WEIGHT_BUDGET_BYTES)
+    .map(([path, contents]) => {
+      const kilobytes = (Buffer.byteLength(contents) / 1024).toFixed(1);
+      return `info  ${relative(ROOT, path).split('\\').join('/')} — ${kilobytes} KB, over the ${WEIGHT_BUDGET_BYTES / 1024} KB budget`;
+    });
+}
+
 /**
  * Token outputs are compared with brand/tokens.json. Marked templates are
  * compared with brand/components.css and brand/components.js. A template
@@ -848,12 +878,14 @@ async function cmdParity(t: Tokens): Promise<number> {
   }
   let tokenDrift = 0;
   let templateDrift = 0;
+  const carriers: [string, string][] = [];
   for (const [path, contents] of artifacts) {
     const matchesDisk = await sameAsOnDisk(path, contents);
     const isTemplate = path.endsWith('.html.tpl');
     if (isTemplate) {
       const relativePath = relative(ROOT, path).split('\\').join('/');
       console.log(templateParityLine(matchesDisk, relativePath));
+      carriers.push([path, contents]);
     } else {
       console.log(`${matchesDisk ? 'ok  ' : 'DRIFT'} ${relative(process.cwd(), path) || path}`);
     }
@@ -868,6 +900,7 @@ async function cmdParity(t: Tokens): Promise<number> {
   // phone while every other check stays green. It is compared, not generated —
   // writing it would mean a generator editing markup it does not own.
   const theme = await themeColorDrift(t);
+  for (const line of weightLines(carriers)) console.log(line);
   console.log(`${theme === null ? 'ok  ' : 'DRIFT'} src/layouts/Base.astro theme-color`);
   if (theme !== null) {
     console.error(`\n${theme}`);

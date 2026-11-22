@@ -382,7 +382,6 @@ footer{font-size:12px;letter-spacing:.02em}
   <span class="corner tl"></span><span class="corner tr"></span>
   <span class="corner bl"></span><span class="corner br"></span>
   <div class="mark" aria-hidden="true"><span class="x">{</span>ai<span class="x">}</span></div>
-  <div class="stamp">Triage · {{repo}} · {{date}}</div>
   <h1>{{title}}</h1>
   <p class="sub">{{subtitle}}</p>
   <div class="meta">{{meta}}</div>
