@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brainstorm · autonomous by default</title>
+<meta name="ai-feature" content="autonomous-by-default">
+<meta name="ai-approved" content="2026-11-22">
+<meta name="ai-act-class" content="minimal">
+<style>
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px; --lh-h2:1.16; --ls-h2:-.018em;
+  --fs-h3:17px; --lh-h3:1.32; --ls-h3:-.006em;
+  --fs-h4:14px; --lh-h4:1.35;
+  --fs-body:15px; --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px; --lh-mono:1.7;
+  --fs-label:10.5px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --radius-lg:var(--radius); --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:var(--fs-body);line-height:var(--lh-body);font-synthesis-weight:none;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;transform:translateY(-160%);transition:transform .15s ease-out}
+.skip:focus{transform:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.hero{position:relative;overflow:hidden;text-align:center;padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px),radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);background-size:32px 32px,32px 32px,100% 100%}
+.hero .stamp{display:inline-block;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.26em;text-transform:uppercase;color:var(--accent);border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;margin-bottom:var(--s5)}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+nav{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;padding:var(--s2) var(--s4);background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:56px 0 44px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:660;margin:var(--s5) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+p{color:var(--dim);margin:0 auto var(--s3);text-align:justify;hyphens:auto}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ul{margin:var(--s3) 0 var(--s5) var(--s5)}
+ol{margin:var(--s3) 0 var(--s5);text-align:left;list-style:none;padding-left:0;counter-reset:ref}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s3);padding-left:var(--s2)}
+ol li{counter-increment:ref;padding-left:2.4em;position:relative}
+ol li::before{content:counter(ref) ".";position:absolute;left:0;color:var(--comment);font-family:var(--mono);font-size:12px;width:2em;text-align:right}
+li strong{color:var(--text)}
+.dim{color:var(--comment)}
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;-webkit-overflow-scrolling:touch}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);border-radius:var(--radius-lg);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.bracket pre{margin:0;border:none;background:none;padding:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
+.card h3,.card h4{min-height:22px;line-height:22px}
+.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s5);margin:var(--s5) 0}
+.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0;text-align:left}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+pre{max-width:100%}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+.tbl-wrap{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
+td code{overflow-wrap:normal;word-break:keep-all}
+table{min-width:640px}
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+.half{color:var(--warn);font-weight:600} .center{text-align:center}
+.btn{display:inline-block;border:1px solid rgba(0,237,100,.35);border-radius:999px;padding:8px 18px;margin:var(--s2) 0;color:var(--accent);font-family:var(--mono);font-size:12px;text-decoration:none;transition:background .15s}
+.btn:hover{background:rgba(0,237,100,.08);text-decoration:none}
+.pipe{display:flex;align-items:stretch;margin:var(--s5) 0;flex-wrap:wrap;gap:0}
+.pipe .stage{flex:1 1 150px;min-width:0;background:var(--surface);border:1px solid var(--line);padding:var(--s3) var(--s4) var(--s3)}
+.pipe .stage:first-child{border-radius:var(--radius-lg) 0 0 var(--radius-lg)}
+.pipe .stage:last-child{border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+.pipe .stage+.stage{border-left:none}
+.pipe .stage::after{content:'▸';position:absolute;right:-6px;top:50%;transform:translateY(-50%);color:var(--accent);font-size:13px;z-index:2}
+.pipe .stage{position:relative}
+.pipe .stage:last-child::after{content:''}
+.pipe .ph{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.pipe .sk{font-family:var(--mono);font-size:12px;color:var(--text);margin-top:var(--s2);line-height:1.5}
+.pipe .q{font-size:11.5px;color:var(--dim);margin-top:var(--s1)}
+.tiers{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.tier{display:flex;gap:var(--s4);align-items:baseline;border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
+.tier .tname{font-family:var(--mono);font-size:11px;letter-spacing:.08em;min-width:148px;color:var(--accent);text-transform:uppercase}
+.tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
+.tier .tbody b{color:var(--text)}
+.tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+/* ── items: the expandable row, and the band chip that ranks it ───────── */
+.band{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.08em;white-space:nowrap;color:var(--text);border:1px solid transparent}
+.band-p0{background:rgba(255,105,96,.16);border-color:rgba(255,105,96,.46)}
+.band-p1{background:rgba(255,192,16,.14);border-color:rgba(255,192,16,.44)}
+.band-p2{background:rgba(0,237,100,.12);border-color:rgba(0,237,100,.36)}
+.band-p3,.band-p4,.band-p5{background:rgba(17,39,51,.6);border-color:var(--line);color:var(--dim)}
+.items{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.item{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface)}
+.item>summary{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap;padding:var(--s3) var(--s4);cursor:pointer;list-style:none;border-radius:var(--radius-lg)}
+.item>summary::-webkit-details-marker{display:none}
+.item>summary::after{content:'+';font-family:var(--mono);font-size:13px;line-height:1;color:var(--comment)}
+.item[open]>summary::after{content:'\2013'}
+.item[open]>summary{border-bottom:1px solid var(--line);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.item>summary:hover{background:rgba(17,39,51,.35)}
+.item .iid{font-family:var(--mono);font-size:12px;font-weight:600;white-space:nowrap}
+.item .ititle{flex:1 1 300px;min-width:0;font-size:var(--fs-small);line-height:var(--lh-small);color:var(--text);font-weight:520}
+.item .imeta{font-family:var(--mono);font-size:11px;color:var(--warn);white-space:nowrap}
+.item .ibody{padding:var(--s3) var(--s4) var(--s4);display:grid;gap:var(--s2)}
+.kv{display:grid;grid-template-columns:128px minmax(0,1fr);gap:var(--s3);align-items:baseline}
+.kv>span{font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim);text-align:left}
+.ilbl{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim)}
+.xref{font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.xref a{color:var(--comment);text-decoration:underline;text-underline-offset:2px}
+.xref a:hover{color:var(--accent);text-decoration:none}
+.sig{display:flex;gap:var(--s3);flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.sig b{color:var(--dim);font-weight:500}
+.legend{display:grid;gap:var(--s2);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);padding:var(--s5);margin:var(--s5) 0}
+.legend>div{display:flex;gap:var(--s3);align-items:baseline;flex-wrap:wrap}
+.legend .lname{min-width:104px}
+.legend p{margin:0}
+.hero .mark{display:flex;width:44px;height:44px;align-items:center;justify-content:center;margin:0 auto var(--s4);border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);font-family:var(--mono);font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.04em}
+.hero .mark .x{color:var(--accent)}
+@media (max-width:700px){.kv{grid-template-columns:1fr;gap:var(--s1)}}
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+@media (max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.hero{padding:64px var(--s5) 44px}.hero h1{font-size:34px;letter-spacing:-.022em}.hero .sub{font-size:16px}.pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius-lg)!important;flex-basis:100%}.pipe .stage+.stage{margin-top:var(--s2)}.pipe .stage::after{content:''}.tier .tlat{text-align:left}}
+@media (max-width:820px){nav a{padding:14px 8px}}
+@media (max-width:560px){.container{padding:0 var(--s4)}nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none}nav::-webkit-scrollbar{display:none}nav::after{content:'';position:sticky;right:0;flex:0 0 28px;margin-left:-28px;background:linear-gradient(90deg,transparent,rgba(0,30,43,.95));pointer-events:none}nav a{padding:14px 8px}table{font-size:13px}th,td{padding:10px var(--s3)}pre{font-size:11.5px;padding:var(--s3) var(--s4)}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
+@media (prefers-contrast:more){:root{--dim:#E8EDEB;--comment:#C1C7C6}.card,.note,p,li,td{color:var(--dim)}nav a{color:#E8EDEB}}
+@media print{nav,.skip{display:none}body{background:#fff;color:#111}section{page-break-inside:avoid}}
+</style>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <div class="stamp">Brainstorm · autonomous by default</div>
+  <h1>Autonomous by default, the floor does the guarding</h1>
+  <p class="sub">Today the helper asks you many questions, waits for your yes, and stops again to show you the result before you merge. You want it to do the job when the job is clear, to pick the answer it recommends when something is unclear and nobody is there, and to write down every choice it made. You check the work in one place: the review that GitHub or Azure DevOps already asks for before a merge. The work is kept safe by locks that are always on, not by stop signs: the git hooks, the guard on every tool call, the scripts and tests, one AI review, and the review rule on your main branch. It always waits for you in one case: a feature that would use AI in a forbidden or high-risk way. First a practice job with hidden mistakes is run, so the numbers prove the cuts are faster and still catch every mistake.</p>
+  <div class="meta">complete · 2026-11-22 · lane: full (architectural) · replaces the delegated-approval draft</div>
+</header>
+
+<nav>
+  <a href="#s1"><b>01</b>Idea</a><a href="#s2"><b>02</b>Why</a><a href="#s3"><b>03</b>Who</a><a href="#s4"><b>04</b>Today</a><a href="#s5"><b>05</b>Success</a><a href="#s6"><b>06</b>Made</a><a href="#s7"><b>07</b>Open</a><a href="#s8"><b>08</b>Guardrails</a><a href="#s9"><b>09</b>Out</a><a href="#s10"><b>10</b>Research</a><a href="#s11"><b>11</b>Handoff</a>
+</nav>
+
+<main id="main">
+<div class="container">
+
+<section id="s1">
+  <h2><span class="num">01</span>The idea in plain words</h2>
+  <p>Today the helper asks you many questions, waits for your yes, and stops again to show you the result before you merge. You want it to do the job when the job is clear, to pick the answer it recommends when something is unclear and nobody is there, and to write down every choice it made. You check the work in one place: the review that GitHub or Azure DevOps already asks for before a merge. The work is kept safe by locks that are always on, not by stop signs: the git hooks, the guard on every tool call, the scripts and tests, one AI review, and the review rule on your main branch. It always waits for you in one case: a feature that would use AI in a forbidden or high-risk way. First a practice job with hidden mistakes is run, so the numbers prove the cuts are faster and still catch every mistake.</p>
+  <p>Direction set by the owner on 2026-11-22: "by default, if it is clear, we continue and it gets implemented; in an autonomous process, assume the recommended option". Four independent adversarial reviewers (security, quality, simplicity, facts) checked the first version of this page. The owner accepted their changes on 2026-11-22.</p>
+</section>
+
+<section id="s2">
+  <h2><span class="num">02</span>Why this matters</h2>
+  <p>The product page (<a href="https://ai-engineering.arcasiles.com/why/">/why/</a>, read on 2026-11-22) promises "no lifecycle to learn and no flow to migrate to", says "the guards screen the run; they do not script it", and claims "the work goes faster, on fewer tokens". The skills today add stops, nested loops and agent turns that the floor does not need. The base of the framework is the deterministic floor (git hooks, the guard chain, scripts, tests, the forge's review policy) plus AI validation where judgment is needed. A skill earns a step only when that step catches something the floor misses.</p>
+  <p>An earlier draft of this page added grant files, a launcher command and a session marker to allow unattended runs. The owner dropped it on 2026-11-22 as ceremony.</p>
+</section>
+
+<section id="s3">
+  <h2><span class="num">03</span>Who it's for</h2>
+  <ul>
+    <li>The owner of a repository who wants clear work built without being asked, and who reviews in the forge before merge.</li>
+    <li>Every downstream project that installs ai-engineering: the skills, the guard and the AGENTS.md template ship to them.</li>
+  </ul>
+</section>
+
+<section id="s4">
+  <h2><span class="num">04</span>What exists today</h2>
+  <p>Checked on 2026-11-22 at <code>b5a73717</code>, and fact-checked by an independent reviewer.</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>Fact</th><th>Evidence</th></tr>
+    <tr><td>The brainstorm stops before any build until a person approves (HARD-GATE). The interview asks one question at a time and "can run 30+ questions". The light paths stop too: a spike waits for "a nod", and a bounded change presents a design "and STOP".</td><td><code>skills/ai-brainstorm/SKILL.md:20-25, 34, 39-41, 116</code></td></tr>
+    <tr><td>After that approval the orchestrator already decides alone. An ambiguity takes the most consistent option and is logged as <code>assumptions</code>, the planner's questions are answered without asking, a re-plan runs without asking, and the only mid-run stop is the circuit breaker.</td><td><code>skills/ai-orchestrator/SKILL.md:21-25, 152, 197</code></td></tr>
+    <tr><td>Phase 4 asks the person to try the feature before the merge. Phase 3 pins the reviewed SHAs for that review. <code>ai-eng worktree merge</code> refuses unless the plan is <code>ready-to-merge</code> with <code>app_review: approved</code>, a value the agent writes. <code>ai-eng worktree request-changes</code> serves the same review.</td><td><code>skills/ai-orchestrator/SKILL.md:215-265</code>, <code>src/git/merge.ts:94-98</code>, <code>src/commands/worktree.ts:55</code></td></tr>
+    <tr><td>Gate 3 is a debate of up to 4 critic rounds with a fixer, plus an arbiter on deadlock, inside the orchestrator's own failure path (3 attempts, then a split). The fixer can dispute a finding with evidence.</td><td><code>skills/ai-adversarial-loop/SKILL.md:17-29</code>, <code>agents/fixer.md:18</code></td></tr>
+    <tr><td>Gate 2 today is capture plus two reviewer agents against a prototype. It runs neither axe nor <code>audit.mjs</code>, and <code>audit.mjs</code> needs a served build, not a dev server.</td><td><code>skills/ai-orchestrator/SKILL.md:181</code>, <code>skills/ai-review-ui/SKILL.md:24, 78-92</code>, <code>audit.mjs:37</code></td></tr>
+    <tr><td>Phase 1 runs a separate test-plan subagent, one prototype subagent per UI screen, and a viewer served by <code>python3 -m http.server</code>. The planner also validates its JSON with <code>python3 -m json.tool</code>. Gate 1 and the environment check each spend a subagent turn on commands whose result is an exit code.</td><td><code>skills/ai-orchestrator/SKILL.md:124-126, 154-158, 178</code>, <code>agents/checkpoint-planner.md:94</code></td></tr>
+    <tr><td>Brainstorm approval copies the conclusions into <code>PRD.html</code> and commits in the current checkout, which can be main. The planner already reads <code>brainstorm.html</code>. The skill has the agent copy a 50 KB reference's CSS into every page, although <code>templates/brainstorm.html.tpl</code> already holds it.</td><td><code>skills/ai-brainstorm/SKILL.md:286-307</code>, <code>agents/checkpoint-planner.md:11</code></td></tr>
+    <tr><td>The guard checks a brainstorm's slug, date, matching status line and 14-day age. All of these are written by the agent.</td><td><code>src/workflow/checkpoint.ts:655-700</code></td></tr>
+    <tr><td>The deterministic floor: the chain imports 10 guard modules. pre-push refuses a push to the detected base branch ref, for anyone; tags are not checked. No guard covers <code>gh</code> or <code>az</code> merge verbs. That control belongs to the forge's review policy.</td><td><code>src/chain/mod.ts:14-23</code>, <code>src/floor/index.ts:256-261</code></td></tr>
+    <tr><td>The Stop gate lets a turn end after 3 blocks, so a run can exit with open gates and no <code>halted</code>. A lease lapses after 15 minutes without a write.</td><td><code>src/workflow/checkpoint.ts:54, 700-702</code>, <code>src/guards/lease.ts:10-12, 79-81</code></td></tr>
+    <tr><td>The Claude PostToolUse matcher is <code>Bash|Edit|Write|MultiEdit|WebFetch|WebSearch</code>, so text read through MCP tools (an issue, for example) is never scanned by the injection guard.</td><td><code>templates/settings.claude.json.tpl:29</code>, <code>src/guards/injection.ts:37-53</code></td></tr>
+    <tr><td>Receipts carry <code>ts</code>, <code>event</code>, <code>tool</code>, <code>latency_ms</code>, <code>outcome</code> and <code>session_id</code>, with no token count and no checkpoint. A surface with no session id gets one per hook process, unless <code>AI_ENG_SESSION</code> is set. Checkpoint markers are read only from Task/Agent prompts, so Gate 2 (run by the orchestrator) and resumed Gate 3 rounds carry none.</td><td><code>src/receipts.ts:11-22</code>, <code>src/env.ts:110-118</code>, <code>src/guards/checkpoint.ts:383-386</code></td></tr>
+    <tr><td>Nothing in <code>src/</code> enforces an EU AI Act rule. <code>tests/fixtures/reference-feature/</code> does not exist yet.</td><td>search of <code>src/</code> and <code>tests/</code></td></tr>
+  </table></div>
+</section>
+
+<section id="s5">
+  <h2><span class="num">05</span>What success looks like</h2>
+  <ul>
+    <li>A clear request runs from brainstorm to a pushed feature branch with zero questions, on every lane.</li>
+    <li>With a person present and something unclear, the brainstorm asks at most one batch of questions, and only about choices that change the build: data model, public interface, a new runtime dependency, security, or the AI Act class.</li>
+    <li>With nobody present, each such choice takes the recommended answer and is listed under "Decided by the agent", so the reviewer sees it in the forge.</li>
+    <li>A plan write is refused when the brainstorm has no <code>ai-act-class</code>, when the class is <code>prohibited</code>, and when it is <code>high-risk</code> and the slug is not listed in <code>config.toml</code>.</li>
+    <li>A headless run always ends in a named state, and <code>ai-eng work status &lt;slug&gt;</code> exits 0 only when every checkpoint passed.</li>
+    <li>Against the A0 baseline of the reference feature, over 3 runs each: fewer agent dispatches per feature (splits included), and every planted defect is still caught.</li>
+  </ul>
+</section>
+
+<section id="s6">
+  <h2><span class="num">06</span>Decisions already made</h2>
+  <p>Decided by the owner on 2026-11-22, unless a line says otherwise.</p>
+  <div class="note ok"><ul>
+    <li><b>Autonomous by default.</b> A clear request goes straight to the build. An unclear one, with nobody to answer, takes the recommended option and records it under "Decided by the agent". The read-back is always written into the page, and the run does not stop for it. "Clear" means the read-back leaves no gap in the five batch categories of section 05. This covers every lane: the spike "nod", the bounded "STOP", the HARD-GATE and the "too simple to need approval" section go.</li>
+    <li><b>The base is the deterministic floor plus AI validation.</b> A skill adds no stop, step or agent turn unless it catches what the floor misses.</li>
+    <li><b>The forge's review policy is the human gate.</b> That means GitHub branch protection or a ruleset with a required review, or an Azure DevOps branch policy with a minimum number of reviewers. ai-engineering does not block <code>gh</code> or <code>az</code> merge verbs. <code>ai-eng doctor</code> reports a base branch that has no required review. A headless run starts only when <code>ai-eng doctor</code> passes: the floor hooks are installed and the review policy is on. Without a forge, <code>ai-eng worktree merge</code> accepts a plan whose every checkpoint passed; the merge is local and can be undone. (The no-forge line is the recommended default, taken under the owner's rule.)</li>
+    <li><b>The app review leaves the lifecycle.</b> Phase 4 becomes a report: routes to try, the checkpoint summary, the assumptions and the "Decided by the agent" list. The same change removes the app-review states, the reviewed-SHA pinning in Phase 3 and <code>ai-eng worktree request-changes</code>. A change request is a new run that resumes the slug.</li>
+    <li><b>The approval stamp shrinks.</b> The guard keeps the slug match and the 14-day age, and drops the status-line equality check. No <code>ai-approved-by</code> field: "Decided by the agent" already says who chose.</li>
+    <li><b>AGENTS.md</b> "never approve on your own initiative" becomes "approve when the request is clear; record what the agent decided". This applies to <code>templates/AGENTS.md.tpl</code> too.</li>
+    <li><b>EU AI Act, enforced by the guard.</b> Every brainstorm carries <code>&lt;meta name="ai-act-class"&gt;</code> with one value: <code>none</code>, <code>minimal</code>, <code>transparency</code> (Art. 50), <code>high-risk</code> (Art. 6, Annex III) or <code>prohibited</code> (Art. 5) of Regulation 2024/1689. When in doubt, the class is high-risk. The guard refuses the plan write when the class is missing or <code>prohibited</code>. It also refuses <code>high-risk</code> unless the slug is listed in <code>[work] ai_act_high_risk</code> in <code>config.toml</code>, a file that self-protect already keeps from the agent, so only a person can list it. Art. 50 duties (tell people they deal with AI, mark generated content) become acceptance criteria that Gate 1 tests.</li>
+    <li><b>Untrusted input is scanned.</b> The PostToolUse matcher adds <code>mcp__.*</code>, so issue text read through MCP passes the injection guard.</li>
+    <li><b>Headless runs end in a named state.</b> When the Stop gate lets a turn end with open gates, it writes <code>halted: {reason: "stopped with open gates"}</code> itself. A wait for a person is <code>halted: {reason: "needs-person: &lt;why&gt;"}</code>. <code>ai-eng work status &lt;slug&gt;</code> prints the state and exits 0 when every checkpoint passed, 2 when halted and 3 when a person is needed. The CI job sets its own timeout and one concurrency group per clone. A fourth run while three lanes are active fails with the existing <code>worktree new</code> message.</li>
+    <li><b>A0 measures quality first, then cost.</b> The reference feature under <code>tests/fixtures/reference-feature/</code> (a labelled input, a button, an error state, a sticky header, run in a fresh <code>ai-eng init</code> repo in a temp folder) carries planted defects named before the baseline: at least one per gate, one security defect for Gate 3, and one piece of correct code that looks wrong, as false-positive bait. Each run records the gate and attempt that caught each defect. Cost is the count of agent dispatches per feature, splits included, timed from the Pre and Post receipts of the same <code>tool_use_id</code>. Both receipts gain an optional <code>checkpoint</code> field; the plan-write inference is dropped. Each comparison runs 3 times. The report is the receipts summary in <code>ai-eng doctor</code> (with <code>--json</code>), not a new command, and the baseline is committed as <code>tests/fixtures/reference-feature/baseline.json</code>, because receipts expire after 30 days. Timing is a measurement, never a gate.</li>
+    <li>Dropped: grant files, the grant guard, <code>ai-eng work run</code>, the session marker, the stop button, the parity test, <code>ai-approved-by</code> and <code>ai-eng work time</code>.</li>
+    <li>Everything follows public standards, with no company-specific rule.</li>
+  </ul></div>
+  <h3>Cuts</h3>
+  <p>Each cut removes agent turns, stops or tokens and keeps every deterministic check. A cut that lets a planted defect through is reverted.</p>
+  <div class="note ok"><ol>
+    <li><b>Gate 3 is one critic pass per attempt.</b> The next critic receives the stored findings and the fixer's <code>ROOT CAUSE</code> and <code>FIX</code> lines in the same prompt. The fixer may return <code>DISPUTED F&lt;n&gt; &lt;file:line&gt;</code>, and the next critic rules on it. The nested debate leaves the loop; <code>/ai-adversarial-loop</code> stays as a skill on request.</li>
+    <li><b>Prototypes and the two UI reviewer agents run only when a design reference exists or the person asks.</b> This cut ships with A3, because only then does Gate 2 run axe and <code>audit.mjs</code> as <code>verify</code> commands against a served build.</li>
+    <li><b>checkpoint-planner writes the test plan in the same turn.</b> The unhappy-path, <code>why_ui</code> and lowest-layer rules of <code>ai-test-planner</code> move into the planner, and the critic judges coverage against the brainstorm, not only against the planner's own <code>acceptance</code>.</li>
+    <li><b>The viewer is opt-in</b>, started only when a person is watching. The planner validates its JSON with bun. No <code>python3</code> on the default path.</li>
+    <li><b>The brainstorm is one pass.</b> It writes the sections into <code>templates/brainstorm.html.tpl</code> and never copies the CSS reference. It asks only under the batch rule and writes no <code>PRD.html</code>. The approval commit lands on the feature branch, never on main.</li>
+    <li><b>Phase 4 is a report</b>, as decided above.</li>
+    <li><b>A LEARNINGS entry is written on a halt, or when the root cause differs from the finding.</b> <code>review-noise</code> entries stay, because they are the only feedback on critic false positives.</li>
+    <li><b>Gate 1 and the environment check run as scripts</b> that report PASS or FAIL, not as subagent turns. One commit per passed checkpoint replaces one commit per gate result.</li>
+  </ol></div>
+</section>
+
+<section id="s7">
+  <h2><span class="num">07</span>Decisions still open</h2>
+  <div class="note warn"><p>None. Every line in section 06 can be reversed by the owner.</p></div>
+</section>
+
+<section id="s8">
+  <h2><span class="num">08</span>Constraints and guardrails</h2>
+  <ul>
+    <li>No change removes or weakens a guard, a git hook, a script check or a test.</li>
+    <li>Never bypass a hook, never silence a linter, no secrets or machine paths.</li>
+    <li>No change adds an agent turn per checkpoint.</li>
+    <li>Wall-clock numbers are reported and never asserted (<code>scripts/bench-chain.ts:3</code>).</li>
+  </ul>
+</section>
+
+<section id="s9">
+  <h2><span class="num">09</span>Out of scope</h2>
+  <div class="note danger"><ul>
+    <li>Grant files, a launcher command, a scheduler or a daemon. A headless run uses the surface's own headless mode, and the schedule belongs to cron or CI.</li>
+    <li>A guard on forge merge verbs. The forge's review policy owns the merge.</li>
+    <li>Release or tag by an agent.</li>
+    <li>Removing any guard or git hook.</li>
+    <li>New skills.</li>
+    <li>The other steps of the plan (A2 to A8), queued in Handoff notes.</li>
+  </ul></div>
+</section>
+
+<section id="s10">
+  <h2><span class="num">10</span>Open questions for research</h2>
+  <ol>
+    <li>Answered from the code: a session id is not stable across surfaces (<code>src/env.ts:110-118</code>), so A0 pairs receipts by <code>tool_use_id</code>.</li>
+    <li>The /why/ page counts "6 chain guards plus 1 prompt guard" and "30 skills". The chain imports 10 guard modules and <code>skills/</code> holds 27 folders. Check how the page counts before changing either side; the page lives in the separate web repository.</li>
+    <li>Does a question tool (AskUserQuestion or a surface's equivalent) fail, hang or get skipped in each surface's headless mode? The "needs-person" state depends on it. [unsourced]</li>
+    <li>Which read-only API reports a required review on the base branch: GitHub classic branch protection and rulesets, and Azure DevOps branch policies? The <code>ai-eng doctor</code> check depends on it. [unsourced]</li>
+  </ol>
+</section>
+
+<section id="s11">
+  <h2><span class="num">11</span>Handoff notes</h2>
+  <ul>
+    <li>Lane full: the change removes lifecycle states that the guard, <code>merge.ts</code> and <code>worktree.ts</code> depend on. Next <code>/ai-architect</code>, which answers research items 3 and 4, then <code>/ai-orchestrator</code>.</li>
+    <li>Delivery in three stacked PRs:
+      <ol>
+        <li>A0: the reference feature with its planted defects, the receipt pairing and the baseline.</li>
+        <li>The code changes: approval stamp, AI Act meta, MCP matcher, Stop-gate halt, removal of the app-review states, <code>work status</code>, the forge-policy check in <code>doctor</code>.</li>
+        <li>The skill and AGENTS.md text: the autonomy default and cuts 1 and 3 to 8, measured against the baseline.</li>
+      </ol></li>
+    <li>Guard tests live in <code>tests/checkpoint-guard.spec.ts</code> and <code>tests/checkpoint-guard-contract.spec.ts</code>.</li>
+  </ul>
+  <h3>Order of the plan (2026-11-22)</h3>
+  <ol>
+    <li>This page.</li>
+    <li>A8, on the light lane: contradictions that fail today, such as the <code>gate(&lt;slug&gt;#N)</code> commit subject that the commit convention rejects.</li>
+    <li>A3, WCAG 2.2 AA blocks Gate 2, together with cut 2.</li>
+    <li>A2, architect in the loop.</li>
+    <li>A4 and A5.</li>
+    <li>A6 and A7.</li>
+  </ol>
+  <h3>Cuts for later steps, approved by the owner on 2026-11-22</h3>
+  <ul>
+    <li><b>A2.</b> The architect's output is a section of <code>brainstorm.html</code>. The "new dependency" trigger fires only for a runtime dependency. One architect turn per feature, never per checkpoint.</li>
+    <li><b>A3.</b> The 1.4.12, 1.4.4 and forced-colors passes run at the narrowest width only, in the same page load. Only deterministic results block: axe violations and <code>audit.mjs</code> high findings. Every new check ships with a failing and a clean fixture. <code>prefers-contrast</code> leaves the blocking set, and a disabled-zoom check joins it. axe-core is vendored and pinned.</li>
+    <li><b>A4.</b> Two lines of "Code style" change and two are added. The rule covers code, comments, docs and UI copy. No history-word script.</li>
+    <li><b>A5.</b> ai-audit-docs leaves Phase 3. Its deterministic checks (local links, commands, versions) become a script beside the skill, as <code>skills/ai-audit-design/scripts/audit.mjs</code> is beside its own, and Gate 1 runs it on changed docs only. ai-write calls the script. Phase 3 is one wave: ai-write, ai-security and perf, each only when its trigger fires.</li>
+    <li><b>Gate 3 rubric.</b> One line for the A4 rule on code and UI copy (Nielsen's usability heuristics), one line for Art. 50 duties. Same single pass.</li>
+    <li><b>A6.</b> The red test record keeps the command, the exit code and the first failing line.</li>
+    <li><b>A7.</b> Timeout and retry cases only for external calls the feature adds.</li>
+  </ul>
+  <h3>Facts for later steps (verified on 2026-11-22)</h3>
+  <ul>
+    <li><b>A3.</b> <code>audit.mjs:20</code> defaults to <code>aaa: true, target: 44</code>; skip link and positive tabindex are <code>low</code> (<code>:1077</code>, <code>:1084</code>). <code>accessibility-checklist.md:81</code> wrongly gives 2.5.8 a 3:1 contrast requirement. Gate 2 waives every <code>[intentional?]</code> finding (<code>ai-orchestrator/SKILL.md:181</code>), and the guard accepts <code>ui: n/a</code> whatever files changed (<code>src/guards/checkpoint.ts:279, 422</code>). The a11y lane is <code>skills/ai-verify/lanes/a11y-audit.md</code>. EN 301 549 V4.1.1 (2026-09-02) aligns with WCAG 2.2 AA; V3.2.1 stays the legal baseline until it is cited in the OJEU.</li>
+    <li><b>A2.</b> A2.4 looks done (<code>ai-architect/SKILL.md:470</code>); re-check before that step.</li>
+    <li><b>A4 and A5.</b> The rule replaces <code>AGENTS.md:18</code>. The perf lane is <code>skills/ai-verify/lanes/perf-audit.md</code>.</li>
+    <li><b>A6 and A8.</b> <code>tests</code> is already a stage (<code>src/guards/checkpoint.ts:37</code>). The A8 items 1, 3 and 5 are confirmed at the cited lines.</li>
+  </ul>
+</section>
+
+</div>
+</main>
+
+<footer>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · autonomous-by-default<br>
+  complete · 2026-11-22
+  <a href="#main">↑ top</a>
+</footer>
+<script>
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
+</script>
+</body>
+</html>
