@@ -151,6 +151,24 @@ function readsProgramFromStdin(name: string, args: string[]): boolean {
   return !args.some((arg) => !arg.startsWith("-"));
 }
 
+/** Interpreters that run a script file. Running a governed script (a shipped skill's) reads
+ *  it; what the script then writes is the one class only an OS sandbox closes. */
+const SCRIPT_RUNNERS = new Set(["node", "bun", "deno", "python", "python3"]);
+const INLINE_PROGRAM = /^(?:-[A-Za-z]*[ceEpm][A-Za-z]*|--(?:eval|print|command)(?:=.*)?)$/;
+// A script by its name: `node .ai-engineering/ai-eng.lock` is not running a script.
+const SCRIPT_FILE = /\.(?:[cm]?[jt]sx?|py)["']?$/i;
+
+/** Where in `args` the script an interpreter runs sits: its first non-flag argument (past
+ *  `run` for bun and deno), or -1 when it runs inline code, a module, or no script file. */
+function scriptOperand(name: string, args: readonly string[]): number {
+  if (!SCRIPT_RUNNERS.has(name) || args.some((arg) => INLINE_PROGRAM.test(arg))) return -1;
+  let index = args.findIndex((arg) => !arg.startsWith("-"));
+  if ((name === "bun" || name === "deno") && args[index] === "run") {
+    index = args.findIndex((arg, at) => at > index && !arg.startsWith("-"));
+  }
+  return index >= 0 && SCRIPT_FILE.test(args[index]!) ? index : -1;
+}
+
 const READERS = new Set([
   "cat", "less", "more", "head", "tail", "grep", "egrep", "fgrep", "rg", "ag", "wc", "diff", "cmp", "ls", "stat",
   "file", "sha256sum", "sha1sum", "sha512sum", "shasum", "md5", "md5sum", "cksum", "test", "[", "[[", "echo",
@@ -509,7 +527,9 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       // paths, and their heredocs are messages. gh is trusted by allowlist: an alias the
       // agent defines, `gh ext`, `gh config` and `gh repo clone -- -c …` can all run code.
       const isProse = name === "git" || (name === "gh" && GH_PROSE_SUBCOMMANDS.has(args[0] ?? ""));
+      const script = scriptOperand(name, args);
       for (const [index, arg] of args.entries()) {
+        if (index === script) continue;
         if (isWriter && (arg.includes("$") || arg.includes("`"))) return `${name} acts on a path computed at run time`;
         if (isWriter && hasUnknownBase && isRelative(arg)) return `${name} acts on a relative path after a cd to a directory computed at run time`;
         // Git records checkpoint files; it is the edit tools that must write them.
@@ -827,9 +847,11 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
 export function writesTo(paths: ProtectedPaths, command: string): string | null {
   const words = command.trim().split(/\s+/).filter((w) => w.length > 0);
   if (words.length === 0) return null;
-  const verb = verbOf(words).name;
+  const { index: verbIndex, name: verb } = verbOf(words);
   if (WRITERS[verb] === true || (verb === "sed" && words.includes("-i"))) {
-    return offendingPath(paths, command);
+    // The script an interpreter runs is read, not written: judge the rest of the command.
+    const script = scriptOperand(verb, words.slice(verbIndex + 1));
+    return offendingPath(paths, script < 0 ? command : words.filter((_word, index) => index !== verbIndex + 1 + script).join(" "));
   }
   // A writer downstream of a pipe (echo x | tee <path>): its arguments carry the
   // destination. Judge the writer verb's own words, not the whole pipeline.
