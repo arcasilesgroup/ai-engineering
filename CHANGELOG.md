@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.2.3
+
+### Patch Changes
+
+- [#809](https://github.com/arcasilesgroup/ai-engineering/pull/809) [`263249e`](https://github.com/arcasilesgroup/ai-engineering/commit/263249ec67b4fcbfb8d4bfe40e7c2c4c7c98de98) Thanks [@soydachi](https://github.com/soydachi)! - `/ai-orchestrator` now resumes one builder for tests, implementation, and verify, then one reviewer reads the diff. A blocker gets one fix. A second failure stops. A passed checkpoint is one commit and the end of the turn.
+
+- [#811](https://github.com/arcasilesgroup/ai-engineering/pull/811) [`4031008`](https://github.com/arcasilesgroup/ai-engineering/commit/4031008756f007d4ecf39c8f4335ddef08f2201a) Thanks [@soydachi](https://github.com/soydachi)! - `ai-eng work tidy` and `/ai-pr` now say to run tidy from another checkout while the feature folder is still on its branch, so closing a landed lane removes the folder as well as the branch.
+
 ## 3.2.2
 
 ### Patch Changes
