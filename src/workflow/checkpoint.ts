@@ -694,8 +694,12 @@ function brainstormApprovalResult(
     return { approval: null, problem: "brainstorm approval date is malformed" };
   }
   const statusLines = decodedStatusLine(html);
-  if (statusLines.length !== 1 || statusLines[0] !== `complete · ${approvedOn}`) {
-    return { approval: null, problem: "brainstorm approval does not match its complete status" };
+  const expected = `complete · ${approvedOn}`;
+  if (statusLines.length !== 1) {
+    return { approval: null, problem: `brainstorm has ${statusLines.length} .meta blocks; expected one whose first line is "${expected}"` };
+  }
+  if (statusLines[0] !== expected) {
+    return { approval: null, problem: `brainstorm status line reads "${statusLines[0]}"; expected "${expected}" alone on the first line of .meta` };
   }
   const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const ageDays = (todayStart - approvedDate.getTime()) / 86_400_000;

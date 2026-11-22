@@ -239,7 +239,9 @@ one family with the research pages and the recap:
 
 - `<header class="hero">` with the `{ai}` favicon, stamp `Brainstorm · <idea>`, h1
   `<idea name>`, `.sub` carrying the read-back that passed, `.meta` with the status
-  line (`draft · interview in progress` / `complete · YYYY-MM-DD`).
+  line (`draft · interview in progress` / `complete · YYYY-MM-DD`) alone on its first
+  line, then `<br>` and anything else (lane, owner) after it. The approval gate reads
+  that first line and accepts nothing else on it.
 - Two meta tags in `<head>`, so a later run can tell this interview from an older one:
   `<meta name="ai-feature" content="<slug>">` and, only after approval,
   `<meta name="ai-approved" content="YYYY-MM-DD">`. The slug is the kebab-case name
