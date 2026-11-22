@@ -169,6 +169,24 @@ function scriptOperand(name: string, args: readonly string[]): number {
   return index >= 0 && SCRIPT_FILE.test(args[index]!) ? index : -1;
 }
 
+/** The module `python -m <module>` runs, or null. */
+function pythonModule(name: string, args: readonly string[]): string | null {
+  const flag = args.indexOf("-m");
+  return (name === "python" || name === "python3") && flag >= 0 ? args[flag + 1] ?? null : null;
+}
+
+/** The indexes in `args` that a command only reads although it is not a reader: the script
+ *  an interpreter runs, and the directory `python -m http.server` serves. */
+function readOperands(name: string, args: readonly string[]): number[] {
+  const script = scriptOperand(name, args);
+  if (script >= 0) return [script];
+  if (pythonModule(name, args) !== "http.server") return [];
+  return args.flatMap((arg, index) => {
+    if (arg.startsWith("--directory=")) return [index];
+    return args[index - 1] === "--directory" || args[index - 1] === "-d" ? [index] : [];
+  });
+}
+
 const READERS = new Set([
   "cat", "less", "more", "head", "tail", "grep", "egrep", "fgrep", "rg", "ag", "wc", "diff", "cmp", "ls", "stat",
   "file", "sha256sum", "sha1sum", "sha512sum", "shasum", "md5", "md5sum", "cksum", "test", "[", "[[", "echo",
@@ -531,9 +549,9 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       // paths, and their heredocs are messages. gh is trusted by allowlist: an alias the
       // agent defines, `gh ext`, `gh config` and `gh repo clone -- -c …` can all run code.
       const isProse = name === "git" || (name === "gh" && GH_PROSE_SUBCOMMANDS.has(args[0] ?? ""));
-      const script = scriptOperand(name, args);
+      const reads = readOperands(name, args);
       for (const [index, arg] of args.entries()) {
-        if (index === script) continue;
+        if (reads.includes(index)) continue;
         if (isWriter && (arg.includes("$") || arg.includes("`"))) return `${name} acts on a path computed at run time`;
         if (isWriter && hasUnknownBase && isRelative(arg)) return `${name} acts on a relative path after a cd to a directory computed at run time`;
         // Git records checkpoint files; it is the edit tools that must write them.
@@ -858,9 +876,10 @@ export function writesTo(paths: ProtectedPaths, command: string): string | null 
   if (words.length === 0) return null;
   const { index: verbIndex, name: verb } = verbOf(words);
   if (WRITERS[verb] === true || (verb === "sed" && words.includes("-i"))) {
-    // The script an interpreter runs is read, not written: judge the rest of the command.
-    const script = scriptOperand(verb, words.slice(verbIndex + 1));
-    return offendingPath(paths, script < 0 ? command : words.filter((_word, index) => index !== verbIndex + 1 + script).join(" "));
+    // What the command only reads (the script it runs, the folder it serves) is not written:
+    // judge the rest of the command.
+    const reads = readOperands(verb, words.slice(verbIndex + 1)).map((index) => verbIndex + 1 + index);
+    return offendingPath(paths, reads.length === 0 ? command : words.filter((_word, index) => !reads.includes(index)).join(" "));
   }
   // A writer downstream of a pipe (echo x | tee <path>): its arguments carry the
   // destination. Judge the writer verb's own words, not the whole pipeline.

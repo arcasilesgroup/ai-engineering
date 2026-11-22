@@ -85,3 +85,26 @@ describe("self-protect — a quoted glob names only its own text", () => {
     }
   });
 });
+
+describe("self-protect — a static file server only reads its directory", () => {
+  test("the --directory or -d of python3 -m http.server is a read", () => {
+    for (const command of [
+      `python3 -m http.server 4399 --bind 127.0.0.1 --directory ${repo}/.ai-engineering`,
+      "python3 -m http.server 4399 -d .ai-engineering",
+      "python -m http.server --directory=.ai-engineering",
+    ]) {
+      expect(verdict(command), command).toBeUndefined();
+    }
+  });
+
+  test("another module, another argument, or a redirect into a governed path stays denied", () => {
+    for (const command of [
+      "python3 -m zipfile -e archive.zip .ai-engineering",
+      "python3 -m http.server .ai-engineering",
+      "python3 -m http.server --directory .ai-engineering > .ai-engineering/config.toml",
+      "python3 -m http.server --directory . --bind .ai-engineering",
+    ]) {
+      expect(verdict(command)?.deny, command).toBe(true);
+    }
+  });
+});
