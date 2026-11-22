@@ -35,6 +35,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:va
 ::selection{background:rgba(0,237,100,.28)}
 a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline;text-underline-offset:3px}
+/* A link inside a block of text carries an underline: on its own the accent is
+   one more colour in a paragraph, and WCAG 1.4.1 asks for a second cue. */
+p a,li a,td a,figcaption a,.note a,.callout a,.item a{text-decoration:underline;text-underline-offset:3px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
 .skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;transform:translateY(-160%);transition:transform .15s ease-out}
 .skip:focus{transform:none}
@@ -112,10 +115,11 @@ pre{max-width:100%}
 .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
 .stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
-.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);min-width:min(132px,100%);max-width:100%;text-align:center}
 .stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
 .stat .v em{font-style:normal;color:var(--accent)}
 .stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+.stat .v,.stat .l{overflow-wrap:anywhere}
 .tbl-wrap{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
 table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
 th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
@@ -441,7 +445,7 @@ select{font:inherit;font-family:var(--mono);font-size:12px;background:var(--surf
 .drop p{margin:0 auto var(--s2);max-width:48ch;text-align:center;color:var(--dim);font-size:var(--fs-small);line-height:var(--lh-small)}
 .drop strong{color:var(--text)}
 .drop code{font-family:var(--mono);font-size:var(--fs-mono);color:var(--accent-dim)}
-.drop input{min-height:44px}
+.drop input{min-height:44px;max-width:100%}
 @media (max-width:520px){.body{padding-left:var(--s4)} h1{font-size:22px}}
 </style>
 </head>

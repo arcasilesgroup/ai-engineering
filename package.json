@@ -32,6 +32,7 @@
     "prepack": "bun scripts/chain-bundle.ts",
     "test": "bun test",
     "lint": "oxlint src tests --ignore-pattern 'tests/fixtures/verify-tiers/evals/**'",
+    "a11y": "bun scripts/artifact-axe.ts",
     "typecheck": "oxlint --type-aware --type-check src tests --ignore-pattern 'tests/fixtures/verify-tiers/evals/**'",
     "arch": "bun test tests/arch.spec.ts",
     "bench": "bun scripts/bench-chain.ts",
@@ -49,8 +50,10 @@
     "@hughescr/stryker-bun-runner": "1.3.8",
     "@stryker-mutator/core": "9.6.1",
     "@types/bun": "1.4.0",
+    "axe-core": "4.14.0",
     "oxlint": "1.80.0",
-    "oxlint-tsgolint": "7.0.2001"
+    "oxlint-tsgolint": "7.0.2001",
+    "playwright-core": "1.65.1"
   },
   "overrides": {
     "smol-toml": "1.7.2",

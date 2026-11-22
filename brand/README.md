@@ -39,6 +39,7 @@ Run these from the repository root.
 | `bun scripts/brand.ts parity` | Do the committed token outputs still match `brand/tokens.json`, and does every template's brand region still match `brand/components.css` and `brand/components.js`? A template missing a marker fails with the file and the marker named. Also fails when the `theme-color` meta tag, the one palette value that lives in hand-written markup, has gone stale. |
 | `bun scripts/brand.ts contrast` | Is every text-on-surface pair legible? Prints each measured WCAG 2.1 ratio and the level it must reach. |
 | `bun scripts/brand.ts artifact` | Do the inline token blocks in the generated artifacts still match the brand? |
+| `bun run a11y` | Do the pages still pass WCAG 2.2 AA in a real browser? Opens every template and the gallery in the system Chrome at 320, 390, 768 and 1440px and in forced colours, runs axe-core (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`), then walks every tab set with the arrow keys, checks 320px reflow with the WCAG text-spacing overrides, and opens every page with the script off. Needs Google Chrome and downloads no browser. |
 
 ## What keeps the gates honest
 
@@ -52,6 +53,7 @@ is itself a failing build:
 | `tests/brand-contrast.spec.ts` | the WCAG maths, against published values (`#767676` passes AA on white, `#777777` does not) | pins the border decision: `--border` is `gray.base` because `#5C6C75` measures 2.76:1 on a raised surface, below the level a border pair must reach |
 | `tests/brand-generated.spec.ts` | that `gen` computes the *right* thing, not merely a stable thing | a breakpoint derivation that leaves `design.json` claiming the site has no responsive thresholds fails here even with `parity` green |
 | `tests/artifact-a11y.spec.ts` | the static accessibility gate, on both sides | every shipped page passes; and each rule gets a fixture that breaks exactly it, so the message it prints is proven to come from that rule and no other |
+| `scripts/artifact-axe.ts` | the browser gate, against a real Chrome and a real viewport | axe-core is the oracle; the keyboard walk, the 320px reflow and the script-off pass are asserted by reading the page, and a planted contrast defect is shown to fail the run |
 
 Run them with `bun test tests/brand-*.spec.ts`, or as part of `bun test`.
 

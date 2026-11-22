@@ -55,6 +55,7 @@ tests/
   token-budget.spec.ts          Core token budgets and silent successful-hook output
 scripts/
   artifact-a11y.ts             The static accessibility gate: markup rules WCAG lets a test prove
+  artifact-axe.ts              The browser gate `bun run a11y`: axe-core in system Chrome, keys, reflow, no script
   chain-bundle.ts              Build the chain module the in-process plugin hosts import (into generated/)
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
   tokens.ts                    `bun run tokens`: report skill-frontmatter and AGENTS-template byte/4 counts
