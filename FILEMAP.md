@@ -70,6 +70,7 @@ skills/                        Installed skill canon
   ai-stress-test/              Adversarial stress-test planning
   <skill-name>/                Every other shipped skill and its resources
 tests/
+  brand-templates.spec.ts      Exact-byte brand marker splice, drift and parity line
   skills.spec.ts               Skill contracts, including the local recap handoff
   ceremony-contract.spec.ts    Every skill, agent, script and template ai-orchestrator cites exists and ships embedded
   generated-payload.test.ts   Assert generated assets match their source files
