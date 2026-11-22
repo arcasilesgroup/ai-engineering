@@ -151,6 +151,10 @@ function readsProgramFromStdin(name: string, args: string[]): boolean {
   return !args.some((arg) => !arg.startsWith("-"));
 }
 
+/** A URL with a scheme other than file: its path lives on a server, never on this disk.
+ *  A file:// URL is a path and is judged as one. */
+const NETWORK_URL = /^(?!file:)[a-z][a-z\d+.-]*:\/\//i;
+
 /** Interpreters that run a script file. Running a governed script (a shipped skill's) reads
  *  it; what the script then writes is the one class only an OS sandbox closes. */
 const SCRIPT_RUNNERS = new Set(["node", "bun", "deno", "python", "python3"]);
@@ -554,7 +558,10 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       const isProse = name === "git" || (name === "gh" && GH_PROSE_SUBCOMMANDS.has(args[0] ?? ""));
       const reads = readOperands(name, args);
       for (const [index, arg] of args.entries()) {
-        if (reads.includes(index)) continue;
+        // A URL handed to a program that writes no tree is fetched, not opened. Read as a
+        // local path it lands under `./http:/`, unless `..` climbs out of it.
+        const isUrl = !isWriter && NETWORK_URL.test(arg) && !/(?:^|\/)\.\.(?:\/|$)/.test(arg);
+        if (reads.includes(index) || isUrl) continue;
         if (isWriter && (arg.includes("$") || arg.includes("`"))) return `${name} acts on a path computed at run time`;
         if (isWriter && hasUnknownBase && isRelative(arg)) return `${name} acts on a relative path after a cd to a directory computed at run time`;
         // Git records checkpoint files; it is the edit tools that must write them.

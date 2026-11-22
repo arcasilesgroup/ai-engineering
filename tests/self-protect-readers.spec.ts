@@ -130,3 +130,27 @@ describe("self-protect — json.tool with one file only reads it", () => {
     }
   });
 });
+
+describe("self-protect — a URL is not a file path", () => {
+  test("an http or https URL whose path looks governed names no file", () => {
+    for (const command of [
+      "curl -s http://127.0.0.1:8765/.ai-engineering/workflow/checkpoints/viewer.html?plan=x",
+      'agent-browser open "http://127.0.0.1:8765/.ai-engineering/workflow/checkpoints/viewer.html?plan=x"',
+      "curl -s https://example.com/.ai-engineering/config.toml",
+    ]) {
+      expect(verdict(command), command).toBeUndefined();
+    }
+  });
+
+  test("a file URL is still a path, and a governed output file is still a write", () => {
+    for (const command of [
+      `curl -s file://${repo}/.ai-engineering/workflow/checkpoints/viewer.html`,
+      "curl -s http://127.0.0.1:8765/x -o .ai-engineering/config.toml",
+      "curl -s http://127.0.0.1:8765/x -o.git/hooks/pre-commit",
+      "sqlite3 http://x/../../.ai-engineering/config.toml",
+      "cp payload http://x/.ai-engineering/config.toml",
+    ]) {
+      expect(verdict(command)?.deny, command).toBe(true);
+    }
+  });
+});
