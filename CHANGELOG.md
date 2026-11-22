@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.2.2
+
+### Patch Changes
+
+- [#806](https://github.com/arcasilesgroup/ai-engineering/pull/806) [`3ad5cf4`](https://github.com/arcasilesgroup/ai-engineering/commit/3ad5cf43ef33967672cd366830fe0fda42f88bc6) Thanks [@soydachi](https://github.com/soydachi)! - `ai-eng config` no longer ends its summary with "model tiers: .ai-engineering/config.toml": the config template has carried no model tiers for a while, so the line sent you to look for a table that is not there.
+
 ## 3.2.1
 
 ### Patch Changes
