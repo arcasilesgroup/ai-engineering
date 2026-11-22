@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brainstorm · brand design system</title>
+<meta name="ai-feature" content="brand-design-system">
+<meta name="ai-approved" content="2026-11-22">
+<meta name="ai-act-class" content="minimal">
+<meta name="generator" content="ai-engineering, written by an AI agent">
+<style>
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px; --lh-h2:1.16; --ls-h2:-.018em;
+  --fs-h3:17px; --lh-h3:1.32; --ls-h3:-.006em;
+  --fs-h4:14px; --lh-h4:1.35;
+  --fs-body:15px; --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px; --lh-mono:1.7;
+  --fs-label:10.5px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --radius-lg:var(--radius); --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:var(--fs-body);line-height:var(--lh-body);font-synthesis-weight:none;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;transform:translateY(-160%);transition:transform .15s ease-out}
+.skip:focus{transform:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.hero{position:relative;overflow:hidden;text-align:center;padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px),radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);background-size:32px 32px,32px 32px,100% 100%}
+.hero .stamp{display:inline-block;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.26em;text-transform:uppercase;color:var(--accent);border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;margin-bottom:var(--s5)}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+nav{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;padding:var(--s2) var(--s4);background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:56px 0 44px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:660;margin:var(--s5) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+p{color:var(--dim);margin:0 auto var(--s3);text-align:justify;hyphens:auto}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ul{margin:var(--s3) 0 var(--s5) var(--s5)}
+ol{margin:var(--s3) 0 var(--s5);text-align:left;list-style:none;padding-left:0;counter-reset:ref}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s3);padding-left:var(--s2)}
+ol li{counter-increment:ref;padding-left:2.4em;position:relative}
+ol li::before{content:counter(ref) ".";position:absolute;left:0;color:var(--comment);font-family:var(--mono);font-size:12px;width:2em;text-align:right}
+li strong{color:var(--text)}
+.dim{color:var(--comment)}
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;-webkit-overflow-scrolling:touch}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);border-radius:var(--radius-lg);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.bracket pre{margin:0;border:none;background:none;padding:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
+.card h3,.card h4{min-height:22px;line-height:22px}
+.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s5);margin:var(--s5) 0}
+.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0;text-align:left}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+pre{max-width:100%}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+.tbl-wrap{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
+td code{overflow-wrap:normal;word-break:keep-all}
+table{min-width:640px}
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+.half{color:var(--warn);font-weight:600} .center{text-align:center}
+.btn{display:inline-block;border:1px solid rgba(0,237,100,.35);border-radius:999px;padding:8px 18px;margin:var(--s2) 0;color:var(--accent);font-family:var(--mono);font-size:12px;text-decoration:none;transition:background .15s}
+.btn:hover{background:rgba(0,237,100,.08);text-decoration:none}
+.pipe{display:flex;align-items:stretch;margin:var(--s5) 0;flex-wrap:wrap;gap:0}
+.pipe .stage{flex:1 1 150px;min-width:0;background:var(--surface);border:1px solid var(--line);padding:var(--s3) var(--s4) var(--s3)}
+.pipe .stage:first-child{border-radius:var(--radius-lg) 0 0 var(--radius-lg)}
+.pipe .stage:last-child{border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+.pipe .stage+.stage{border-left:none}
+.pipe .stage::after{content:'▸';position:absolute;right:-6px;top:50%;transform:translateY(-50%);color:var(--accent);font-size:13px;z-index:2}
+.pipe .stage{position:relative}
+.pipe .stage:last-child::after{content:''}
+.pipe .ph{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.pipe .sk{font-family:var(--mono);font-size:12px;color:var(--text);margin-top:var(--s2);line-height:1.5}
+.pipe .q{font-size:11.5px;color:var(--dim);margin-top:var(--s1)}
+.tiers{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.tier{display:flex;gap:var(--s4);align-items:baseline;border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
+.tier .tname{font-family:var(--mono);font-size:11px;letter-spacing:.08em;min-width:148px;color:var(--accent);text-transform:uppercase}
+.tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
+.tier .tbody b{color:var(--text)}
+.tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+/* ── items: the expandable row, and the band chip that ranks it ───────── */
+.band{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.08em;white-space:nowrap;color:var(--text);border:1px solid transparent}
+.band-p0{background:rgba(255,105,96,.16);border-color:rgba(255,105,96,.46)}
+.band-p1{background:rgba(255,192,16,.14);border-color:rgba(255,192,16,.44)}
+.band-p2{background:rgba(0,237,100,.12);border-color:rgba(0,237,100,.36)}
+.band-p3,.band-p4,.band-p5{background:rgba(17,39,51,.6);border-color:var(--line);color:var(--dim)}
+.items{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.item{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface)}
+.item>summary{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap;padding:var(--s3) var(--s4);cursor:pointer;list-style:none;border-radius:var(--radius-lg)}
+.item>summary::-webkit-details-marker{display:none}
+.item>summary::after{content:'+';font-family:var(--mono);font-size:13px;line-height:1;color:var(--comment)}
+.item[open]>summary::after{content:'\2013'}
+.item[open]>summary{border-bottom:1px solid var(--line);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.item>summary:hover{background:rgba(17,39,51,.35)}
+.item .iid{font-family:var(--mono);font-size:12px;font-weight:600;white-space:nowrap}
+.item .ititle{flex:1 1 300px;min-width:0;font-size:var(--fs-small);line-height:var(--lh-small);color:var(--text);font-weight:520}
+.item .imeta{font-family:var(--mono);font-size:11px;color:var(--warn);white-space:nowrap}
+.item .ibody{padding:var(--s3) var(--s4) var(--s4);display:grid;gap:var(--s2)}
+.kv{display:grid;grid-template-columns:128px minmax(0,1fr);gap:var(--s3);align-items:baseline}
+.kv>span{font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim);text-align:left}
+.ilbl{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim)}
+.xref{font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.xref a{color:var(--comment);text-decoration:underline;text-underline-offset:2px}
+.xref a:hover{color:var(--accent);text-decoration:none}
+.sig{display:flex;gap:var(--s3);flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.sig b{color:var(--dim);font-weight:500}
+.legend{display:grid;gap:var(--s2);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);padding:var(--s5);margin:var(--s5) 0}
+.legend>div{display:flex;gap:var(--s3);align-items:baseline;flex-wrap:wrap}
+.legend .lname{min-width:104px}
+.legend p{margin:0}
+.hero .mark{display:flex;width:44px;height:44px;align-items:center;justify-content:center;margin:0 auto var(--s4);border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);font-family:var(--mono);font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.04em}
+.hero .mark .x{color:var(--accent)}
+@media (max-width:700px){.kv{grid-template-columns:1fr;gap:var(--s1)}}
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+@media (max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.hero{padding:64px var(--s5) 44px}.hero h1{font-size:34px;letter-spacing:-.022em}.hero .sub{font-size:16px}.pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius-lg)!important;flex-basis:100%}.pipe .stage+.stage{margin-top:var(--s2)}.pipe .stage::after{content:''}.tier .tlat{text-align:left}}
+@media (max-width:820px){nav a{padding:14px 8px}}
+@media (max-width:560px){.container{padding:0 var(--s4)}nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none}nav::-webkit-scrollbar{display:none}nav::after{content:'';position:sticky;right:0;flex:0 0 28px;margin-left:-28px;background:linear-gradient(90deg,transparent,rgba(0,30,43,.95));pointer-events:none}nav a{padding:14px 8px}table{font-size:13px}th,td{padding:10px var(--s3)}pre{font-size:11.5px;padding:var(--s3) var(--s4)}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
+@media (prefers-contrast:more){:root{--dim:#E8EDEB;--comment:#C1C7C6}.card,.note,p,li,td{color:var(--dim)}nav a{color:#E8EDEB}}
+@media print{nav,.skip{display:none}body{background:#fff;color:#111}section{page-break-inside:avoid}}
+/* ── proposed component layer ─────────────────────────────────────────────
+   The components this brainstorm proposes, rendered live so the reader can
+   judge them. After approval they move to brand/components.css and every
+   carrier receives them from `bun scripts/brand.ts gen`.                   */
+html{scroll-padding-top:96px}
+/* cross-OS faces: each platform's own sans and mono, so no page falls back to Courier */
+:root{--sans:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;--mono:ui-monospace,'SF Mono','Cascadia Code','JetBrains Mono',Consolas,'DejaVu Sans Mono','Liberation Mono',monospace}
+h3.sub-h{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:640;margin:var(--s6) 0 var(--s3)}
+section>p{text-align:justify;hyphens:auto;color:var(--dim);margin:var(--s3) 0}
+section>p strong{color:var(--text)}
+kbd{font-family:var(--mono);font-size:12px;line-height:1.4;color:var(--text);background:var(--surface-2);border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:4px;padding:1px 6px}
+/* diagram: a figure holding inline SVG, named for assistive tech, with a text alternative */
+.diagram{margin:var(--s5) 0;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);padding:var(--s4) var(--s4) var(--s3)}
+.diagram .canvas{overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+.diagram svg{display:block;width:100%;height:auto;min-width:720px}
+.diagram figcaption{font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim);margin-top:var(--s3);text-align:left}
+.diagram figcaption b{color:var(--text);font-weight:600}
+.diagram details{margin-top:var(--s2);font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim)}
+.diagram details>summary{cursor:pointer;font-family:var(--mono);font-size:11.5px;color:var(--accent-dim);padding:8px 0;min-height:32px}
+.diagram details ol,.diagram details ul{padding-left:var(--s5);display:grid;gap:var(--s1)}
+.dg-node rect{fill:var(--surface);stroke:var(--line-strong);stroke-width:1}
+.dg-node.is-source rect{stroke:var(--accent);stroke-width:1.5}
+.dg-node.is-gate rect{stroke:var(--warn);stroke-dasharray:5 4}
+.dg-node .t{fill:var(--text);font-family:var(--mono);font-size:13px;font-weight:600}
+.dg-node .d{fill:var(--dim);font-family:var(--sans);font-size:11.5px}
+.dg-edge{fill:none;stroke:var(--accent-dim);stroke-width:1.5}
+.dg-edge.is-check{stroke:var(--warn);stroke-dasharray:5 4}
+.dg-head{fill:var(--accent-dim)}
+.dg-head.is-check{fill:var(--warn)}
+.dg-lbl{fill:var(--dim);font-family:var(--mono);font-size:11px}
+/* tabs: built by the script from .tabpanel blocks; without it the panels stack */
+/* tabs: underline tabs in the reading voice; one accent bar slides under the chosen tab */
+.tabs{margin:var(--s5) 0}
+.tabs .tablist{position:relative;display:flex;gap:var(--s1);border-bottom:1px solid var(--line-strong);overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}
+.tabs .tablist::-webkit-scrollbar{display:none}
+.tabs .tablist.has-more{-webkit-mask-image:linear-gradient(90deg,#000 82%,transparent);mask-image:linear-gradient(90deg,#000 82%,transparent)}
+.hero .sub{text-align:center;hyphens:manual}
+@media (max-width:560px){.item>summary{flex-wrap:nowrap;align-items:flex-start}.item .ititle{flex:1 1 auto}}
+.tabs [role=tab]{flex:0 0 auto;display:inline-flex;align-items:center;gap:var(--s2);font:inherit;font-family:var(--sans);font-size:14px;line-height:1.3;font-weight:560;color:var(--dim);background:none;border:0;border-radius:var(--radius-sm) var(--radius-sm) 0 0;padding:12px 14px;min-height:44px;cursor:pointer;white-space:nowrap;scroll-snap-align:start;transition:color .15s ease,background-color .15s ease}
+.tabs [role=tab] .tab-key{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--comment)}
+.tabs [role=tab][aria-selected=true]{color:var(--text);font-weight:650}
+.tabs [role=tab][aria-selected=true] .tab-key{color:var(--accent)}
+.tabs [role=tab]:focus-visible{outline-offset:-2px}
+@media (hover:hover) and (pointer:fine){.tabs [role=tab]:hover{color:var(--text);background:rgba(17,39,51,.6)}}
+.tabs .tab-ind{position:absolute;left:0;bottom:0;width:1px;height:2px;background:var(--accent);transform-origin:0 0;transition:transform 220ms cubic-bezier(.23,1,.32,1);pointer-events:none}
+.tabs .tab-ind.is-instant{transition:none}
+.tabs.is-enhanced .tabpanel{padding:var(--s5) 0 0}
+.tabs:not(.is-enhanced) .tabpanel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s5);margin-bottom:var(--s3)}
+.tabpanel:focus-visible{outline-offset:6px}
+.tabpanel>:first-child{margin-top:0} .tabpanel>:last-child{margin-bottom:0} .tabpanel>.pipe{margin:0}
+.tabs.is-enhanced .tab-h{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.tabpanel h4{font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:680;margin:0 0 var(--s2);display:flex;gap:var(--s2) var(--s3);align-items:center;flex-wrap:wrap}
+.tabpanel p{font-size:var(--fs-body);line-height:1.65;color:var(--dim);margin:0;text-align:left}
+/* gains and costs: the sign is drawn and repeated as a hidden word */
+.proscons{list-style:none;margin:var(--s4) 0 0;padding:0;display:grid;gap:var(--s2)}
+.proscons>li{display:grid;grid-template-columns:22px minmax(0,1fr);align-items:baseline;margin:0;padding:var(--s2) 0;border-top:1px solid var(--line);font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim)}
+.proscons .pm{font-family:var(--mono);font-size:14px;font-weight:700;text-align:center}
+.proscons .pro .pm{color:var(--ok)} .proscons .con .pm{color:var(--bad)}
+/* code block: a labelled header, the code, and a copy button the script reveals */
+.code{margin:var(--s4) 0;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);overflow:hidden}
+.code .code-head{display:flex;justify-content:space-between;align-items:center;gap:var(--s3);padding:6px var(--s2) 6px var(--s4);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--dim)}
+.code pre{margin:0;border:none;border-radius:0;background:none}
+.code pre .add{color:var(--ok)} .code pre .del{color:var(--bad)}
+.copy,.tool{font:inherit;font-family:var(--mono);font-size:11.5px;color:var(--dim);background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:4px 12px;min-height:32px;cursor:pointer}
+@media (hover:hover) and (pointer:fine){.copy:hover,.tool:hover{color:var(--accent);border-color:var(--accent)}}
+.copy,.tool,.chip{transition:transform 160ms ease-out,color .15s ease,border-color .15s ease,background-color .15s ease}
+.copy:active,.tool:active,.chip:active{transform:scale(.97)}
+@media (pointer:coarse){.copy,.tool,.chip{min-height:44px}}
+/* filters: a single-choice chip row that narrows a list or a table */
+.filters{display:flex;gap:var(--s2);flex-wrap:wrap;align-items:center;margin:var(--s4) 0 0}
+.filters .flbl{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;text-transform:uppercase;color:var(--comment);margin-right:var(--s1)}
+.chip{font:inherit;font-family:var(--mono);font-size:11.5px;color:var(--dim);background:var(--surface);border:1px solid var(--line-strong);border-radius:999px;padding:6px 14px;min-height:32px;cursor:pointer}
+@media (hover:hover) and (pointer:fine){.chip:hover{color:var(--accent);border-color:var(--accent)}}
+.chip[aria-pressed=true]{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:700}
+.chip[aria-pressed=true]::before{content:'\2713\00a0'}
+.toolbar{display:flex;justify-content:flex-end;gap:var(--s2);margin:var(--s4) 0 calc(-1 * var(--s3))}
+/* steps: an ordered sequence the reader follows top to bottom */
+.steps{list-style:none;counter-reset:step;margin:var(--s5) 0;display:grid;gap:var(--s2)}
+.steps>li{counter-increment:step;position:relative;padding:var(--s3) var(--s4) var(--s3) 60px;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim)}
+.steps>li::before{content:counter(step,decimal-leading-zero);position:absolute;left:var(--s4);top:var(--s3);font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent)}
+.steps>li b{color:var(--text);font-weight:600}
+/* checklist: a criterion with its state written as a word, never colour alone */
+.checklist{list-style:none;margin:var(--s4) 0;display:grid;gap:var(--s2)}
+.checklist>li{display:grid;grid-template-columns:88px minmax(0,1fr);gap:var(--s3);align-items:baseline;font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim);padding:var(--s2) 0;border-bottom:1px solid var(--line)}
+.checklist>li:last-child{border-bottom:none}
+.checklist .state{font-family:var(--mono);font-size:11px;letter-spacing:.06em}
+.checklist b{color:var(--text);font-weight:600}
+.item .ibody p{font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim);text-align:left}
+[hidden]{display:none!important}
+@media (max-width:700px){.checklist>li{grid-template-columns:1fr;gap:var(--s1)}.steps>li{padding-left:var(--s4);padding-top:36px}}
+/* highlight: the one callout that carries an accent bar */
+.callout{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:0 var(--radius-lg) var(--radius-lg) 0;padding:var(--s5);margin:var(--s5) 0}
+.callout.is-bad{border-left-color:var(--bad)} .callout.is-warn{border-left-color:var(--warn)}
+.callout h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:680;color:var(--text);margin:0 0 var(--s2)}
+.callout p{font-size:var(--fs-body);line-height:1.7;color:var(--dim);margin:0;text-align:left}
+.callout b,.card b,td b{color:var(--text);font-weight:650}
+/* category chip: the word names the category; the hue only groups it */
+.cat{display:inline-block;font-family:var(--mono);font-size:11px;line-height:1.5;font-weight:600;letter-spacing:.04em;padding:3px 10px;border-radius:999px;white-space:nowrap;border:1px solid var(--line-strong);color:var(--dim);background:rgba(17,39,51,.6);vertical-align:middle}
+.cat.c-green{color:#71F6BA;background:rgba(0,237,100,.1);border-color:rgba(0,237,100,.45)}
+.cat.c-purple{color:#F1D4FD;background:rgba(180,90,242,.14);border-color:rgba(180,90,242,.6)}
+.cat.c-amber{color:#FFC010;background:rgba(255,192,16,.1);border-color:rgba(255,192,16,.45)}
+.cat.c-red{color:#FFCDC7;background:rgba(255,105,96,.12);border-color:rgba(255,105,96,.55)}
+.cat.c-blue{color:#C3E7FE;background:rgba(1,107,248,.16);border-color:rgba(4,152,236,.6)}
+/* card head: a chip and a title on one line; verdict cards wear a full coloured border */
+.card .card-h{display:flex;align-items:center;gap:var(--s2) var(--s3);flex-wrap:wrap;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:680;min-height:0;margin:0 0 var(--s1)}
+.card p{color:var(--dim);text-align:left;hyphens:manual}
+.card ul>li{margin:0}
+.card ul{padding-left:var(--s5);display:grid;gap:var(--s2);font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim)}
+.card.is-good{border-color:rgba(0,237,100,.55)} .card.is-bad{border-color:rgba(255,105,96,.6)} .card.is-warn{border-color:rgba(255,192,16,.55)}
+.card pre.term{background:none;border:none;padding:0;margin:var(--s1) 0 0;font-size:12.5px;line-height:1.75;color:var(--dim)}
+.term .ok{color:var(--ok)} .term .bad{color:var(--bad)} .term .b{color:var(--text);font-weight:600}
+/* open table: no box, a strong header rule, quiet row rules */
+.tbl-wrap{background:transparent;border:none;border-radius:0}
+.tbl-wrap th{border-bottom:2px solid var(--line-strong);white-space:normal}
+.tbl-wrap td{border-bottom:1px solid var(--line-strong);color:var(--dim)}
+.tbl-wrap td:first-child{color:var(--text)}
+@media (max-width:640px){
+  table.is-stackable{min-width:0}
+  table.is-stackable thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  table.is-stackable,table.is-stackable tbody,table.is-stackable tr,table.is-stackable td{display:block;width:100%}
+  table.is-stackable tr{padding:var(--s3) 0;border-bottom:1px solid var(--line-strong)}
+  table.is-stackable td{border:none;padding:var(--s1) 0}
+  table.is-stackable td:first-child{font-size:var(--fs-body);padding-bottom:var(--s2)}
+  table.is-stackable td[data-label]:not(:first-child)::before{content:attr(data-label);content:attr(data-label) / "";display:block;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-dim);margin-bottom:2px}
+}
+.mark-ok{color:var(--ok);font-weight:650} .mark-bad{color:var(--bad);font-weight:650} .mark-warn{color:var(--warn);font-weight:650}
+/* flow tree: a terminal-shaped diagram; tree glyphs are hidden from screen readers */
+.flow{font-family:var(--mono);font-size:12.5px;line-height:1.85;color:var(--dim);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s5);margin:0;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+.flow .nd{color:var(--accent);font-weight:700} .flow .ed{color:var(--comment)} .flow .lb{color:var(--accent-dim)}
+.flow .wd{color:var(--warn)} .flow .rd{color:var(--bad);font-weight:600} .flow .b{color:var(--text);font-weight:600}
+figure.bracket{margin:var(--s6) 0 var(--s5)}
+figure.bracket>figcaption.tag{line-height:1.6}
+/* type floor: no label under 11px, no running text under 12px */
+.hero .stamp,.stat .l,th,.note h3,.note h4,.ilbl,.pipe .ph,.filters .flbl,.bracket>.tag,.pill,.band,.xref,.sig,.card .src,.checklist .state,.item .imeta{font-size:11px}
+nav{font-size:11.5px}
+footer{font-size:12px;letter-spacing:.02em}
+.code .code-head{font-size:12px;letter-spacing:0}
+.copy,.tool,.chip,.pipe .q,.hero .meta,.diagram details>summary{font-size:12px}
+@media print{
+  :root{--bg:#fff;--surface:#fff;--surface-2:#fff;--text:#111;--dim:#333;--comment:#555;--accent:#00684A;--accent-dim:#00684A;--ok:#00684A;--bad:#970606;--warn:#944F01;--purple:#5E0C9E;--orange:#944F01;--line:#bbb;--line-strong:#888}
+  .hero{background-image:none}
+  .pill,.band,.chip,.cat{background:none!important}
+  .cat{color:var(--text)!important;border-color:var(--line-strong)!important}
+}
+@media (forced-colors:active){
+  .card,.note,.item,.stat,.tier,.legend,.tbl-wrap,.diagram,.code,.steps>li,.tabs .tabpanel,.flow,.cat{border:1px solid CanvasText}
+  .callout{border:1px solid CanvasText;border-left:4px solid CanvasText}
+  .chip,.copy,.tool,.tabs [role=tab]{border:1px solid ButtonText}
+  .chip[aria-pressed=true]{forced-color-adjust:none;background:Highlight;color:HighlightText;border-color:Highlight}
+  .tabs [role=tab][aria-selected=true]{text-decoration:underline;text-underline-offset:6px;text-decoration-thickness:2px}
+  .tabs .tab-ind{background:Highlight}
+  .dg-node rect{fill:Canvas;stroke:CanvasText} .dg-node .t,.dg-node .d,.dg-lbl{fill:CanvasText}
+  .dg-edge{stroke:CanvasText} .dg-head{fill:CanvasText}
+  :focus-visible{outline:2px solid Highlight}
+}
+@media print{
+  .tabs .tablist,.copy,.tool,.filters,.toolbar,.hero .corner{display:none!important}
+  .tabs .tabpanel{display:block!important;border:1px solid #999}
+  .diagram,.code,.card,.note,.item,.steps>li{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div id="live" class="sr" role="status" aria-live="polite"></div>
+
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <div class="mark" aria-hidden="true"><span class="x">{</span>ai<span class="x">}</span></div>
+  <h1>One design system for everything <span class="x">{ai}</span> engineering renders</h1>
+  <p class="sub">Every page ai-engineering makes, the brainstorm, the PRD, the recap and the website, should look like one family and use the same building blocks: cards, tables, code boxes with a copy button, tabs and diagrams. Today each page carries its own hand-copied styles and no pictures, so it reads like a text file. <strong>The colours, the building blocks and the small scripts live in one folder; a tool copies them into every page, and a test fails when a page drifts or breaks an accessibility rule.</strong> Agents then write the words and the pictures, never the styles.</p>
+  <div class="meta">complete · 2026-11-22 · lane: full (architectural) · <b>this page uses the components it proposes</b></div>
+</header>
+
+<nav aria-label="Sections">
+  <a href="#s1"><b>01</b>Idea</a>
+  <a href="#s2"><b>02</b>Why</a>
+  <a href="#s3"><b>03</b>Who</a>
+  <a href="#s4"><b>04</b>Today</a>
+  <a href="#s5"><b>05</b>Success</a>
+  <a href="#s6"><b>06</b>Decided</a>
+  <a href="#s7"><b>07</b>Open</a>
+  <a href="#s8"><b>08</b>Guardrails</a>
+  <a href="#s9"><b>09</b>Out of scope</a>
+  <a href="#s10"><b>10</b>Research</a>
+  <a href="#s11"><b>11</b>Handoff</a>
+</nav>
+
+<main id="main">
+<div class="container">
+
+<section id="s1" aria-labelledby="h1-s1">
+  <h2 id="h1-s1"><span class="num">01</span>The idea in plain words</h2>
+  <p>The pages ai-engineering writes should look and work like one product. One folder holds the colours, the shapes and a short script. A command copies them into every page template, and a test turns red when a page drifts from them or when a person using a keyboard, a screen reader or high-contrast mode cannot use the page. Agents copy a template and fill it with words, tables and diagrams; they never write styles again.</p>
+  <div class="note ok">
+    <h3>Read-back</h3>
+    <p>You want a brainstorm, a PRD or a recap to explain itself at a glance, with pictures and parts you can click, not walls of text. You want the same look on the website and in every page the tool writes, kept in one place so it never drifts, and you want every part to pass WCAG 2.2 AA and the ARIA patterns. Did I miss anything or get anything wrong?</p>
+  </div>
+</section>
+
+<section id="s2" aria-labelledby="h1-s2">
+  <h2 id="h1-s2"><span class="num">02</span>Why this matters</h2>
+  <div class="callout">
+    <h3>Why HTML, and not markdown</h3>
+    <p>An HTML page earns its place only when it shows what text cannot: <b>a diagram of how the parts connect</b>, <b>options side by side</b>, <b>a table you can narrow</b>. Today the pages use HTML as a styled text file, and each one rewrites <b>17 KB</b> of styles to do it.</p>
+  </div>
+  <div class="grid g3">
+    <div class="card"><h3 class="card-h"><span class="cat c-purple">reading</span>It reads like markdown</h3><p>Cards, notes and tables exist, but <b>no diagram, no tabs, no copy button</b> and no way to narrow a list. The reader scrolls prose to find the decision.</p><span class="src">templates/*.html.tpl</span></div>
+    <div class="card"><h3 class="card-h"><span class="cat c-amber">tokens</span>Every page pays for its styles</h3><p>The skill tells the agent to copy the whole CSS block: <b>17,386 bytes, about 5,000 output tokens</b>, rewritten for every page.</p><span class="src">skills/ai-brainstorm/SKILL.md:288</span></div>
+    <div class="card"><h3 class="card-h"><span class="cat c-red">drift</span>Copies drift unseen</h3><p>Eight templates, eight copies. Four carry the full block, four carry private ones, and <b>two are checked by no gate</b>.</p><span class="src">brand/tokens.json · artifact.files</span></div>
+  </div>
+  <div class="stats" role="list" aria-label="Today in numbers">
+    <div class="stat" role="listitem"><div class="v">8</div><div class="l">templates, 8 style copies</div></div>
+    <div class="stat" role="listitem"><div class="v"><em>17</em> KB</div><div class="l">CSS rewritten per artifact</div></div>
+    <div class="stat" role="listitem"><div class="v">0</div><div class="l">diagram components</div></div>
+    <div class="stat" role="listitem"><div class="v">0</div><div class="l">forced-colors rules</div></div>
+    <div class="stat" role="listitem"><div class="v">2</div><div class="l">templates with no drift gate</div></div>
+  </div>
+</section>
+
+<section id="s3" aria-labelledby="h1-s3">
+  <h2 id="h1-s3"><span class="num">03</span>Who it's for</h2>
+  <div class="tbl-wrap">
+    <table>
+      <caption class="sr">What each reader gets today and after the change</caption>
+      <thead><tr><th scope="col">Reader</th><th scope="col">Today</th><th scope="col">After</th></tr></thead>
+      <tbody>
+        <tr><td>Owner reviewing a brainstorm or PRD</td><td>Long prose; options and decisions buried in paragraphs</td><td>A diagram of the design, options in tabs, decisions as rows that open</td></tr>
+        <tr><td>Agent writing an artifact</td><td>Rewrites 17 KB of CSS, then the content</td><td>Copies a template and writes content only</td></tr>
+        <tr><td>Keyboard and screen-reader user</td><td>No diagrams to miss, but no interactive parts either</td><td>Named diagrams with a text version; tabs, filters and copy follow the ARIA patterns</td></tr>
+        <tr><td>Visitor to the website</td><td>Same colours as the artifacts, different components</td><td>Same colours and the same components</td></tr>
+        <tr><td>Maintainer of the brand</td><td>Eight copies to edit by hand</td><td>One file, one command, one gate</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="s4" aria-labelledby="h1-s4">
+  <h2 id="h1-s4"><span class="num">04</span>What exists today</h2>
+  <p>The brand already has a single source for its values. What it lacks is a single source for its <strong>components</strong>, a way for agents outside this repository to reach the templates, and accessibility coverage beyond contrast.</p>
+  <div class="tbl-wrap">
+    <table>
+      <caption class="sr">Verified facts about the current design system</caption>
+      <thead><tr><th scope="col">Area</th><th scope="col">Fact</th><th scope="col">Source</th></tr></thead>
+      <tbody>
+        <tr><td><span class="cat c-green">source</span></td><td><code>brand/tokens.json</code> declares every colour, type step, radius and shadow; <code>bun scripts/brand.ts gen</code> writes the website's <code>tokens.css</code>, <code>src/theme.ts</code> and the design record</td><td><code>brand/README.md</code></td></tr>
+        <tr><td><span class="cat c-red">drift</span></td><td>brainstorm, recap, research and triage templates inline the full 187-line block; PRD (41 lines), spec (24), plan (21) and viewer (116) carry private styles</td><td><code>templates/*.html.tpl</code>, measured</td></tr>
+        <tr><td><span class="cat c-red">drift</span></td><td>The token gate reads the design doc, spec, plan and two history pages; PRD and viewer are checked by no gate</td><td><code>brand/tokens.json</code> <code>artifact.files</code>; <code>tests/artifact-layout.spec.ts:7</code></td></tr>
+        <tr><td><span class="cat c-blue">reach</span></td><td>Skills tell agents to start from <code>../../templates/*.html.tpl</code>, but the install puts skills in <code>~/.ai-engineering/skills</code> and no templates beside them, so outside this repository the link leads nowhere</td><td><code>skills/ai-research/SKILL.md:127</code>; install folder listed</td></tr>
+        <tr><td><span class="cat c-blue">reach</span></td><td>Seven skills write HTML: ai-brainstorm, ai-research, ai-triage, ai-issue-report, ai-visual-recap, ai-refresh-project, ai-audit-design</td><td><code>Writes:</code> lines in each SKILL.md</td></tr>
+        <tr><td><span class="cat c-amber">a11y</span></td><td>Code comments (<code>--comment</code> on <code>--surface-2</code>, the code-well colour in every template) measure 4.499:1, below the 4.5:1 AA floor; no declared contrast pair covers them, so <code>brand.ts contrast</code> never sees it</td><td>axe-core <code>color-contrast</code>; <code>contrast()</code> in <code>scripts/brand.ts</code></td></tr>
+        <tr><td><span class="cat c-amber">a11y</span></td><td>The print rule turns the page white and the text near-black but leaves cards, tables and code wells dark, so printed text lands dark on dark; labels and pills sit at 10 to 10.5 px</td><td><code>@media print</code> and <code>--fs-label</code> in the shared block; impeccable detector</td></tr>
+        <tr><td><span class="cat c-purple">gap</span></td><td>The only script in an artifact is the scroll-spy; no template has a <code>forced-colors</code> rule</td><td><code>templates/*.html.tpl</code></td></tr>
+        <tr><td><span class="cat c-green">source</span></td><td>The website uses Archivo and JetBrains Mono as web fonts; artifacts use system fonts so they render offline</td><td><code>ai-engineering-web/DESIGN.md</code>; <code>brand/README.md</code></td></tr>
+        <tr><td><span class="cat c-purple">gap</span></td><td><code>docs/history/blueprint.html</code> holds the richest component set (stats, pipelines, tiers, terminal flows), all text-based: it has no SVG</td><td><code>docs/history/blueprint.html</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3 class="sub-h">How an agent writes an artifact</h3>
+  <div class="grid g2">
+    <div class="card is-bad">
+      <h4 class="card-h"><span class="cat c-red">today</span>3 steps, 1 of them waste</h4>
+<pre class="term"><span class="b">1 read</span>  artifact-design.md · 791 lines
+<span class="bad">2 write the CSS block · 17 KB by hand</span>
+<span class="b">3 write</span> the content · prose, cards, tables
+<span aria-hidden="true">──</span>
+no diagram · no tabs · no check after</pre>
+    </div>
+    <div class="card is-good">
+      <h4 class="card-h"><span class="cat c-green">after</span>3 steps, all content or proof</h4>
+<pre class="term"><span class="b">1 copy</span>  the template · styles and script inside
+<span class="b">2 write</span> the content · diagrams, tabs, items
+<span class="ok">3 check drift and WCAG · red stops the commit</span>
+<span aria-hidden="true">──</span>
+0 bytes of CSS written by the agent</pre>
+    </div>
+  </div>
+</section>
+
+<section id="s5" aria-labelledby="h1-s5">
+  <h2 id="h1-s5"><span class="num">05</span>What success looks like</h2>
+  <ul class="checklist">
+    <li><span class="state"><span class="cat c-amber">pending</span></span><span><b>One edit, every page.</b> A change in <code>brand/</code> plus <code>gen</code> updates all eight templates; a hand edit to any of them turns <code>parity</code> red.</span></li>
+    <li><span class="state"><span class="cat c-amber">pending</span></span><span><b>Zero CSS written by an agent.</b> Every HTML-writing skill says "copy the template"; the template is reachable from an installed skill.</span></li>
+    <li><span class="state"><span class="cat c-amber">pending</span></span><span><b>Accessible by test, not by promise.</b> The gallery and all eight templates pass axe-core with tags <code>wcag2a</code>, <code>wcag2aa</code>, <code>wcag21a</code>, <code>wcag21aa</code>, <code>wcag22aa</code> with zero violations, and every text and surface pair a component uses is declared in <code>tokens.json</code>, so <code>brand.ts contrast</code> measures it.</span></li>
+    <li><span class="state"><span class="cat c-amber">pending</span></span><span><b>Works for everyone.</b> Each component works keyboard-only, with JavaScript off, printed, in forced-colors mode, at 320 px wide, at 200% zoom and under WCAG text spacing.</span></li>
+    <li><span class="state"><span class="cat c-amber">pending</span></span><span><b>Pages explain at a glance.</b> The brainstorm, PRD and recap templates ship ready slots for a diagram, a decision list, stats and options in tabs.</span></li>
+    <li><span class="state"><span class="cat c-amber">pending</span></span><span><b>One family.</b> The website imports the same <code>components.css</code>; the gallery is published there.</span></li>
+  </ul>
+</section>
+
+<section id="s6" aria-labelledby="h1-s6">
+  <h2 id="h1-s6"><span class="num">06</span>Decisions already made</h2>
+  <p>The shape below follows the rule the brand already lives by: one source, generated copies, a gate that fails on drift. It adds the components and the accessibility checks to that same pipeline.</p>
+
+  <figure class="diagram" aria-labelledby="d1-cap">
+    <div class="canvas">
+    <svg viewBox="0 0 960 330" role="img" aria-labelledby="d1-title d1-desc">
+      <title id="d1-title">One source, generated into every surface</title>
+      <desc id="d1-desc">Three source files in brand feed the gen command, which writes the eight artifact templates, the gallery, the website stylesheet and the CLI theme. A parity and accessibility gate checks every output.</desc>
+      <g class="dg-node is-source"><rect x="16" y="24" width="214" height="64" rx="10"/><text class="t" x="32" y="51">brand/tokens.json</text><text class="d" x="32" y="72">colours, type, space, radius</text></g>
+      <g class="dg-node is-source"><rect x="16" y="133" width="214" height="64" rx="10"/><text class="t" x="32" y="160">components.css</text><text class="d" x="32" y="181">every component, one file</text></g>
+      <g class="dg-node is-source"><rect x="16" y="242" width="214" height="64" rx="10"/><text class="t" x="32" y="269">components.js</text><text class="d" x="32" y="290">tabs, copy, filters, nav spy</text></g>
+      <path class="dg-edge" d="M230 56 C285 56 285 165 320 165"/>
+      <path class="dg-edge" d="M230 165 L320 165"/>
+      <path class="dg-edge" d="M230 274 C285 274 285 165 320 165"/>
+      <polygon class="dg-head" points="320,159 330,165 320,171"/>
+      <g class="dg-node"><rect x="330" y="133" width="232" height="64" rx="10"/><text class="t" x="346" y="160">brand.ts gen</text><text class="d" x="346" y="181">inlines between markers</text></g>
+      <g class="dg-node is-gate"><rect x="330" y="242" width="232" height="64" rx="10"/><text class="t" x="346" y="269">parity + a11y gate</text><text class="d" x="346" y="290">red on drift or a WCAG miss</text></g>
+      <path class="dg-edge is-check" d="M446 242 L446 207"/>
+      <polygon class="dg-head is-check" points="440,209 446,199 452,209"/>
+      <text class="dg-lbl" x="456" y="226">checks every output</text>
+      <path class="dg-edge" d="M562 165 C610 165 610 44 650 44"/>
+      <path class="dg-edge" d="M562 165 C610 165 610 120 650 120"/>
+      <path class="dg-edge" d="M562 165 C610 165 610 196 650 196"/>
+      <path class="dg-edge" d="M562 165 C610 165 610 272 650 272"/>
+      <polygon class="dg-head" points="650,38 660,44 650,50"/>
+      <polygon class="dg-head" points="650,114 660,120 650,126"/>
+      <polygon class="dg-head" points="650,190 660,196 650,202"/>
+      <polygon class="dg-head" points="650,266 660,272 650,278"/>
+      <g class="dg-node"><rect x="660" y="16" width="284" height="56" rx="10"/><text class="t" x="676" y="40">8 artifact templates</text><text class="d" x="676" y="60">brainstorm, PRD, recap, research and 4 more</text></g>
+      <g class="dg-node"><rect x="660" y="92" width="284" height="56" rx="10"/><text class="t" x="676" y="116">brand/gallery.html</text><text class="d" x="676" y="136">every component, live, with its markup</text></g>
+      <g class="dg-node"><rect x="660" y="168" width="284" height="56" rx="10"/><text class="t" x="676" y="192">web: components.css</text><text class="d" x="676" y="212">ai-engineering-web imports it</text></g>
+      <g class="dg-node"><rect x="660" y="244" width="284" height="56" rx="10"/><text class="t" x="676" y="268">src/theme.ts</text><text class="d" x="676" y="288">CLI banner and status marks</text></g>
+    </svg>
+    </div>
+    <figcaption id="d1-cap"><b>Figure 1.</b> One source, generated copies, one gate. Solid green lines carry files; the dashed amber line is a check.</figcaption>
+    <details>
+      <summary>Text version of figure 1</summary>
+      <ol>
+        <li>Three source files live in <code>brand/</code>: <code>tokens.json</code> (values), <code>components.css</code> (every component) and <code>components.js</code> (tabs, copy, filters, nav spy).</li>
+        <li><code>bun scripts/brand.ts gen</code> reads them and writes four kinds of output: the eight artifact templates (inlined between markers), <code>brand/gallery.html</code>, the website's <code>components.css</code>, and the CLI theme in <code>src/theme.ts</code>.</li>
+        <li>The parity and accessibility gate checks every output and fails on drift or a WCAG miss.</li>
+      </ol>
+    </details>
+  </figure>
+
+  <figure class="bracket" aria-labelledby="f2-cap">
+    <figcaption class="tag" id="f2-cap">One artifact, end to end</figcaption>
+<pre class="flow"><span class="nd">AGENT</span>    copies <span class="lb">templates/brainstorm.html.tpl</span> and fills the sections
+<span class="ed" aria-hidden="true">  │</span>      writes words, tables and diagrams · <span class="b">never a style</span>
+<span class="ed" aria-hidden="true">  ▼</span>
+<span class="nd">TEST</span>     bun test, locally and in CI
+<span class="ed" aria-hidden="true">  ├─▶</span> <span class="lb">parity  </span>  styles match brand/ byte for byte?            <span class="rd">→ BLOCK</span>
+<span class="ed" aria-hidden="true">  ├─▶</span> <span class="lb">markup  </span>  lang, heading order, names, roles, ids?       <span class="rd">→ BLOCK</span>
+<span class="ed" aria-hidden="true">  ├─▶</span> <span class="lb">offline </span>  any external script, stylesheet or font?      <span class="rd">→ BLOCK</span>
+<span class="ed" aria-hidden="true">  └─▶</span> <span class="lb">contrast</span>  every pair the page uses at 4.5:1 or more?    <span class="rd">→ BLOCK</span>
+<span class="ed" aria-hidden="true">  ▼</span>
+<span class="nd">BROWSER</span>  axe-core, wcag2a · 2aa · 21a · 21aa · 22aa       <span class="wd">when a browser exists</span>
+<span class="ed" aria-hidden="true">  ▼</span>
+<span class="nd">PERSON</span>   reads the page and says approve                <span class="rd">■ the one human stop</span></pre>
+  </figure>
+
+  <div class="grid g2">
+    <div class="card is-bad">
+      <h3 class="card-h"><span class="cat c-red">blocks</span>No negotiation</h3>
+      <ul>
+        <li><b>Drift:</b> a token or a component that differs from <code>brand/</code>.</li>
+        <li><b>Accessibility:</b> any WCAG 2.2 AA violation, a diagram with no text version, a tab with no panel.</li>
+        <li><b>Self-contained:</b> an external script, stylesheet or font.</li>
+      </ul>
+      <p>The way past is the fix. There is no waiver for these.</p>
+    </div>
+    <div class="card is-good">
+      <h3 class="card-h"><span class="cat c-green">informs</span>One line, or silence</h3>
+      <ul>
+        <li><b>Weight:</b> a page over its size budget.</li>
+        <li><b>Unused parts:</b> components the page carries and never shows.</li>
+        <li><b>Width:</b> a diagram that scrolls on a laptop screen.</li>
+      </ul>
+      <p>All fine prints one line. Something off prints the detail and the next action.</p>
+    </div>
+  </div>
+
+  <figure class="bracket" aria-labelledby="f3-cap">
+    <figcaption class="tag" id="f3-cap">How it reaches every machine</figcaption>
+<pre class="flow"><span class="nd">SOURCE</span>   <span class="lb">brand/</span> tokens.json · components.css · components.js   <span class="wd">this repository only</span>
+<span class="ed" aria-hidden="true">  ▼</span>
+<span class="nd">GEN</span>      bun scripts/brand.ts gen
+<span class="ed" aria-hidden="true">  ├─▶</span> <span class="lb">templates/*.html.tpl</span>   styles and script inlined between markers
+<span class="ed" aria-hidden="true">  ├─▶</span> <span class="lb">brand/gallery.html</span>     every component, live, with its markup
+<span class="ed" aria-hidden="true">  └─▶</span> <span class="lb">ai-engineering-web</span>     components.css for the site
+<span class="ed" aria-hidden="true">  ▼</span>
+<span class="nd">BUILD</span>    bun build --compile --asset templates --asset skills · one binary per OS and CPU
+<span class="ed" aria-hidden="true">  ▼</span>
+<span class="nd">NPM</span>      <span class="b">ai-engineering</span> · bin/ai-eng.js runs the binary for darwin, linux, linux-musl or windows
+<span class="ed" aria-hidden="true">  ▼</span>
+<span class="nd">INSTALL</span>  ~/.ai-engineering/<span class="b">templates/</span> beside skills/ · <span class="rd">missing today: src/embed.ts:78</span>
+<span class="ed" aria-hidden="true">  ▼</span>
+<span class="nd">AGENT</span>    copies the template · writes content only · same page on macOS, Linux and Windows</pre>
+  </figure>
+
+  <h3 class="sub-h">The options weighed</h3>
+  <div class="tabs">
+    <div class="tabpanel" id="opt-a" data-key="A" data-tab="One source" data-badge="chosen">
+      <h4>One component source, generated into every template <span class="cat c-green">chosen</span></h4>
+      <p>Components join the tokens in <code>brand/</code>. <code>gen</code> inlines them into each template between markers, and <code>parity</code> fails on a hand edit. Every page stays one file that opens from <code>file://</code>.</p>
+      <ul class="proscons">
+        <li class="pro"><span class="pm" aria-hidden="true">+</span><span><span class="sr">Gain: </span>Uses the pipeline that already exists; no new tool.</span></li>
+        <li class="pro"><span class="pm" aria-hidden="true">+</span><span><span class="sr">Gain: </span>Agents copy a template, so no CSS in their output.</span></li>
+        <li class="con"><span class="pm" aria-hidden="true">&minus;</span><span><span class="sr">Cost: </span>Each page carries the full component CSS, about 25 KB, even the parts it never shows.</span></li>
+      </ul>
+    </div>
+    <div class="tabpanel" id="opt-b" data-key="B" data-tab="Grow the doc block">
+      <h4>Grow the CSS block in artifact-design.md <span class="cat c-red">rejected</span></h4>
+      <p>Add the new components to the markdown block and keep copying it by hand.</p>
+      <ul class="proscons">
+        <li class="pro"><span class="pm" aria-hidden="true">+</span><span><span class="sr">Gain: </span>No pipeline change.</span></li>
+        <li class="con"><span class="pm" aria-hidden="true">&minus;</span><span><span class="sr">Cost: </span>Every artifact pays more tokens, and the copies keep drifting.</span></li>
+      </ul>
+    </div>
+    <div class="tabpanel" id="opt-c" data-key="C" data-tab="Linked stylesheet">
+      <h4>Link one shared stylesheet <span class="cat c-red">rejected</span></h4>
+      <p>Each page links <code>brand.css</code> instead of carrying it.</p>
+      <ul class="proscons">
+        <li class="pro"><span class="pm" aria-hidden="true">+</span><span><span class="sr">Gain: </span>The smallest pages.</span></li>
+        <li class="con"><span class="pm" aria-hidden="true">&minus;</span><span><span class="sr">Cost: </span>A page opened from a folder, an email or a pull request loses its styles.</span></li>
+      </ul>
+    </div>
+    <div class="tabpanel" id="opt-d" data-key="D" data-tab="Adopt a library">
+      <h4>Adopt a component library or a diagram runtime <span class="cat c-red">rejected</span></h4>
+      <p>Use a CSS framework, web components, or Mermaid for diagrams.</p>
+      <ul class="proscons">
+        <li class="pro"><span class="pm" aria-hidden="true">+</span><span><span class="sr">Gain: </span>Many components for free.</span></li>
+        <li class="con"><span class="pm" aria-hidden="true">&minus;</span><span><span class="sr">Cost: </span>A new runtime dependency, a second visual language to override, and weight in every page.</span></li>
+        <li class="con"><span class="pm" aria-hidden="true">&minus;</span><span><span class="sr">Cost: </span>Generated diagrams that a screen reader cannot read.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 class="sub-h">Decisions</h3>
+  <div class="toolbar"><button class="tool" type="button" data-expand="decisions" hidden>Expand all</button></div>
+  <div class="items" id="decisions">
+    <details class="item" id="i1"><summary><span class="iid">D1</span><span class="ititle">One source: <code>brand/</code> gains <code>components.css</code> and <code>components.js</code> beside <code>tokens.json</code></span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>The tokens already work this way; the components follow the same rule instead of a second one.</span></div><div class="kv"><span class="ilbl">Effect</span><span><code>gen</code> inlines both files into each template between <code>brand:begin</code> and <code>brand:end</code> markers; <code>parity</code> fails on a hand edit.</span></div></div></details>
+    <details class="item" id="i2"><summary><span class="iid">D2</span><span class="ititle">Agents copy a template and write no CSS</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>A decision that always comes out the same is code, not a prompt; the styles are that decision.</span></div><div class="kv"><span class="ilbl">Effect</span><span><code>artifact-design.md</code> keeps the rules and the component vocabulary and loses its CSS block; the seven HTML skills say "copy the template".</span></div></div></details>
+    <details class="item" id="i3"><summary><span class="iid">D3</span><span class="ititle">Self-contained and offline: inline CSS and JS, no CDN, no web font, no runtime library</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>An artifact is opened from a folder, a PR or an email with no network.</span></div><div class="kv"><span class="ilbl">Effect</span><span>Diagrams are inline SVG; Mermaid and component libraries are out.</span></div></div></details>
+    <details class="item" id="i4"><summary><span class="iid">D4</span><span class="ititle">Progressive enhancement: every component reads with JavaScript off and on paper</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>A page that hides content until a script runs fails readers, printers and search.</span></div><div class="kv"><span class="ilbl">Effect</span><span>Tabs stack as headed panels, copy and filter buttons stay hidden, disclosure uses native <code>&lt;details&gt;</code>, and printing opens every item.</span></div></div></details>
+    <details class="item" id="i5"><summary><span class="iid">D5</span><span class="ititle">Diagrams are figures: <code>role="img"</code>, a title, a description and a text version</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>WCAG 1.1.1 needs a text alternative; a long diagram needs more than a title.</span></div><div class="kv"><span class="ilbl">Effect</span><span>Brand classes (<code>dg-node</code>, <code>dg-edge</code>, <code>dg-lbl</code>) set colour, so a diagram carries no colour of its own; meaning never rests on colour alone (line style and labels carry it too).</span></div></div></details>
+    <details class="item" id="i6"><summary><span class="iid">D6</span><span class="ititle">Interactive parts follow the WAI-ARIA Authoring Practices patterns</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>Users of assistive technology already know these patterns.</span></div><div class="kv"><span class="ilbl">Effect</span><span>Tabs: arrow keys, Home and End, roving focus. Filters: toggle buttons with <code>aria-pressed</code>. Copy and filter results: a polite status message. Targets are at least 32 px tall.</span></div></div></details>
+    <details class="item" id="i7"><summary><span class="iid">D7</span><span class="ititle">Dark stays the only screen theme; forced-colors, more-contrast, reduced-motion and print are supported</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>The brand is dark by decision; the user's own settings must still win.</span></div><div class="kv"><span class="ilbl">Effect</span><span>A <code>forced-colors</code> layer maps every border, chip and diagram stroke to system colours.</span></div></div></details>
+    <details class="item" id="i8"><summary><span class="iid">D8</span><span class="ititle">All eight templates adopt the full set; PRD, spec, plan and viewer drop their private styles</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>Two templates escape every gate today.</span></div><div class="kv"><span class="ilbl">Effect</span><span>The drift gate covers all eight; <code>docs/history/</code> pages stay as they are, as frozen records.</span></div></div></details>
+    <details class="item" id="i14"><summary><span class="iid">D10</span><span class="ititle">A type floor and a light print palette</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>Small labels and a print sheet that keeps dark surfaces fail readers on screen and on paper.</span></div><div class="kv"><span class="ilbl">Effect</span><span>No label under 11 px, no running text under 12 px; printing swaps every surface token to white and every text token to a dark brand shade that clears 4.5:1.</span></div></div></details>
+    <details class="item" id="i15"><summary><span class="iid">D11</span><span class="ititle">The owner's picks from the blueprint join the set: highlight, chip cards, chip tables, flow trees, verdict cards, before and after</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>They are the parts that make a page readable at a glance; the owner named them.</span></div><div class="kv"><span class="ilbl">Effect</span><span>Ported with their contrast fixed: purple chip text measured 4.17:1 on a card, red marks 4.20:1 in a table and tree lines 2.01:1, so chips use the light tone of each hue, tables lose their box, and tree glyphs take <code>--comment</code> and <code>aria-hidden</code>.</span></div></div></details>
+    <details class="item" id="i16"><summary><span class="iid">D12</span><span class="ititle">Two house rules relax: one accent bar, and five chip hues</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>Rule 12 forbade a coloured left border and rule 1 kept chroma for state only; the highlight and the category chips the owner likes need both.</span></div><div class="kv"><span class="ilbl">Effect</span><span>Only <code>.callout</code> carries the 3 px bar. Category chips use green, purple, amber, red and blue, and their word always names the category, so colour never carries the meaning alone.</span></div></div></details>
+    <details class="item" id="i17"><summary><span class="iid">D13</span><span class="ititle">Every section reads in ten seconds: one plain sentence, then the visual</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>The owner asked that pages always be easy to read and understand.</span></div><div class="kv"><span class="ilbl">Effect</span><span>The templates open each section with a lead sentence; a list of more than five parallel things becomes cards or a table; numbers that matter are bold; a comparison is two verdict cards, not a paragraph.</span></div></div></details>
+    <details class="item" id="i19"><summary><span class="iid">D14</span><span class="ititle">Cross-OS by construction: the templates ride the npm package and land beside the skills</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>An agent on any machine must reach the same template; today <code>machinePayload()</code> installs skills, agents and scripts but no templates.</span></div><div class="kv"><span class="ilbl">Effect</span><span>The payload adds <code>templates/*.html.tpl</code>, so <code>~/.ai-engineering/templates/</code> exists on macOS, Linux and Windows and the skills' <code>../../templates/</code> links resolve. Font stacks name each OS's own faces (SF, Segoe UI, Cascadia and Consolas, DejaVu), so no page falls back to Courier on Windows.</span></div></div></details>
+    <details class="item" id="i20"><summary><span class="iid">D15</span><span class="ititle">Mobile first: 44 px touch targets, tables that stack, tabs that scroll</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>Owners review on a phone; 24 px clears WCAG 2.5.8 but a thumb needs 44.</span></div><div class="kv"><span class="ilbl">Effect</span><span>On a touch screen every control is at least 44 px tall. Under 640 px each table row stacks with its column names, and a long tab row scrolls sideways instead of wrapping. The hero drops its stamp line: the <code>{ai}</code> mark already names the family.</span></div></div></details>
+    <details class="item" id="i9"><summary><span class="iid">D9</span><span class="ititle">A living gallery is the reference people read</span></summary>
+      <div class="ibody"><div class="kv"><span class="ilbl">Why</span><span>A design system is learned by seeing it, not by reading CSS.</span></div><div class="kv"><span class="ilbl">Effect</span><span><code>brand/gallery.html</code> shows every component live, its markup with a copy button, its keyboard behaviour and its do and don't; <code>gen</code> writes it, so it cannot drift.</span></div></div></details>
+  </div>
+
+  <h3 class="sub-h">The component set</h3>
+  <div class="legend">
+    <div><span class="lname"><span class="pill p-dim">kept</span></span><p>Exists today and keeps its markup.</p></div>
+    <div><span class="lname"><span class="pill p-warn">extended</span></span><p>Exists today and gains a part or a state.</p></div>
+    <div><span class="lname"><span class="pill p-ok">new</span></span><p>Does not exist today.</p></div>
+  </div>
+  <div class="filters" data-target="catalogue" role="group" aria-labelledby="flt-lbl" hidden>
+    <span class="flbl" id="flt-lbl">Show</span>
+    <button class="chip" type="button" data-filter="all" aria-pressed="true">All</button>
+    <button class="chip" type="button" data-filter="new" aria-pressed="false">New</button>
+    <button class="chip" type="button" data-filter="extended" aria-pressed="false">Extended</button>
+    <button class="chip" type="button" data-filter="kept" aria-pressed="false">Kept</button>
+  </div>
+  <div class="tbl-wrap">
+    <table id="catalogue">
+      <caption class="sr">Every component of the design system, its status and its accessibility pattern</caption>
+      <thead><tr><th scope="col">Component</th><th scope="col">Status</th><th scope="col">Pattern</th><th scope="col">Without JS</th></tr></thead>
+      <tbody>
+        <tr data-tags="new"><td>Diagram <code>.diagram</code></td><td><span class="pill p-ok">new</span></td><td><code>figure</code>, SVG <code>role="img"</code>, title, desc, text version</td><td>Full</td></tr>
+        <tr data-tags="new"><td>Highlight <code>.callout</code></td><td><span class="pill p-ok">new</span></td><td>Headed block; the bar repeats nothing the heading does not say</td><td>Full</td></tr>
+        <tr data-tags="new"><td>Category chip <code>.cat</code></td><td><span class="pill p-ok">new</span></td><td>The word names the category; hue only groups</td><td>Full</td></tr>
+        <tr data-tags="new"><td>Verdict card <code>.card.is-good</code> <code>.is-bad</code></td><td><span class="pill p-ok">new</span></td><td>Chip word states the verdict; border repeats it</td><td>Full</td></tr>
+        <tr data-tags="new"><td>Terminal card <code>pre.term</code></td><td><span class="pill p-ok">new</span></td><td>Pass and fail written as words, colour second</td><td>Full</td></tr>
+        <tr data-tags="extended"><td>Flow tree <code>.flow</code></td><td><span class="pill p-warn">extended</span></td><td>Tree glyphs <code>aria-hidden</code>; the words read in order</td><td>Full</td></tr>
+        <tr data-tags="extended"><td>Card head <code>.card-h</code></td><td><span class="pill p-warn">extended</span></td><td>Chip plus title in one heading</td><td>Full</td></tr>
+        <tr data-tags="new"><td>Tabs <code>.tabs</code></td><td><span class="pill p-ok">new</span></td><td>APG tabs, automatic activation</td><td>Panels stack under headings</td></tr>
+        <tr data-tags="extended"><td>Code block <code>.code</code></td><td><span class="pill p-warn">extended</span></td><td>Labelled header, copy button, status message</td><td>Code readable; no button</td></tr>
+        <tr data-tags="new"><td>Diff lines <code>.add</code> <code>.del</code></td><td><span class="pill p-ok">new</span></td><td><code>+</code> and <code>-</code> written in the text, colour second</td><td>Full</td></tr>
+        <tr data-tags="new"><td>Filter chips <code>.filters</code></td><td><span class="pill p-ok">new</span></td><td>Toggle buttons, <code>aria-pressed</code>, count announced</td><td>Hidden; whole list shows</td></tr>
+        <tr data-tags="new"><td>Expand all <code>.toolbar</code></td><td><span class="pill p-ok">new</span></td><td>Button over native <code>details</code></td><td>Hidden; items open one by one</td></tr>
+        <tr data-tags="new"><td>Steps <code>.steps</code></td><td><span class="pill p-ok">new</span></td><td>Ordered list</td><td>Full</td></tr>
+        <tr data-tags="new"><td>Checklist <code>.checklist</code></td><td><span class="pill p-ok">new</span></td><td>List; state written as a word</td><td>Full</td></tr>
+        <tr data-tags="new"><td>Keyboard key <code>kbd</code></td><td><span class="pill p-ok">new</span></td><td>Native element</td><td>Full</td></tr>
+        <tr data-tags="new"><td>Status message <code>#live</code></td><td><span class="pill p-ok">new</span></td><td><code>role="status"</code>, polite</td><td>Not needed</td></tr>
+        <tr data-tags="new"><td>Forced-colors and print layers</td><td><span class="pill p-ok">new</span></td><td>System colours; print opens every item</td><td>Full</td></tr>
+        <tr data-tags="extended"><td>Table <code>.tbl-wrap</code></td><td><span class="pill p-warn">extended</span></td><td>Open style, chip column, marks with words; caption required, <code>th scope</code></td><td>Full</td></tr>
+        <tr data-tags="extended"><td>Nav and scroll-spy</td><td><span class="pill p-warn">extended</span></td><td><code>aria-current</code>, focus clears the sticky bar (2.4.11)</td><td>Links work; no highlight</td></tr>
+        <tr data-tags="kept"><td>Hero and <code>{ai}</code> mark</td><td><span class="pill p-dim">kept</span></td><td><code>header</code>, one <code>h1</code></td><td>Full</td></tr>
+        <tr data-tags="kept"><td>Section number</td><td><span class="pill p-dim">kept</span></td><td><code>section</code> + <code>h2</code></td><td>Full</td></tr>
+        <tr data-tags="kept"><td>Card, note, bracket</td><td><span class="pill p-dim">kept</span></td><td>Headed blocks</td><td>Full</td></tr>
+        <tr data-tags="kept"><td>Pill, band, legend</td><td><span class="pill p-dim">kept</span></td><td>Every colour keyed in a legend</td><td>Full</td></tr>
+        <tr data-tags="kept"><td>Item <code>.item</code></td><td><span class="pill p-dim">kept</span></td><td>Native <code>details</code> and <code>summary</code></td><td>Full</td></tr>
+        <tr data-tags="kept"><td>Pipeline, flow, tiers</td><td><span class="pill p-dim">kept</span></td><td>Lists in boxes</td><td>Full</td></tr>
+        <tr data-tags="kept"><td>Stats, marks, cross-ref, signals</td><td><span class="pill p-dim">kept</span></td><td>Text first, colour second</td><td>Full</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="sub-h">What an agent writes for a diagram</h3>
+  <div class="code">
+    <div class="code-head"><span>section.html · the content, never the styles</span><button class="copy" type="button" hidden>Copy</button></div>
+<pre><code><span class="k">&lt;figure</span> class=<span class="s">"diagram"</span> aria-labelledby=<span class="s">"d1-cap"</span><span class="k">&gt;</span>
+  <span class="k">&lt;div</span> class=<span class="s">"canvas"</span><span class="k">&gt;&lt;svg</span> viewBox=<span class="s">"0 0 960 330"</span> role=<span class="s">"img"</span> aria-labelledby=<span class="s">"d1-title d1-desc"</span><span class="k">&gt;</span>
+    <span class="k">&lt;title</span> id=<span class="s">"d1-title"</span><span class="k">&gt;</span>One source, generated into every surface<span class="k">&lt;/title&gt;</span>
+    <span class="k">&lt;desc</span> id=<span class="s">"d1-desc"</span><span class="k">&gt;</span>Three source files feed gen, which writes ...<span class="k">&lt;/desc&gt;</span>
+    <span class="k">&lt;g</span> class=<span class="s">"dg-node is-source"</span><span class="k">&gt;</span>...<span class="k">&lt;/g&gt;</span>    <span class="c">&lt;!-- brand classes set every colour --&gt;</span>
+    <span class="k">&lt;path</span> class=<span class="s">"dg-edge"</span> d=<span class="s">"M230 165 L320 165"</span><span class="k">/&gt;</span>
+  <span class="k">&lt;/svg&gt;&lt;/div&gt;</span>
+  <span class="k">&lt;figcaption</span> id=<span class="s">"d1-cap"</span><span class="k">&gt;</span>Figure 1. ...<span class="k">&lt;/figcaption&gt;</span>
+  <span class="k">&lt;details&gt;&lt;summary&gt;</span>Text version of figure 1<span class="k">&lt;/summary&gt;</span><span class="k">&lt;ol&gt;</span>...<span class="k">&lt;/ol&gt;&lt;/details&gt;</span>
+<span class="k">&lt;/figure&gt;</span></code></pre>
+  </div>
+  <div class="code">
+    <div class="code-head"><span>skills/ai-brainstorm/SKILL.md · the instruction that changes</span><button class="copy" type="button" hidden>Copy</button></div>
+<pre><code><span class="del">- copy that document's whole CSS block in verbatim, tokens, layout rules and components</span>
+<span class="add">+ copy templates/brainstorm.html.tpl and fill its sections; write no CSS and no script</span></code></pre>
+  </div>
+</section>
+
+<section id="s7" aria-labelledby="h1-s7">
+  <h2 id="h1-s7"><span class="num">07</span>Decisions still open</h2>
+  <p>Nothing here blocks the build. Each line is a choice the agent took with the recommended answer; the owner can reverse any of them at approval.</p>
+  <div class="items">
+    <details class="item" id="i10"><summary><span class="iid">O1</span><span class="ititle">"ai-branding" is the <code>brand/</code> folder, not a new skill</span></summary>
+      <div class="ibody"><p>A new skill adds a description every session loads and trips the skill-count gates. The brand already has a home and a command; the HTML skills point to its gallery. Reverse if you want a skill agents can invoke by name.</p></div></details>
+    <details class="item" id="i11"><summary><span class="iid">O2</span><span class="ititle">Templates are installed beside the skills, so the existing relative links resolve</span></summary>
+      <div class="ibody"><p>Recommended over a new CLI verb that prints a template: it fixes the dead link with no new interface. Research item 1 is answered and D14 carries the change.</p></div></details>
+    <details class="item" id="i12"><summary><span class="iid">O3</span><span class="ititle">No Arcasiles mark on the pages; <code>{ai}</code> engineering keeps its own identity</span></summary>
+      <div class="ibody"><p><code>docs/history/blueprint.html</code> section 22 says the system inherits from the Arcasiles brand; <code>brand/README.md</code> and <code>tokens.json</code>, which are newer and enforced, say otherwise. The enforced source wins.</p></div></details>
+    <details class="item" id="i18"><summary><span class="iid">O5</span><span class="ititle">Prose sets left-aligned, not justified · decided by the owner on 2026-11-22</span></summary>
+      <div class="ibody"><p>Rule 4 and its layout gate justify every paragraph. Justified text opens uneven gaps between words that slow some readers, which is why WCAG 1.4.8 (AAA) asks for no justification. Decided: left-aligned prose on the same left edge. The first pull request changes rule 4 and the layout gate to check the edge, not the justification; this page keeps the current rule until that gate lands.</p></div></details>
+    <details class="item" id="i13"><summary><span class="iid">O4</span><span class="ititle">Hand-written SVG first; a JSON-to-SVG diagram generator only if hand diagrams prove costly</span></summary>
+      <div class="ibody"><p>Three to five diagrams per artifact do not justify a layout engine yet. The gate measures it: if diagram markup dominates the tokens an agent writes, the generator earns its place.</p></div></details>
+  </div>
+</section>
+
+<section id="s8" aria-labelledby="h1-s8">
+  <h2 id="h1-s8"><span class="num">08</span>Constraints and guardrails</h2>
+  <div class="tbl-wrap">
+    <table>
+      <caption class="sr">Standards every component meets and how each is checked</caption>
+      <thead><tr><th scope="col">Standard</th><th scope="col">What it requires here</th><th scope="col">Checked by</th></tr></thead>
+      <tbody>
+        <tr><td>WCAG 2.2 AA</td><td>Text alternatives (1.1.1), structure (1.3.1), contrast 4.5:1 for text and 3:1 for graphics and controls (1.4.3, 1.4.11), reflow at 320 px (1.4.10), text spacing (1.4.12), keyboard (2.1.1), visible focus not hidden by the sticky nav (2.4.7, 2.4.11), 24 px targets (2.5.8), name, role and value (4.1.2)</td><td><code>brand.ts contrast</code>, a static markup gate in <code>bun test</code>, axe-core in a browser</td></tr>
+        <tr><td>WAI-ARIA Authoring Practices</td><td>Tabs, disclosure, toggle button and status message patterns; no ARIA where a native element exists</td><td>The static markup gate: roles, required attributes, ids that resolve</td></tr>
+        <tr><td>User settings</td><td><code>prefers-reduced-motion</code>, <code>prefers-contrast</code>, <code>forced-colors</code>; zoom never blocked</td><td>The static gate reads the media queries and the viewport meta</td></tr>
+        <tr><td>Self-contained</td><td>Opens from <code>file://</code> with no network; no CDN, web font or external script</td><td>The static gate rejects any <code>src</code> or <code>href</code> to a stylesheet or script</td></tr>
+        <tr><td>Security</td><td>The script reads the page and writes text with <code>textContent</code>, never <code>innerHTML</code>; no inline event attributes</td><td>The static gate and code review</td></tr>
+        <tr><td>EU AI Act</td><td>Class: minimal (internal documentation). The footer and a <code>generator</code> meta say an AI agent wrote the page</td><td>Template content</td></tr>
+        <tr><td>Licence</td><td>LeafyGreen palette under Apache-2.0; no MongoDB logo, wordmark or leaf</td><td><code>brand/README.md</code> rule, review</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3 class="sub-h">Each interactive component, under each condition</h3>
+  <p>The behaviour each component is built for; the Status column says what was tested in a browser on 2026-11-22. A mark is always followed by a word, so the table reads without colour.</p>
+  <div class="tbl-wrap">
+    <table>
+      <caption class="sr">How each interactive component behaves with keyboard only, JavaScript off, print and forced colours, and its status</caption>
+      <thead><tr><th scope="col">Component</th><th scope="col">Keyboard</th><th scope="col">JS off</th><th scope="col">Print</th><th scope="col">Forced colours</th><th scope="col">Status</th></tr></thead>
+      <tbody>
+        <tr><td>Tabs</td><td><span class="mark-ok">✔ arrows, Home, End</span></td><td><span class="mark-ok">✔ panels stack</span></td><td><span class="mark-ok">✔ all panels</span></td><td><span class="mark-warn">⚠ not yet seen</span></td><td><span class="cat c-green">keys tested</span></td></tr>
+        <tr><td>Filter chips</td><td><span class="mark-ok">✔ Tab, Enter, Space</span></td><td><span class="mark-ok">✔ hidden, full list</span></td><td><span class="mark-ok">✔ hidden</span></td><td><span class="mark-warn">⚠ not yet seen</span></td><td><span class="cat c-green">count tested</span></td></tr>
+        <tr><td>Copy button</td><td><span class="mark-ok">✔ native button</span></td><td><span class="mark-ok">✔ hidden</span></td><td><span class="mark-ok">✔ hidden</span></td><td><span class="mark-warn">⚠ not yet seen</span></td><td><span class="cat c-amber">file:// untested</span></td></tr>
+        <tr><td>Items and expand all</td><td><span class="mark-ok">✔ native details</span></td><td><span class="mark-ok">✔ open one by one</span></td><td><span class="mark-ok">✔ all open</span></td><td><span class="mark-warn">⚠ not yet seen</span></td><td><span class="cat c-amber">not tested</span></td></tr>
+        <tr><td>Diagram</td><td><span class="mark-ok">✔ text version opens</span></td><td><span class="mark-ok">✔ full</span></td><td><span class="mark-ok">✔ full</span></td><td><span class="mark-bad">✘ strokes unproven</span></td><td><span class="cat c-red">research item 3</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="s9" aria-labelledby="h1-s9">
+  <h2 id="h1-s9"><span class="num">09</span>Out of scope</h2>
+  <div class="note danger">
+    <h3>Not in this work</h3>
+    <p>A light screen theme. A redesign of the website beyond importing <code>components.css</code> and publishing the gallery. A diagram generator (see O4). Mermaid or any runtime library. Rewriting the frozen pages in <code>docs/history/</code>. A new skill. Motion beyond state changes. The product design system a governed project writes in its own <code>DESIGN.md</code>.</p>
+  </div>
+</section>
+
+<section id="s10" aria-labelledby="h1-s10">
+  <h2 id="h1-s10"><span class="num">10</span>Open questions for research</h2>
+  <ol class="steps">
+    <li><b>Where do templates land on install?</b> Answered: nowhere. <code>machinePayload()</code> in <code>src/embed.ts:78</code> installs skills, agents and scripts only, though the binary embeds <code>templates/</code>. D14 adds them to the payload.</li>
+    <li><b>Does CI have a headless browser?</b> If it does, axe-core runs on every pull request; if not, the static gate runs in CI and axe runs in the browser lane of <code>ai-audit-design</code>.</li>
+    <li><b>Do Chromium, Firefox and Safari force inline SVG fill and stroke in forced-colors mode?</b> Decides whether the diagram rules in the forced-colors layer are needed or redundant. [unsourced]</li>
+    <li><b>Does <code>navigator.clipboard</code> work on <code>file://</code> in each browser?</b> Decides the wording of the copy fallback. [unsourced]</li>
+  </ol>
+</section>
+
+<section id="s11" aria-labelledby="h1-s11">
+  <h2 id="h1-s11"><span class="num">11</span>Handoff notes</h2>
+  <p>Lane full: next is <code>/ai-architect</code>, which answers the research items, then <code>/ai-orchestrator</code>. Three stacked pull requests, each under two days:</p>
+  <div class="pipe" role="list" aria-label="The three pull requests in order">
+    <div class="stage" role="listitem"><div class="ph">PR 1 · brand</div><div class="sk">components.css · components.js · gallery</div><div class="q">gen inlines, parity and the a11y gate check</div></div>
+    <div class="stage" role="listitem"><div class="ph">PR 2 · carriers</div><div class="sk">8 templates · 7 skills · install</div><div class="q">agents copy a template, write no CSS</div></div>
+    <div class="stage" role="listitem"><div class="ph">PR 3 · website</div><div class="sk">ai-engineering-web</div><div class="q">imports components.css, publishes the gallery</div></div>
+  </div>
+  <ol class="steps">
+    <li><b>Brand.</b> <code>brand/components.css</code>, <code>brand/components.js</code>, <code>brand/gallery.html</code>; <code>gen</code> inlines between markers; <code>parity</code> covers them; the static accessibility gate joins <code>bun test</code>.</li>
+    <li><b>Carriers.</b> The eight templates adopt the set; the brainstorm, PRD and recap templates gain diagram, decision, stats and tabs slots; <code>artifact-design.md</code> drops its CSS block; the seven skills say "copy the template"; templates install beside skills.</li>
+    <li><b>Website.</b> In <code>ai-engineering-web</code>: import <code>components.css</code> and publish the gallery.</li>
+  </ol>
+  <p>After these land, <code>feat/autonomous-by-default</code> resumes where it was parked: <code>ai-eng work</code> lists it with its reason.</p>
+  <div class="code">
+    <div class="code-head"><span>shell · the checks each pull request must pass</span><button class="copy" type="button" hidden>Copy</button></div>
+<pre><code>bun scripts/brand.ts gen &amp;&amp; bun scripts/brand.ts parity
+bun scripts/brand.ts contrast
+bun test tests/brand-*.spec.ts tests/artifact-*.spec.ts
+bun run typecheck &amp;&amp; bun run lint</code></pre>
+  </div>
+</section>
+
+</div>
+</main>
+
+<footer>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · brand design system<br>
+  complete · 2026-11-22 · written by an AI agent, approved by the owner<br>
+  <a href="#main">Back to top</a>
+</footer>
+<script>
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
+</script>
+<script>
+/* components: progressive enhancement for tabs, copy, filters and expand-all.
+   Every part of the page reads without this script; it only adds controls.
+   It writes with textContent and reads nothing from the network. */
+(function () {
+  const live = document.getElementById("live");
+  function announce(message) {
+    if (!live) return;
+    live.textContent = "";
+    setTimeout(function () { live.textContent = message; }, 60);
+  }
+
+  /* Tabs, per the WAI-ARIA Authoring Practices tabs pattern (automatic activation).
+     The tab list is built from each panel's data-tab label, so the markup stays one
+     list of headed panels that also reads well with the script off. */
+  document.querySelectorAll(".tabs").forEach(function (tabs, setIndex) {
+    const panels = Array.from(tabs.querySelectorAll(":scope > .tabpanel"));
+    if (panels.length < 2) return;
+    const list = document.createElement("div");
+    list.className = "tablist";
+    list.setAttribute("role", "tablist");
+    const buttons = panels.map(function (panel, i) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.id = "tab-" + setIndex + "-" + i;
+      button.setAttribute("role", "tab");
+      button.setAttribute("aria-controls", panel.id);
+      /* Label parts: an optional key ("A"), the name, an optional state chip ("chosen"). */
+      if (panel.dataset.key) {
+        const key = document.createElement("span");
+        key.className = "tab-key";
+        key.textContent = panel.dataset.key;
+        button.appendChild(key);
+      }
+      const name = document.createElement("span");
+      name.textContent = panel.dataset.tab || "Tab " + (i + 1);
+      button.appendChild(name);
+      if (panel.dataset.badge) {
+        const badge = document.createElement("span");
+        badge.className = "cat c-green";
+        badge.textContent = panel.dataset.badge;
+        button.appendChild(badge);
+      }
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", button.id);
+      panel.tabIndex = 0;
+      list.appendChild(button);
+      return button;
+    });
+    const indicator = document.createElement("span");
+    indicator.className = "tab-ind";
+    indicator.setAttribute("aria-hidden", "true");
+    list.appendChild(indicator);
+    let current = 0;
+    /* The bar moves with transform only; a keyboard move is instant, because a
+       motion repeated on every arrow press reads as lag. */
+    function placeIndicator(isInstant) {
+      const button = buttons[current];
+      indicator.classList.toggle("is-instant", isInstant);
+      indicator.style.transform = "translateX(" + button.offsetLeft + "px) scaleX(" + button.offsetWidth + ")";
+    }
+    function select(index, moveFocus) {
+      current = index;
+      buttons.forEach(function (button, i) {
+        const isSelected = i === index;
+        button.setAttribute("aria-selected", String(isSelected));
+        button.tabIndex = isSelected ? 0 : -1;
+        panels[i].hidden = !isSelected;
+      });
+      placeIndicator(moveFocus);
+      /* Keep the chosen tab inside a row that scrolls, without moving the page. */
+      const chosen = buttons[index];
+      if (chosen.offsetLeft < list.scrollLeft || chosen.offsetLeft + chosen.offsetWidth > list.scrollLeft + list.clientWidth) {
+        list.scrollLeft = chosen.offsetLeft - 16;
+      }
+      if (moveFocus) chosen.focus({ preventScroll: true });
+      markOverflow();
+    }
+    /* A row that runs past the screen fades at the edge that hides more tabs. */
+    function markOverflow() {
+      list.classList.toggle("has-more", list.scrollLeft + list.clientWidth < list.scrollWidth - 1);
+    }
+    list.addEventListener("scroll", markOverflow, { passive: true });
+    buttons.forEach(function (button, i) {
+      button.addEventListener("click", function () { select(i, false); });
+      button.addEventListener("keydown", function (event) {
+        const last = buttons.length - 1;
+        const next = { ArrowRight: i === last ? 0 : i + 1, ArrowLeft: i === 0 ? last : i - 1, Home: 0, End: last }[event.key];
+        if (next === undefined) return;
+        event.preventDefault();
+        select(next, true);
+      });
+    });
+    tabs.insertBefore(list, panels[0]);
+    tabs.classList.add("is-enhanced");
+    select(0, false);
+    placeIndicator(true);
+    if (window.ResizeObserver) new ResizeObserver(function () { placeIndicator(true); markOverflow(); }).observe(list);
+  });
+
+  /* Tables: on a narrow screen each row stacks as a block and each cell shows its
+     column name. Explicit roles keep the table semantics that display:block drops. */
+  document.querySelectorAll(".tbl-wrap table").forEach(function (table) {
+    const heads = Array.from(table.querySelectorAll("thead th")).map(function (th) { return th.textContent.trim(); });
+    table.setAttribute("role", "table");
+    table.querySelectorAll("thead, tbody").forEach(function (group) { group.setAttribute("role", "rowgroup"); });
+    table.querySelectorAll("tr").forEach(function (row) {
+      row.setAttribute("role", "row");
+      Array.from(row.children).forEach(function (cell, i) {
+        cell.setAttribute("role", cell.tagName === "TH" ? "columnheader" : "cell");
+        if (cell.tagName === "TD" && heads[i]) cell.dataset.label = heads[i];
+      });
+    });
+    table.classList.add("is-stackable");
+  });
+
+  /* A region that scrolls sideways must take keyboard focus, or its hidden part is out
+     of reach (WCAG 2.1.1). Only regions that overflow at the current width get a stop. */
+  const scrollers = Array.from(document.querySelectorAll("pre, .canvas, .tbl-wrap"));
+  function markScrollers() {
+    scrollers.forEach(function (region) {
+      if (region.scrollWidth > region.clientWidth + 1) region.tabIndex = 0;
+      else region.removeAttribute("tabindex");
+    });
+  }
+  markScrollers();
+  window.addEventListener("resize", markScrollers, { passive: true });
+
+  /* Copy: the button copies its block's code and says so in the status region. */
+  document.querySelectorAll(".code .copy").forEach(function (button) {
+    button.hidden = false;
+    button.addEventListener("click", function () {
+      const code = button.closest(".code").querySelector("pre").innerText;
+      const done = function () { button.textContent = "Copied"; announce("Code copied"); setTimeout(function () { button.textContent = "Copy"; }, 2000); };
+      const failed = function () { announce("Copy is blocked here: select the code and copy it by hand"); };
+      if (navigator.clipboard) navigator.clipboard.writeText(code).then(done, failed);
+      else failed();
+    });
+  });
+
+  /* Filters: one pressed chip at a time narrows the rows tagged with its value. */
+  document.querySelectorAll(".filters").forEach(function (bar) {
+    const target = document.getElementById(bar.dataset.target);
+    if (!target) return;
+    const rows = Array.from(target.querySelectorAll("[data-tags]"));
+    const chips = Array.from(bar.querySelectorAll(".chip"));
+    bar.hidden = false;
+    chips.forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        const value = chip.dataset.filter;
+        let shown = 0;
+        chips.forEach(function (other) { other.setAttribute("aria-pressed", String(other === chip)); });
+        rows.forEach(function (row) {
+          const isMatch = value === "all" || row.dataset.tags.split(" ").includes(value);
+          row.hidden = !isMatch;
+          if (isMatch) shown += 1;
+        });
+        announce(shown + " of " + rows.length + " shown");
+      });
+    });
+  });
+
+  /* Expand all: opens or closes every item in the named list. */
+  document.querySelectorAll("[data-expand]").forEach(function (button) {
+    const list = document.getElementById(button.dataset.expand);
+    if (!list) return;
+    button.hidden = false;
+    button.addEventListener("click", function () {
+      const shouldOpen = button.dataset.state !== "open";
+      list.querySelectorAll("details").forEach(function (item) { item.open = shouldOpen; });
+      button.dataset.state = shouldOpen ? "open" : "closed";
+      button.textContent = shouldOpen ? "Collapse all" : "Expand all";
+    });
+  });
+
+  /* Print: a closed item prints as its title only, so printing opens them all. */
+  window.addEventListener("beforeprint", function () {
+    document.querySelectorAll("details").forEach(function (item) { item.open = true; });
+  });
+})();
+</script>
+</body>
+</html>
