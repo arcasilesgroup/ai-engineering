@@ -329,7 +329,7 @@ export type Closing = { isClosed: boolean; text: string };
 export function closeLane(root: string, lane: Lane, current: string | null, isHeldElsewhere: (path: string) => boolean = () => false): Closing {
   const kept = (why: string): Closing => ({ isClosed: false, text: `${lane.name} kept — ${why}` });
   if (lane.tip === undefined) return kept("its tip could not be read");
-  if (lane.name === current) return kept("it is checked out here; switch to the base, then run tidy again");
+  if (lane.name === current) return kept("it is checked out here; run tidy from another checkout and leave this folder on the branch");
   if (lane.path !== null) {
     if (isHeldElsewhere(lane.path)) return kept(`another session is writing in ${lane.path}`);
     const status = worktreeStatus(lane.path);
