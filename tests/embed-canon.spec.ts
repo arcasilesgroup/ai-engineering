@@ -8,6 +8,7 @@ import { describe, expect, test, afterEach } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, symlinkSync, linkSync, rmSync, readdirSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
+import * as embedModule from "../src/embed.ts";
 import {
   embeddedUnder,
   canonSkills,
@@ -20,6 +21,7 @@ import {
   embeddedTemplate,
   embeddedChainBundle,
   recordCanonOwnership,
+  recordedMachinePaths,
   CANON_OWNERSHIP_NAME,
 } from "../src/embed.ts";
 import { sha256 } from "../src/install.ts";
@@ -46,6 +48,38 @@ afterEach(() => {
 
 const aSkillPath = (): string => [...canonSkills().keys()][0]!;
 const skillFolder = (): string => aSkillPath().split("/")[1]!;
+
+/** `templates/*.html.tpl` from the checkout, one level, never a hand list (R7). */
+function shippedPageTemplateKeys(): string[] {
+  return readdirSync(join(root, "templates"), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".html.tpl"))
+    .map((entry) => `templates/${entry.name}`)
+    .sort((left, right) => left.localeCompare(right, "en"));
+}
+
+/** Page templates in the embedded map: `templates/<file>.html.tpl`, nothing nested. */
+function embeddedPageTemplates(): Map<string, string> {
+  const pages = new Map<string, string>();
+  for (const [key, ref] of embeddedUnder("templates/")) {
+    const name = key.slice("templates/".length);
+    if (name.endsWith(".html.tpl") && !name.includes("/")) pages.set(key, ref);
+  }
+  return pages;
+}
+
+function exportedMachinePayload(): Map<string, string> | null {
+  const exported = (embedModule as Record<string, unknown>)["machinePayload"];
+  if (typeof exported !== "function") return null;
+  const payload = (exported as () => unknown)();
+  if (!(payload instanceof Map)) throw new Error("machinePayload() did not return a Map");
+  return payload as Map<string, string>;
+}
+
+function exportedIsRecordKey(): ((key: string) => boolean) | null {
+  const exported = (embedModule as Record<string, unknown>)["isRecordKey"];
+  if (typeof exported !== "function") return null;
+  return exported as (key: string) => boolean;
+}
 
 describe("the embedded payload", () => {
   test("every key under a prefix is normalized, so callers never see the ../ the generator writes", () => {
@@ -120,6 +154,61 @@ describe("the embedded payload", () => {
     expect(embeddedPath("/opt/ai-eng/asset.tpl")).toBe("/opt/ai-eng/asset.tpl");
     expect(embeddedPath("C:\\ai-eng\\asset.tpl")).toBe("C:\\ai-eng\\asset.tpl");
     expect(existsSync(embeddedPath("./embed.ts"))).toBe(true);
+  });
+
+  test("U10: machinePayload holds every templates/*.html.tpl and no other templates entry, taken from the embedded map", () => {
+    const fromDisk = shippedPageTemplateKeys();
+    const embeddedPages = embeddedPageTemplates();
+    const embeddedKeys = [...embeddedPages.keys()].sort((left, right) => left.localeCompare(right, "en"));
+    expect(fromDisk.length).toBeGreaterThan(0);
+    expect(embeddedKeys).toEqual(fromDisk);
+
+    const payload = exportedMachinePayload();
+    const templateKeys = (payload === null ? recordedMachinePaths(sandbox()) : [...payload.keys()])
+      .filter((key) => key.startsWith("templates/"))
+      .sort((left, right) => left.localeCompare(right, "en"));
+    expect(templateKeys).toEqual(embeddedKeys);
+    if (payload === null) throw new Error("machinePayload is not exported");
+    for (const [key, ref] of embeddedPages) expect(payload.get(key)).toBe(ref);
+    for (const key of embeddedUnder("templates/").keys()) {
+      if (!embeddedPages.has(key)) expect(payload.has(key)).toBe(false);
+    }
+  });
+
+  test("U11: isRecordKey accepts templates/<file>.html.tpl and refuses a nested path, a dot-led name and an empty name", () => {
+    const pages = shippedPageTemplateKeys();
+    expect(pages.length).toBeGreaterThan(0);
+    const isRecordKey = exportedIsRecordKey();
+    if (isRecordKey !== null) {
+      for (const key of pages) expect(isRecordKey(key)).toBe(true);
+      expect(isRecordKey("templates/a/b.html.tpl")).toBe(false);
+      expect(isRecordKey("templates/.hidden")).toBe(false);
+      expect(isRecordKey("templates/")).toBe(false);
+      return;
+    }
+
+    const home = sandbox();
+    const key = pages[0]!;
+    mkdirSync(join(home, "templates"), { recursive: true });
+    writeFileSync(join(home, key), "kept\n");
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), `${JSON.stringify({ files: { [key]: "abc" } })}\n`);
+    expect(recordCanonOwnership(home)).toBeNull();
+    const files = JSON.parse(readFileSync(join(home, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string> };
+    expect(Object.keys(files.files).filter((path) => path.startsWith("templates/")).sort()).toContain(key);
+
+    for (const bad of ["templates/a/b.html.tpl", "templates/.hidden", "templates/"]) {
+      const refusedHome = sandbox();
+      mkdirSync(join(refusedHome, "skills", "ai-retired"), { recursive: true });
+      writeFileSync(join(refusedHome, "skills", "ai-retired", "SKILL.md"), "old");
+      writeFileSync(
+        join(refusedHome, CANON_OWNERSHIP_NAME),
+        `${JSON.stringify({ files: { [bad]: "abc", "skills/ai-retired/SKILL.md": "def" } })}\n`,
+      );
+      expect(canonExtras(refusedHome).retired).toEqual([]);
+      expect(removeStaleCanonFiles(refusedHome)).toEqual({ removed: [], refused: [] });
+      expect(readFileSync(join(refusedHome, "skills", "ai-retired", "SKILL.md"), "utf8")).toBe("old");
+    }
+    throw new Error("isRecordKey is not exported");
   });
 });
 
