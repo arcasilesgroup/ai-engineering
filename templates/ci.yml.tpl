@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  AI_ENG_VERSION: v3.0.6
+  AI_ENG_VERSION: v3.2.3
 
 jobs:
   check:

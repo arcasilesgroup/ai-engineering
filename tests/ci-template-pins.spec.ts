@@ -10,6 +10,7 @@ const TOOLCHAIN = resolve(ROOT, "scripts/toolchain.sh");
 
 const template = readFileSync(TEMPLATE, "utf8");
 const azureTemplate = readFileSync(resolve(ROOT, "templates/azure-pipelines.yml.tpl"), "utf8");
+const packageVersion = (JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8")) as { version: string }).version;
 const toolchain = readFileSync(TOOLCHAIN, "utf8");
 
 function pinOf(source: string, name: string): string | undefined {
@@ -27,6 +28,10 @@ function templateToolPin(tool: string, source: string = template): string {
   return `${ver} ${sha256}`;
 }
 
+function aiEngVersion(source: string): string {
+  return source.match(/^ {2}AI_ENG_VERSION: (v\d+\.\d+\.\d+)$/m)?.[1] ?? "";
+}
+
 function toolchainToolPin(prefix: string): string {
   return `${toolchainValue(`${prefix}_VERSION`)} ${toolchainValue(`${prefix}_SHA256`)}`;
 }
@@ -39,6 +44,12 @@ function expectSamePin(actual: string, expected: string, regenerate: string): vo
 }
 
 describe("ci template pins track their source of truth", () => {
+  test("AI_ENG_VERSION in both templates tracks package.json", () => {
+    const expected = `v${packageVersion}`;
+    expectSamePin(aiEngVersion(template), expected, "templates/ci.yml.tpl (source of truth: package.json)");
+    expectSamePin(aiEngVersion(azureTemplate), expected, "templates/azure-pipelines.yml.tpl (source of truth: package.json)");
+  });
+
   test("actions/checkout is one pin across the template and every workflow", () => {
     const expected = pinOf(template, "actions/checkout") ?? "(none)";
     const offenders = readdirSync(WORKFLOWS)
