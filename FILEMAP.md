@@ -10,6 +10,9 @@ LEARNINGS.md                   Promoted rules; its append-only log lives in docs
 FILEMAP.md                     This file
 PERMISSIONS.md                 Azure DevOps triage read routes and scope boundaries
 .gitattributes                 Keeps LF line endings on every checkout, Windows included
+brand/
+  components.css               Style body spliced between the brand CSS markers
+  components.js                Scroll-spy spliced between the brand script markers
 docs/
   global-carriers.md           Host carrier paths and their machine/repository scope
   history/                     Records, never rewritten: the early blueprint, the recap, the learnings log

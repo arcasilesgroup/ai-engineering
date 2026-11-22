@@ -62,9 +62,14 @@ Run them with `bun test tests/brand-*.spec.ts`, or as part of `bun test`.
 | `../ai-engineering-web/src/styles/tokens.json` | **The declaration itself, byte-for-byte.** The site consumes the CSS, not this file — it exists so somebody working only in that repository can read the whole system: the semantic layer, the reason beside each value, the contrast pairs, the artifact vocabulary. Generated and parity-checked, so "verbatim" is enforced rather than promised. |
 | `src/theme.ts` | The CLI. The banner's brand green and the terminal-native status marks. |
 | `../ai-engineering-web/.impeccable/design.json` | The design record the `impeccable` skill reads: every colour with its ramp, the type scale, the shadows, and the contrast table. |
+| `brand/components.css` | The style body. `gen` reads it and writes those bytes between `/* brand:begin */` and `/* brand:end */` inside `<style>`. |
+| `brand/components.js` | The scroll-spy, with no `<script>` tags. `gen` writes one classic `<script>` of these bytes between `<!-- brand:js:begin -->` and `<!-- brand:js:end -->`. |
+| `templates/*.html.tpl` | Every template that carries those marker pairs, found by glob. Only the marked bytes are rewritten; `{{placeholders}}` and every byte outside the markers stay. A missing, doubled or reversed marker names the file and the marker, and that file is not written. |
 
 `gen` is idempotent: running it twice changes nothing the second time. `parity` is what
-proves that, and it is the reason a hand edit to `tokens.css` cannot survive a review.
+proves that, and it is the reason a hand edit to `tokens.css` — or to a marked template
+region — cannot survive a review. A missing website checkout is not template drift:
+`parity` still reports each marked template.
 
 Two ways to check it, depending on whether the work is committed:
 

@@ -56,7 +56,14 @@
         "bun run lint"
       ],
       "ui": null,
-      "changed_files": [],
+      "changed_files": [
+        "brand/components.css",
+        "brand/components.js",
+        "scripts/brand.ts",
+        "templates/brainstorm.html.tpl",
+        "brand/README.md",
+        "FILEMAP.md"
+      ],
       "gates": {
         "behavior": { "status": "pending", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },

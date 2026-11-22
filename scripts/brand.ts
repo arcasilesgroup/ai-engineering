@@ -2,9 +2,12 @@
 /**
  * brand.ts — the {ai} engineering brand system, compiled.
  *
- * One file declares the brand (brand/tokens.json). This script is the only thing
- * allowed to turn that file into code. It answers four questions, each with an
- * exit code a machine can read:
+ * One file declares the colour (brand/tokens.json). The artifact shell is the
+ * other source: brand/components.css and brand/components.js are spliced into
+ * every templates/*.html.tpl that carries the brand markers. Bytes outside those
+ * markers, placeholders included, stay. This script is the only thing allowed to
+ * turn those files into code. It answers four questions, each with an exit code
+ * a machine can read:
  *
  *   bun scripts/brand.ts gen       — write every artifact it produces
  *   bun scripts/brand.ts parity    — does what is committed still match the tokens?
@@ -596,6 +599,130 @@ const COMPONENT_SPECIMENS = [
 ] as const;
 
 // ---------------------------------------------------------------------------
+// Marked template regions
+//
+// brand/components.css and brand/components.js are the shell. A template keeps
+// every byte outside the markers, including {{placeholders}}. A pair that is
+// missing, doubled or reversed is refused before the file is opened for write.
+// ---------------------------------------------------------------------------
+
+const CSS_MARKER_BEGIN = '/* brand:begin */';
+const CSS_MARKER_END = '/* brand:end */';
+const JS_MARKER_BEGIN = '<!-- brand:js:begin -->';
+const JS_MARKER_END = '<!-- brand:js:end -->';
+
+type MarkerFault = 'missing' | 'doubled' | 'reversed';
+
+/** The refusal names the template and the marker, so the broken pair can be found without a diff. */
+export class BrandMarkerError extends Error {
+  constructor(templatePath: string, fault: MarkerFault, marker: string) {
+    super(`${templatePath}: ${fault} marker ${marker}`);
+    this.name = 'BrandMarkerError';
+  }
+}
+
+function markerOffsets(html: string, marker: string): number[] {
+  const offsets: number[] = [];
+  let from = 0;
+  while (from < html.length) {
+    const at = html.indexOf(marker, from);
+    if (at < 0) break;
+    offsets.push(at);
+    from = at + marker.length;
+  }
+  return offsets;
+}
+
+function oneMarker(html: string, marker: string, templatePath: string): number {
+  const offsets = markerOffsets(html, marker);
+  if (offsets.length === 0) throw new BrandMarkerError(templatePath, 'missing', marker);
+  if (offsets.length > 1) throw new BrandMarkerError(templatePath, 'doubled', marker);
+  return offsets[0]!;
+}
+
+interface MarkerSpan {
+  readonly start: number;
+  readonly end: number;
+}
+
+/**
+ * Bytes strictly between one pair. A reversed pair is reported on the opening
+ * marker: that is the marker that had to come first, and the refusal names one.
+ */
+function markerSpan(html: string, begin: string, end: string, templatePath: string): MarkerSpan {
+  const beginAt = oneMarker(html, begin, templatePath);
+  const endAt = oneMarker(html, end, templatePath);
+  const start = beginAt + begin.length;
+  if (endAt < start) throw new BrandMarkerError(templatePath, 'reversed', begin);
+  return { start, end: endAt };
+}
+
+/** The classic script gen writes. components.js carries no script tags of its own. */
+function classicBrandScript(source: string): string {
+  return `<script>\n${source}</script>`;
+}
+
+export function spliceBrandRegions(html: string, css: string, js: string, templatePath: string): string {
+  const style = markerSpan(html, CSS_MARKER_BEGIN, CSS_MARKER_END, templatePath);
+  const script = markerSpan(html, JS_MARKER_BEGIN, JS_MARKER_END, templatePath);
+  const regions = [
+    { start: style.start, end: style.end, replacement: css },
+    { start: script.start, end: script.end, replacement: classicBrandScript(js) },
+  ].sort((left, right) => right.start - left.start);
+  let spliced = html;
+  for (const region of regions) {
+    spliced = spliced.slice(0, region.start) + region.replacement + spliced.slice(region.end);
+  }
+  return spliced;
+}
+
+function carriesBrandMarkers(html: string): boolean {
+  return (
+    html.includes(CSS_MARKER_BEGIN) ||
+    html.includes(CSS_MARKER_END) ||
+    html.includes(JS_MARKER_BEGIN) ||
+    html.includes(JS_MARKER_END)
+  );
+}
+
+/** Re-derived from templates/*.html.tpl. A handwritten list would hide the next template. */
+async function markedTemplatePaths(root: string): Promise<string[]> {
+  const relativePaths: string[] = [];
+  for (const match of new Bun.Glob('templates/*.html.tpl').scanSync({ cwd: root, onlyFiles: true })) {
+    const relativePath = match.split('\\').join('/');
+    const html = await readFile(join(root, relativePath), 'utf8');
+    if (carriesBrandMarkers(html)) relativePaths.push(relativePath);
+  }
+  relativePaths.sort();
+  return relativePaths;
+}
+
+async function readBrandComponents(root: string): Promise<{ readonly css: string; readonly js: string }> {
+  return {
+    css: await readFile(join(root, 'brand', 'components.css'), 'utf8'),
+    js: await readFile(join(root, 'brand', 'components.js'), 'utf8'),
+  };
+}
+
+/** Relative paths of marked templates whose regions differ from the brand sources. */
+export async function templateDrift(root: string = ROOT): Promise<readonly string[]> {
+  const { css, js } = await readBrandComponents(root);
+  const drifted: string[] = [];
+  for (const relativePath of await markedTemplatePaths(root)) {
+    const html = await readFile(join(root, relativePath), 'utf8');
+    if (spliceBrandRegions(html, css, js, relativePath) !== html) drifted.push(relativePath);
+  }
+  return drifted;
+}
+
+/** Splice first. A refusal throws and leaves the file on disk alone. */
+export async function rewriteBrandTemplate(templatePath: string, css: string, js: string): Promise<void> {
+  const html = await readFile(templatePath, 'utf8');
+  const spliced = spliceBrandRegions(html, css, js, templatePath);
+  if (spliced !== html) await Bun.write(templatePath, spliced);
+}
+
+// ---------------------------------------------------------------------------
 // Commands
 // ---------------------------------------------------------------------------
 
@@ -612,19 +739,42 @@ async function sameAsOnDisk(path: string, contents: string): Promise<boolean> {
  * compute the same bytes: a parity check that renders its own way is a check that lies.
  */
 async function renderArtifacts(t: Tokens): Promise<[string, string][]> {
+  const { css, js } = await readBrandComponents(ROOT);
+  const templates: [string, string][] = [];
+  for (const relativePath of await markedTemplatePaths(ROOT)) {
+    const templatePath = join(ROOT, relativePath);
+    const html = await readFile(templatePath, 'utf8');
+    templates.push([templatePath, spliceBrandRegions(html, css, js, relativePath)]);
+  }
   return [
     [OUT.css, genCss(t)],
     [OUT.cliTheme, genCliTheme(t)],
     [OUT.designJson, genDesignJson(t, await responsiveThresholds())],
     // Verbatim: the bytes of the declaration, not a rendering of it.
     [OUT.tokensJson, await readFile(TOKENS_PATH, 'utf8')],
+    ...templates,
   ];
 }
 
 async function cmdGen(t: Tokens): Promise<number> {
-  for (const [path, contents] of await renderArtifacts(t)) {
-    await mkdir(dirname(path), { recursive: true });
-    await Bun.write(path, contents);
+  const { css, js } = await readBrandComponents(ROOT);
+  let artifacts: [string, string][];
+  try {
+    artifacts = await renderArtifacts(t);
+  } catch (error) {
+    if (error instanceof BrandMarkerError) {
+      console.error(error.message);
+      return 1;
+    }
+    throw error;
+  }
+  for (const [path, contents] of artifacts) {
+    if (path.endsWith('.html.tpl')) {
+      await rewriteBrandTemplate(path, css, js);
+    } else {
+      await mkdir(dirname(path), { recursive: true });
+      await Bun.write(path, contents);
+    }
     console.log(`wrote ${relative(process.cwd(), path) || path}`);
   }
   return 0;
@@ -651,13 +801,24 @@ async function themeColorDrift(t: Tokens): Promise<string | null> {
     : `${file}: theme-color is ${found}, but the field is ${expected}. The mobile browser paints its chrome with the stale one.`;
 }
 
+/** `ok` grows to the width of `DRIFT`, then one space, then the repo-relative template. */
+function templateParityLine(matchesDisk: boolean, relativePath: string): string {
+  const mark = (matchesDisk ? 'ok' : 'DRIFT').padEnd('DRIFT'.length);
+  return `${mark} ${relativePath}`;
+}
+
 async function cmdParity(t: Tokens): Promise<number> {
   const artifacts = await renderArtifacts(t);
   let drifted = 0;
   for (const [path, contents] of artifacts) {
-    const ok = await sameAsOnDisk(path, contents);
-    console.log(`${ok ? 'ok  ' : 'DRIFT'} ${relative(process.cwd(), path) || path}`);
-    if (!ok) drifted++;
+    const matchesDisk = await sameAsOnDisk(path, contents);
+    if (path.endsWith('.html.tpl')) {
+      const relativePath = relative(ROOT, path).split('\\').join('/');
+      console.log(templateParityLine(matchesDisk, relativePath));
+    } else {
+      console.log(`${matchesDisk ? 'ok  ' : 'DRIFT'} ${relative(process.cwd(), path) || path}`);
+    }
+    if (!matchesDisk) drifted++;
   }
 
   // `theme-color` is the one palette value that lives in a hand-written file: the
