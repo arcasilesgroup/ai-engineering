@@ -636,19 +636,23 @@ function resetStopCounter(path: string): void {
   }
 }
 
-function bumpStopCounter(path: string, root: string): number {
+/** How many consecutive Stops this session was refused for `reason`, this one included.
+ *  The file holds the count, a newline, and the reason; another reason starts again at one. */
+function bumpStopCounter(path: string, root: string, reason: string): number {
   ensureCounterDirectory(dirname(path), root);
   let count = 0;
   try {
     const stat = lstatSync(path);
     if (stat.isSymbolicLink() || !stat.isFile()) throw new Error(`${path} is not a regular file`);
-    const previous = Number(readFileSync(path, "utf8"));
-    if (Number.isSafeInteger(previous) && previous > 0) count = previous;
+    const stored = readFileSync(path, "utf8");
+    const newline = stored.indexOf("\n");
+    const previous = Number(stored.slice(0, newline));
+    if (newline > 0 && stored.slice(newline + 1) === reason && Number.isSafeInteger(previous) && previous > 0) count = previous;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
   const next = count + 1;
-  writeFileSync(path, String(next), { mode: 0o600 });
+  writeFileSync(path, `${next}\n${reason}`, { mode: 0o600 });
   return next;
 }
 
@@ -750,17 +754,20 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
     return { deny: false };
   }
 
+  const reason = problems.join("; ");
   let blocks: number;
   try {
-    blocks = bumpStopCounter(counter, root);
+    blocks = bumpStopCounter(counter, root, reason);
   } catch (error) {
     return faultRefusal(payload, deny("Checkpoint", "Stop gate", `cannot persist the consecutive-stop limit (${error instanceof Error ? error.message : String(error)})`, "restore access to .ai-engineering/cache and retry"));
   }
+  // Past the limit the same open checkpoint (a background worker still running) lets every
+  // Stop through: refusing again only burns the turns it is waiting with.
   if (blocks > MAX_STOP_BLOCKS) {
-    resetStopCounter(counter);
+    warnOnce(root, payload.session_id, `[ai-eng] checkpoint: warning: Stop allowed after ${MAX_STOP_BLOCKS} refusals; the checkpoint is still open: ${reason}`);
     return { deny: false };
   }
-  return deny("Checkpoint", "Stop gate", `${problems.join("; ")}. Continue the checkpoint loop; if a human must take over, record halted with its reason and checkpoint`, "continue the loop or set the top-level halted reason before stopping");
+  return deny("Checkpoint", "Stop gate", `${reason}. Continue the checkpoint loop; if a human must take over, record halted with its reason and checkpoint`, "continue the loop or set the top-level halted reason before stopping");
 }
 
 export function runCheckpointGuard(payload: Payload, repoRoot: string | null): CheckpointGuardResult {

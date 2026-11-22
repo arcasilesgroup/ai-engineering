@@ -682,6 +682,11 @@ describe("Stop gate", () => {
     );
   }
 
+  function problemsOf(refusal: { reason: string }): string {
+    const prefix = "Checkpoint cannot pass: Stop gate ";
+    return refusal.reason.slice(prefix.length, refusal.reason.indexOf(". Continue the checkpoint loop"));
+  }
+
   function counterFolder(fixture: Fixture): string {
     return join(fixture.root, ".ai-engineering", "cache", "checkpoint-stop");
   }
@@ -816,6 +821,27 @@ describe("Stop gate", () => {
     );
   });
 
+  test("after the limit the same open checkpoint lets every Stop through, warned once; a new reason counts again", () => {
+    withFixture((fixture) => {
+      transcript(fixture);
+      save(fixture.planPath, midway());
+      const session = `waiting-${randomUUID()}`;
+      for (let attempt = 0; attempt < 3; attempt += 1) expect(run(fixture, stop(fixture, session))).toEqual(stopRefusal(fixture));
+      const said: string[] = [];
+      const write = process.stderr.write.bind(process.stderr);
+      process.stderr.write = ((chunk: string) => said.push(String(chunk)) > 0) as typeof process.stderr.write;
+      try {
+        expect(run(fixture, stop(fixture, session))).toEqual(ALLOWED);
+        expect(run(fixture, stop(fixture, session))).toEqual(ALLOWED);
+      } finally {
+        process.stderr.write = write;
+      }
+      expect(said).toEqual([`[ai-eng] checkpoint: warning: Stop allowed after 3 refusals; the checkpoint is still open: ${problemsOf(stopRefusal(fixture))}\n`]);
+      save(fixture.planPath, plan([done(1), item(2, "pending", "passed", "n/a", "pending"), open(3)]));
+      expect(run(fixture, stop(fixture, session))?.deny).toBe(true);
+    });
+  });
+
   test("the consecutive-stop counter is one private file per session, cleared once gates close", () => {
     withFixture((fixture) => {
       transcript(fixture);
@@ -824,7 +850,7 @@ describe("Stop gate", () => {
       expect(run(fixture, stop(fixture, session))).toEqual(stopRefusal(fixture));
       const counter = counterFile(fixture, session);
       expect(readdirSync(counterFolder(fixture))).toEqual([counter.slice(counterFolder(fixture).length + 1)]);
-      expect(readFileSync(counter, "utf8")).toBe("1");
+      expect(readFileSync(counter, "utf8")).toBe(`1\n${problemsOf(stopRefusal(fixture))}`);
       // Windows keeps no owner/group/other bits: every file reports 0o666 there.
       if (process.platform !== "win32") expect(statSync(counter).mode & 0o777).toBe(0o600);
       save(fixture.planPath, plan([done(1), done(2), done(3)]));
@@ -840,13 +866,14 @@ describe("Stop gate", () => {
       mkdirSync(counterFolder(fixture), { recursive: true });
       const session = `stored-${randomUUID()}`;
       const counter = counterFile(fixture, session);
-      writeFileSync(counter, "3");
+      const problems = problemsOf(stopRefusal(fixture));
+      writeFileSync(counter, `3\n${problems}`);
       expect(run(fixture, stop(fixture, session))).toEqual(ALLOWED);
-      expect(existsSync(counter)).toBe(false);
-      for (const stored of ["abc", "-5", "0"]) {
-        writeFileSync(counter, stored);
+      expect(readFileSync(counter, "utf8")).toBe(`4\n${problems}`);
+      for (const stored of ["abc", "-5", "0", "3", `3\nanother reason`]) {
+        writeFileSync(counter, stored.includes("\n") || stored === "3" ? stored : `${stored}\n${problems}`);
         expect(run(fixture, stop(fixture, session))).toEqual(stopRefusal(fixture));
-        expect(readFileSync(counter, "utf8")).toBe("1");
+        expect(readFileSync(counter, "utf8")).toBe(`1\n${problems}`);
       }
     });
   });
