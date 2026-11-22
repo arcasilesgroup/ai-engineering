@@ -745,7 +745,7 @@ describe("init · the git floor's own housekeeping", () => {
     expect(result).toBe(0);
     expect(out).toContain("updated    core.hooksPath · unset — was .ai-engineering/git-template/hooks");
     // git only reads .git/hooks while the setting is unset, so the floor runs again.
-    expect(gitIn(["config", "--get", "core.hooksPath"], cwd).trim()).toBe("");
+    expect(gitIn(["config", "--local", "--get", "core.hooksPath"], cwd).trim()).toBe("");
     expect(readFileSync(join(cwd, ".git", "hooks", "pre-commit"), "utf8")).toContain("ai-eng");
     // Windows has no execute bit; Git for Windows runs a hook whatever its mode.
     if (process.platform !== "win32") expect(statSync(join(cwd, ".git", "hooks", "pre-commit")).mode & 0o111).toBeGreaterThan(0);
@@ -758,8 +758,41 @@ describe("init · the git floor's own housekeeping", () => {
 
     const { result, out } = await capture(() => initMain({ yes: true }));
     expect(result).toBe(0);
-    expect(gitIn(["config", "--get", "core.hooksPath"], cwd).trim()).toBe(".husky/_");
+    expect(gitIn(["config", "--local", "--get", "core.hooksPath"], cwd).trim()).toBe(".husky/_");
     expect(out).toContain("core.hooksPath is yours");
+  });
+
+  test("a path that merely contains ai-eng is the user's and is not unset", async () => {
+    const { cwd } = sandboxed();
+    gitIn(["init", "-q"], cwd);
+    gitIn(["config", "--local", "core.hooksPath", "/tmp/ai-eng-hooks"], cwd);
+
+    const { result, out } = await capture(() => initMain({ yes: true }));
+    expect(result).toBe(0);
+    expect(gitIn(["config", "--local", "--get", "core.hooksPath"], cwd).trim()).toBe("/tmp/ai-eng-hooks");
+    expect(out).toContain("core.hooksPath is yours (/tmp/ai-eng-hooks)");
+    expect(out).not.toContain("unset — was");
+  });
+
+  test("an environment core.hooksPath is not the repo's local value", async () => {
+    const { cwd } = sandboxed();
+    gitIn(["init", "-q"], cwd);
+    const keys = ["GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0"] as const;
+    const saved = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+    process.env["GIT_CONFIG_COUNT"] = "1";
+    process.env["GIT_CONFIG_KEY_0"] = "core.hooksPath";
+    process.env["GIT_CONFIG_VALUE_0"] = "/tmp/from-the-environment";
+    try {
+      const { result, out } = await capture(() => initMain({ yes: true }));
+      expect(result).toBe(0);
+      expect(out).not.toContain("core.hooksPath");
+      expect(gitIn(["config", "--local", "--get", "core.hooksPath"], cwd).trim()).toBe("");
+    } finally {
+      for (const key of keys) {
+        if (saved[key] === undefined) delete process.env[key];
+        else process.env[key] = saved[key];
+      }
+    }
   });
 
 });
