@@ -38,8 +38,10 @@ verify:
 
 **Critic (r2):** `parityMismatchSummary` and `parityAgreementSummary` split the two counts. A live `parity` against a missing website checkout prints `3 generated file(s) do not match brand/tokens.json` and a separate `ok    templates/brainstorm.html.tpl` line. README line 39 matches. typecheck and lint exit 0. resolved.
 
-## F3 · BLOCKER · fixed
+## F3 · BLOCKER · resolved
 **Where:** scripts/brand.ts:672
 **Critic (r2):** The new check uses a strict `<` on the interiors only, so a begin marker that ends exactly where the other interior ends is inside that interior and still spliced. `/* brand:begin */AAA<!-- brand:js:begin -->/* brand:end */BBB<!-- brand:js:end -->` returns `/* brand:begin */CSS<script>\njs\n</script><!-- brand:js:end -->`, and `rewriteBrandTemplate` writes it: `/* brand:end */` is gone. The other flush, `<!-- brand:js:begin -->AAA/* brand:begin */<!-- brand:js:end -->BBB/* brand:end */`, drops `<!-- brand:js:end -->`. The next `gen` throws missing that marker and leaves the damage. Refuse when either opening marker's bytes intersect the other interior (the touching endpoint, `<=`, is enough: the committed brainstorm template keeps both marker lengths between its interiors, so it still splices). Name the marker that sits inside. Do not slice. Do not edit tests/brand-templates.spec.ts.
 
 **Fixer (r2):** fixed — a begin marker that ends on the other interior's edge now counts as nested (`<=`), and the throw still names the marker that sits inside, before any slice (scripts/brand.ts:673). · verify: `mkdir -p /private/tmp/t-runs && TMPDIR=/private/tmp/t-runs bun test tests/brand-templates.spec.ts tests/artifact-layout.spec.ts tests/artifact-scroll-spy.spec.ts tests/artifact-brand.spec.ts tests/brand-check.spec.ts` ✓ · `bun run typecheck` ✓ · `bun run lint` ✓
+
+**Critic (r3):** Both flush fixtures throw before a slice: the script begin names `<!-- brand:js:begin -->`, the style begin names `/* brand:begin */`. A scratch `rewriteBrandTemplate` of the first throws and leaves the bytes unchanged. The earlier nested fixtures, a reversed pair, and a pair separated by a gap still behave as before. The committed brainstorm template still splices to itself. `cmdGen` returns on `BrandMarkerError` before the write loop. The cited test command passed, 33. resolved.

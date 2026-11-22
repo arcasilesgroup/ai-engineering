@@ -1932,3 +1932,17 @@ Archived from the repo-root LEARNINGS.md at rev 2026-11-08 (`git log -1 --format
 - **Fix:** Ownership is by path: a shipped skill folder is ai-eng's whole (every extra swept, every drift rewritten); the ownership record names skills, agents and scripts, so a retired one is swept with its mirror links and slash command; a lock-recorded repo file is rewritten or removed, edited or not. Only seeded config (`config.toml`, `overrides.toml`, `arch.rules.json`) becomes the project's on its first edit.
 - **Lesson:** Decide ownership by who wrote the path, not by whether its bytes still match; a rule that lets ours become yours leaves installs half-updated forever.
 - **Tags:** behavior, install, ownership
+
+### L272 · 2026-11-22 · brand-design-system #1 · review
+- **Failure:** Nested brand markers were spliced with stale indexes and gen wrote the damaged template. The parity summary blamed tokens.json for that template mismatch.
+- **Root cause:** Each marker pair was checked alone, so one pair opening inside the other still spliced, and the parity total called template drift a token-file mismatch.
+- **Fix:** Overlapping spans throw BrandMarkerError before any slice or write. Parity counts token files against brand/tokens.json and templates against the shared style and script.
+- **Lesson:** After both spans are known, reject overlap at the splice itself. A per-pair order check cannot see one pair opening inside the other.
+- **Tags:** review, brand, markers
+
+### L273 · 2026-11-22 · brand-design-system #1 · review
+- **Failure:** A begin marker that ended exactly on the other region's edge was still spliced and written, which dropped the closing marker.
+- **Root cause:** The overlap test used a strict less-than on the interiors, so a shared endpoint was treated as separate.
+- **Fix:** That touching endpoint counts as nested. spliceBrandRegions throws before any slice or write.
+- **Lesson:** A half-open interior check misses a marker that ends on the boundary. Treat the shared endpoint as overlap before splicing.
+- **Tags:** review, brand, markers
