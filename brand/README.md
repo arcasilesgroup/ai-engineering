@@ -72,7 +72,20 @@ region — cannot survive a review. A missing website checkout is not template d
 `parity` still reports every template.
 
 `artifact` reads `artifact.files` in `tokens.json`: `brand/components.css` first, as the
-reference block, then every template, then the two frozen pages in `docs/history/`.
+reference block, then every template, then the two frozen pages in `docs/history/`. The
+font stacks (`--mono`, `--sans`) are left out of that comparison: they name each OS's own
+faces, and a frozen page keeps the stack it shipped with.
+
+Two semantic groups exist for the artifact components alone, and every pair they form is
+declared and measured by `contrast`:
+
+| Group | What it holds | Why it exists |
+|---|---|---|
+| `category` | the text tone of each category chip (`cat-green`, `cat-purple`, `cat-amber`, `cat-red`, `cat-blue`) and the blue chip hue | a chip label is 11px; the base hues measure under 4.5:1 on a card (purple 4.17, red 4.20), the light tones clear it on the field and on a card |
+| `print` | paper, ink, muted, green, red, amber and rule | printing swaps every surface token to white and every text token to a dark brand shade that clears 4.5:1 on it |
+
+Code wells sit on `--surface` (gray.dark4), not `--surface-2`: a code comment
+(`--comment`, gray.base) measures 4.499:1 on gray.dark3, a hair under AA.
 
 Two ways to check it, depending on whether the work is committed:
 

@@ -1,7 +1,10 @@
 /**
- * Layout gate — artifact-design.md rule 4 made executable: "Prose justifies to
- * the container... Centered or 68ch-capped body text is the defect: it breaks
- * the left edge everything else shares."
+ * Layout gate — artifact-design.md rule 4 made executable: prose sets
+ * left-aligned on the container's left edge. Centered or 68ch-capped body text
+ * is the defect: it breaks the left edge everything else shares. Justified text
+ * is the other defect for anything new: uneven word gaps slow some readers
+ * (WCAG 1.4.8), so the source styles and every template set prose left; frozen
+ * pages written before the change keep their justification.
  *
  * The tokens gate (artifact-brand.spec.ts) proves the palette is one palette.
  * It never looked at layout, so research pages shipped with `p` centered and
@@ -60,8 +63,24 @@ function sectionedArtifacts(): string[] {
   return out;
 }
 
+/** The first body p rule of a stylesheet, whitespace-stripped. */
+function bodyParagraphRule(css: string): string | null {
+  return /(?<![\w.:-])p\{[^}]*\}/.exec(css.replace(/\s+/g, ""))?.[0] ?? null;
+}
+
 describe("artifact layout — rule 4, the left edge everything shares", () => {
-  test("body prose justifies to the container; centered or capped p is the defect", () => {
+  test("the source styles set prose left and never justify it", () => {
+    const rule = bodyParagraphRule(read(BRAND_CSS));
+    expect(rule).toContain("text-align:left");
+    expect(rule).not.toContain("text-align:justify");
+  });
+
+  test("a justified p in the source styles is caught", () => {
+    const justified = read(BRAND_CSS).replace("p{color:var(--dim);margin:0 0 var(--s3);text-align:left}", "p{color:var(--dim);margin:0 0 var(--s3);text-align:justify}");
+    expect(bodyParagraphRule(justified)).toContain("text-align:justify");
+  });
+
+  test("body prose sits on the left edge; centered or capped p is the defect", () => {
     const violations: string[] = [];
     for (const file of sectionedArtifacts()) {
       const style = /<style[^>]*>([\s\S]*?)<\/style>/.exec(read(file))?.[1];
@@ -78,8 +97,8 @@ describe("artifact layout — rule 4, the left edge everything shares", () => {
         violations.push(`${file}: p is centered — ${rule}`);
       } else if (rule.includes("max-width:var(--measure)")) {
         violations.push(`${file}: p is capped at 68ch — ${rule}`);
-      } else if (!rule.includes("text-align:justify")) {
-        violations.push(`${file}: p does not justify — ${rule}`);
+      } else if (file.startsWith("templates/") && !rule.includes("text-align:left")) {
+        violations.push(`${file}: p is not left-aligned — ${rule}`);
       }
       // A note inherits p's alignment: without its own left, the callout the
       // reader must not miss is the most badly aligned box on the page.

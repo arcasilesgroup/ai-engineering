@@ -12,9 +12,12 @@
   --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
   --accent:#00ED64; --accent-dim:#71F6BA;
   --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
-  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
-  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
-  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010; --blue:#0498EC;
+  --cat-green:#71F6BA; --cat-purple:#F1D4FD; --cat-amber:#FFC010; --cat-red:#FFCDC7; --cat-blue:#C3E7FE;
+  --print-bg:#FFFFFF; --print-text:#001E2B; --print-dim:#3D4F58; --print-accent:#00684A; --print-bad:#970606; --print-warn:#944F01; --print-line:#889397;
+  --hue:var(--line-strong);
+  --mono:ui-monospace,'SF Mono','Cascadia Code','JetBrains Mono',Consolas,'DejaVu Sans Mono','Liberation Mono',monospace;
+  --sans:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
   --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
   --fs-h2:26px; --lh-h2:1.16; --ls-h2:-.018em;
   --fs-h3:17px; --lh-h3:1.32; --ls-h3:-.006em;
@@ -63,7 +66,7 @@ h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;let
 h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:660;margin:var(--s5) 0 var(--s3)}
 h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
 h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
-p{color:var(--dim);margin:0 auto var(--s3);text-align:justify;hyphens:auto}
+p{color:var(--dim);margin:0 0 var(--s3);text-align:left}
 p:last-child{margin-bottom:0}
 p strong,li strong{color:var(--text);font-weight:620}
 ul{margin:var(--s3) 0 var(--s5) var(--s5)}
@@ -74,7 +77,7 @@ ol li::before{content:counter(ref) ".";position:absolute;left:0;color:var(--comm
 li strong{color:var(--text)}
 .dim{color:var(--comment)}
 code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);overflow-wrap:anywhere}
-pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;-webkit-overflow-scrolling:touch}
+pre{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;-webkit-overflow-scrolling:touch}
 pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
 pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
 pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
@@ -83,7 +86,7 @@ pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-s
 pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
 pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
 .flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
-.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);border-radius:var(--radius-lg);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket{position:relative;border:1px solid var(--line);background:var(--bg);border-radius:var(--radius-lg);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
 .bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;border:0 solid var(--accent)}
 .bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
 .bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
@@ -191,7 +194,164 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
 @media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
 @media (prefers-contrast:more){:root{--dim:#E8EDEB;--comment:#C1C7C6}.card,.note,p,li,td{color:var(--dim)}nav a{color:#E8EDEB}}
-@media print{nav,.skip{display:none}body{background:#fff;color:#111}section{page-break-inside:avoid}}
+@media print{nav,.skip{display:none}section{page-break-inside:avoid}}
+/* ── component layer ──────────────────────────────────────────────────────
+   Diagrams, tabs, code, filters, steps, checklists, highlights, category
+   chips, verdict cards, terminal cards, open tables and flow trees. Colours
+   come from the :root tokens only; a tint is color-mix over a token.       */
+html{scroll-padding-top:96px}
+h3.sub-h{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:640;margin:var(--s6) 0 var(--s3)}
+section>p strong{color:var(--text)}
+kbd{font-family:var(--mono);font-size:12px;line-height:1.4;color:var(--text);background:var(--surface-2);border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:4px;padding:1px 6px}
+/* diagram: a figure holding inline SVG, named for assistive tech, with a text alternative */
+.diagram{margin:var(--s5) 0;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);padding:var(--s4) var(--s4) var(--s3)}
+.diagram .canvas{overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+.diagram svg{display:block;width:100%;height:auto;min-width:720px}
+.diagram figcaption{font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim);margin-top:var(--s3);text-align:left}
+.diagram figcaption b{color:var(--text);font-weight:600}
+.diagram details{margin-top:var(--s2);font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim)}
+.diagram details>summary{cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--accent-dim);padding:8px 0;min-height:32px}
+.diagram details ol,.diagram details ul{padding-left:var(--s5);display:grid;gap:var(--s1)}
+.dg-node rect{fill:var(--surface);stroke:var(--line-strong);stroke-width:1}
+.dg-node.is-source rect{stroke:var(--accent);stroke-width:1.5}
+.dg-node.is-gate rect{stroke:var(--warn);stroke-dasharray:5 4}
+.dg-node .t{fill:var(--text);font-family:var(--mono);font-size:13px;font-weight:600}
+.dg-node .d{fill:var(--dim);font-family:var(--sans);font-size:11.5px}
+.dg-edge{fill:none;stroke:var(--accent-dim);stroke-width:1.5}
+.dg-edge.is-check{stroke:var(--warn);stroke-dasharray:5 4}
+.dg-head{fill:var(--accent-dim)}
+.dg-head.is-check{fill:var(--warn)}
+.dg-lbl{fill:var(--dim);font-family:var(--mono);font-size:11px}
+/* tabs: underline tabs in the reading voice; one accent bar slides under the chosen tab.
+   The script builds the tab row from .tabpanel blocks; without it the panels stack. */
+.tabs{margin:var(--s5) 0}
+.tabs .tablist{position:relative;display:flex;gap:var(--s1);border-bottom:1px solid var(--line-strong);overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}
+.tabs .tablist::-webkit-scrollbar{display:none}
+.tabs .tablist.has-more{-webkit-mask-image:linear-gradient(90deg,#000 82%,transparent);mask-image:linear-gradient(90deg,#000 82%,transparent)}
+.tabs [role=tab]{flex:0 0 auto;display:inline-flex;align-items:center;gap:var(--s2);font:inherit;font-family:var(--sans);font-size:14px;line-height:1.3;font-weight:560;color:var(--dim);background:none;border:0;border-radius:var(--radius-sm) var(--radius-sm) 0 0;padding:12px 14px;min-height:44px;cursor:pointer;white-space:nowrap;scroll-snap-align:start;transition:color .15s ease,background-color .15s ease}
+.tabs [role=tab] .tab-key{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--comment)}
+.tabs [role=tab][aria-selected=true]{color:var(--text);font-weight:650}
+.tabs [role=tab][aria-selected=true] .tab-key{color:var(--accent)}
+.tabs [role=tab]:focus-visible{outline-offset:-2px}
+@media (hover:hover) and (pointer:fine){.tabs [role=tab]:hover{color:var(--text);background:var(--surface)}}
+.tabs .tab-ind{position:absolute;left:0;bottom:0;width:1px;height:2px;background:var(--accent);transform-origin:0 0;transition:transform 220ms cubic-bezier(.23,1,.32,1);pointer-events:none}
+.tabs .tab-ind.is-instant{transition:none}
+.tabs.is-enhanced .tabpanel{padding:var(--s5) 0 0}
+.tabs:not(.is-enhanced) .tabpanel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s5);margin-bottom:var(--s3)}
+.tabpanel:focus-visible{outline-offset:6px}
+.tabpanel>:first-child{margin-top:0} .tabpanel>:last-child{margin-bottom:0} .tabpanel>.pipe{margin:0}
+.tabs.is-enhanced .tab-h{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.tabpanel h4{font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:680;margin:0 0 var(--s2);display:flex;gap:var(--s2) var(--s3);align-items:center;flex-wrap:wrap}
+.tabpanel p{font-size:var(--fs-body);line-height:1.65;color:var(--dim);margin:0}
+/* gains and costs: the sign is drawn and repeated as a hidden word */
+.proscons{list-style:none;margin:var(--s4) 0 0;padding:0;display:grid;gap:var(--s2)}
+.proscons>li{display:grid;grid-template-columns:22px minmax(0,1fr);align-items:baseline;margin:0;padding:var(--s2) 0;border-top:1px solid var(--line);font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim)}
+.proscons .pm{font-family:var(--mono);font-size:14px;font-weight:700;text-align:center}
+.proscons .pro .pm{color:var(--ok)} .proscons .con .pm{color:var(--bad)}
+/* code block: a labelled header, the code, and a copy button the script reveals */
+.code{margin:var(--s4) 0;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);overflow:hidden}
+.code .code-head{display:flex;justify-content:space-between;align-items:center;gap:var(--s3);padding:6px var(--s2) 6px var(--s4);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--dim)}
+.code pre{margin:0;border:none;border-radius:0;background:none}
+.code pre .add{color:var(--ok)} .code pre .del{color:var(--bad)}
+.copy,.tool{font:inherit;font-family:var(--mono);font-size:12px;color:var(--dim);background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:4px 12px;min-height:32px;cursor:pointer}
+@media (hover:hover) and (pointer:fine){.copy:hover,.tool:hover{color:var(--accent);border-color:var(--accent)}}
+.copy,.tool,.chip{transition:transform 160ms ease-out,color .15s ease,border-color .15s ease,background-color .15s ease}
+.copy:active,.tool:active,.chip:active{transform:scale(.97)}
+@media (pointer:coarse){.copy,.tool,.chip{min-height:44px}}
+/* filters: a single-choice chip row that narrows a list or a table */
+.filters{display:flex;gap:var(--s2);flex-wrap:wrap;align-items:center;margin:var(--s4) 0 0}
+.filters .flbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--comment);margin-right:var(--s1)}
+.chip{font:inherit;font-family:var(--mono);font-size:12px;color:var(--dim);background:var(--surface);border:1px solid var(--line-strong);border-radius:999px;padding:6px 14px;min-height:32px;cursor:pointer}
+@media (hover:hover) and (pointer:fine){.chip:hover{color:var(--accent);border-color:var(--accent)}}
+.chip[aria-pressed=true]{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:700}
+.chip[aria-pressed=true]::before{content:'\2713\00a0'}
+.toolbar{display:flex;justify-content:flex-end;gap:var(--s2);margin:var(--s4) 0 calc(-1 * var(--s3))}
+/* steps: an ordered sequence the reader follows top to bottom */
+.steps{list-style:none;counter-reset:step;margin:var(--s5) 0;display:grid;gap:var(--s2)}
+.steps>li{counter-increment:step;position:relative;padding:var(--s3) var(--s4) var(--s3) 60px;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim)}
+.steps>li::before{content:counter(step,decimal-leading-zero);position:absolute;left:var(--s4);top:var(--s3);font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent)}
+.steps>li b{color:var(--text);font-weight:600}
+/* checklist: a criterion with its state written as a word, never colour alone */
+.checklist{list-style:none;margin:var(--s4) 0;display:grid;gap:var(--s2)}
+.checklist>li{display:grid;grid-template-columns:88px minmax(0,1fr);gap:var(--s3);align-items:baseline;font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim);padding:var(--s2) 0;border-bottom:1px solid var(--line)}
+.checklist>li:last-child{border-bottom:none}
+.checklist .state{font-family:var(--mono);font-size:11px;letter-spacing:.06em}
+.checklist b{color:var(--text);font-weight:600}
+.item .ibody p{font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim)}
+[hidden]{display:none!important}
+@media (max-width:700px){.checklist>li{grid-template-columns:1fr;gap:var(--s1)}.steps>li{padding-left:var(--s4);padding-top:36px}}
+@media (max-width:560px){.item>summary{flex-wrap:nowrap;align-items:flex-start}.item .ititle{flex:1 1 auto}}
+/* highlight: the one callout that carries an accent bar (rule 12 allows it here only) */
+.callout{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:0 var(--radius-lg) var(--radius-lg) 0;padding:var(--s5);margin:var(--s5) 0}
+.callout.is-bad{border-left-color:var(--bad)} .callout.is-warn{border-left-color:var(--warn)}
+.callout h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:680;color:var(--text);margin:0 0 var(--s2)}
+.callout p{font-size:var(--fs-body);line-height:1.7;color:var(--dim);margin:0}
+.callout b,.card b,td b{color:var(--text);font-weight:650}
+/* category chip: the word names the category; the hue only groups it */
+.cat{display:inline-block;font-family:var(--mono);font-size:11px;line-height:1.5;font-weight:600;letter-spacing:.04em;padding:3px 10px;border-radius:999px;white-space:nowrap;vertical-align:middle;color:var(--dim);border:1px solid var(--hue);background:color-mix(in srgb,var(--hue) 12%,transparent)}
+.cat.c-green{--hue:var(--accent);color:var(--cat-green)}
+.cat.c-purple{--hue:var(--purple);color:var(--cat-purple)}
+.cat.c-amber{--hue:var(--warn);color:var(--cat-amber)}
+.cat.c-red{--hue:var(--bad);color:var(--cat-red)}
+.cat.c-blue{--hue:var(--blue);color:var(--cat-blue)}
+/* card head: a chip and a title on one line; verdict cards wear a full coloured border */
+.card .card-h{display:flex;align-items:center;gap:var(--s2) var(--s3);flex-wrap:wrap;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:680;min-height:0;margin:0 0 var(--s1)}
+.card p{color:var(--dim)}
+.card ul>li{margin:0}
+.card ul{padding-left:var(--s5);display:grid;gap:var(--s2);font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim)}
+.card.is-good{border-color:color-mix(in srgb,var(--ok) 55%,transparent)}
+.card.is-bad{border-color:color-mix(in srgb,var(--bad) 60%,transparent)}
+.card.is-warn{border-color:color-mix(in srgb,var(--warn) 55%,transparent)}
+.card pre.term{background:none;border:none;padding:0;margin:var(--s1) 0 0;font-size:12.5px;line-height:1.75;color:var(--dim)}
+.term .ok{color:var(--ok)} .term .bad{color:var(--bad)} .term .b{color:var(--text);font-weight:600}
+/* open table: no box, a strong header rule, quiet row rules */
+.tbl-wrap{background:transparent;border:none;border-radius:0}
+.tbl-wrap th{border-bottom:2px solid var(--line-strong);white-space:normal}
+.tbl-wrap td{border-bottom:1px solid var(--line-strong);color:var(--dim)}
+.tbl-wrap td:first-child{color:var(--text)}
+@media (max-width:640px){
+  table.is-stackable{min-width:0}
+  table.is-stackable thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  table.is-stackable,table.is-stackable tbody,table.is-stackable tr,table.is-stackable td{display:block;width:100%}
+  table.is-stackable tr{padding:var(--s3) 0;border-bottom:1px solid var(--line-strong)}
+  table.is-stackable td{border:none;padding:var(--s1) 0}
+  table.is-stackable td:first-child{font-size:var(--fs-body);padding-bottom:var(--s2)}
+  table.is-stackable td[data-label]:not(:first-child)::before{content:attr(data-label);content:attr(data-label) / "";display:block;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-dim);margin-bottom:2px}
+}
+.mark-ok{color:var(--ok);font-weight:650} .mark-bad{color:var(--bad);font-weight:650} .mark-warn{color:var(--warn);font-weight:650}
+/* flow tree: a terminal-shaped diagram; tree glyphs are hidden from screen readers */
+.flow{font-family:var(--mono);font-size:12.5px;line-height:1.85;color:var(--dim);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s5);margin:0;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+.flow .nd{color:var(--accent);font-weight:700} .flow .ed{color:var(--comment)} .flow .lb{color:var(--accent-dim)}
+.flow .wd{color:var(--warn)} .flow .rd{color:var(--bad);font-weight:600} .flow .b{color:var(--text);font-weight:600}
+figure.bracket{margin:var(--s6) 0 var(--s5)}
+figure.bracket>figcaption.tag{line-height:1.6}
+/* type floor: no label under 11px, no running text under 12px */
+.stat .l,th,.note h3,.note h4,.ilbl,.pipe .ph,.bracket>.tag,.pill,.band,.xref,.sig,.card .src,.item .imeta{font-size:11px}
+nav{font-size:11.5px}
+footer{font-size:12px;letter-spacing:.02em}
+.pipe .q,.hero .meta{font-size:12px}
+.hero .sub{text-align:center}
+@media (forced-colors:active){
+  .card,.note,.item,.stat,.tier,.legend,.tbl-wrap,.diagram,.code,.steps>li,.tabs .tabpanel,.flow,.cat{border:1px solid CanvasText}
+  .callout{border:1px solid CanvasText;border-left:4px solid CanvasText}
+  .chip,.copy,.tool{border:1px solid ButtonText}
+  .chip[aria-pressed=true]{forced-color-adjust:none;background:Highlight;color:HighlightText;border-color:Highlight}
+  .tabs [role=tab][aria-selected=true]{text-decoration:underline;text-underline-offset:6px;text-decoration-thickness:2px}
+  .tabs .tab-ind{background:Highlight}
+  .dg-node rect{fill:Canvas;stroke:CanvasText} .dg-node .t,.dg-node .d,.dg-lbl{fill:CanvasText}
+  .dg-edge{stroke:CanvasText} .dg-head{fill:CanvasText}
+  :focus-visible{outline:2px solid Highlight}
+}
+@media print{
+  :root{--bg:var(--print-bg);--surface:var(--print-bg);--surface-2:var(--print-bg);--text:var(--print-text);--dim:var(--print-dim);--comment:var(--print-dim);--accent:var(--print-accent);--accent-dim:var(--print-accent);--ok:var(--print-accent);--bad:var(--print-bad);--warn:var(--print-warn);--orange:var(--print-warn);--line:var(--print-line);--line-strong:var(--print-line)}
+  body{background:var(--print-bg);color:var(--print-text)}
+  .hero{background-image:none}
+  .pill,.band,.chip,.cat{background:none!important}
+  .cat{color:var(--text)!important;border-color:var(--line-strong)!important}
+  .tabs .tablist,.copy,.tool,.filters,.toolbar,.hero .corner{display:none!important}
+  .tabs .tabpanel{display:block!important;border:1px solid var(--line-strong)}
+  .diagram,.code,.card,.note,.item,.steps>li{break-inside:avoid}
+}
 /* brand:end */
 </style>
 </head>
@@ -267,6 +427,186 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   }
   window.addEventListener("scroll", updateNav, { passive: true });
   updateNav();
+})();
+
+/* components: progressive enhancement for tabs, copy, filters and expand-all.
+   Every part of the page reads without this script; it only adds controls.
+   It writes with textContent and reads nothing from the network. */
+(function () {
+  const live = document.getElementById("live");
+  function announce(message) {
+    if (!live) return;
+    live.textContent = "";
+    setTimeout(function () { live.textContent = message; }, 60);
+  }
+
+  /* Tabs, per the WAI-ARIA Authoring Practices tabs pattern (automatic activation).
+     The tab list is built from each panel's data-tab label, so the markup stays one
+     list of headed panels that also reads well with the script off. */
+  document.querySelectorAll(".tabs").forEach(function (tabs, setIndex) {
+    const panels = Array.from(tabs.querySelectorAll(":scope > .tabpanel"));
+    if (panels.length < 2) return;
+    const list = document.createElement("div");
+    list.className = "tablist";
+    list.setAttribute("role", "tablist");
+    const buttons = panels.map(function (panel, i) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.id = "tab-" + setIndex + "-" + i;
+      button.setAttribute("role", "tab");
+      button.setAttribute("aria-controls", panel.id);
+      /* Label parts: an optional key ("A"), the name, an optional state chip ("chosen"). */
+      if (panel.dataset.key) {
+        const key = document.createElement("span");
+        key.className = "tab-key";
+        key.textContent = panel.dataset.key;
+        button.appendChild(key);
+      }
+      const name = document.createElement("span");
+      name.textContent = panel.dataset.tab || "Tab " + (i + 1);
+      button.appendChild(name);
+      if (panel.dataset.badge) {
+        const badge = document.createElement("span");
+        badge.className = "cat c-green";
+        badge.textContent = panel.dataset.badge;
+        button.appendChild(badge);
+      }
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", button.id);
+      panel.tabIndex = 0;
+      list.appendChild(button);
+      return button;
+    });
+    const indicator = document.createElement("span");
+    indicator.className = "tab-ind";
+    indicator.setAttribute("aria-hidden", "true");
+    list.appendChild(indicator);
+    let current = 0;
+    /* The bar moves with transform only; a keyboard move is instant, because a
+       motion repeated on every arrow press reads as lag. */
+    function placeIndicator(isInstant) {
+      const button = buttons[current];
+      indicator.classList.toggle("is-instant", isInstant);
+      indicator.style.transform = "translateX(" + button.offsetLeft + "px) scaleX(" + button.offsetWidth + ")";
+    }
+    function select(index, moveFocus) {
+      current = index;
+      buttons.forEach(function (button, i) {
+        const isSelected = i === index;
+        button.setAttribute("aria-selected", String(isSelected));
+        button.tabIndex = isSelected ? 0 : -1;
+        panels[i].hidden = !isSelected;
+      });
+      placeIndicator(moveFocus);
+      /* Keep the chosen tab inside a row that scrolls, without moving the page. */
+      const chosen = buttons[index];
+      if (chosen.offsetLeft < list.scrollLeft || chosen.offsetLeft + chosen.offsetWidth > list.scrollLeft + list.clientWidth) {
+        list.scrollLeft = chosen.offsetLeft - 16;
+      }
+      if (moveFocus) chosen.focus({ preventScroll: true });
+      markOverflow();
+    }
+    /* A row that runs past the screen fades at the edge that hides more tabs. */
+    function markOverflow() {
+      list.classList.toggle("has-more", list.scrollLeft + list.clientWidth < list.scrollWidth - 1);
+    }
+    list.addEventListener("scroll", markOverflow, { passive: true });
+    buttons.forEach(function (button, i) {
+      button.addEventListener("click", function () { select(i, false); });
+      button.addEventListener("keydown", function (event) {
+        const last = buttons.length - 1;
+        const next = { ArrowRight: i === last ? 0 : i + 1, ArrowLeft: i === 0 ? last : i - 1, Home: 0, End: last }[event.key];
+        if (next === undefined) return;
+        event.preventDefault();
+        select(next, true);
+      });
+    });
+    tabs.insertBefore(list, panels[0]);
+    tabs.classList.add("is-enhanced");
+    select(0, false);
+    placeIndicator(true);
+    if (window.ResizeObserver) new ResizeObserver(function () { placeIndicator(true); markOverflow(); }).observe(list);
+  });
+
+  /* Tables: on a narrow screen each row stacks as a block and each cell shows its
+     column name. Explicit roles keep the table semantics that display:block drops. */
+  document.querySelectorAll(".tbl-wrap table").forEach(function (table) {
+    const heads = Array.from(table.querySelectorAll("thead th")).map(function (th) { return th.textContent.trim(); });
+    table.setAttribute("role", "table");
+    table.querySelectorAll("thead, tbody").forEach(function (group) { group.setAttribute("role", "rowgroup"); });
+    table.querySelectorAll("tr").forEach(function (row) {
+      row.setAttribute("role", "row");
+      Array.from(row.children).forEach(function (cell, i) {
+        cell.setAttribute("role", cell.tagName === "TH" ? "columnheader" : "cell");
+        if (cell.tagName === "TD" && heads[i]) cell.dataset.label = heads[i];
+      });
+    });
+    table.classList.add("is-stackable");
+  });
+
+  /* A region that scrolls sideways must take keyboard focus, or its hidden part is out
+     of reach (WCAG 2.1.1). Only regions that overflow at the current width get a stop. */
+  const scrollers = Array.from(document.querySelectorAll("pre, .canvas, .tbl-wrap"));
+  function markScrollers() {
+    scrollers.forEach(function (region) {
+      if (region.scrollWidth > region.clientWidth + 1) region.tabIndex = 0;
+      else region.removeAttribute("tabindex");
+    });
+  }
+  markScrollers();
+  window.addEventListener("resize", markScrollers, { passive: true });
+
+  /* Copy: the button copies its block's code and says so in the status region. */
+  document.querySelectorAll(".code .copy").forEach(function (button) {
+    button.hidden = false;
+    button.addEventListener("click", function () {
+      const code = button.closest(".code").querySelector("pre").innerText;
+      const done = function () { button.textContent = "Copied"; announce("Code copied"); setTimeout(function () { button.textContent = "Copy"; }, 2000); };
+      const failed = function () { announce("Copy is blocked here: select the code and copy it by hand"); };
+      if (navigator.clipboard) navigator.clipboard.writeText(code).then(done, failed);
+      else failed();
+    });
+  });
+
+  /* Filters: one pressed chip at a time narrows the rows tagged with its value. */
+  document.querySelectorAll(".filters").forEach(function (bar) {
+    const target = document.getElementById(bar.dataset.target);
+    if (!target) return;
+    const rows = Array.from(target.querySelectorAll("[data-tags]"));
+    const chips = Array.from(bar.querySelectorAll(".chip"));
+    bar.hidden = false;
+    chips.forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        const value = chip.dataset.filter;
+        let shown = 0;
+        chips.forEach(function (other) { other.setAttribute("aria-pressed", String(other === chip)); });
+        rows.forEach(function (row) {
+          const isMatch = value === "all" || row.dataset.tags.split(" ").includes(value);
+          row.hidden = !isMatch;
+          if (isMatch) shown += 1;
+        });
+        announce(shown + " of " + rows.length + " shown");
+      });
+    });
+  });
+
+  /* Expand all: opens or closes every item in the named list. */
+  document.querySelectorAll("[data-expand]").forEach(function (button) {
+    const list = document.getElementById(button.dataset.expand);
+    if (!list) return;
+    button.hidden = false;
+    button.addEventListener("click", function () {
+      const shouldOpen = button.dataset.state !== "open";
+      list.querySelectorAll("details").forEach(function (item) { item.open = shouldOpen; });
+      button.dataset.state = shouldOpen ? "open" : "closed";
+      button.textContent = shouldOpen ? "Collapse all" : "Expand all";
+    });
+  });
+
+  /* Print: a closed item prints as its title only, so printing opens them all. */
+  window.addEventListener("beforeprint", function () {
+    document.querySelectorAll("details").forEach(function (item) { item.open = true; });
+  });
 })();
 </script><!-- brand:js:end -->
 </body>

@@ -42,19 +42,21 @@ Never edit the marked bytes of a template or of a page copied from one.
 1. **Dark only, one signal.** Light mode is never generated. `--accent` is the
    one signal green and `--accent-dim` is that green dimmed for small text; links,
    focus and emphasis read one or the other. `--ok` / `--bad` / `--warn` mark
-   state, `--purple` and `--orange` live inside a code block, and nothing else
-   carries chroma.
+   state, `--purple` and `--orange` live inside a code block. The one other
+   place chroma appears is a category chip (`.cat`): five hues (green, purple,
+   amber, red, blue) group things, and the chip's word always names the
+   category, so the colour never carries the meaning alone.
 2. **Two voices.** Prose and headings are set in the sans stack; code, data and
    measurement — commands, paths, numbers, labels, table headers — are set in
    the mono one. Mono never sets a paragraph, and is never decoration for prose.
 3. **A numbered document gets numbers.** Mono `01`, `02` above each `h2`, and a
    sticky nav once the artifact has more than five sections. The number is a
    coordinate a reviewer cites, not a flourish.
-4. **Prose justifies to the container.** A `p` runs the full container width,
-   `text-align:justify` with `hyphens:auto` — the same rails as a table, a
-   bracket or a card. Centered or 68ch-capped body text is the defect: it
-   breaks the left edge everything else shares. Lists stay **left-aligned**,
-   because a justified list of short lines opens ugly gaps.
+4. **Prose sits on the left edge.** A `p` runs the full container width,
+   left-aligned — the same rails as a table, a bracket or a card. Centered or
+   68ch-capped body text is the defect: it breaks the left edge everything else
+   shares. Prose is never justified: uneven word gaps slow some readers
+   (WCAG 1.4.8). Each section opens with one plain sentence, then the visual.
 5. **Contrast floors are not style.** Body text ≥ 4.5:1, large or bold ≥ 3:1.
    The palette's pairs already clear the floor — reach for `--dim` and
    `--comment` before any new tint, and never tint text toward gray on the
@@ -88,8 +90,9 @@ Never edit the marked bytes of a template or of a page copied from one.
     rule that assigns it. A chip the reader cannot look up is decoration wearing
     a state's clothes. The legend sits with the first section that uses it.
 12. **Never:** emoji as icons · a gradient as decoration · a second signal hue ·
-    a colored left border wider than 1px · a shadow without offset and blur · a
-    card inside a card · a chip whose colour has no legend.
+    a colored left border wider than 1px (the one exception is the 3px bar of a
+    `.callout`, the highlight) · a shadow without offset and blur · a card inside
+    a card · a state chip whose colour has no legend.
 
 ## The component vocabulary
 
@@ -112,6 +115,23 @@ Never edit the marked bytes of a template or of a page copied from one.
 | Stats | `.stats > .stat` | a short row of counts, never a dashboard |
 | Marks | `.check` / `.cross` / `.half` | yes · no · partial, inside a cell |
 | Brand mark | `.hero .mark` | the `{ai}` mark at the top of the hero, so the page names its family before its subject |
+| Highlight | `.callout` (+ `.is-bad` / `.is-warn`) | the one thing on the page the reader must take away; the only box with an accent bar |
+| Category chip | `.cat` (+ `.c-green` / `.c-purple` / `.c-amber` / `.c-red` / `.c-blue`) | groups rows or cards; its word names the category |
+| Card head | `.card .card-h` | a chip and a title on one line |
+| Verdict card | `.card.is-good` / `.is-bad` / `.is-warn` | two sides compared: blocks vs informs, before vs after |
+| Terminal card | `.card pre.term` (+ `.ok` / `.bad` / `.b`) | command output, pass and fail written as words |
+| Diagram | `figure.diagram` + inline `svg role="img"` (+ `.dg-node` / `.dg-edge` / `.dg-head` / `.dg-lbl`) | how parts connect; a `<title>`, a `<desc>` and a `<details>` text version |
+| Flow tree | `figure.bracket` + `pre.flow` (+ `.nd` / `.ed` / `.lb` / `.wd` / `.rd`) | a terminal-shaped tree; glyphs in `.ed` carry `aria-hidden` |
+| Tabs | `.tabs > .tabpanel[data-tab]` (+ `data-key`, `data-badge`) | options side by side; the script builds the tab row, panels stack without it |
+| Gains and costs | `ul.proscons > li.pro` / `li.con` | the sign drawn, the word hidden for screen readers |
+| Code block | `.code > .code-head` + `pre` (+ `button.copy`) | a labelled sample with a copy button the script reveals |
+| Diff lines | `pre .add` / `.del` | `+` and `-` written in the text, colour second |
+| Filters | `.filters[data-target] > button.chip[data-filter]` | narrows rows tagged `data-tags`; the count is announced |
+| Expand all | `.toolbar > button.tool[data-expand]` | opens or closes every item in one list |
+| Steps | `ol.steps` | an ordered sequence the reader follows |
+| Checklist | `ul.checklist` (+ `.state`) | criteria with their state written as a word |
+| Keyboard key | `kbd` | a key the reader presses |
+| Status message | `#live.sr[role=status]` | where copy, filter and expand results are announced |
 
 ## Source
 

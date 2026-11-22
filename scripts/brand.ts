@@ -913,6 +913,9 @@ function rootTokens(text: string): Record<string, string> {
 }
 
 /** `rgba(61,79,88,.3)` and `rgba(61, 79, 88, 0.3)` are the same colour. */
+/** The two token names artifact.ungated leaves free: system font stacks, not brand values. */
+const UNGATED_FONT_TOKENS: ReadonlySet<string> = new Set(['mono', 'sans']);
+
 function normalise(value: string): string {
   return value
     .toLowerCase()
@@ -980,6 +983,9 @@ export async function artifactDrift(
       }
     } else {
       for (const [name, value] of Object.entries(declared)) {
+        // The font stacks are declared ungated (artifact.ungated): a frozen page keeps
+        // the stack it shipped with, and only the colour and scale tokens must agree.
+        if (UNGATED_FONT_TOKENS.has(name)) continue;
         const canonical = reference[name];
         if (canonical === undefined) drift.push(`--${name} is not in the reference block`);
         else if (normalise(canonical) !== normalise(value)) drift.push(`--${name}: ${value} vs ${canonical}`);

@@ -50,4 +50,11 @@ describe("the brand's own boundary stays on the safe side of 3:1", () => {
     expect(contrast("#5C6C75", "#1C2D38")).toBeLessThan(3);
     expect(contrast("#889397", "#1C2D38")).toBeGreaterThanOrEqual(3);
   });
+
+  test("code comments moved code wells from gray.dark3 to gray.dark4", () => {
+    // `--comment` (gray.base) on the old code well (gray.dark3) measures 4.499:1, a
+    // hair under AA; axe-core caught it. On gray.dark4 it clears the floor.
+    expect(contrast("#889397", "#1C2D38")).toBeLessThan(4.5);
+    expect(contrast("#889397", "#112733")).toBeGreaterThanOrEqual(4.5);
+  });
 });
