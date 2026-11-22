@@ -1,12 +1,12 @@
 ---
 name: ai-orchestrator
-description: Build a whole feature end-to-end through subagents. It plans gated checkpoints, writes tests and prototypes, then loops each checkpoint through implement → behavior gate (CLI/code tests, UI e2e last) → UI gate (live vs prototype) → adversarial review gate until every checkpoint passes, then hands it to a human to review. Use when the user says "build X", "orchestrate X", "/ai-orchestrator <feature>", or asks to resume an orchestrated feature.
+description: Build a whole feature end-to-end through subagents. It plans gated checkpoints, then one resumed builder writes the tests, implements, and runs verify. One fresh reviewer checks the diff. A UI gate runs only when the checkpoint has one. The human reviews the app at the end. Use when the user says "build X", "orchestrate X", "/ai-orchestrator <feature>", or asks to resume an orchestrated feature.
 license: MIT
 ---
 
 # Orchestrator
 
-You coordinate; you don't do the work. Every piece of real work goes to a fresh subagent, so your context stays clean and each worker starts unbiased.
+You coordinate. The builder is one resumed subagent. The reviewer is a different agent. Your context stays the checkpoint file and their short returns.
 
 **Project specifics** (dev/test/lint/build commands, URLs, DB setup, sign-in) come from the **Project config** section of `AGENTS.md`. Pass the relevant values into every worker prompt so workers don't have to hunt for them.
 
@@ -20,13 +20,13 @@ Phase 1 checkpoint-review stop.
 
 Everywhere else, decide and keep going:
 - **Ambiguity:** choose the option most consistent with `.ai-engineering/PRD.html`, `.ai-engineering/brainstorm.html`, `DECISIONS.md` and the existing code, and log it as an `assumptions` entry in the checkpoint JSON. The human sees those at the next review. The brainstorm gate, below, refuses a missing, stale, or unrelated interview before any of this runs.
-- **Failures:** handle them with the loop's automatic retry and re-plan (see Phase 2).
+- **Failures:** the builder gets one fix. If verify still fails, stop and tell the human (see Phase 2).
 - Never pause for permission to run tests, start servers, or fix code.
-- The only mid-run stop is the final circuit breaker in Phase 2.
+- A passed checkpoint ends the turn. A failed fix is the only failure stop.
 
 ## Context rules (non-negotiable)
 
-- **Never read source code, diffs, test output or screenshots yourself.** Subagents read them and report back in a few lines.
+- **You do not read source, diffs, test logs, or screenshots.** The builder returns the receipt: PASS or FAIL, the files it changed, and one line per verify command. A hook denial is the instruction. Do not open `src/guards/checkpoint.ts` or the lease implementation.
 - **Checkpoint progress lives on disk** in `.ai-engineering/workflow/checkpoints/<slug>.json`; that file is the source of truth for checkpoint status. Phase 0's read-only `ai-eng worktree list` reports registered worktrees and their lifecycle status; the current checkout may also be the selected feature checkout. Change the checkpoint file only with Edit or Write, never through Bash. The same hook validates every write to it: no gate can be passed out of order, no checkpoint can be marked passed with a gate still open, and no checkpoint can be touched while an earlier one is open. Update it after every step, so `/ai-orchestrator resume <slug>` can pick up after a crash or `/clear`.
 - **Every subagent prompt:**
   - in Phase 2 and later, **starts with the gate marker** `[checkpoint <slug>#<id> <stage>]`, where `<slug>` is the feature slug you were asked to build and `<stage>` is one of `tests`, `implement`, `behavior`, `ui`, `review` or `fix`. The TypeScript checkpoint guard (`src/guards/checkpoint.ts`, in the chain) reads it and blocks the call if:
@@ -34,20 +34,21 @@ Everywhere else, decide and keep going:
     - this checkpoint has already passed;
     - or the gate before this one hasn't passed.
 
-    **If the hook blocks you, never work around it.** Fix the state it names: finish the earlier gate, or reopen the checkpoint;
-  - is self-contained: paths to read, the checkpoint slice, and what to return;
-  - tells the worker to read the **Rules** section of `LEARNINGS.md` first, plus any Log entries whose tags match the work;
+    **If the hook blocks you, never work around it.** The denial text names the fix: finish the earlier gate, or reopen the checkpoint. Do not open the guard source to interpret it;
+  - carries this checkpoint only: its `goal`, `tasks`, `files`, `acceptance`, and `verify`. Do not paste the rest of the plan;
+  - pastes the Rules whose ids this checkpoint names. The worker does not open `docs/history/learnings-log.md`;
+  - tells the worker to call `codegraph_explore` once for the symbols in the slice before grepping the tree;
   - ends with: *"Return at most 15 lines: result, files changed, failures. No code, no logs."*
 - **Subagents can't spawn subagents.** When a prompt points a worker at a skill that says "launch a subagent", add: *"You are already a subagent. Do those steps yourself."* Anything that needs parallel subagents (prototypes, test writers, UI reviewers), you launch directly, several `Agent` calls in one message.
-- **Fresh workers only:** use a new subagent for each step and each fix attempt. Don't continue an earlier one with SendMessage. A worker that wrote the code never reviews it.
+- **One builder, one reviewer.** Resume the builder with SendMessage for tests, implementation, verify, the next checkpoint, and the one fix. The reviewer is a new agent. The builder never reviews its own diff. A builder that does not return gets one fresh replacement with the same slice; do not wait on it.
 
 ## Direct rhythm
 
 Use the Direct rhythm for a bug, spike, or one-session change that does not alter an interface other work depends on. It stays in the current checkout and uses the smallest relevant checks. It has no brainstorm or worktree step; this orchestrator is for the multi-session feature ceremony.
 
-## Commits: commit as you go
+## Commits: one per checkpoint
 
-Every step that changes files ends with a commit on the selected feature branch, which need not follow a `feat/<slug>` naming convention, so the git history is a full, resumable record of the run. You make the commits yourself with Bash; the output is small.
+A passed checkpoint ends with one commit on the selected feature branch, which need not follow a `feat/<slug>` naming convention. The checkpoint file is what resume reads; the commit is the record of that slice. You make the commits yourself with Bash; the output is small.
 
 - **Tree and branch:** Work in the current checkout by default. Use a worktree when requested or another feature is active here. Prefer the host's native worktree (`claude -w <branch>` or Cursor `/worktree`); if unavailable, `ai-eng worktree new <branch>` starts it from the current `HEAD`. On resume, use its exact Git-listed path and continue the feature's own changes without stashing or resetting them; leave foreign files untouched. Never derive a path or switch branches. Everything is committed on the selected feature branch, and `ai-eng worktree merge <slug>` makes one `--no-ff` merge against the detected base after app review.
 - **Stage explicit paths only.** Never use `git add -A` or `git add .`. The selected checkout may contain other work, so a loose stage could sweep unrelated edits; an explicit list keeps each commit the slice it claims. Stage the step's `changed_files`, its test files, `.ai-engineering/workflow/checkpoints/<slug>.json`, `.ai-engineering/workflow/test-plans/<slug>.json`, `.ai-engineering/workflow/prototypes/<slug>*`, `.ai-engineering/workflow/reviews/<slug>-*.md`, and whichever of `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md` and `CHANGELOG.md` the step touched. Never stage a design slot (`.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html`, `.ai-engineering/plan.html`) unless the step explicitly owns it. Do not stage `.ai-engineering/workflow/playwright/`, `.env*` or files that were in the Phase 0 baseline.
@@ -56,15 +57,11 @@ Every step that changes files ends with a commit on the selected feature branch,
 | After | Message |
 |---|---|
 | Plan approved (Phase 1) | `chore(<slug>): plan checkpoints, test plan, prototypes` |
-| 2a tests written | `test(<slug>): checkpoint N failing tests for <title>` |
-| 2b implement | `feat(<slug>): checkpoint N <title>` |
-| Each gate result | `chore(<slug>): checkpoint N <gate> gate passed` or `chore(<slug>): checkpoint N <gate> gate failed (attempt k)`, with the JSON and the LEARNINGS entry |
-| Each fix | `fix(<slug>): checkpoint N <root cause, in a few words>` |
-| Re-plan split | `chore(<slug>): replan split N into N..M` |
+| Checkpoint passed | `feat(<slug>): checkpoint N <title>`, with the JSON |
+| Stopped after one failed fix | `chore(<slug>): stopped at <gate>, needs human`, committed before you stop |
 | Wrap-up | `docs(<slug>): changelog, filemap, learnings` |
-| Circuit-breaker stop | `chore(<slug>): stopped at <gate>, needs human`, committed before you stop |
 
-- **Nothing to commit?** If a step changed no files (a gate that only ran checks still changes the JSON), skip that commit. Never make an empty commit, and never pass `--no-verify`.
+- **Nothing to commit?** Skip the commit. Never make an empty commit, and never pass `--no-verify`. A verify receipt that changed no file still updates the JSON, and that JSON rides in the checkpoint commit.
 
 ## The brainstorm gate
 
@@ -121,8 +118,8 @@ When the gate passes, every later phase reads both files. `.ai-engineering/PRD.h
   If creation refuses, report the reason and stop; do not modify files or branches to
   force it. No file hints are accepted;
   the checkpoint's `files` list remains authoritative.
-- Record the selected checkout's status and existing paths as a baseline; never clean up unrelated work. Delegate environment
-  readiness to one `general-purpose` subagent, which reports ready or blocked, and
+- Record the selected checkout's status and existing paths as a baseline; never clean up unrelated work. When the project has no database, no API health URL, and no signed-in pages, run `bun --version` in the selected checkout yourself and treat a successful run as ready. Do not spawn a subagent for that check. Take the folder lease once here with `ai-eng work`. Workers do not run `ai-eng work release` and do not read the lease implementation. Delegate environment
+  readiness to one `general-purpose` subagent only when the project has a database, an API, or signed-in pages. That subagent reports ready or blocked, and
   runs from the selected checkout without modifying any other checkout:
   - the local DB is up, if the project has one (Project config → *DB status*; if it's
     down, run *DB start/reset* to apply migrations and the seed);
@@ -160,55 +157,43 @@ For a resumed legacy plan that is still pending at its checkpoint review, preser
 
 ## Phase 2: Checkpoint loop
 
-For each checkpoint in `id` order, and only once the previous one has `status: "passed"`:
+For each checkpoint in `id` order, and only once the previous one has `status: "passed"`. Checkpoints stay serial. Do not start the next one in this turn.
 
-### a. Write the tests first
-Use one `general-purpose` subagent per layer, launched in parallel: unit, and API. Each follows step 3 of the test-planner skill for this checkpoint's cases only. If `ui` is set, one more subagent writes the UI e2e cases (step 4). The tests should fail at this point, because nothing is implemented yet. A test that passes before implementation is suspicious; report it.
+### a. Build
+Use one `general-purpose` subagent, the builder. The first prompt starts with `[checkpoint <slug>#<id> implement]`. Resume this same builder for later checkpoints and for the one fix. Add: *"You are already a subagent. Do not spawn subagents."*
 
-### b. Implement
-Use one `general-purpose` subagent. Give it:
-- the checkpoint's `goal`, `tasks`, `files` and `acceptance`;
-- the test files it has to turn green;
-- for UI checkpoints, the `ui.prototype` path to match, plus its `.ai-engineering/workflow/prototypes/<name>.states.json`. The live page must use **the same field labels and button text**, and support the same states, because the UI gate drives both sides with identical steps;
-- the rule "follow `AGENTS.md`, reuse existing helpers, update `FILEMAP.md` (and `PERMISSIONS.md` if access changes)".
+Give it this checkpoint's `goal`, `tasks`, `files`, `acceptance`, and `verify`, the pasted rules, and the project commands. For a UI checkpoint, also give `ui.prototype` and its `.ai-engineering/workflow/prototypes/<name>.states.json`. The live page must use **the same field labels and button text**, and support the same states, because the UI gate drives both sides with identical steps. It follows `AGENTS.md`, reuses existing helpers, and updates `FILEMAP.md` (and `PERMISSIONS.md` if access changes).
 
-It must not edit the tests. If it believes a test is wrong, it reports that instead. It returns the list of files it changed; record that list in the JSON as `changed_files`.
+It writes the failing tests for this checkpoint (step 3 of `ai-test-planner`; step 4 of `ai-test-planner` when `ui` is set), runs them, implements, and runs `verify` in order: unit, API, CLI, then UI e2e only if the layers above passed. A test that passes before implementation is suspicious; it reports that. It does not edit tests after they exist unless a finding says the test is wrong.
 
-### c. Gate 1: Behavior
-Use one `general-purpose` subagent. It runs the checkpoint's `verify` commands **in layer order: unit → API → CLI (lint, build, health `curl`) → UI e2e**, and stops at the first layer that fails. The UI e2e layer runs only if everything below it passed. It returns PASS, or FAIL with each failing case and its likely cause.
+It returns at most 15 lines: PASS or FAIL, `changed_files`, and one line per verify command. Record `changed_files`. When the receipt says PASS, set `gates.behavior` to `"passed"`. Do not spawn a behavior agent. When it says FAIL, apply **On failure** once.
 
-### d. Gate 2: UI (skip if `gates.ui.status` is `"n/a"`)
-Run `ai-review-ui` steps 2–4 yourself in **gate mode**, using `ui.route`, `ui.prototype` and `--scope <ui.scope joined by commas>`. Step 2 re-checks that the app is up and the sign-in session is still valid, and gate mode checks the scenario's `route` matches `ui.route`, so a dead server or a stale route never shows up as false mismatches. That way only the regions this checkpoint has built are captured and judged. The capture script puts both sides in the same state for each scenario, and prints only one line per state, so run it yourself. Then launch the two reviewers in parallel. **The gate passes** when every live-reproducible state is `match` (a `MISMATCH` means the page behaves differently from the prototype) and there are no `high` or `med` findings, except ones tagged `[intentional?]`. Log those as notes; they don't fail the gate.
+### b. Gate 2: UI (skip if `gates.ui.status` is `"n/a"`)
+Do not start a server for a checkpoint whose UI gate is `"n/a"`. Otherwise run `ai-review-ui` steps 2–4 yourself in **gate mode**, using `ui.route`, `ui.prototype` and `--scope <ui.scope joined by commas>`. Step 2 re-checks that the app is up and the sign-in session is still valid, and gate mode checks the scenario's `route` matches `ui.route`, so a dead server or a stale route never shows up as false mismatches. That way only the regions this checkpoint has built are captured and judged. The capture script puts both sides in the same state for each scenario, and prints only one line per state, so run it yourself. Then launch the two reviewers in parallel. **The gate passes** when every live-reproducible state is `match` (a `MISMATCH` means the page behaves differently from the prototype) and there are no `high` or `med` findings, except ones tagged `[intentional?]`. Log those as notes; they don't fail the gate.
 
-### e. Gate 3: Adversarial review
-Run `ai-adversarial-loop` yourself, as its coordinator, with the checkpoint slice and `changed_files`. Up to 4 rounds, `adversarial-reviewer` (the critic) and `fixer` debate through `.ai-engineering/workflow/reviews/<slug>-<id>.md`; each keeps its memory across rounds, and a deadlock goes to an arbiter.
+### c. Review
+Follow `ai-adversarial-loop` in its orchestrator mode: one critic round, and one fix only when the critic returns a BLOCKER or a MAJOR. The critic prompt starts with `[checkpoint <slug>#<id> review]`. Give it the acceptance list, the pasted rules, `changed_files`, and the builder's verify receipt. It judges the diff. It does not re-run verify when the receipt is present.
 
-- **Loop returns PASS and the fixer changed nothing:** the gate passes.
-- **Loop returns PASS but the fixer changed code:** re-run Gate 1, and Gate 2 if it applies, with the updated `changed_files`. If they pass, the gate passes. If either fails, it goes to that gate's failure path as usual.
-- **Loop returns FAIL** (it hit the round cap): that's one failed `review` attempt, with the open findings as its findings. It goes to the failure path, where the re-plan and circuit breaker still apply. In that path, the "fixer" for a review failure is the next adversarial loop.
+- **`VERDICT: PASS`:** set `gates.review` to `"passed"`. Record MINOR findings in `notes`.
+- **BLOCKER or MAJOR:** resume the builder once with `[checkpoint <slug>#<id> fix]` and those findings. It fixes the root cause, does not edit the tests unless a finding says the test is wrong, re-runs the verify commands it touched, and returns `ROOT CAUSE:`, `FIX:`, `LESSON:`. Append that lesson to `LEARNINGS.md` using the template in that file. Resume the same critic once. PASS sets the gate passed. A second FAIL is **On failure**. Do not open a third round and do not split the checkpoint.
 
-Record any MINOR findings in `notes`.
+The thread file is `.ai-engineering/workflow/reviews/<slug>-<id>.md`. The critic writes findings there. You do not read the thread. You act on the verdict line. If the fix changed code, the builder's new receipt is the behavior gate. Re-run the UI gate only when this checkpoint has one.
 
 ### On failure
-1. Set the gate to `"failed"`, increase its `attempts` by one, and store its findings.
-2. Hand **only those findings plus `changed_files`** to a **new** `general-purpose` fixer subagent. It fixes the root cause, doesn't edit the tests unless a finding says the test itself is wrong, and returns the files it changed plus three lines: `ROOT CAUSE:`, `FIX:`, `LESSON:`. The lesson is one sentence that would have prevented the failure.
-   Append a Log entry to `LEARNINGS.md` straight away, using the template in that file: the failure is the gate's findings summary, and the root cause, fix and lesson come from the fixer. Write it even if a later attempt fails; failed fixes are learnings too.
-3. Re-run **from Gate 1**, because a fix can break behavior that passed before.
-4. **Automatic re-plan:** if any gate reaches 3 failed attempts on one checkpoint, don't ask the user. Run `checkpoint-planner` on that checkpoint alone, together with its accumulated findings, and have it split the checkpoint into smaller ones. Insert them in its place, renumbering the later checkpoints, and continue the loop.
-5. **Circuit breaker (the only mid-run stop):** if a checkpoint that came out of a split also reaches 3 failed attempts, set the top-level `"halted": {"reason": "<gate> failed 3× after split", "checkpoint": <id>}` in the plan JSON. The Stop hook blocks ending the turn mid-checkpoint unless this is set. Then stop and tell the user. Give them the checkpoint, the last findings from each gate, and what was tried. Log it with the gate `circuit-breaker`; once the user explains the real cause, log that cause and promote it to a Rule. Everything done so far stays on disk, so `/ai-orchestrator resume <slug>` continues after their input. On resume, remove `halted` before continuing.
+Set the gate to `"failed"`, store the findings, and set the top-level `"halted": {"reason": "<gate> failed after one fix", "checkpoint": <id>}`. The Stop hook blocks ending the turn mid-checkpoint unless this is set. Commit `chore(<slug>): stopped at <gate>, needs human`, tell the human the checkpoint and the findings, and end the turn. Log it with the gate `circuit-breaker`. Everything done so far stays on disk, so `/ai-orchestrator resume <slug>` continues after their input. On resume, remove `halted` before continuing.
 
 ### On pass
-Set all the gates and the checkpoint's `status` to `"passed"`. Post one line to the user, e.g. `✓ 2/5 Add review endpoint (behavior ✓ ui n/a review ✓, 1 retry)`, and move on to the next checkpoint.
+Set all the gates and the checkpoint's `status` to `"passed"`. Post one line to the user, e.g. `✓ 2/5 Add review endpoint (behavior ✓ ui n/a review ✓)`. Commit `feat(<slug>): checkpoint N <title>`. End the turn. The next session runs `/ai-orchestrator resume <slug>`.
 
 ## Phase 3: Wrap-up
 
 Use one `general-purpose` subagent to:
-- run the full suites (Project config → *All tests*, *Lint*, *Build*, and all UI e2e specs), to check that later checkpoints didn't break earlier ones;
+- run the full suites (Project config → *All tests*, *Lint*, *Build*, and all UI e2e specs), to check that later checkpoints didn't break earlier ones. This is the only full-suite run of the feature;
 - add an entry under Unreleased in `CHANGELOG.md`;
 - check `FILEMAP.md` is complete, and update `.ai-engineering/PRD.html` if the feature changed scope or business rules;
 - consolidate `LEARNINGS.md`: promote any lesson that now appears in 2 or more Log entries (across all features, not just this one) to a **Rule** citing those entries, and merge Rules that say the same thing. It must never edit or delete a Log entry.
 - these shared-file edits are made on the selected feature branch; they reach the detected base only through the Phase 4 merge step.
-- in the same pass, when the feature diff matches a trigger, run that skill. `ai-security` when it touches auth, SQL, migrations, or workflows. `ai-write` when it changes a public interface, a documented behaviour, or a command a README shows. Both run when both match. Neither waits for the other.
+- in the same pass, when the feature diff matches a trigger, run that skill. `ai-security` when it touches auth, SQL, migrations, or workflows. Skip `ai-security` when the diff touches none of those. `ai-write` when it changes a public interface, a documented behaviour, or a command a README shows. Both run when both match. Neither waits for the other.
 
 If anything fails, treat it as a Gate 1 failure on the last checkpoint. First reopen that checkpoint in the JSON: set `gates.behavior.status` to `"failed"`, set `ui` and `review` back to `"pending"` (leave `ui` alone if it's `"n/a"`), and set `status` to `"pending"`. Then run the fixer with `[checkpoint <slug>#<id> fix]`.
 
@@ -231,7 +216,7 @@ Before opening Phase 4, finish and commit Phase 3 changes under the commit-as-yo
    state and stop without changing lifecycle state or claiming a clean restoration.
 3. After a clean rebase or clear resolution, rerun affected behavior checks, rerun
    affected UI checks only when the checkpoint has a UI gate, then rerun the affected
-   review gate. On any failed check, abort an active rebase first, restore the selected
+   review gate only when the rebase changed files, and only on that diff. On any failed check, abort an active rebase first, restore the selected
    feature branch to its captured pre-rebase commit only when the tree is clean, and
    verify the original branch, feature commit, tree ID and clean status before writing
    `blocked`. If any restoration check fails, stop without changing checkpoint state or

@@ -254,3 +254,23 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     expect(merge).toBeGreaterThan(approval);
   });
 });
+
+describe("orchestrator fast path", () => {
+  test("one resumed builder verifies, one fresh critic reviews, a failed fix stops", () => {
+    const text = readFileSync(join(root, "skills/ai-orchestrator/SKILL.md"), "utf8");
+    const phase2 = text.slice(text.indexOf("## Phase 2: Checkpoint loop"), text.indexOf("## Phase 3: Wrap-up"));
+    const loop = readFileSync(join(root, "skills/ai-adversarial-loop/SKILL.md"), "utf8");
+    const critic = readFileSync(join(root, "agents/adversarial-reviewer.md"), "utf8");
+
+    expect(phase2).toContain("Resume this same builder");
+    expect(phase2).toContain("Do not spawn a behavior agent");
+    expect(phase2).toContain("one critic round");
+    expect(phase2).toContain("Do not open a third round");
+    expect(phase2).toContain("End the turn");
+    expect(phase2).not.toContain("Up to 4 rounds");
+    expect(loop).toContain("One critic round");
+    expect(loop).toContain("Do not start a separate `fixer` agent");
+    expect(critic).not.toContain("model: opus");
+    expect(critic).toContain("Do not open `docs/history/learnings-log.md`");
+  });
+});

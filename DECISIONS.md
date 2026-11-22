@@ -343,3 +343,26 @@ The owner approved the plan on 2026-11-20:
 ### Alternatives considered
 
 - **Warn at session start and leave deleting to `ai-eng work tidy`:** nothing goes without a command, and landed branches pile up until someone remembers. Rejected by the owner.
+
+## D-016: One resumed builder, one review
+
+Status: Accepted · Date: 2026-11-22 · Supersedes the handoff-multiplication consequence of D-005
+
+### Context
+
+Across 15 orchestrator sessions the archive shows 469 checkpoint launches. 42% repeat a stage already launched. OMP's child workers spent 28.6 active hours; 10.5 of those hours are the repeat. Review averaged 19 minutes of reading. The behavior gate averaged 3.7 minutes and almost never edited. A fresh agent re-reads the repo, including the 1,934-line learnings log, before it writes. D-005 still holds that a checkpoint must produce a checkable artifact and must not drop acceptance cases. The separate test, behavior, and debate agents were the handoffs, not the coverage.
+
+### Decision
+
+One builder is resumed for tests, implementation, verify, and the single fix. Its verify receipt is the behavior gate. One new reviewer judges the diff for one round; a blocker or major gets one fix and one re-check, then the run stops. The parent ends the turn when the checkpoint passes. Rules are pasted into the prompt. Security runs only when the diff touches auth, SQL, migrations, or workflows.
+
+### Consequences
+
+- A checkpoint costs one builder context plus one short review, and resume does not re-read the tree.
+- A failed fix stops for a person instead of relaunching the stage.
+- Acceptance cases, the checkpoint file, the commit, and the human app review stay.
+
+### Alternatives considered
+
+- **Keep a fresh agent per gate and a four-round debate:** measured at about 3.3 times the launches of one builder plus one review. Rejected.
+- **Drop the reviewer:** the builder would mark its own homework. Rejected.
