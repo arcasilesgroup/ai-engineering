@@ -147,10 +147,10 @@ completion command only after the same approval and gate checks.
 A rejected merge is reported with the forge's message; leave the PR open and
 never retry blindly. After a successful request to merge, wait for the provider
 to report `MERGED` before reporting completion. Then close the lane in the same
-step: switch this checkout to the base and run `ai-eng work tidy`, which removes
-the branch and its folder only when the forge merged exactly that tip and nothing
-is uncommitted; anything it keeps, report as it says. It never levels another
-checkout.
+step: from another checkout of this repo, run `ai-eng work tidy` while the feature
+worktree is still on the feature branch and clean. Tidy removes that folder and
+the branch only when the forge merged exactly that tip. Leave the base checkout
+alone. Anything tidy keeps, report as it says. It never levels another checkout.
 
 ## Lifecycle
 

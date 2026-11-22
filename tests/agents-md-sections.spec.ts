@@ -43,6 +43,7 @@ describe("workflow kit — AGENTS.md sections and doctor ceiling", () => {
     expect(agentsSection).toBeDefined();
     expect(templateSection).toBeDefined();
     expect(agentsSection).toBe(templateSection);
+    expect(templateSection).toContain("`ai-eng work tidy` from another checkout, this folder on its branch");
   });
 
   test("Shared helpers mentions codegraph", () => {
