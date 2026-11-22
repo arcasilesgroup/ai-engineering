@@ -130,6 +130,9 @@ describe("ai-eng config · --add and --remove", () => {
     expect(configOf(repo)).toBe('# keep me\n[surfaces]\nenabled = ["claude-code", "cursor"]\n\n[models]\ndecide = "x"\n');
     expect(out).toContain("◆  Surfaces changed  ·  2 enabled: claude-code, cursor");
     expect(out).toContain("│  ✓ installed  cursor · adapter + skill mirror written");
+    expect(out).toContain("◆  Mirrors verified");
+    // The template has carried no model tiers since 3.x: the summary must not send you there.
+    expect(out).not.toContain("model tiers");
     expect(out).toContain("└  Next: ai-eng doctor");
 
     // The adapter itself, not just the claim: a declaration nobody enforces is the bug

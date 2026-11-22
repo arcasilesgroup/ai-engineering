@@ -214,7 +214,7 @@ export async function configMain(flags: { add?: string; remove?: string; ci?: st
   installNewSurfaces(root, current, surfacesBefore, addedNow);
   showSurfaceDelta(current, surfacesBefore);
   const mirrors = mirrorTargets().length;
-  ui.section("Mirrors verified", [{ mark: "ok", text: `${mirrors} targets` }], "model tiers: .ai-engineering/config.toml");
+  ui.section("Mirrors verified", [{ mark: "ok", text: `${mirrors} targets` }]);
   ui.end("Next: ai-eng doctor");
   return 0;
 }
