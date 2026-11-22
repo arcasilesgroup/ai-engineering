@@ -76,7 +76,7 @@ sh scripts/proof-cli-ux.sh     # R16: the hooks reach new clones, and a repo wit
 
 ## Page templates in the machine home
 
-The HTML page shells (`templates/*.html.tpl`) are not carriers. Install copies each one into `~/.ai-engineering/templates/`, beside `skills/`, so a skill link such as `../../templates/research.html.tpl` resolves on a machine that does not have this repository. Settings, hook and plugin templates stay in the binary. A file in that folder that this install never recorded is left alone. Uninstall removes the copies it installed and leaves that file.
+The HTML page shells (`templates/*.html.tpl`) are not carriers. Install copies each one into `~/.ai-engineering/templates/`, beside `skills/`, so a skill link such as `../../templates/research.html.tpl` resolves on a machine that does not have this repository. Settings, hook and plugin templates stay in the binary. A file in that folder that this install never recorded is left alone. Uninstall removes the pages the ownership record names, plus an unrecorded page only while it still holds the shipped bytes, and leaves every other file.
 
 ## Adding a new surface
 

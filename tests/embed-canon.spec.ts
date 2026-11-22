@@ -16,6 +16,7 @@ import {
   removeStaleCanonFiles,
   canonDrift,
   materializeSkills,
+  materializeTemplates,
   materializeAgents,
   embeddedPath,
   embeddedTemplate,
@@ -458,20 +459,42 @@ describe("drift is a measurement, not a claim", () => {
   test("a freshly materialized canon is intact: nothing missing, nothing drifted, nothing stale", () => {
     const home = sandbox();
     expect(materializeSkills(join(home, "skills"))[0]).toMatch(/^materialized \d+ assets → /);
-    expect(canonDrift(home)).toEqual({ verified: canonSkills().size, drift: 0, missing: 0, stale: 0, foreign: 0 });
+    expect(materializeTemplates(join(home, "templates"))[0]).toMatch(/^materialized \d+ assets → /);
+    const pages = embeddedPageTemplates().size;
+    expect(pages).toBeGreaterThan(0);
+    expect(canonDrift(home)).toEqual({ verified: canonSkills().size + pages, drift: 0, missing: 0, stale: 0, foreign: 0 });
   });
 
   test("a canon can be complete and dirty at once: an edited file counts as drift, a deleted one as missing", () => {
     const home = sandbox();
     materializeSkills(join(home, "skills"));
+    materializeTemplates(join(home, "templates"));
+    const pages = embeddedPageTemplates().size;
     const edited = aSkillPath();
     writeFileSync(join(home, edited), "hand-edited\n");
     const drifted = canonDrift(home);
     expect(drifted.drift).toBe(1);
-    expect(drifted.verified).toBe(canonSkills().size - 1);
+    expect(drifted.verified).toBe(canonSkills().size + pages - 1);
 
     rmSync(join(home, edited));
     expect(canonDrift(home).missing).toBe(1);
+  });
+
+  test("skills that match are unhealthy when a shipped page template is missing or edited", () => {
+    const home = sandbox();
+    materializeSkills(join(home, "skills"));
+    const pages = embeddedPageTemplates();
+    expect(pages.size).toBeGreaterThan(0);
+    expect(canonDrift(home)).toMatchObject({ verified: canonSkills().size, drift: 0, missing: pages.size });
+
+    materializeTemplates(join(home, "templates"));
+    const [key, ref] = [...pages][0]!;
+    const shipped = readFileSync(embeddedPath(ref));
+    writeFileSync(join(home, key), Buffer.concat([shipped, Buffer.from("\nlocal\n")]));
+    expect(canonDrift(home)).toMatchObject({ drift: 1, missing: 0, verified: canonSkills().size + pages.size - 1 });
+
+    rmSync(join(home, key));
+    expect(canonDrift(home)).toMatchObject({ drift: 0, missing: 1, verified: canonSkills().size + pages.size - 1 });
   });
 
   test("F20: an extra file we do not ship is counted, never silently ignored — stale, with or without a record", () => {

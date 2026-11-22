@@ -1953,3 +1953,10 @@ Archived from the repo-root LEARNINGS.md at rev 2026-11-08 (`git log -1 --format
 - **Fix:** The helper now returns the same narrow buffer type readFileSync returns. The comparisons stay exact bytes.
 - **Lesson:** When a file buffer is the expected value of toEqual, type it as the same narrow buffer readFileSync returns. A plain Buffer annotation is wider.
 - **Tags:** behavior, tests, brand
+
+### L275 · 2026-11-22 · brand-design-system #2 · review
+- **Failure:** Page templates joined the install payload, but a machine whose skills matched never received them, and uninstall and the ownership record claimed every shipped template name whether or not this install wrote it.
+- **Root cause:** The install health check (`canonDrift`) measured skills only, and `recordedMachinePaths` and `recordCanonOwnership` took ownership from the payload list instead of from what the run wrote.
+- **Fix:** The health check counts page templates like skills. A template is recorded only as a regular file, not reached through a link, holding the shipped bytes. Uninstall removes a template only when the record names it or it still holds the shipped bytes.
+- **Lesson:** When a new kind of file joins the installed payload, route it through the same health check and the same "ai-eng wrote this" test as skills, and prove both through init, update and uninstall, not only installCanon.
+- **Tags:** review, install, brand

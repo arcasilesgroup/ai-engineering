@@ -322,8 +322,8 @@ function pruneEmptyDirectory(directory: string): boolean {
 
 /** Remove every machine path ai-eng installed — each skill folder it ships or shipped
  *  (whole), its agents, its scripts and its page templates — edited or not: they are
- *  ai-eng's. A skill of your own, in a folder of its own name, and any agent, script or
- *  template file ai-eng never recorded stay. */
+ *  ai-eng's. A skill of your own, in a folder of its own name, stays. A page template
+ *  the record does not name stays when it is not a regular file of the shipped bytes. */
 function removeMachinePayload(machineDir: string, refused: string[]): number {
   // The real spelling: the prune binds each folder to its realpath, and a home under a
   // linked folder (macOS /var → /private/var) would otherwise never be pruned.

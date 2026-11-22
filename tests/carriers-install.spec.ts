@@ -2266,6 +2266,8 @@ describe("installCanon and what leaves with it", () => {
     for (const kind of ["symlink", "file"] as const) {
       const base = useHome(`canon-templates-root-${kind}`);
       const templatesPath = join(base, "templates");
+      // An older record must not keep a templates key that this run cannot see as a regular file.
+      writeFileSync(join(base, CANON_OWNERSHIP_NAME), `${JSON.stringify({ files: { "templates/research.html.tpl": "abc" } })}\n`);
       if (kind === "symlink") {
         const target = join(sandbox, `canon-templates-root-${kind}-target`);
         write(join(target, "kept.html"), keptBytes);
@@ -2283,6 +2285,7 @@ describe("installCanon and what leaves with it", () => {
         expect(lstatSync(templatesPath).isFile()).toBe(true);
       }
       expectShippedCanonInstalled(base);
+      expect(Object.keys(ownershipFiles(base)).filter((key) => key.startsWith("templates/"))).toEqual([]);
     }
   });
 
@@ -2302,6 +2305,7 @@ describe("installCanon and what leaves with it", () => {
     const otherName = join(base, "dotfiles", hardlinkName);
     write(otherName, hardlinkBytes);
     linkSync(otherName, join(templatesDir, hardlinkName));
+    writeFileSync(join(base, CANON_OWNERSHIP_NAME), `${JSON.stringify({ files: { [`templates/${symlinkName}`]: "abc" } })}\n`);
 
     const lines = installCanon("2.2.0");
 
@@ -2313,6 +2317,9 @@ describe("installCanon and what leaves with it", () => {
     expect(readFileSync(otherName, "utf8")).toBe(hardlinkBytes);
     expect(lstatSync(join(templatesDir, hardlinkName)).ino).not.toBe(lstatSync(otherName).ino);
     expect(readFileSync(join(templatesDir, hardlinkName))).toEqual(shippedPageTemplate(hardlinkName));
+    const files = ownershipFiles(base);
+    expect(files[`templates/${symlinkName}`]).toBeUndefined();
+    expect(files[`templates/${hardlinkName}`]).toBe(hashFile(join(import.meta.dir, "..", "templates", hardlinkName)));
   });
 
   test("U18: uninstall's machine scope removes every installed template, drops them from the record, and leaves the user's file", async () => {
@@ -2340,6 +2347,48 @@ describe("installCanon and what leaves with it", () => {
       : [];
     expect(templateKeys).toEqual([]);
     expect(readFileSync(join(templatesDir, "mine.html"))).toEqual(userBytes);
+  });
+
+  test("U19: uninstall leaves an unrecorded shipped name whose bytes differ, removes a byte-identical copy, and leaves a link", async () => {
+    const base = useHome("canon-templates-uninstall-unrecorded");
+    const names = shippedPageTemplateNames();
+    expect(names).toContain("research.html.tpl");
+    expect(names.length).toBeGreaterThan(2);
+    const identicalName = names.find((name) => name !== "research.html.tpl");
+    const linkName = names.find((name) => name !== "research.html.tpl" && name !== identicalName);
+    if (identicalName === undefined || linkName === undefined) throw new Error("templates/*.html.tpl needs three names");
+    installCanon("2.2.0");
+    const recordPath = join(base, CANON_OWNERSHIP_NAME);
+    const record = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string> };
+    delete record.files["templates/research.html.tpl"];
+    delete record.files[`templates/${identicalName}`];
+    delete record.files[`templates/${linkName}`];
+    writeFileSync(recordPath, `${JSON.stringify(record)}\n`);
+    const templatesDir = join(base, "templates");
+    const userBytes = Buffer.from("the user's own research page\n");
+    writeFileSync(join(templatesDir, "research.html.tpl"), userBytes);
+    const linkTarget = join(base, "dotfiles", linkName);
+    const linkBytes = "linked page\n";
+    write(linkTarget, linkBytes);
+    rmSync(join(templatesDir, linkName));
+    symlinkSync(linkTarget, join(templatesDir, linkName));
+    const project = join(sandbox, "canon-templates-uninstall-unrecorded-project");
+    mkdirSync(join(project, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(project, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+    const git = spawnSync("git", ["init", "-q"], { cwd: project, encoding: "utf8" });
+    expect(git.status).toBe(0);
+
+    expect(await runUninstallMachineScope(project)).toBe(0);
+
+    expect(readFileSync(join(templatesDir, "research.html.tpl"))).toEqual(userBytes);
+    expect(existsSync(join(templatesDir, identicalName))).toBe(false);
+    expect(lstatSync(join(templatesDir, linkName)).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(join(templatesDir, linkName))).toBe(linkTarget);
+    expect(readFileSync(linkTarget, "utf8")).toBe(linkBytes);
+    for (const name of names) {
+      if (name === "research.html.tpl" || name === linkName) continue;
+      expect(existsSync(join(templatesDir, name))).toBe(false);
+    }
   });
 });
 

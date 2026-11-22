@@ -237,10 +237,58 @@ function readCanonOwnership(homeDir: string): Map<string, string> | null {
   return snapshot === null ? null : parseCanonOwnership(snapshot.content.toString("utf8"));
 }
 
-/** The skill folders, agents, scripts and page templates the ownership record names: what
- *  ai-eng installed on this machine, now or in an earlier release. Uninstall removes these. */
+/** A `templates/` path that is a regular file, reached without following a link.
+ *  existsSync follows a directory link and would treat the user's page as installed. */
+function installedTemplateFile(homeDir: string, key: string): string | null {
+  const absolute = safeProjectPath(homeDir, key);
+  if (absolute === null) return null;
+  try {
+    return lstatSync(absolute).isFile() ? absolute : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Sha256 of an embedded payload file, or null when this binary does not hold it. */
+function embeddedFileHash(ref: string): string | null {
+  const embedded = embeddedPath(ref);
+  if (!existsSync(embedded)) return null;
+  return hashFile(embedded);
+}
+
+/** The embedded hash when the installed template is that regular file, byte for byte. */
+function matchingTemplateHash(homeDir: string, key: string, ref: string): string | null {
+  const installed = installedTemplateFile(homeDir, key);
+  const shipped = embeddedFileHash(ref);
+  if (installed === null || shipped === null) return null;
+  if (hashFile(installed) === shipped) return shipped;
+  return null;
+}
+
+/** An older record key still names something ai-eng owns. A page template counts only
+ *  while it is a regular file: a link, or a non-directory where `templates/` belongs,
+ *  is the user's setup and must not stay in the record. */
+function keepsRecordedPath(homeDir: string, path: string, alsoKeep: readonly string[]): boolean {
+  if (path.startsWith("templates/")) return installedTemplateFile(homeDir, path) !== null;
+  const left = path.startsWith("skills/") ? join(homeDir, "skills", skillFolderOf(path)) : join(homeDir, path);
+  return isPathPresent(left) || alsoKeep.some((kept) => path === kept || path.startsWith(`${kept}/`));
+}
+
+/** Skill folders, agents and scripts this binary ships, plus page templates the ownership
+ *  record names or that are regular files byte-identical to the shipped template.
+ *  Uninstall removes this set. A template the record does not name, whose bytes differ,
+ *  is the user's and is absent here. Skill folders stay on the payload union: the folder
+ *  is ai-eng's whole. */
 export function recordedMachinePaths(homeDir: string): string[] {
-  const keys = new Set([...machinePayload().keys(), ...(readCanonOwnership(homeDir)?.keys() ?? [])]);
+  const keys = new Set<string>(readCanonOwnership(homeDir)?.keys() ?? []);
+  for (const [key, ref] of machinePayload()) {
+    if (key.startsWith("templates/")) {
+      if (keys.has(key)) continue;
+      if (matchingTemplateHash(homeDir, key, ref) !== null) keys.add(key);
+      continue;
+    }
+    keys.add(key);
+  }
   const paths = new Set<string>();
   for (const key of keys) paths.add(key.startsWith("skills/") ? `skills/${skillFolderOf(key)}` : key);
   return [...paths].sort((a, b) => a.localeCompare(b, "en"));
@@ -256,12 +304,19 @@ export function recordedMachinePaths(homeDir: string): string[] {
 export function recordCanonOwnership(homeDir: string, alsoKeep: readonly string[] = []): string | null {
   const files: Record<string, string> = {};
   for (const [path, hash] of readCanonOwnership(homeDir) ?? []) {
-    const left = path.startsWith("skills/") ? join(homeDir, "skills", skillFolderOf(path)) : join(homeDir, path);
-    if (isPathPresent(left) || alsoKeep.some((kept) => path === kept || path.startsWith(`${kept}/`))) files[path] = hash;
+    if (keepsRecordedPath(homeDir, path, alsoKeep)) files[path] = hash;
   }
   for (const [path, ref] of machinePayload()) {
-    const embedded = embeddedPath(ref);
-    if (existsSync(embedded)) files[path] = hashFile(embedded);
+    // A page template is recorded only once this run can see the regular file it
+    // wrote. Stamping the embedded hash when `templates/` is a link or a file would
+    // make a later uninstall delete a page ai-eng never wrote (R39).
+    if (path.startsWith("templates/")) {
+      const shipped = matchingTemplateHash(homeDir, path, ref);
+      if (shipped !== null) files[path] = shipped;
+      continue;
+    }
+    const shipped = embeddedFileHash(ref);
+    if (shipped !== null) files[path] = shipped;
   }
   const refusal = `${join(homeDir, CANON_OWNERSHIP_NAME)} is a link, not a regular file, or not writable — ownership record not written; a skill ai-eng stops shipping will not be swept`;
   let canonicalHome: string;
@@ -384,19 +439,28 @@ export function removeStaleCanonFiles(homeDir: string): { removed: string[]; ref
   return { removed, refused };
 }
 
+/** Skills and page templates, the files whose bytes decide whether the canon is healthy.
+ *  Agents and scripts are installed with them but are not this measurement: init and
+ *  update skip installCanon when drift, missing and stale are all zero, so a page
+ *  template left out of the count is never written on a machine whose skills already match. */
+function canonDriftEntries(): Map<string, string> {
+  return new Map([...canonSkills(), ...pageTemplates()]);
+}
+
 /** The installed canon against this binary's payload, byte for byte — the one
- *  predicate `init` and `doctor` share (health is a measurement, not a claim).
+ *  predicate `init`, `update` and `doctor` share (health is a measurement, not a claim).
  *  Existence probes and a marker file are not enough: notice.ts caches the
  *  REGISTRY version in the same version.json that installCanon wrote the
  *  INSTALLED version into, so a canon reads "intact · nothing to install" with
- *  34 files missing. It counts the entries the payload does not have as well: a
+ *  files missing. Page templates are in the same missing / drift / verified loop
+ *  as skills. It counts the entries the payload does not have as well: a
  *  canon can be complete and dirty at once, and only the extras walk sees both
  *  halves. */
 export function canonDrift(homeDir: string): CanonDrift {
   const extras = canonExtras(homeDir);
   const stale = extras.stale.length + extras.retired.length + retainedOutsideHome(homeDir);
   const out: CanonDrift = { verified: 0, drift: 0, missing: 0, stale, foreign: extras.foreign.length };
-  for (const [path, ref] of canonSkills()) {
+  for (const [path, ref] of canonDriftEntries()) {
     const installed = join(homeDir, path);
     const embedded = embeddedPath(ref);
     if (!existsSync(installed)) out.missing += 1;
