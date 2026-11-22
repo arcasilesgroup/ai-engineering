@@ -38,7 +38,10 @@ const STAGES = new Set(["tests", "implement", "behavior", "ui", "review", "fix"]
 const MARKER = /^\s*\[checkpoint\s+([\w.-]+)#(\d+)\s+(\w+)\]/;
 const CHECKPOINT_PATH = /^\.ai-engineering\/workflow\/checkpoints\/([a-z0-9][a-z0-9._-]*)\.json$/;
 const CHECKPOINT_TARGET = /\.ai-engineering\/workflow\/checkpoints\/[^\s/]+\.json/;
-const BASH_WRITE = />|\btee\b|\bsed\s+-i|\bpython3?\b|\bnode\b|\bperl\b|\bjq\b.*>|\bmv\b|\bcp\b|\brm\b|\btruncate\b/;
+// Interpreters that can write any file their code names. Every other write form
+// (redirection, tee, sed -i, cp, mv, rm, truncate) is judged by its target in
+// shellWritesIntoCheckpoints.
+const OPAQUE_WRITE = /\bpython3?\b|\bnode\b|\bperl\b/;
 const CHECKPOINTS_DIR = ".ai-engineering/workflow/checkpoints";
 const MAX_LINK_HOPS = 40;
 // Command separators: `&&`, `||`, `;`, newlines, pipes and a background `&` — but not the
@@ -476,12 +479,12 @@ function isJsonToolRead(words: readonly string[], isCheckpointFile: (operand: st
   return operand !== "-" && isCheckpointFile(operand);
 }
 
-/** Whether one segment of a command that names a checkpoint has a write form. Output thrown
- *  away (`> /dev/null`, `2>&1`, `>&2`) writes no file, and json.tool on the checkpoint only reads it. */
-function hasWriteForm(segment: string): boolean {
+/** Whether one segment of a command that names a checkpoint runs an interpreter that could
+ *  write it. json.tool with the checkpoint as its one operand only reads it. */
+function hasOpaqueWriteForm(segment: string): boolean {
   const kept = segment.replace(DISCARD_REDIRECTION, " ");
-  if (isJsonToolRead(commandWords(kept), (operand) => CHECKPOINT_TARGET.test(operand))) return kept.includes(">");
-  return BASH_WRITE.test(kept);
+  if (isJsonToolRead(commandWords(kept), (operand) => CHECKPOINT_TARGET.test(operand))) return false;
+  return OPAQUE_WRITE.test(kept);
 }
 
 /** A path as the shell would resolve it from `cwd`, or null when it hangs off a variable,
@@ -549,7 +552,7 @@ function checkBash(payload: Payload, repoRoot: string): CheckpointGuardResult {
       return deny("Checkpoint", "shell gate", `does not accept a patch to ${gated}`, "use Edit or Write so checkpoint gates are validated");
     }
   }
-  const isNamedWrite = CHECKPOINT_TARGET.test(command) && command.split(SHELL_SEGMENT).some(hasWriteForm);
+  const isNamedWrite = CHECKPOINT_TARGET.test(command) && command.split(SHELL_SEGMENT).some(hasOpaqueWriteForm);
   if (!isNamedWrite && !shellWritesIntoCheckpoints(command, cwd, realRepo(repoRoot))) return undefined;
   return deny("Checkpoint", "shell gate", "does not allow direct Bash writes to checkpoint JSON", "use Edit or Write so checkpoint gates are validated");
 }

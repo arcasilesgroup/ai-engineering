@@ -598,6 +598,8 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a bare cd home", "cd && printf x > notes.txt"],
     ["a trailing separator", "echo done;"],
     ["a sed script containing -i", `cd ${FOLDER} && sed 's/a-i/b/' demo.json`],
+    ["staging and committing the plan after writing a message elsewhere", `printf 'msg' > /tmp/msg.txt && git add -- ${FOLDER}/demo.json && git commit -F /tmp/msg.txt --only -- ${FOLDER}/demo.json`],
+    ["staging the plan with its errors logged elsewhere", `git add -- ${FOLDER}/demo.json 2> git-errors.log`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());
