@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chainMain, judgeWrappedCommand, runChain, type ChainOutcome, type ChainOptions } from "../src/chain/mod.ts";
+import { home } from "../src/env.ts";
 import { fingerprint, normalise } from "../src/payload.ts";
 
 const UNREADABLE = "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.";
@@ -83,8 +84,8 @@ function expectReceipt(root: string, id: string | null, fields: Record<string, u
   return written;
 }
 
-const cacheFile = (root: string, sessionId: string): string =>
-  join(root, ".ai-engineering", "cache", "verdicts", `${createHash("sha256").update(sessionId).digest("hex").slice(0, 32)}.json`);
+const cacheFile = (sessionId: string): string =>
+  join(home(), "cache", "verdicts", `${createHash("sha256").update(sessionId).digest("hex").slice(0, 32)}.json`);
 const readBook = (file: string): Record<string, unknown> => JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
 
 describe("which repo a call belongs to", () => {
@@ -171,7 +172,7 @@ describe("the verdict cache", () => {
     // Re-deciding the same call three times is a loop; the cache, not the loop guard, is under test.
     writeFileSync(join(root, ".ai-engineering", "overrides.toml"), '[[guard.off]]\nname = "loop"\nreason = "cache test"\nuntil = "2099-01-01"\n');
     const payload = bash(root, "git status", { tool_use_id: "u-cache" });
-    const file = cacheFile(root, String(payload["session_id"]));
+    const file = cacheFile(String(payload["session_id"]));
     expect(run(payload)).toEqual({ action: "allow", guards: ALL_PRE_BASH, receiptId: expect.any(String) });
     const [key] = Object.keys(readBook(file));
     expect(readBook(file)).toEqual({ [key!]: { deny: false } });
@@ -192,14 +193,14 @@ describe("the verdict cache", () => {
     run(first);
     run({ ...first, tool_use_id: "u-2" });
     run(other);
-    expect(Object.keys(readBook(cacheFile(root, String(first["session_id"])))).length).toBe(2);
-    expect(Object.keys(readBook(cacheFile(root, String(other["session_id"])))).length).toBe(1);
+    expect(Object.keys(readBook(cacheFile(String(first["session_id"])))).length).toBe(2);
+    expect(Object.keys(readBook(cacheFile(String(other["session_id"])))).length).toBe(1);
   });
 
   test("the book keeps the newest 500 verdicts", () => {
     const root = governedRepo();
     const payload = bash(root, "git status", { tool_use_id: "u-newest" });
-    const file = cacheFile(root, String(payload["session_id"]));
+    const file = cacheFile(String(payload["session_id"]));
     mkdirSync(join(file, ".."), { recursive: true });
     const old: Record<string, unknown> = {};
     for (let index = 0; index < 500; index++) old[`old-${index}`] = { deny: false };
@@ -214,7 +215,7 @@ describe("the verdict cache", () => {
   test("only an addressable PreToolUse call is looked up or remembered", () => {
     const root = governedRepo();
     const anonymous = bash(root, "git status");
-    const file = cacheFile(root, String(anonymous["session_id"]));
+    const file = cacheFile(String(anonymous["session_id"]));
     mkdirSync(join(file, ".."), { recursive: true });
     const planted = JSON.stringify({ [fingerprint(normalise(anonymous, undefined, "PreToolUse"))]: { deny: true, by: "no-verify", message: "planted" } });
     writeFileSync(file, planted);
@@ -225,7 +226,7 @@ describe("the verdict cache", () => {
     for (let delivery = 0; delivery < 2; delivery++) {
       expect(run(post, "PostToolUse")).toEqual({ action: "allow", guards: ["loop"], receiptId: expect.any(String) });
     }
-    expect(existsSync(cacheFile(root, String(post["session_id"])))).toBe(false);
+    expect(existsSync(cacheFile(String(post["session_id"])))).toBe(false);
   });
 });
 

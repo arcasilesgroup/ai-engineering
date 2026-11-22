@@ -703,17 +703,27 @@ function gcCache(root: string): string[] {
   return [...gcVerdicts(root), ...gcRetentionClaims(cache)];
 }
 
-function gcVerdicts(root: string): string[] {
-  const verdicts = safeProjectPath(root, ".ai-engineering/cache/verdicts");
-  if (verdicts === null || !existsSync(verdicts)) return [];
+function gcVerdictDir(dir: string): number {
+  if (!existsSync(dir)) return 0;
   const cutoff = Date.now() - VERDICT_TTL_DAYS * 86_400_000;
   let deleted = 0;
-  for (const name of readdirSync(verdicts)) {
-    const path = join(verdicts, name);
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name);
     if (!name.endsWith(".json") || !isPlainFile(path) || statSync(path).mtimeMs >= cutoff) continue;
     unlinkSync(path);
     deleted += 1;
   }
+  return deleted;
+}
+
+/** The live book is under the machine home, beside the loop window. Files left in
+ *  the repo from before that move are still swept: they are the writable allow
+ *  the governed party used to be able to plant. */
+function gcVerdicts(root: string): string[] {
+  const legacy = safeProjectPath(root, ".ai-engineering/cache/verdicts");
+  const live = join(home(), "cache", "verdicts");
+  let deleted = gcVerdictDir(live);
+  if (legacy !== null && legacy !== live) deleted += gcVerdictDir(legacy);
   return deleted > 0 ? [`✓ cache/verdicts/: ${deleted} older than ${VERDICT_TTL_DAYS} days deleted`] : [];
 }
 

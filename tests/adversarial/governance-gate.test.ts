@@ -205,7 +205,7 @@ describe("adversarial · the gate (config.toml decides, not .git)", () => {
     }
   });
 
-  test("debt closed: the verdict cache writes inside the repo, HOME is protected, spec open invents nothing", () => {
+  test("debt closed: the verdict cache writes outside the repo, HOME is protected, spec open invents nothing", () => {
     // Three findings the milestone's own inventory turned up, each with its own check
     // because each one was invisible: a cache that never worked, a guard list that
     // un-protected HOME outside a repo, and a verb that created .ai-engineering/ in a
@@ -218,9 +218,16 @@ describe("adversarial · the gate (config.toml decides, not .git)", () => {
       //    the directory got created. It never did — the write hit ENOENT into a silent
       //    catch, so the cache was dead code with a plausible name.
       const payload = { tool_name: "Bash", tool_input: { command: "git commit -m 'feat: x'" }, tool_use_id: "d1", session_id: "../../escaped" };
-      run(["chain", "PreToolUse"], governed, JSON.stringify(payload));
-      const cacheDir = join(governed, ".ai-engineering", "cache", "verdicts");
+      const chain = spawnSync(process.execPath, [cli, "chain", "PreToolUse"], {
+        cwd: governed,
+        encoding: "utf8",
+        env: { ...ENV, AI_ENG_HOME: sessionHome },
+        input: JSON.stringify(payload),
+      });
+      expect(chain.status).toBe(0);
+      const cacheDir = join(sessionHome, "cache", "verdicts");
       expect(existsSync(cacheDir)).toBe(true);
+      expect(existsSync(join(governed, ".ai-engineering", "cache", "verdicts"))).toBe(false);
       const files = readdirSync(cacheDir);
       expect(files.length).toBeGreaterThan(0);
       // 2. The session id reaches the cache FILENAME, and a host-supplied string with `..`
@@ -228,9 +235,9 @@ describe("adversarial · the gate (config.toml decides, not .git)", () => {
       for (const name of files) expect(/^[0-9a-f]{32}\.json$/.test(name)).toBe(true);
       expect(existsSync(join(governed, "escaped.json"))).toBe(false);
       expect(existsSync(join(governed, ".ai-engineering", "cache", "escaped.json"))).toBe(false);
-      // And it lives INSIDE the state directory the lock owns: a cache at the repo root
-      // is an unowned directory, and our own `git add -A` would commit the guard's
-      // messages into the user's repository.
+      // Outside the checkout: a cache at the repo root is an unowned directory our
+      // own `git add -A` would commit, and a cache inside .ai-engineering is a file
+      // the governed party can write an allow into.
       expect(existsSync(join(governed, "cache"))).toBe(false);
 
       // 3. HOME's canon and mirrors are protected even when no governed repo is above the
