@@ -557,13 +557,17 @@ function checkBash(payload: Payload, repoRoot: string): CheckpointGuardResult {
   return deny("Checkpoint", "shell gate", "does not allow direct Bash writes to checkpoint JSON", "use Edit or Write so checkpoint gates are validated");
 }
 
+/** True when this session is driving the plan: it started the orchestrator and dispatched a
+ *  checkpoint marker for this slug. A plan path that merely appears in the transcript (git
+ *  status, a listing, a refusal quoting it) is another feature's plan, not this session's. */
 function orchestratorTranscript(payload: Payload, slug: string): boolean {
   const transcriptPath = payload.transcript_path;
   if (typeof transcriptPath !== "string" || transcriptPath.length === 0) return false;
   try {
     const transcript = readFileSync(transcriptPath, "utf8");
     const startedOrchestrator = /"skill"\s*:\s*"ai-orchestrator"|<command-name>\/ai-orchestrator<\/command-name>/.test(transcript);
-    return startedOrchestrator && transcript.includes(`.ai-engineering/workflow/checkpoints/${slug}.json`);
+    const marker = new RegExp(`\\[checkpoint\\s+${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}#\\d+\\s+\\w+\\]`);
+    return startedOrchestrator && marker.test(transcript);
   } catch {
     return false;
   }
@@ -613,13 +617,34 @@ function bumpStopCounter(path: string, root: string): number {
   return next;
 }
 
+/** A plan the Stop gate cannot read is a file to repair, not a reason to hold the turn: it
+ *  is said once per session, on stderr. A warning that cannot be remembered is still said. */
+function warnOnce(root: string, sessionId: unknown, line: string): void {
+  const path = `${stopCounterPath(root, sessionId).slice(0, -".txt".length)}.warned`;
+  try {
+    ensureCounterDirectory(dirname(path), root);
+    let seen = "";
+    try {
+      if (!lstatSync(path).isFile()) throw new Error(`${path} is not a regular file`);
+      seen = readFileSync(path, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    if (seen.split("\n").includes(line)) return;
+    writeFileSync(path, `${seen}${line}\n`, { mode: 0o600 });
+  } catch {
+    /* said below, unremembered */
+  }
+  process.stderr.write(`${line}\n`);
+}
+
 /** Exit 2 on Stop makes Claude continue, and it then sends the next Stop with
  *  `stop_hook_active`. A fault the agent cannot cure by continuing (the checkpoint file is
  *  itself guarded) must not hold the turn forever:
  *  - a fault that leaves nothing to judge (no repo, an unreadable folder, a counter that
  *    cannot be saved) is refused once, then the stop goes through;
- *  - a fault in one checkpoint file becomes one more problem beside the other files' open
- *    gates, so it is still reported and bounded by MAX_STOP_BLOCKS like they are. */
+ *  - a checkpoint file that cannot be validated is a warning (warnOnce), never a refusal;
+ *  - every other refusal is counted and bounded by MAX_STOP_BLOCKS. */
 function isContinuingAfterStop(payload: Payload): boolean {
   return payload["stop_hook_active"] === true;
 }
@@ -658,14 +683,10 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
     try {
       checkpoint = readCheckpoint(path, checkpointContext(root, slug));
     } catch (error) {
-      const detail = `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`;
-      if (!isContinuingAfterStop(payload)) return deny(`Checkpoint ${slug}`, "Stop gate", detail, "repair the checkpoint JSON before ending the turn");
-      problems.push(`${slug}: ${detail}`);
+      warnOnce(root, payload.session_id, `[ai-eng] checkpoint: warning: Stop gate cannot validate ${path} (${error instanceof Error ? error.message : String(error)}); repair it with Edit or Write`);
       continue;
     }
-    const sequenceError = requireSequentialCheckpoints(checkpoint, path);
-    if (sequenceError !== undefined) {
-      if (!isContinuingAfterStop(payload)) return sequenceError;
+    if (requireSequentialCheckpoints(checkpoint, path) !== undefined) {
       problems.push(`${slug}: checkpoint IDs in ${path} are not sequential`);
       continue;
     }

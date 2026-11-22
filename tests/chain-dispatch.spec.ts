@@ -526,10 +526,10 @@ describe("Stop — the checkpoint guard reaches the harness event envelope", () 
     const transcriptPath = join(scratch, "transcript.jsonl");
     writeFileSync(
       transcriptPath,
-      '{"name":"Skill","input":{"skill":"ai-orchestrator"}} read .ai-engineering/workflow/checkpoints/dispatch.json\n',
+      '{"name":"Skill","input":{"skill":"ai-orchestrator"}} {"prompt":"[checkpoint dispatch#2 implement] go"}\n',
     );
     expect(readFileSync(planPath, "utf8")).toContain('"status":"failed"');
-    expect(readFileSync(transcriptPath, "utf8")).toContain(".ai-engineering/workflow/checkpoints/dispatch.json");
+    expect(readFileSync(transcriptPath, "utf8")).toContain("[checkpoint dispatch#2 implement]");
 
     const result = spawnSync(
       process.execPath,
