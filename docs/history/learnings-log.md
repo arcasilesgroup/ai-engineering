@@ -1932,3 +1932,38 @@ Archived from the repo-root LEARNINGS.md at rev 2026-11-08 (`git log -1 --format
 - **Fix:** Ownership is by path: a shipped skill folder is ai-eng's whole (every extra swept, every drift rewritten); the ownership record names skills, agents and scripts, so a retired one is swept with its mirror links and slash command; a lock-recorded repo file is rewritten or removed, edited or not. Only seeded config (`config.toml`, `overrides.toml`, `arch.rules.json`) becomes the project's on its first edit.
 - **Lesson:** Decide ownership by who wrote the path, not by whether its bytes still match; a rule that lets ours become yours leaves installs half-updated forever.
 - **Tags:** behavior, install, ownership
+
+### L272 · 2026-11-22 · brand-design-system #1 · review
+- **Failure:** Nested brand markers were spliced with stale indexes and gen wrote the damaged template. The parity summary blamed tokens.json for that template mismatch.
+- **Root cause:** Each marker pair was checked alone, so one pair opening inside the other still spliced, and the parity total called template drift a token-file mismatch.
+- **Fix:** Overlapping spans throw BrandMarkerError before any slice or write. Parity counts token files against brand/tokens.json and templates against the shared style and script.
+- **Lesson:** After both spans are known, reject overlap at the splice itself. A per-pair order check cannot see one pair opening inside the other.
+- **Tags:** review, brand, markers
+
+### L273 · 2026-11-22 · brand-design-system #1 · review
+- **Failure:** A begin marker that ended exactly on the other region's edge was still spliced and written, which dropped the closing marker.
+- **Root cause:** The overlap test used a strict less-than on the interiors, so a shared endpoint was treated as separate.
+- **Fix:** That touching endpoint counts as nested. spliceBrandRegions throws before any slice or write.
+- **Lesson:** A half-open interior check misses a marker that ends on the boundary. Treat the shared endpoint as overlap before splicing.
+- **Tags:** review, brand, markers
+
+### L274 · 2026-11-22 · brand-design-system #2 · behavior
+- **Failure:** Typecheck rejected four exact-byte comparisons in the new install tests. The runtime checks had already passed.
+- **Root cause:** The helper was annotated as a plain Buffer, which is wider than the buffer readFileSync returns, so toEqual had no matching overload.
+- **Fix:** The helper now returns the same narrow buffer type readFileSync returns. The comparisons stay exact bytes.
+- **Lesson:** When a file buffer is the expected value of toEqual, type it as the same narrow buffer readFileSync returns. A plain Buffer annotation is wider.
+- **Tags:** behavior, tests, brand
+
+### L275 · 2026-11-22 · brand-design-system #2 · review
+- **Failure:** Page templates joined the install payload, but a machine whose skills matched never received them, and uninstall and the ownership record claimed every shipped template name whether or not this install wrote it.
+- **Root cause:** The install health check (`canonDrift`) measured skills only, and `recordedMachinePaths` and `recordCanonOwnership` took ownership from the payload list instead of from what the run wrote.
+- **Fix:** The health check counts page templates like skills. A template is recorded only as a regular file, not reached through a link, holding the shipped bytes. Uninstall removes a template only when the record names it or it still holds the shipped bytes.
+- **Lesson:** When a new kind of file joins the installed payload, route it through the same health check and the same "ai-eng wrote this" test as skills, and prove both through init, update and uninstall, not only installCanon.
+- **Tags:** review, install, brand
+
+### L276 · 2026-11-22 · brand-design-system #3 · review
+- **Failure:** The brainstorm skill's step 1 copied the PRD template to .ai-engineering/PRD.html on every run, so a second feature's brainstorm would overwrite the earlier features.
+- **Root cause:** Rewording the skill to "copy the template" put the PRD copy in step 1, which runs every time, while step 5 already owned the PRD write and its create-versus-update rule.
+- **Fix:** The PRD template copy lives only in step 5 and only when PRD.html does not exist yet; the parity refusal path got its own test.
+- **Lesson:** When rewording a skill step that writes a file, find the step that already owns that file and its create-versus-update rule and put the wording there, never in an earlier step that runs every time.
+- **Tags:** review, skills, brand

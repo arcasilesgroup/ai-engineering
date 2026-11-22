@@ -12,7 +12,7 @@
  * second palette — which is the thing being tested for.
  */
 import { describe, test, expect } from "bun:test";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { artifactDrift, loadTokens } from "../scripts/brand.ts";
 
@@ -39,6 +39,20 @@ describe("the artifact design system is the single token source", () => {
     // brand declares — so a failure is a diff to apply, not a hunt to run.
     expect(problems.join("\n")).toBe("");
   });
+
+  test("artifact.files: brand/components.css is the reference, then every template, then the history pages", async () => {
+    const templates = readdirSync(join(ROOT, "templates"))
+      .filter((name) => name.endsWith(".html.tpl"))
+      .map((name) => `templates/${name}`)
+      .sort();
+    expect(templates.length).toBeGreaterThan(0);
+    expect((await loadTokens()).artifact.files).toEqual([
+      "brand/components.css",
+      ...templates,
+      "docs/history/blueprint.html",
+      "docs/history/recap.html",
+    ]);
+  });
 });
 
 describe("every skill that emits an artifact names the design system", () => {
@@ -51,5 +65,25 @@ describe("every skill that emits an artifact names the design system", () => {
       if (!body.includes("artifact-design.md")) silent.push(file.slice(ROOT.length + 1));
     }
     expect(silent).toEqual([]);
+  });
+
+  test("each one copies a shipped template and writes no CSS and no script", () => {
+    const copyLine = /Copy `templates\/([A-Za-z-]+\.html\.tpl)` and fill its sections; write no CSS and no script\./g;
+    const problems: string[] = [];
+    let emitters = 0;
+    for (const file of skillFiles()) {
+      const body = readFileSync(file, "utf8");
+      const writes = /^Writes:\s*(.+)$/m.exec(body)?.[1];
+      if (!writes?.includes(".html")) continue;
+      emitters++;
+      const named = [...body.matchAll(copyLine)].map((match) => match[1] ?? "");
+      const skill = file.slice(ROOT.length + 1);
+      if (named.length === 0) problems.push(`${skill}: no copy-the-template line`);
+      for (const template of named) {
+        if (!existsSync(join(ROOT, "templates", template))) problems.push(`${skill}: templates/${template} does not exist`);
+      }
+    }
+    expect(emitters).toBeGreaterThan(0);
+    expect(problems).toEqual([]);
   });
 });

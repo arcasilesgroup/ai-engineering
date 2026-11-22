@@ -54,7 +54,7 @@ Never decide for the person, and never touch a lane another session is writing i
 Layer rules, `.ai-engineering/config.toml` and `.ai-engineering/overrides.toml` are policy. The session fence denies writing them, and that denial stays. Propose them on a page the person reads and applies outside the governed session.
 
 - Layer rules belong to the standard tool of the language, never to a tool of ai-engineering's own. Read [references/layer-rules.md](references/layer-rules.md): how to find the layers, the tool per language, and how the rules reach CI.
-- The page format, the overrides rule and what the page must show: [references/proposal-page.md](references/proposal-page.md). Its shell is the artifact design system in [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md).
+- The page format, the overrides rule and what the page must show: [references/proposal-page.md](references/proposal-page.md). Its shell is the artifact design system in [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md): Copy `templates/research.html.tpl` and fill its sections; write no CSS and no script.
 
 ## Survivors
 

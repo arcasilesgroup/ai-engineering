@@ -108,7 +108,9 @@ async function withViewer(
   run: (harness: ViewerHarness) => void | Promise<void>,
 ): Promise<void> {
   const source = templateHtml();
-  const match = source.match(/<script>\n([\s\S]*)\n<\/script>/);
+  // The brand script gen splices in is not the viewer's: only the viewer's own script runs here.
+  const ownScript = source.replace(/<!-- brand:js:begin -->[\s\S]*?<!-- brand:js:end -->/, "");
+  const match = ownScript.match(/<script>\n([\s\S]*)\n<\/script>/);
   if (!match?.[1]) throw new Error("viewer template has no script block");
   const body = match[1]
     .replace(/\nbindLocalFile\(\);\nif \(served\) servedInit\(\);\nelse \$\("empty"\)\.hidden = false;\s*$/, "")

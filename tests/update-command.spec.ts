@@ -18,6 +18,8 @@ import { basename, delimiter, join, dirname, relative, resolve } from "node:path
 import { pathToFileURL } from "node:url";
 import { PassThrough } from "node:stream";
 import { syncPlan, updateMain } from "../src/commands/update.ts";
+import { initMain } from "../src/commands/init.ts";
+import { canonDrift } from "../src/embed.ts";
 import { planEntries } from "../src/commands/init-shared.ts";
 import { carrierDefinition, carrierFiles } from "../src/surfaces/adapters.ts";
 import { mergeSharedText, sha256, stripSharedText } from "../src/install.ts";
@@ -532,6 +534,38 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(third.value).toBe(0);
     expect(third.out).not.toInclude("re-installed");
     expect(third.out).toInclude("global canon ·");
+  });
+
+  test("a missing page template makes a matching skills canon unhealthy, and update and init write the shipped bytes", async () => {
+    const home = join(SANDBOX, "home-page-template");
+    rmSync(home, { recursive: true, force: true });
+    mkdirSync(home, { recursive: true });
+    process.env.AI_ENG_HOME = home;
+    const repo = governedRepo("repo-page-template");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+
+    const templatesDir = join(home, "templates");
+    const pageNames = readdirSync(templatesDir).filter((name) => name.endsWith(".html.tpl"));
+    expect(pageNames.length).toBeGreaterThan(0);
+    const pageName = pageNames[0]!;
+    const shipped = readFileSync(join(REPO_ROOT, "templates", pageName));
+    const installed = join(templatesDir, pageName);
+    expect(readFileSync(installed)).toEqual(shipped);
+    rmSync(installed);
+    expect(canonDrift(home)).toMatchObject({ drift: 0, missing: 1, stale: 0 });
+
+    const repaired = await captured(() => updateMain({ yes: true }));
+    expect(repaired.value).toBe(0);
+    expect(repaired.out).toInclude("global canon outdated or incomplete — re-installed");
+    expect(readFileSync(installed)).toEqual(shipped);
+
+    rmSync(installed);
+    expect(canonDrift(home)).toMatchObject({ drift: 0, missing: 1, stale: 0 });
+    const inited = await captured(() => initMain({ yes: true }));
+    expect(inited.value).toBe(0);
+    expect(inited.out).toInclude("global canon outdated or incomplete — re-installing");
+    expect(readFileSync(installed)).toEqual(shipped);
   });
 
   test("update leaves HEAD unchanged, spawns no commit, and leaves global config untouched", async () => {

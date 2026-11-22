@@ -286,12 +286,10 @@ they finish at `ai-verify`. The grounding duty in step 3 applies on every lane.
    tools, or with a redirect: `rm`, `mv` and `tee` into `.ai-engineering/` are denied,
    because a verb that can act on several paths is judged as a whole command.
    Render it with the artifact design system —
-   [references/artifact-design.md](references/artifact-design.md):
-   copy that document's whole CSS block in verbatim — tokens, layout rules and
-   components, not tokens alone — same family as the research pages and the recap.
-   Before
-   `</body>`, copy that file's scroll-spy script verbatim (it is already in
-   `templates/brainstorm.html.tpl`): it marks the nav link for the section in view.
+   [references/artifact-design.md](references/artifact-design.md).
+   Copy `templates/brainstorm.html.tpl` and fill its sections; write no CSS and no script.
+   The template already carries the brand styles and the scroll-spy, so the page is the
+   same family as the research pages and the recap.
    The markdown
    structure in §Doc structure maps to sections of that page; the file is HTML only,
    no `.md` twin.
@@ -303,7 +301,7 @@ they finish at `ai-verify`. The grounding duty in step 3 applies on every lane.
 4. On standard/full lanes, the approval gate here IS blueprint STOP 0. After approval, a new checkpoint plan
    proceeds to implementation without another approval stop; resumed legacy pending plans
    retain their checkpoint review. The final app review remains a human stop.
-5. After approval, set `ai-approved` to today's date and the status line to `complete · YYYY-MM-DD`. Copy only the conclusions into `.ai-engineering/PRD.html`: Problem (why it matters), Goal (what success looks like), Users & roles, the Feature plus its Rules (decisions already made), and Out of scope. Leave the interview in `brainstorm.html`. If the PRD already has other features, update the matching one and leave the others. Commit only these two files using explicit paths:
+5. After approval, set `ai-approved` to today's date and the status line to `complete · YYYY-MM-DD`. Copy only the conclusions into `.ai-engineering/PRD.html`: Problem (why it matters), Goal (what success looks like), Users & roles, the Feature plus its Rules (decisions already made), and Out of scope. Leave the interview in `brainstorm.html`. Only when `.ai-engineering/PRD.html` does not exist yet: Copy `templates/PRD.html.tpl` and fill its sections; write no CSS and no script. When it exists, never copy the template over it: update the matching feature in place and leave the others. Commit only these two files using explicit paths:
    ```bash
    git add -- .ai-engineering/brainstorm.html .ai-engineering/PRD.html
    git commit -m "docs: approve brainstorm" --only -- .ai-engineering/brainstorm.html .ai-engineering/PRD.html

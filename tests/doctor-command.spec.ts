@@ -24,6 +24,13 @@ import { writeFakeCommand } from "./fixtures/fake-command.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 
 const GOVERNED = '[surfaces]\nenabled = ["claude-code"]\n';
+
+/** Skills plus every shipped page template: the files the canon row counts. */
+function shippedCanonFileCount(): number {
+  const pages = readdirSync(join(import.meta.dir, "..", "templates"), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".html.tpl")).length;
+  return canonSkills().size + pages;
+}
 const ORIGINAL = { cwd: process.cwd(), path: process.env.PATH ?? "", sandbox: snapshotSandboxEnv() };
 const temps: string[] = [];
 
@@ -369,7 +376,7 @@ describe("doctor · the canon and the lock", () => {
     expect(installedSkillNames).toEqual(expectedSkillNames);
 
     const run = await doctor();
-    const expectedFiles = canonSkills().size;
+    const expectedFiles = shippedCanonFileCount();
     expect(detail(run, "canon")).toBe(`${expectedFiles}/${expectedFiles} files verified · 0 drift · 0 missing`);
     expect(row(run, "canon")).toContain("✓");
   });
@@ -387,7 +394,7 @@ describe("doctor · the canon and the lock", () => {
     rmSync(join(home, "skills", "ai-verify", "SKILL.md"));
 
     const run = await doctor();
-    const expectedFiles = canonSkills().size;
+    const expectedFiles = shippedCanonFileCount();
     expect(detail(run, "canon")).toBe(`${expectedFiles - 1}/${expectedFiles} files verified · 0 drift · 1 missing`);
     expect(row(run, "canon")).toContain("▲");
     expect(row(run, "config.toml")).toContain("✓");

@@ -48,7 +48,11 @@ import { installMachineCarriers, removeMachineArtifacts, removeMachineCarriers, 
 import { machineStateFile, machineStateLockFile, machineStateLockScope, readMachineState } from "../src/surfaces/machine-state.ts";
 import { restoreTemplateDir } from "../src/floor/template.ts";
 import { planEntries, refuseLine } from "../src/commands/init-shared.ts";
+import { uninstallMain } from "../src/commands/uninstall.ts";
+import { hashFile } from "../src/shared-hash.ts";
+import { end } from "../src/ui.ts";
 import { VERSION } from "../src/version.ts";
+import { usePrivateStdin } from "./fixtures/private-stdin.ts";
 
 const SHIM_MARKER = "ai-eng git floor shim";
 const LEGACY_SHIMS = ["pre-commit", "commit-msg", "pre-push"] as const;
@@ -200,6 +204,96 @@ function useHome(name: string): string {
   process.env["GIT_CONFIG_GLOBAL"] = join(dir, "gitconfig");
   delete process.env["PI_CODING_AGENT_DIR"];
   return dir;
+}
+
+/** `templates/*.html.tpl` in the checkout, one level, never a hand list (R7). */
+function shippedPageTemplateNames(): string[] {
+  return readdirSync(join(import.meta.dir, "..", "templates"), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".html.tpl"))
+    .map((entry) => entry.name)
+    .sort((left, right) => left.localeCompare(right, "en"));
+}
+
+function shippedPageTemplate(name: string): Buffer<ArrayBuffer> {
+  return readFileSync(join(import.meta.dir, "..", "templates", name));
+}
+
+function linkedInstallWarning(paths: readonly string[]): string {
+  return `⚠ ${paths.length} path(s) where ai-eng installs are links or not its own folders or files — never written through, left as they are (the link and what it points at untouched): ${paths.join(", ")}. Move one aside to let ai-eng install there`;
+}
+
+function ownershipFiles(home: string): Record<string, string> {
+  return (JSON.parse(readFileSync(join(home, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string> }).files;
+}
+
+function expectShippedCanonInstalled(home: string): void {
+  const [skillKey, skillRef] = [...embeddedUnder("skills/")][0]!;
+  expect(readFileSync(join(home, skillKey))).toEqual(readFileSync(embeddedPath(skillRef)));
+  const [agentKey, agentRef] = [...embeddedUnder("agents/")][0]!;
+  expect(readFileSync(join(home, agentKey))).toEqual(readFileSync(embeddedPath(agentRef)));
+  const files = ownershipFiles(home);
+  expect(files[skillKey]).toBe(hashFile(embeddedPath(skillRef)));
+  expect(files[agentKey]).toBe(hashFile(embeddedPath(agentRef)));
+}
+
+function captureStdout(): { text: () => string; stop: () => void } {
+  const chunks: string[] = [];
+  const out = process.stdout as unknown as { write: (chunk: unknown) => boolean };
+  const original = out.write;
+  out.write = (chunk: unknown) => {
+    chunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk as Uint8Array).toString("utf8"));
+    return true;
+  };
+  return {
+    text: () => chunks.join(""),
+    stop: () => {
+      out.write = original;
+    },
+  };
+}
+
+async function untilPrompt(text: () => string, fragment: string): Promise<void> {
+  const deadline = Date.now() + 4_000;
+  while (!text().includes(fragment)) {
+    if (Date.now() > deadline) throw new Error(`prompt "${fragment}" never appeared:\n${text()}`);
+    await Bun.sleep(5);
+  }
+  await Bun.sleep(20);
+}
+
+/** Uninstall's machine question, against a scratch repo so the project sweep cannot touch this checkout. */
+async function runUninstallMachineScope(project: string): Promise<number> {
+  const previousCwd = process.cwd();
+  const previousNoColor = process.env["NO_COLOR"];
+  process.env["NO_COLOR"] = "1";
+  const stdin = usePrivateStdin();
+  const captured = captureStdout();
+  process.chdir(project);
+  let result: number | undefined;
+  const run = uninstallMain();
+  void run.catch(() => {
+    /* a prompt that never arrives leaves the command waiting; the test reports that prompt */
+  });
+  try {
+    for (const [fragment, keys] of [
+      ["What do you want to remove?", "\x1b[B\r"],
+      ["Confirm?", "y"],
+      ["Delete this project's", "n"],
+      ["Delete the machine side", "y"],
+    ] as const) {
+      await untilPrompt(captured.text, fragment);
+      process.stdin.emit("data", Buffer.from(keys));
+    }
+    result = await run;
+    return result;
+  } finally {
+    captured.stop();
+    stdin.restore();
+    if (previousNoColor === undefined) delete process.env["NO_COLOR"];
+    else process.env["NO_COLOR"] = previousNoColor;
+    process.chdir(previousCwd);
+    if (result === undefined) end("test stopped before uninstall finished");
+  }
 }
 
 function setGlobalTemplateDir(dir: string | null): void {
@@ -2100,6 +2194,201 @@ describe("installCanon and what leaves with it", () => {
     expect(lstatSync(link).isSymbolicLink()).toBe(true);
     expect(readlinkSync(link)).toBe(replacement);
     expect(readFileSync(join(replacement, "SKILL.md"), "utf8")).toBe("user skill\n");
+  });
+
+  test("U12: installCanon writes every shipped html template into the home, byte for byte, and records each", () => {
+    const base = useHome("canon-templates");
+    const names = shippedPageTemplateNames();
+    expect(names.length).toBeGreaterThan(0);
+    installCanon("2.2.0");
+    const templatesDir = join(base, "templates");
+    expect(existsSync(templatesDir)).toBe(true);
+    expect(lstatSync(templatesDir).isDirectory()).toBe(true);
+    expect(readdirSync(templatesDir).sort((left, right) => left.localeCompare(right, "en"))).toEqual(names);
+    const files = ownershipFiles(base);
+    for (const name of names) {
+      expect(lstatSync(join(templatesDir, name)).isFile()).toBe(true);
+      expect(readFileSync(join(templatesDir, name))).toEqual(shippedPageTemplate(name));
+      expect(files[`templates/${name}`]).toBe(hashFile(join(import.meta.dir, "..", "templates", name)));
+    }
+  });
+
+  test("U13: ../../templates/research.html.tpl from the installed ai-research skill equals the shipped template", () => {
+    const base = useHome("canon-templates-research-link");
+    expect(shippedPageTemplateNames()).toContain("research.html.tpl");
+    installCanon("2.2.0");
+    const installed = join(base, "skills", "ai-research", "../../templates/research.html.tpl");
+    expect(installed).toBe(join(base, "templates", "research.html.tpl"));
+    expect(existsSync(installed)).toBe(true);
+    expect(readFileSync(installed)).toEqual(shippedPageTemplate("research.html.tpl"));
+  });
+
+  test("U14: installCanon rewrites an edited installed template back to the shipped bytes", () => {
+    const base = useHome("canon-templates-edited");
+    const [name] = shippedPageTemplateNames();
+    if (name === undefined) throw new Error("templates/*.html.tpl is empty");
+    const shipped = shippedPageTemplate(name);
+    installCanon("2.2.0");
+    const installed = join(base, "templates", name);
+    expect(existsSync(installed)).toBe(true);
+    const edited = Buffer.concat([readFileSync(installed), Buffer.from("\nlocal edit\n")]);
+    writeFileSync(installed, edited);
+    expect(readFileSync(installed)).toEqual(edited);
+    installCanon("2.2.0");
+    expect(readFileSync(installed)).toEqual(shipped);
+  });
+
+  test("U15: a recorded template this binary no longer ships is swept out of the folder and the record; a user's file stays", () => {
+    const base = useHome("canon-templates-sweep");
+    const retiredName = "retired.html.tpl";
+    const retiredKey = `templates/${retiredName}`;
+    expect(shippedPageTemplateNames()).not.toContain(retiredName);
+    installCanon("2.2.0");
+    const retiredBytes = "a template this binary no longer ships\n";
+    write(join(base, retiredKey), retiredBytes);
+    const recordPath = join(base, CANON_OWNERSHIP_NAME);
+    const record = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string> };
+    record.files[retiredKey] = sha256(retiredBytes);
+    writeFileSync(recordPath, `${JSON.stringify(record)}\n`);
+    const userBytes = Buffer.from("the user's own page\n");
+    writeFileSync(join(base, "templates", "mine.html"), userBytes);
+
+    const lines = installCanon("2.2.0");
+
+    expect(lines).toContain(`✓ swept 1 path(s) this binary no longer ships: ${retiredKey}`);
+    expect(existsSync(join(base, retiredKey))).toBe(false);
+    expect(ownershipFiles(base)[retiredKey]).toBeUndefined();
+    expect(readFileSync(join(base, "templates", "mine.html"))).toEqual(userBytes);
+  });
+
+  test("U16: a symlink or a regular file at templates/ is refused with the named warning, and the canon still lands", () => {
+    const keptBytes = "kept bytes\n";
+    for (const kind of ["symlink", "file"] as const) {
+      const base = useHome(`canon-templates-root-${kind}`);
+      const templatesPath = join(base, "templates");
+      // An older record must not keep a templates key that this run cannot see as a regular file.
+      writeFileSync(join(base, CANON_OWNERSHIP_NAME), `${JSON.stringify({ files: { "templates/research.html.tpl": "abc" } })}\n`);
+      if (kind === "symlink") {
+        const target = join(sandbox, `canon-templates-root-${kind}-target`);
+        write(join(target, "kept.html"), keptBytes);
+        symlinkSync(target, templatesPath, "dir");
+        const lines = installCanon("2.2.0");
+        expect(lines).toContain(linkedInstallWarning([templatesPath]));
+        expect(readlinkSync(templatesPath)).toBe(target);
+        expect(readFileSync(join(target, "kept.html"), "utf8")).toBe(keptBytes);
+        expect(readdirSync(target)).toEqual(["kept.html"]);
+      } else {
+        write(templatesPath, keptBytes);
+        const lines = installCanon("2.2.0");
+        expect(lines).toContain(linkedInstallWarning([templatesPath]));
+        expect(readFileSync(templatesPath, "utf8")).toBe(keptBytes);
+        expect(lstatSync(templatesPath).isFile()).toBe(true);
+      }
+      expectShippedCanonInstalled(base);
+      expect(Object.keys(ownershipFiles(base)).filter((key) => key.startsWith("templates/"))).toEqual([]);
+    }
+  });
+
+  test("U17: a symlinked or hard-linked template name is not written through, and the other name keeps its bytes", () => {
+    const base = useHome("canon-templates-alias");
+    const names = shippedPageTemplateNames();
+    expect(names.length).toBeGreaterThan(1);
+    const symlinkName = names[0]!;
+    const hardlinkName = names[1]!;
+    const templatesDir = join(base, "templates");
+    mkdirSync(templatesDir);
+    const symlinkBytes = "symlink target\n";
+    const symlinkTarget = join(base, "dotfiles", symlinkName);
+    write(symlinkTarget, symlinkBytes);
+    symlinkSync(symlinkTarget, join(templatesDir, symlinkName));
+    const hardlinkBytes = "hard link bytes\n";
+    const otherName = join(base, "dotfiles", hardlinkName);
+    write(otherName, hardlinkBytes);
+    linkSync(otherName, join(templatesDir, hardlinkName));
+    writeFileSync(join(base, CANON_OWNERSHIP_NAME), `${JSON.stringify({ files: { [`templates/${symlinkName}`]: "abc" } })}\n`);
+
+    const lines = installCanon("2.2.0");
+
+    const linkedPath = join(realpathSync(templatesDir), symlinkName);
+    expect(lines).toContain(linkedInstallWarning([linkedPath]));
+    expect(lstatSync(join(templatesDir, symlinkName)).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(join(templatesDir, symlinkName))).toBe(symlinkTarget);
+    expect(readFileSync(symlinkTarget, "utf8")).toBe(symlinkBytes);
+    expect(readFileSync(otherName, "utf8")).toBe(hardlinkBytes);
+    expect(lstatSync(join(templatesDir, hardlinkName)).ino).not.toBe(lstatSync(otherName).ino);
+    expect(readFileSync(join(templatesDir, hardlinkName))).toEqual(shippedPageTemplate(hardlinkName));
+    const files = ownershipFiles(base);
+    expect(files[`templates/${symlinkName}`]).toBeUndefined();
+    expect(files[`templates/${hardlinkName}`]).toBe(hashFile(join(import.meta.dir, "..", "templates", hardlinkName)));
+  });
+
+  test("U18: uninstall's machine scope removes every installed template, drops them from the record, and leaves the user's file", async () => {
+    const base = useHome("canon-templates-uninstall");
+    const names = shippedPageTemplateNames();
+    expect(names.length).toBeGreaterThan(0);
+    installCanon("2.2.0");
+    const templatesDir = join(base, "templates");
+    expect(existsSync(join(templatesDir, names[0]!))).toBe(true);
+    const userBytes = Buffer.from("the user's own page\n");
+    writeFileSync(join(templatesDir, "mine.html"), userBytes);
+    // A scratch repo: uninstall's project sweep must not run in this checkout.
+    const project = join(sandbox, "canon-templates-uninstall-project");
+    mkdirSync(join(project, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(project, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+    const git = spawnSync("git", ["init", "-q"], { cwd: project, encoding: "utf8" });
+    expect(git.status).toBe(0);
+
+    expect(await runUninstallMachineScope(project)).toBe(0);
+
+    for (const name of names) expect(existsSync(join(templatesDir, name))).toBe(false);
+    const recordPath = join(base, CANON_OWNERSHIP_NAME);
+    const templateKeys = existsSync(recordPath)
+      ? Object.keys((JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string> }).files).filter((key) => key.startsWith("templates/"))
+      : [];
+    expect(templateKeys).toEqual([]);
+    expect(readFileSync(join(templatesDir, "mine.html"))).toEqual(userBytes);
+  });
+
+  test("U19: uninstall leaves an unrecorded shipped name whose bytes differ, removes a byte-identical copy, and leaves a link", async () => {
+    const base = useHome("canon-templates-uninstall-unrecorded");
+    const names = shippedPageTemplateNames();
+    expect(names).toContain("research.html.tpl");
+    expect(names.length).toBeGreaterThan(2);
+    const identicalName = names.find((name) => name !== "research.html.tpl");
+    const linkName = names.find((name) => name !== "research.html.tpl" && name !== identicalName);
+    if (identicalName === undefined || linkName === undefined) throw new Error("templates/*.html.tpl needs three names");
+    installCanon("2.2.0");
+    const recordPath = join(base, CANON_OWNERSHIP_NAME);
+    const record = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string> };
+    delete record.files["templates/research.html.tpl"];
+    delete record.files[`templates/${identicalName}`];
+    delete record.files[`templates/${linkName}`];
+    writeFileSync(recordPath, `${JSON.stringify(record)}\n`);
+    const templatesDir = join(base, "templates");
+    const userBytes = Buffer.from("the user's own research page\n");
+    writeFileSync(join(templatesDir, "research.html.tpl"), userBytes);
+    const linkTarget = join(base, "dotfiles", linkName);
+    const linkBytes = "linked page\n";
+    write(linkTarget, linkBytes);
+    rmSync(join(templatesDir, linkName));
+    symlinkSync(linkTarget, join(templatesDir, linkName));
+    const project = join(sandbox, "canon-templates-uninstall-unrecorded-project");
+    mkdirSync(join(project, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(project, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+    const git = spawnSync("git", ["init", "-q"], { cwd: project, encoding: "utf8" });
+    expect(git.status).toBe(0);
+
+    expect(await runUninstallMachineScope(project)).toBe(0);
+
+    expect(readFileSync(join(templatesDir, "research.html.tpl"))).toEqual(userBytes);
+    expect(existsSync(join(templatesDir, identicalName))).toBe(false);
+    expect(lstatSync(join(templatesDir, linkName)).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(join(templatesDir, linkName))).toBe(linkTarget);
+    expect(readFileSync(linkTarget, "utf8")).toBe(linkBytes);
+    for (const name of names) {
+      if (name === "research.html.tpl" || name === linkName) continue;
+      expect(existsSync(join(templatesDir, name))).toBe(false);
+    }
   });
 });
 

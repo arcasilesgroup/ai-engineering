@@ -138,11 +138,11 @@ function resolveMachineSide(flags: InitFlags): number | null {
   // line always prints: the user must see the machine is healthy before the
   // repo work starts.
   const canonDir = join(home(), "skills");
-  // Health is proven, not guessed: every canon file byte-compared to this
-  // binary's payload — the same predicate doctor proves. Existence probes and
-  // version.json are not enough: a canon reads "global canon intact · nothing to
-  // install" with 34 skills deleted, because notice.ts caches the REGISTRY
-  // version in the very version.json that installCanon wrote the INSTALLED
+  // Health is proven, not guessed: skills and page templates are byte-compared
+  // to this binary's payload — the same predicate doctor and update prove.
+  // Existence probes and version.json are not enough: a canon reads "global canon
+  // intact · nothing to install" with files deleted, because notice.ts caches the
+  // REGISTRY version in the very version.json that installCanon wrote the INSTALLED
   // version into.
   const canon = canonDrift(home());
   const canonHealthy = canon.drift === 0 && canon.missing === 0 && canon.stale === 0;

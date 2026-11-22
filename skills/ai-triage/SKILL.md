@@ -69,9 +69,10 @@ organizations, projects, teams, or boards in one report.
   verified facts.
 - Remote GitHub and Azure work-item links open in a new tab; Azure item links target the
   Azure Boards work-item page, not a REST API endpoint.
-- The report uses the shared shell in `templates/triage.html.tpl` and follows
-  [artifact-design.md](../../skills/ai-brainstorm/references/artifact-design.md); preserve the
-  existing GitHub report sections and output contract.
+- The report follows
+  [artifact-design.md](../../skills/ai-brainstorm/references/artifact-design.md):
+  Copy `templates/triage.html.tpl` and fill its sections; write no CSS and no script.
+  Preserve the existing GitHub report sections and output contract.
 - If the provider or target is unclear, ask before reading anything.
 
 ## Read-only boundary

@@ -321,8 +321,9 @@ function pruneEmptyDirectory(directory: string): boolean {
 }
 
 /** Remove every machine path ai-eng installed — each skill folder it ships or shipped
- *  (whole), its agents and its scripts — edited or not: they are ai-eng's. A skill of your
- *  own, in a folder of its own name, and any agent or script ai-eng never shipped stay. */
+ *  (whole), its agents, its scripts and its page templates — edited or not: they are
+ *  ai-eng's. A skill of your own, in a folder of its own name, stays. A page template
+ *  the record does not name stays when it is not a regular file of the shipped bytes. */
 function removeMachinePayload(machineDir: string, refused: string[]): number {
   // The real spelling: the prune binds each folder to its realpath, and a home under a
   // linked folder (macOS /var → /private/var) would otherwise never be pruned.
@@ -335,8 +336,8 @@ function removeMachinePayload(machineDir: string, refused: string[]): number {
   let removed = 0;
   for (const key of recordedMachinePaths(machineDir)) {
     try {
-      // Only a skill key names a folder; an agent or script was written as a file, so a
-      // real folder at that name is not what ai-eng wrote, and it stays.
+      // Only a skill key names a folder; an agent, script or page template was written as a
+      // file, so a real folder at that name is not what ai-eng wrote, and it stays.
       const entry = lstatSync(join(canonicalMachineDir, key));
       if (entry.isDirectory() && !key.startsWith("skills/")) continue;
     } catch {
@@ -346,7 +347,7 @@ function removeMachinePayload(machineDir: string, refused: string[]): number {
     if (left.length === 0) removed += 1;
     else refused.push(...left.map((path) => join(canonicalMachineDir, path)));
   }
-  for (const folder of ["skills", "agents", "scripts"]) pruneEmptyDirectoryWithin(machineDir, join(canonicalMachineDir, folder));
+  for (const folder of ["skills", "agents", "scripts", "templates"]) pruneEmptyDirectoryWithin(machineDir, join(canonicalMachineDir, folder));
   return removed;
 }
 

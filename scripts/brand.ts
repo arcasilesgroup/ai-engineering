@@ -2,12 +2,15 @@
 /**
  * brand.ts — the {ai} engineering brand system, compiled.
  *
- * One file declares the brand (brand/tokens.json). This script is the only thing
- * allowed to turn that file into code. It answers four questions, each with an
- * exit code a machine can read:
+ * One file declares the colour (brand/tokens.json). The artifact shell is the
+ * other source: brand/components.css and brand/components.js are spliced into
+ * every templates/*.html.tpl that carries the brand markers. Bytes outside those
+ * markers, placeholders included, stay. This script is the only thing allowed to
+ * turn those files into code. It answers four questions, each with an exit code
+ * a machine can read:
  *
  *   bun scripts/brand.ts gen       — write every artifact it produces
- *   bun scripts/brand.ts parity    — does what is committed still match the tokens?
+ *   bun scripts/brand.ts parity    — do committed files still match the tokens and the component sources?
  *   bun scripts/brand.ts contrast  — is every declared text/surface pair legible?
  *   bun scripts/brand.ts artifact  — do the inline artifact blocks agree with the brand?
  *
@@ -596,6 +599,152 @@ const COMPONENT_SPECIMENS = [
 ] as const;
 
 // ---------------------------------------------------------------------------
+// Marked template regions
+//
+// brand/components.css and brand/components.js are the shell. A template keeps
+// every byte outside the markers, including {{placeholders}}. A pair that is
+// missing, doubled, reversed or nested is refused before any byte is sliced,
+// so the file is never opened for write.
+// ---------------------------------------------------------------------------
+
+const CSS_MARKER_BEGIN = '/* brand:begin */';
+const CSS_MARKER_END = '/* brand:end */';
+const JS_MARKER_BEGIN = '<!-- brand:js:begin -->';
+const JS_MARKER_END = '<!-- brand:js:end -->';
+
+type MarkerFault = 'missing' | 'doubled' | 'reversed' | 'nested';
+
+/** The refusal names the template and the marker, so the broken pair can be found without a diff. */
+export class BrandMarkerError extends Error {
+  constructor(templatePath: string, fault: MarkerFault, marker: string) {
+    super(`${templatePath}: ${fault} marker ${marker}`);
+    this.name = 'BrandMarkerError';
+  }
+}
+
+function markerOffsets(html: string, marker: string): number[] {
+  const offsets: number[] = [];
+  let from = 0;
+  while (from < html.length) {
+    const at = html.indexOf(marker, from);
+    if (at < 0) break;
+    offsets.push(at);
+    from = at + marker.length;
+  }
+  return offsets;
+}
+
+function oneMarker(html: string, marker: string, templatePath: string): number {
+  const offsets = markerOffsets(html, marker);
+  if (offsets.length === 0) throw new BrandMarkerError(templatePath, 'missing', marker);
+  if (offsets.length > 1) throw new BrandMarkerError(templatePath, 'doubled', marker);
+  return offsets[0]!;
+}
+
+interface MarkerSpan {
+  readonly start: number;
+  readonly end: number;
+}
+
+/**
+ * Bytes strictly between one pair. A reversed pair is reported on the opening
+ * marker: that is the marker that had to come first, and the refusal names one.
+ */
+function markerSpan(html: string, begin: string, end: string, templatePath: string): MarkerSpan {
+  const beginAt = oneMarker(html, begin, templatePath);
+  const endAt = oneMarker(html, end, templatePath);
+  const start = beginAt + begin.length;
+  if (endAt < start) throw new BrandMarkerError(templatePath, 'reversed', begin);
+  return { start, end: endAt };
+}
+
+/** The classic script gen writes. components.js carries no script tags of its own. */
+function classicBrandScript(source: string): string {
+  return `<script>\n${source}</script>`;
+}
+
+export function spliceBrandRegions(html: string, css: string, js: string, templatePath: string): string {
+  const style = markerSpan(html, CSS_MARKER_BEGIN, CSS_MARKER_END, templatePath);
+  const script = markerSpan(html, JS_MARKER_BEGIN, JS_MARKER_END, templatePath);
+  // Each pair can be in order and unique while one still opens inside the other.
+  // A begin marker that ends on the other interior's edge is inside that interior:
+  // the later splice drops the closing marker. The touching endpoint counts.
+  // Name the marker that sits inside, and do not slice.
+  if (style.start <= script.end && script.start <= style.end) {
+    const isScriptInsideStyle = script.start >= style.start && script.start <= style.end;
+    const marker = isScriptInsideStyle ? JS_MARKER_BEGIN : CSS_MARKER_BEGIN;
+    throw new BrandMarkerError(templatePath, 'nested', marker);
+  }
+  const regions = [
+    { start: style.start, end: style.end, replacement: css },
+    { start: script.start, end: script.end, replacement: classicBrandScript(js) },
+  ].sort((left, right) => right.start - left.start);
+  let spliced = html;
+  for (const region of regions) {
+    spliced = spliced.slice(0, region.start) + region.replacement + spliced.slice(region.end);
+  }
+  return spliced;
+}
+
+/**
+ * Re-derived from templates/*.html.tpl. A handwritten list would hide the next
+ * template, and so would skipping one without markers: every template must
+ * carry both pairs, so a missing pair is a refusal, not a template parity skips.
+ */
+function templatePaths(root: string): string[] {
+  const relativePaths: string[] = [];
+  for (const match of new Bun.Glob('templates/*.html.tpl').scanSync({ cwd: root, onlyFiles: true })) {
+    relativePaths.push(match.split('\\').join('/'));
+  }
+  relativePaths.sort();
+  return relativePaths;
+}
+
+/** The gallery is hand-written and ships with the repository, not with a project. */
+const GALLERY_PATH = 'brand/gallery.html.tpl';
+
+/**
+ * Every page `gen` rewrites in place: the eight templates a project copies, then
+ * the gallery. The gallery is absent from a scratch copy of the brand tree, so
+ * its absence is not a carrier — only the files that exist are checked.
+ */
+export function carrierPaths(root: string = ROOT): string[] {
+  const carriers = templatePaths(root);
+  if (existsSync(join(root, GALLERY_PATH))) carriers.push(GALLERY_PATH);
+  return carriers;
+}
+
+async function readBrandComponents(root: string): Promise<{ readonly css: string; readonly js: string }> {
+  return {
+    css: await readFile(join(root, 'brand', 'components.css'), 'utf8'),
+    js: await readFile(join(root, 'brand', 'components.js'), 'utf8'),
+  };
+}
+
+/** Relative paths of templates whose regions differ from the brand sources, or whose markers are refused. */
+export async function templateDrift(root: string = ROOT): Promise<readonly string[]> {
+  const { css, js } = await readBrandComponents(root);
+  const drifted: string[] = [];
+  for (const relativePath of carrierPaths(root)) {
+    const html = await readFile(join(root, relativePath), 'utf8');
+    try {
+      if (spliceBrandRegions(html, css, js, relativePath) !== html) drifted.push(relativePath);
+    } catch (error) {
+      if (!(error instanceof BrandMarkerError)) throw error;
+      drifted.push(relativePath);
+    }
+  }
+  return drifted;
+}
+
+/** Splice first. A refusal throws and leaves the file on disk alone. */
+export async function rewriteBrandTemplate(templatePath: string, css: string, js: string): Promise<void> {
+  const html = await readFile(templatePath, 'utf8');
+  const spliced = spliceBrandRegions(html, css, js, templatePath);
+  if (spliced !== html) await Bun.write(templatePath, spliced);
+}
+
+// ---------------------------------------------------------------------------
 // Commands
 // ---------------------------------------------------------------------------
 
@@ -612,19 +761,42 @@ async function sameAsOnDisk(path: string, contents: string): Promise<boolean> {
  * compute the same bytes: a parity check that renders its own way is a check that lies.
  */
 async function renderArtifacts(t: Tokens): Promise<[string, string][]> {
+  const { css, js } = await readBrandComponents(ROOT);
+  const templates: [string, string][] = [];
+  for (const relativePath of carrierPaths(ROOT)) {
+    const templatePath = join(ROOT, relativePath);
+    const html = await readFile(templatePath, 'utf8');
+    templates.push([templatePath, spliceBrandRegions(html, css, js, relativePath)]);
+  }
   return [
     [OUT.css, genCss(t)],
     [OUT.cliTheme, genCliTheme(t)],
     [OUT.designJson, genDesignJson(t, await responsiveThresholds())],
     // Verbatim: the bytes of the declaration, not a rendering of it.
     [OUT.tokensJson, await readFile(TOKENS_PATH, 'utf8')],
+    ...templates,
   ];
 }
 
 async function cmdGen(t: Tokens): Promise<number> {
-  for (const [path, contents] of await renderArtifacts(t)) {
-    await mkdir(dirname(path), { recursive: true });
-    await Bun.write(path, contents);
+  const { css, js } = await readBrandComponents(ROOT);
+  let artifacts: [string, string][];
+  try {
+    artifacts = await renderArtifacts(t);
+  } catch (error) {
+    if (error instanceof BrandMarkerError) {
+      console.error(error.message);
+      return 1;
+    }
+    throw error;
+  }
+  for (const [path, contents] of artifacts) {
+    if (path.endsWith('.html.tpl')) {
+      await rewriteBrandTemplate(path, css, js);
+    } else {
+      await mkdir(dirname(path), { recursive: true });
+      await Bun.write(path, contents);
+    }
     console.log(`wrote ${relative(process.cwd(), path) || path}`);
   }
   return 0;
@@ -651,13 +823,76 @@ async function themeColorDrift(t: Tokens): Promise<string | null> {
     : `${file}: theme-color is ${found}, but the field is ${expected}. The mobile browser paints its chrome with the stale one.`;
 }
 
+/** `ok` grows to the width of `DRIFT`, then one space, then the repo-relative template. */
+function templateParityLine(matchesDisk: boolean, relativePath: string): string {
+  const mark = (matchesDisk ? 'ok' : 'DRIFT').padEnd('DRIFT'.length);
+  return `${mark} ${relativePath}`;
+}
+
+/** A page over this weight is worth a line, never a failure (O: weight informs). */
+const WEIGHT_BUDGET_BYTES = 30 * 1024;
+
+/**
+ * One line per heavy carrier. It informs: a page that carries more than its
+ * share is a prompt to look, and the exit code stays the parity result.
+ */
+function weightLines(carriers: readonly [string, string][]): string[] {
+  return carriers
+    .filter(([, contents]) => Buffer.byteLength(contents) > WEIGHT_BUDGET_BYTES)
+    .map(([path, contents]) => {
+      const kilobytes = (Buffer.byteLength(contents) / 1024).toFixed(1);
+      return `info  ${relative(ROOT, path).split('\\').join('/')} — ${kilobytes} KB, over the ${WEIGHT_BUDGET_BYTES / 1024} KB budget`;
+    });
+}
+
+/**
+ * Token outputs are compared with brand/tokens.json. Marked templates are
+ * compared with brand/components.css and brand/components.js. A template
+ * mismatch is not a token mismatch.
+ */
+function parityMismatchSummary(tokenDrift: number, templateDrift: number): string {
+  const clauses: string[] = [];
+  if (tokenDrift > 0) clauses.push(`${tokenDrift} generated file(s) do not match brand/tokens.json`);
+  if (templateDrift > 0) {
+    clauses.push(`${templateDrift} template(s) do not match brand/components.css and brand/components.js`);
+  }
+  return `${clauses.join('. ')}. Run: bun scripts/brand.ts gen`;
+}
+
+function parityAgreementSummary(tokenCount: number, templateCount: number): string {
+  const tokenClause = `${tokenCount} generated file(s) and the theme-color meta match brand/tokens.json.`;
+  if (templateCount === 0) return tokenClause;
+  return `${tokenClause} ${templateCount} template(s) match brand/components.css and brand/components.js.`;
+}
+
 async function cmdParity(t: Tokens): Promise<number> {
-  const artifacts = await renderArtifacts(t);
-  let drifted = 0;
+  let artifacts: [string, string][];
+  try {
+    artifacts = await renderArtifacts(t);
+  } catch (error) {
+    if (error instanceof BrandMarkerError) {
+      console.error(error.message);
+      return 1;
+    }
+    throw error;
+  }
+  let tokenDrift = 0;
+  let templateDrift = 0;
+  const carriers: [string, string][] = [];
   for (const [path, contents] of artifacts) {
-    const ok = await sameAsOnDisk(path, contents);
-    console.log(`${ok ? 'ok  ' : 'DRIFT'} ${relative(process.cwd(), path) || path}`);
-    if (!ok) drifted++;
+    const matchesDisk = await sameAsOnDisk(path, contents);
+    const isTemplate = path.endsWith('.html.tpl');
+    if (isTemplate) {
+      const relativePath = relative(ROOT, path).split('\\').join('/');
+      console.log(templateParityLine(matchesDisk, relativePath));
+      carriers.push([path, contents]);
+    } else {
+      console.log(`${matchesDisk ? 'ok  ' : 'DRIFT'} ${relative(process.cwd(), path) || path}`);
+    }
+    if (!matchesDisk) {
+      if (isTemplate) templateDrift++;
+      else tokenDrift++;
+    }
   }
 
   // `theme-color` is the one palette value that lives in a hand-written file: the
@@ -665,17 +900,19 @@ async function cmdParity(t: Tokens): Promise<number> {
   // phone while every other check stays green. It is compared, not generated —
   // writing it would mean a generator editing markup it does not own.
   const theme = await themeColorDrift(t);
+  for (const line of weightLines(carriers)) console.log(line);
   console.log(`${theme === null ? 'ok  ' : 'DRIFT'} src/layouts/Base.astro theme-color`);
   if (theme !== null) {
     console.error(`\n${theme}`);
     console.error('  Fix: edit the meta tag. `gen` owns the generated files, not markup.');
     return 1;
   }
-  if (drifted > 0) {
-    console.error(`\n${drifted} generated file(s) do not match brand/tokens.json. Run: bun scripts/brand.ts gen`);
+  if (tokenDrift > 0 || templateDrift > 0) {
+    console.error(`\n${parityMismatchSummary(tokenDrift, templateDrift)}`);
     return 1;
   }
-  console.log(`\n${artifacts.length} generated files and the theme-color meta match brand/tokens.json.`);
+  const templateCount = artifacts.filter(([path]) => path.endsWith('.html.tpl')).length;
+  console.log(`\n${parityAgreementSummary(artifacts.length - templateCount, templateCount)}`);
   return 0;
 }
 
@@ -709,6 +946,9 @@ function rootTokens(text: string): Record<string, string> {
 }
 
 /** `rgba(61,79,88,.3)` and `rgba(61, 79, 88, 0.3)` are the same colour. */
+/** The two token names artifact.ungated leaves free: system font stacks, not brand values. */
+const UNGATED_FONT_TOKENS: ReadonlySet<string> = new Set(['mono', 'sans']);
+
 function normalise(value: string): string {
   return value
     .toLowerCase()
@@ -776,6 +1016,9 @@ export async function artifactDrift(
       }
     } else {
       for (const [name, value] of Object.entries(declared)) {
+        // The font stacks are declared ungated (artifact.ungated): a frozen page keeps
+        // the stack it shipped with, and only the colour and scale tokens must agree.
+        if (UNGATED_FONT_TOKENS.has(name)) continue;
         const canonical = reference[name];
         if (canonical === undefined) drift.push(`--${name} is not in the reference block`);
         else if (normalise(canonical) !== normalise(value)) drift.push(`--${name}: ${value} vs ${canonical}`);
