@@ -214,7 +214,7 @@ function shippedPageTemplateNames(): string[] {
     .sort((left, right) => left.localeCompare(right, "en"));
 }
 
-function shippedPageTemplate(name: string): Buffer {
+function shippedPageTemplate(name: string): Buffer<ArrayBuffer> {
   return readFileSync(join(import.meta.dir, "..", "templates", name));
 }
 

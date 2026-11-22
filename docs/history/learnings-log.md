@@ -1946,3 +1946,10 @@ Archived from the repo-root LEARNINGS.md at rev 2026-11-08 (`git log -1 --format
 - **Fix:** That touching endpoint counts as nested. spliceBrandRegions throws before any slice or write.
 - **Lesson:** A half-open interior check misses a marker that ends on the boundary. Treat the shared endpoint as overlap before splicing.
 - **Tags:** review, brand, markers
+
+### L274 · 2026-11-22 · brand-design-system #2 · behavior
+- **Failure:** Typecheck rejected four exact-byte comparisons in the new install tests. The runtime checks had already passed.
+- **Root cause:** The helper was annotated as a plain Buffer, which is wider than the buffer readFileSync returns, so toEqual had no matching overload.
+- **Fix:** The helper now returns the same narrow buffer type readFileSync returns. The comparisons stay exact bytes.
+- **Lesson:** When a file buffer is the expected value of toEqual, type it as the same narrow buffer readFileSync returns. A plain Buffer annotation is wider.
+- **Tags:** behavior, tests, brand
