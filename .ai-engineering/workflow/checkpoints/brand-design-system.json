@@ -111,7 +111,14 @@
         "bun run lint"
       ],
       "ui": null,
-      "changed_files": [],
+      "changed_files": [
+        "src/embed.ts",
+        "src/surfaces/canon-install.ts",
+        "src/commands/uninstall.ts",
+        "FILEMAP.md",
+        "docs/global-carriers.md",
+        ".changeset/brand-design-system.md"
+      ],
       "gates": {
         "behavior": { "status": "pending", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },

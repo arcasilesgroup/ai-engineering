@@ -74,6 +74,10 @@ sh scripts/proof-cli-ux.sh     # R16: the hooks reach new clones, and a repo wit
 
 `proof-cli-ux.sh` covers the git hooks under R16: it owns the global git config for its run and puts it back, then checks that `init` sets `init.templateDir`, that a fresh clone is born with the three shims and that a commit there reaches the hooks, that the shim copied into a repo without `config.toml` exits 0 in silence, and that a governed repo with no `ai-eng` on PATH exits 1.
 
+## Page templates in the machine home
+
+The HTML page shells (`templates/*.html.tpl`) are not carriers. Install copies each one into `~/.ai-engineering/templates/`, beside `skills/`, so a skill link such as `../../templates/research.html.tpl` resolves on a machine that does not have this repository. Settings, hook and plugin templates stay in the binary. A file in that folder that this install never recorded is left alone. Uninstall removes the copies it installed and leaves that file.
+
 ## Adding a new surface
 
 1. A measured declaration in [`src/surfaces/surfaces.json`](../src/surfaces/surfaces.json). A surface with no carrier can still be valid; `init` refuses it when it cannot provide a required guard.

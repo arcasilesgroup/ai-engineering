@@ -102,6 +102,7 @@ tests/
     worktree-command.ts        In-process worktree command harness with isolated cwd, env and captured output
     triage-azure-signals-preview.mjs  Synthetic writer preview on loopback, memory-only reports
 templates/
+  *.html.tpl                   Page shells; install copies them to ~/.ai-engineering/templates/
   recap.html.tpl               Self-contained HTML recap shell and styles
 agents/                        Specialist agents for the feature workflow
   checkpoint-planner.md        Checkpoint plan schema and initial lifecycle
