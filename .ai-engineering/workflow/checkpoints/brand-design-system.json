@@ -1,0 +1,400 @@
+{
+  "feature": "Brand design system",
+  "slug": "brand-design-system",
+  "summary": "brand/ gains components.css and components.js beside tokens.json; `bun scripts/brand.ts gen` inlines them between markers into all eight templates and a hand-written gallery, parity fails on a hand edit, every colour pair a component uses is declared and measured, a static accessibility gate runs inside bun test and an axe-core browser lane runs in its own CI job, and the templates install beside the skills on every OS so agents copy a template and write no CSS or script.",
+  "plain_summary": "Every page the tool writes looks like one family, explains itself with diagrams and tabs, works for keyboard and screen-reader users, and agents only write the words.",
+  "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
+  "lifecycle": {
+    "phase": "implementation",
+    "plan_approval": "approved",
+    "app_review": "not-started",
+    "base_ref": null,
+    "reviewed_base": null,
+    "reviewed_feature": null
+  },
+  "checkpoints": [
+    {
+      "id": 1,
+      "title": "Inline brand files between markers in one template",
+      "simple": "Copy shared styles into pages",
+      "size": "xs",
+      "goal": "`bun scripts/brand.ts gen` rewrites only the marked brand region of templates/brainstorm.html.tpl from brand/components.css and brand/components.js, reproduces today's bytes exactly, and a test fails on any hand edit inside the region.",
+      "plain": {
+        "what": "One shared style file now flows into the brainstorm page template automatically.",
+        "why": "Without it, every page keeps its own hand-copied styles that drift apart.",
+        "check": "Nothing to see yet, behind the scenes."
+      },
+      "builds_on": [],
+      "tasks": [
+        "brand/components.css: the body of the <style> block templates/brainstorm.html.tpl carries today, verbatim (tokens, shell and components), so nothing renders differently yet.",
+        "brand/components.js: the scroll-spy IIFE templates/brainstorm.html.tpl carries today, verbatim, with no <script> tags (gen adds them).",
+        "scripts/brand.ts: export `spliceBrandRegions(html, css, js)` that replaces only the bytes between `/* brand:begin */` and `/* brand:end */` inside <style>, and between `<!-- brand:js:begin -->` and `<!-- brand:js:end -->` (a classic `<script>` built from components.js); it throws a named error, naming file and marker, when a pair is missing, doubled or out of order, and never touches bytes outside the markers or `{{placeholders}}`.",
+        "scripts/brand.ts: export `templateDrift()` over every templates/*.html.tpl that carries markers, found by glob (no hand list, R7); `renderArtifacts` adds each such template; `cmdParity` reports the templates even when the sibling ai-engineering-web checkout is absent.",
+        "templates/brainstorm.html.tpl: wrap its style body and its scroll-spy script in the two marker pairs; the bytes between them stay as they are.",
+        "tests/brand-templates.spec.ts: exact-byte splice cases (region replaced, outside bytes kept, missing/doubled/reversed marker refused with its message) and `templateDrift()` empty for the committed tree; prove the drift case fails by mutating one byte inside the region of a copy (R1).",
+        "brand/README.md: add the two new source files, the marker contract and the templates to the `What gen writes` table; FILEMAP.md: list brand/components.css, brand/components.js and tests/brand-templates.spec.ts."
+      ],
+      "files": [
+        "brand/components.css",
+        "brand/components.js",
+        "scripts/brand.ts",
+        "templates/brainstorm.html.tpl",
+        "tests/brand-templates.spec.ts",
+        "brand/README.md",
+        "FILEMAP.md"
+      ],
+      "acceptance": [
+        "Running gen twice leaves templates/brainstorm.html.tpl byte-identical to the committed file.",
+        "A one-byte edit inside the brainstorm brand region makes `templateDrift()` name that file; an edit outside the markers survives gen byte for byte.",
+        "A template with a missing, doubled or reversed marker is refused with a message naming the file and the marker, and is not rewritten.",
+        "tests/artifact-layout.spec.ts, tests/artifact-scroll-spy.spec.ts and tests/artifact-brand.spec.ts pass unchanged."
+      ],
+      "verify": [
+        "mkdir -p /private/tmp/t-runs && TMPDIR=/private/tmp/t-runs bun test tests/brand-templates.spec.ts tests/artifact-layout.spec.ts tests/artifact-scroll-spy.spec.ts tests/artifact-brand.spec.ts tests/brand-check.spec.ts",
+        "mkdir -p /private/tmp/t-runs/web && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum templates/*.html.tpl > /private/tmp/t-runs/tpl.sha && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum -c /private/tmp/t-runs/tpl.sha",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "changed_files": [],
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "title": "Install the page templates beside the skills",
+      "simple": "Put page templates on every machine",
+      "size": "s",
+      "goal": "`installCanon` writes every templates/*.html.tpl into ~/.ai-engineering/templates/ on every OS through the one guarded helper, records them as ai-eng's, sweeps a template the binary stops shipping, keeps a file of the user's, and uninstall removes them, so the skills' ../../templates/ links resolve outside this repository.",
+      "plain": {
+        "what": "Installing the tool now puts the page templates next to the skills on Mac, Linux and Windows.",
+        "why": "Without it, agents outside this project follow a link that leads nowhere.",
+        "check": "After installing, open the templates folder in the tool's home folder and see the pages."
+      },
+      "builds_on": [1],
+      "tasks": [
+        "src/embed.ts: `machinePayload()` adds `embeddedUnder(\"templates/\")` filtered to `*.html.tpl` (settings, hook and plugin templates stay out); add `materializeTemplates(destRoot)` over the same filtered map through `materializePrefix` (R39).",
+        "src/embed.ts: `isRecordKey` accepts `templates/<file>` (exactly two segments, not dot-led); `canonExtras` treats a recorded template this binary no longer ships as retired and any unrecorded file in ~/.ai-engineering/templates as the user's, never touched (R28).",
+        "src/surfaces/canon-install.ts: `installCanon` materializes templates into `home()/templates` before the ownership record is written, reports one success line and passes refusals through `warningsOf`, so a refused file never stops the rest or the lock.",
+        "tests/carriers-install.spec.ts (`installCanon and what leaves with it`): every installed template is byte-identical to templates/; ../../templates/research.html.tpl resolves from the installed ai-research skill folder; an edited installed template is rewritten; a recorded template no longer shipped is swept; a user's own file there is kept; a link at templates/ is refused with a warning while skills and the record still complete; uninstall's machine scope removes the templates.",
+        ".changeset/brand-design-system.md: a patch entry saying the HTML templates now install beside the skills; docs/global-carriers.md and FILEMAP.md: name ~/.ai-engineering/templates/."
+      ],
+      "files": [
+        "src/embed.ts",
+        "src/surfaces/canon-install.ts",
+        "tests/carriers-install.spec.ts",
+        ".changeset/brand-design-system.md",
+        "docs/global-carriers.md",
+        "FILEMAP.md"
+      ],
+      "acceptance": [
+        "After installCanon, ~/.ai-engineering/templates/ holds exactly the shipped *.html.tpl files, byte for byte, and the ownership record names each one.",
+        "A recorded template the binary no longer ships is swept; an unrecorded file of the user's in the same folder keeps its bytes.",
+        "A link or non-folder at ~/.ai-engineering/templates is refused with a named warning, and skills, agents and the ownership record are still written.",
+        "Uninstall removes the installed templates and leaves the user's own file."
+      ],
+      "verify": [
+        "mkdir -p /private/tmp/t-runs && TMPDIR=/private/tmp/t-runs bun test tests/carriers-install.spec.ts tests/embed-canon.spec.ts tests/uninstall-command.spec.ts tests/update-command.spec.ts tests/generated-payload.test.ts",
+        "bun test tests/arch.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "changed_files": [],
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "Give all eight templates the one source and switch agents to copying them",
+      "simple": "Every page shares one look",
+      "size": "m",
+      "goal": "Every templates/*.html.tpl carries both marker pairs and parity covers all eight; PRD, spec, plan and viewer drop their private token and base styles; artifact-design.md loses its CSS and script blocks; the seven HTML-writing skills say copy the template and write no CSS or script; the tests that compared the doc's block now compare every carrier to brand/.",
+      "plain": {
+        "what": "All eight page templates take their look from one place; agents copy a page, never styles.",
+        "why": "Without it, four pages keep private styles and no check notices them drifting.",
+        "check": "Open the PRD and plan templates beside the brainstorm one; they now match."
+      },
+      "builds_on": [2],
+      "tasks": [
+        "templates/recap.html.tpl, templates/research.html.tpl, templates/triage.html.tpl: wrap the shared block and the scroll-spy script in the marker pairs (bytes unchanged).",
+        "templates/PRD.html.tpl, templates/spec.html.tpl, templates/plan.html.tpl: replace the private :root and base styles with the brand region and map their markup onto the shared vocabulary (.container, h1, .card, tables with th scope); add the brand:js markers.",
+        "templates/viewer.html.tpl: the brand region comes first in <style>; only the viewer's own app rules (the ones tests/viewer-audit.spec.ts asserts) stay after `/* brand:end */`; then copy it to .ai-engineering/workflow/checkpoints/viewer.html (test U6); tests/viewer-audit.spec.ts extracts the viewer's own script, not the brand script.",
+        "scripts/brand.ts: `templateDrift()` fails any templates/*.html.tpl that lacks either marker pair, so parity always covers every template found by glob.",
+        "brand/tokens.json `artifact.files`: brand/components.css first (the reference block), then the eight templates, then the two docs/history pages; artifact-design.md leaves the list.",
+        "tests/artifact-brand.spec.ts: add a check that `artifact.files` contains every templates/*.html.tpl (derived, R7).",
+        "skills/ai-brainstorm/references/artifact-design.md: drop the `The tokens` and `The block` CSS fences and the scroll-spy fence; say the styles and script live in brand/components.css and brand/components.js and arrive inside every template; keep the rules, the vocabulary and the favicon line.",
+        "skills/ai-brainstorm, ai-research, ai-triage (and references/github.md, references/azure-devops.md), ai-issue-report, ai-visual-recap, ai-refresh-project (and references/proposal-page.md), ai-audit-design SKILL.md: replace copy-the-CSS-block wording with `copy templates/<name>.html.tpl and fill its sections; write no CSS and no script`; keep the exact `Start with templates/recap.html.tpl` sentence tests/skills.spec.ts asserts.",
+        "tests/artifact-layout.spec.ts: delete the two doc-block tests; the var() test runs on brand/components.css; carriers come from the templates glob, and each carrier's region equals brand/ via `templateDrift()`.",
+        "tests/artifact-scroll-spy.spec.ts: the script source is the scroll-spy function in brand/components.js; SHELLS come from the templates glob filtered by section navigation."
+      ],
+      "files": [
+        "templates/recap.html.tpl",
+        "templates/research.html.tpl",
+        "templates/triage.html.tpl",
+        "templates/PRD.html.tpl",
+        "templates/spec.html.tpl",
+        "templates/plan.html.tpl",
+        "templates/viewer.html.tpl",
+        ".ai-engineering/workflow/checkpoints/viewer.html",
+        "scripts/brand.ts",
+        "brand/tokens.json",
+        "skills/ai-brainstorm/references/artifact-design.md",
+        "skills/ai-brainstorm/SKILL.md",
+        "skills/ai-research/SKILL.md",
+        "skills/ai-triage/SKILL.md",
+        "skills/ai-triage/references/github.md",
+        "skills/ai-triage/references/azure-devops.md",
+        "skills/ai-issue-report/SKILL.md",
+        "skills/ai-visual-recap/SKILL.md",
+        "skills/ai-refresh-project/SKILL.md",
+        "skills/ai-refresh-project/references/proposal-page.md",
+        "skills/ai-audit-design/SKILL.md",
+        "tests/artifact-layout.spec.ts",
+        "tests/artifact-scroll-spy.spec.ts",
+        "tests/artifact-brand.spec.ts",
+        "tests/viewer-audit.spec.ts",
+        "brand/README.md"
+      ],
+      "acceptance": [
+        "`templateDrift()` covers all eight templates and is empty; deleting a marker from any one of them names that file.",
+        "`bun scripts/brand.ts artifact` passes with brand/components.css as the reference and all eight templates listed.",
+        "No templates/*.html.tpl declares a :root token outside its brand region.",
+        "artifact-design.md contains no ```css fence and no scroll-spy script; each of the seven HTML-writing skills names the template it copies and says to write no CSS or script.",
+        "tests/viewer-audit.spec.ts (U6 included), tests/triage-github.spec.ts and tests/skills.spec.ts pass."
+      ],
+      "verify": [
+        "mkdir -p /private/tmp/t-runs && TMPDIR=/private/tmp/t-runs bun test tests/brand-templates.spec.ts tests/artifact-layout.spec.ts tests/artifact-scroll-spy.spec.ts tests/artifact-brand.spec.ts tests/viewer-audit.spec.ts tests/triage-github.spec.ts tests/skills.spec.ts tests/skills-lint.spec.ts tests/docs-lint.spec.ts tests/ceremony-contract.spec.ts tests/token-budget.spec.ts tests/generated-payload.test.ts",
+        "bun scripts/brand.ts artifact",
+        "mkdir -p /private/tmp/t-runs/web && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum templates/*.html.tpl > /private/tmp/t-runs/tpl.sha && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum -c /private/tmp/t-runs/tpl.sha",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "changed_files": [],
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "title": "Add the component layer, declare every colour pair and set prose left-aligned",
+      "simple": "Add diagrams, tabs and copy buttons",
+      "size": "l",
+      "goal": "brand/components.css carries the approved component layer with forced-colors, more-contrast, reduced-motion and light print layers, components.js carries the component script, every text and graphic colour pair a component uses is declared in tokens.json and passes `brand.ts contrast`, code wells sit on --surface, and rule 4 plus its gate check the left edge instead of justification.",
+      "plain": {
+        "what": "Pages gain diagrams, tabs, copy buttons, filters and highlights, with every colour checked for legibility.",
+        "why": "Without it, pages read like plain text and some small text is too faint.",
+        "check": "Open a filled brainstorm page: tabs switch with arrow keys and code has a copy button."
+      },
+      "builds_on": [3],
+      "tasks": [
+        "brand/tokens.json: semantic groups for the light chip tones (green.light1 #71F6BA, purple.light2 #F1D4FD, red.light2 #FFCDC7, blue.light2 #C3E7FE, plus the amber hue) and for the print palette (white surfaces, dark brand text shades); matching `artifact.tokens` names; `pairs` for every text/surface and graphic/surface combination a component uses: chips on the card and field surfaces, --comment on --surface (the new code well), diagram strokes and borders at 3:1, and every print text on white.",
+        "brand/components.css: append the proposed component layer from the approved brainstorm page's <style> (after the `proposed component layer` comment); code wells use --surface; `p` sets left-aligned on the shared left edge, never centred or 68ch-capped (O5); no label under 11px, no running text under 12px (D10); forced-colors maps borders, chips and diagram strokes to system colours; prefers-contrast and prefers-reduced-motion layers; print swaps surfaces to white, text to the print shades and opens every item; 44px targets under a coarse pointer, tables stack under 640px, tab rows scroll (D15); only `.callout` carries the 3px bar; OS font stacks name SF, Segoe UI, Cascadia/Consolas and DejaVu (D14).",
+        "brand/components.js: append the component IIFE from the brainstorm page's last <script> after the scroll-spy function: APG tabs, copy with a polite status message and a select-the-text fallback, filters with aria-pressed and an announced count, expand-all over native details, stacking tables, focusable scroll regions; one classic ES2019 script, textContent only, no network.",
+        "Regenerate all eight templates with gen and copy templates/viewer.html.tpl to .ai-engineering/workflow/checkpoints/viewer.html.",
+        "tests/artifact-layout.spec.ts: rule 4 checks the left edge for every sectioned page (p not centred, not capped at --measure, no auto margin on notes or lists); brand/components.css and every template must also not justify `p`.",
+        "tests/brand-contrast.spec.ts: pin why code wells moved: gray.base on gray.dark3 measures below 4.5:1 and on gray.dark4 at or above it.",
+        "skills/ai-brainstorm/references/artifact-design.md: rule 4 becomes left-aligned prose; rule 12 allows the 3px bar on `.callout` only; rule 1 allows five category hues whose word names the category; the vocabulary table gains every new component (diagram, callout, cat, verdict card, terminal, tabs, code, diff lines, filters, toolbar, steps, checklist, kbd, live status).",
+        "brand/README.md: the new token groups and pairs."
+      ],
+      "files": [
+        "brand/tokens.json",
+        "brand/components.css",
+        "brand/components.js",
+        "templates/brainstorm.html.tpl",
+        "templates/PRD.html.tpl",
+        "templates/recap.html.tpl",
+        "templates/research.html.tpl",
+        "templates/triage.html.tpl",
+        "templates/spec.html.tpl",
+        "templates/plan.html.tpl",
+        "templates/viewer.html.tpl",
+        ".ai-engineering/workflow/checkpoints/viewer.html",
+        "tests/artifact-layout.spec.ts",
+        "tests/brand-contrast.spec.ts",
+        "skills/ai-brainstorm/references/artifact-design.md",
+        "brand/README.md"
+      ],
+      "acceptance": [
+        "`bun scripts/brand.ts contrast` passes every pair, and the list includes the chip, code-well, diagram and print pairs.",
+        "`bun scripts/brand.ts check` and `bun scripts/brand.ts artifact` pass with the new token groups.",
+        "Setting `text-align:justify` on `p` in brand/components.css makes the layout gate fail; centring or capping `p` in any sectioned page also fails it.",
+        "brand/components.css contains @media rules for forced-colors, prefers-contrast, prefers-reduced-motion and print, and no hex or rgba colour outside its :root token blocks.",
+        "All eight templates match brand/ after gen, and tests/viewer-audit.spec.ts and tests/triage-github.spec.ts still pass."
+      ],
+      "verify": [
+        "bun scripts/brand.ts check",
+        "bun scripts/brand.ts contrast",
+        "bun scripts/brand.ts artifact",
+        "mkdir -p /private/tmp/t-runs && TMPDIR=/private/tmp/t-runs bun test tests/brand-templates.spec.ts tests/brand-check.spec.ts tests/brand-contrast.spec.ts tests/artifact-layout.spec.ts tests/artifact-scroll-spy.spec.ts tests/artifact-brand.spec.ts tests/viewer-audit.spec.ts tests/triage-github.spec.ts",
+        "mkdir -p /private/tmp/t-runs/web && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum templates/*.html.tpl > /private/tmp/t-runs/tpl.sha && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum -c /private/tmp/t-runs/tpl.sha",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "changed_files": [],
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 5,
+      "title": "Add the gallery, the ready slots and the static accessibility gate",
+      "simple": "Show every part, check every page",
+      "size": "l",
+      "goal": "brand/gallery.html.tpl shows every component live with its markup; the brainstorm, PRD and recap templates ship ready diagram, decision, stats and tabs slots; and a static accessibility gate inside bun test passes all eight templates and the gallery and fails on each rule it checks.",
+      "plain": {
+        "what": "A gallery shows every building block, and a check blocks pages that break accessibility basics.",
+        "why": "Without it, a missing label or broken heading order ships unnoticed to screen-reader users.",
+        "check": "Open the gallery page in a browser and try each part with the keyboard."
+      },
+      "builds_on": [4],
+      "tasks": [
+        "scripts/artifact-a11y.ts: export `staticA11yProblems(html, label)` returning one message per problem: html lang, a title, exactly one h1, no heading level skipped, every th has scope and every table a caption, every svg has role=img and a title, every aria-labelledby, aria-describedby and aria-controls id resolves, ids are unique, no external script src or stylesheet href (data: URIs allowed), no inline on*= handler, the viewport never blocks zoom, and the page carries forced-colors, prefers-reduced-motion and print rules.",
+        "scripts/artifact-a11y.ts: export `scriptProblems(js)` for brand/components.js: parses as a classic script, no import/export, no innerHTML, outerHTML, insertAdjacentHTML, eval or fetch.",
+        "tests/artifact-a11y.spec.ts: zero problems for every templates/*.html.tpl and brand/gallery.html.tpl (found by glob) and for brand/components.js; one broken fixture per rule asserting the exact message, so each check is proven to fail (R1).",
+        "brand/gallery.html.tpl: hand-written carrier with both marker pairs: every component live, its markup in a code block with a copy button, its keyboard behaviour and a do and don't; `templateDrift()` and parity cover it.",
+        "templates/brainstorm.html.tpl, templates/PRD.html.tpl, templates/recap.html.tpl: ready slots for a diagram figure with title, desc and a text version, decision items with expand-all, a stats row and options in tabs; each section opens with one plain lead sentence (D13); the generator meta and the written-by-an-AI-agent footer.",
+        "templates/brainstorm.html.tpl, recap.html.tpl, research.html.tpl, triage.html.tpl: the hero drops its stamp line (D15).",
+        "scripts/brand.ts `cmdParity`: one informational line for each carrier over about 30 KB; it never changes the exit code.",
+        "skills/ai-brainstorm/references/artifact-design.md: name brand/gallery.html.tpl as the reference to read, and list the static gate under `Done when`; FILEMAP.md: scripts/artifact-a11y.ts, tests/artifact-a11y.spec.ts, brand/gallery.html.tpl."
+      ],
+      "files": [
+        "scripts/artifact-a11y.ts",
+        "tests/artifact-a11y.spec.ts",
+        "brand/gallery.html.tpl",
+        "templates/brainstorm.html.tpl",
+        "templates/PRD.html.tpl",
+        "templates/recap.html.tpl",
+        "templates/research.html.tpl",
+        "templates/triage.html.tpl",
+        "scripts/brand.ts",
+        "skills/ai-brainstorm/references/artifact-design.md",
+        "brand/README.md",
+        "FILEMAP.md"
+      ],
+      "acceptance": [
+        "`staticA11yProblems` returns no problem for the eight templates and the gallery.",
+        "Each broken fixture (no lang, two h1, an h2 then h4, a th without scope, an svg without title, a dangling aria id, a duplicate id, an external script, an onclick, a page with no forced-colors rule, a viewport with maximum-scale=1) yields its exact message.",
+        "brand/components.js passes `scriptProblems`; adding `el.innerHTML = x` to a copy fails it.",
+        "The brainstorm, PRD and recap templates each contain a diagram figure with a text version, decision items, a stats row and a tab set.",
+        "A hand edit inside the gallery's brand region is reported by parity like any template."
+      ],
+      "verify": [
+        "mkdir -p /private/tmp/t-runs && TMPDIR=/private/tmp/t-runs bun test tests/artifact-a11y.spec.ts tests/brand-templates.spec.ts tests/artifact-layout.spec.ts tests/artifact-scroll-spy.spec.ts tests/artifact-brand.spec.ts tests/triage-github.spec.ts tests/skills.spec.ts tests/docs-lint.spec.ts",
+        "bun scripts/brand.ts contrast",
+        "mkdir -p /private/tmp/t-runs/web && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum templates/*.html.tpl brand/gallery.html.tpl > /private/tmp/t-runs/tpl.sha && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum -c /private/tmp/t-runs/tpl.sha",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "changed_files": [],
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "title": "Run axe-core in system Chrome locally and in its own CI job",
+      "simple": "Test pages in a real browser",
+      "size": "xl",
+      "goal": "`bun run a11y` opens the eight templates and the gallery in system Chrome, finds zero axe-core violations for wcag2a, wcag2aa, wcag21a, wcag21aa and wcag22aa at 320, 390, 768 and 1440px and in forced colours, proves the tab keyboard pattern, reflow and the no-script reading, and runs as a separate job in .github/workflows/check.yml with no new Action.",
+      "plain": {
+        "what": "Every page is tested in Chrome at phone and desktop widths and in high-contrast mode.",
+        "why": "Without it, problems only a real browser shows, like overlap or contrast, slip through.",
+        "check": "The pull request shows a separate accessibility check that turns green."
+      },
+      "builds_on": [5],
+      "tasks": [
+        "package.json: exact-pinned devDependencies playwright-core and axe-core, and a script `\"a11y\": \"bun scripts/artifact-axe.ts\"`; bun.lock updated by `bun install`.",
+        "scripts/artifact-axe.ts: launch Chromium with `channel: \"chrome\"` (no browser download; one clear line and exit 1 when Chrome is missing), open each templates/*.html.tpl and brand/gallery.html.tpl from file:// (found by glob), inject the axe-core source inline, run the five tags at widths 320, 390, 768 and 1440 and again under `emulateMedia({ forcedColors: \"active\" })`, and print page, width, rule id and target for each violation.",
+        "scripts/artifact-axe.ts: in the same run, walk every tab set by keyboard (ArrowRight, ArrowLeft, Home, End move aria-selected and focus, one panel visible); at 320px the page never scrolls sideways, also with the WCAG text-spacing overrides applied; with JavaScript disabled every tab panel is visible and no copy or filter button shows.",
+        "Fix every violation it finds in brand/components.css, brand/components.js or the templates, then regenerate and recopy the viewer.",
+        ".github/workflows/check.yml: a new `a11y` job on ubuntu-latest with the same pinned actions/checkout, `npm install -g bun@1.4.4`, `bun install --frozen-lockfile` and `bun run a11y`, using the Chrome preinstalled on the runner; no new Action (allowlist).",
+        "THIRD-PARTY-NOTICES.md: the Dev dependencies line gains playwright-core (Apache-2.0) and axe-core (MPL-2.0).",
+        "brand/README.md: the a11y command; FILEMAP.md: scripts/artifact-axe.ts; .changeset/brand-design-system.md: the design system, the gallery and the gates."
+      ],
+      "files": [
+        "package.json",
+        "bun.lock",
+        "scripts/artifact-axe.ts",
+        "brand/components.css",
+        "brand/components.js",
+        ".github/workflows/check.yml",
+        "THIRD-PARTY-NOTICES.md",
+        "brand/README.md",
+        "FILEMAP.md",
+        ".changeset/brand-design-system.md"
+      ],
+      "acceptance": [
+        "`bun run a11y` exits 0 with zero violations on all nine pages at all four widths and in forced colours.",
+        "Planting a contrast or a missing-name defect in a copy of a template makes `bun run a11y` exit 1 and name the page, width and rule.",
+        "The keyboard walk, the 320px reflow and text-spacing check, and the script-off check each report their result per page.",
+        "actionlint passes .github/workflows/check.yml and the new job uses only actions already in the file.",
+        "The full `bun test` suite, typecheck, lint and `bun audit --audit-level=high` pass."
+      ],
+      "verify": [
+        "bun install --frozen-lockfile",
+        "bun run a11y",
+        "actionlint .github/workflows/check.yml",
+        "mkdir -p /private/tmp/t-runs && TMPDIR=/private/tmp/t-runs bun test",
+        "bun run typecheck",
+        "bun run lint",
+        "bun audit --audit-level=high"
+      ],
+      "ui": null,
+      "changed_files": [],
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    }
+  ],
+  "assumptions": [
+    "The website work comes later in the website's own project, not in this plan. [brainstorm section 11, PR 3; PRD section 04]",
+    "There is no mock screen to compare against: the approved brainstorm page is the visual reference, the browser check tests the rendered pages, and the owner's final app review judges the look. [no states.json prototype for ai-review-ui; every gates.ui is n/a]",
+    "The existing website-drift warning is older than this feature and is not fixed here; checks use a scratch website folder instead. [bun scripts/brand.ts parity on 2026-11-22: design.json and tokens.json DRIFT in ai-engineering-web; LEARNINGS R37; AI_ENGINEERING_WEB_DIR override in scripts/brand.ts]",
+    "Old research pages and history pages keep their justified text as frozen records; only the templates and the shared styles must sit left-aligned. [O5; D8 keeps docs/history frozen; tests/artifact-layout.spec.ts scans .ai-engineering/]",
+    "Skills with no template of their own (issue report, design audit, refresh proposal) start from the research template. [templates/ has no report, audit or proposal shell]",
+    "The gallery is named by its path in this project until the website publishes it, because it does not install. [architect review: brand/gallery.html.tpl; src/embed.ts PAYLOAD_FOLDERS has no brand/]",
+    "The shared colour values are written once in the shared style file and checked against the brand file, not generated. [scripts/brand.ts artifactDrift uses artifact.files[0] as the reference]",
+    "Only the page templates install on each machine; settings, hook and plugin templates stay inside the tool. [architect review item 4; src/embed.ts machinePayload]",
+    "The viewer keeps its own app rules after the shared part, so its existing checks keep holding. [D8; tests/viewer-audit.spec.ts CSS assertions and U6 byte identity]",
+    "Where copying is blocked on a local file, the copy button selects the text and says so. [brainstorm research item 4, unsourced]",
+    "The browser check is its own command and CI job, so the main tests still pass on machines without Chrome. [architect review item 2; .github/workflows/check.yml]",
+    "The 320-wide reflow check stands in for the 200% zoom check. [WCAG 1.4.10 equates 320 CSS px with 400% zoom at 1280]",
+    "The install and carriers work goes before the new components, because the design doc's style block and its tests must move first or the doc goes stale. [brainstorm section 11 lists brand first; tests/artifact-layout.spec.ts compares carriers to the doc block]"
+  ],
+  "new_dependencies": [
+    "playwright-core (devDependency, Apache-2.0): drives the system Chrome, no browser download",
+    "axe-core (devDependency, MPL-2.0): the WCAG rule engine injected into each page"
+  ],
+  "notes": [
+    "The branch can be cut into two stacked pull requests: checkpoints 1 to 3 (carriers and install) and 4 to 6 (components and accessibility gates); the website change is a third pull request in ai-engineering-web.",
+    "Deferred to the website pull request: gen writing ../ai-engineering-web/src/styles/components.css and publishing the gallery there.",
+    "Out of scope: a light screen theme, a diagram generator (O4), Mermaid or any runtime library, rewriting docs/history/, a new skill (O1), an Arcasiles mark (O3), motion beyond state changes, a project's own DESIGN.md.",
+    "The browser lane runs Chrome only; Firefox and Safari forced-colours handling of inline SVG stays unproven (brainstorm research item 3).",
+    "Page weight over about 30 KB only informs; it never fails a gate.",
+    "The approved brainstorm page keeps its justified prose; the tolerant edge check lets it stay as it is."
+  ]
+}
