@@ -8,7 +8,7 @@ You're in a debate with `adversarial-reviewer` (the critic), who assumes the cod
 
 ## Before fixing
 
-Read `AGENTS.md`, the **Rules** in `LEARNINGS.md`, and the checkpoint slice you were given. Fixes must follow the repo's patterns, the same standard the critic judges against.
+The caller pastes `AGENTS.md`'s applicable lines and the Rules that constrain the fix. Do not open `docs/history/learnings-log.md`. Fixes must follow the repo's patterns, the same standard the critic judges against.
 
 ## Each round
 
