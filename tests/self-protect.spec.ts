@@ -7,7 +7,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, sep } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { isNetworkPath, protectedPaths, writesTo, runSelfProtect, type ProtectedPaths } from "../src/guards/self-protect.ts";
 
 /** A path as a Bash command line carries it: a backslash in an unquoted word is an escape
@@ -67,7 +67,25 @@ describe("protectedPaths — the list is derived from the wiring, never copied",
     expect(paths.literals).toContain(join(base, ".claude", "skills"));
     expect(paths.literals).toContain(join(base, ".agents", "skills"));
     expect(paths.literals).toContain(join(base, ".config", "opencode", "skill"));
-    for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json"]) {
+    for (const carrier of [
+      ".claude/settings.json",
+      ".config/opencode/plugins/ai-eng.ts",
+      ".codex/hooks.json",
+      ".omp/agent/hooks/pre/ai-eng.ts",
+      ".pi/agent/extensions/ai-eng.ts",
+      ".copilot/hooks/ai-eng.json",
+      ".gemini/config/hooks.json",
+      // The folders a host scans and loads every file of: ours sits inside, a stray file
+      // in one disables the host.
+      ".config/opencode/plugins",
+      ".config/opencode/ai-eng",
+      // omp files its hooks under `hooks/pre|post`, so the folder that holds those events is
+      // the scan root: a file dropped in `hooks/post` is loaded the same way as one in `pre`.
+      ".omp/agent/hooks",
+      ".pi/agent/extensions",
+      ".copilot/hooks",
+      "machine.json",
+    ]) {
       expect(paths.literals).toContain(join(base, carrier));
     }
     expect(paths.specPinned).toBe(false);
@@ -103,6 +121,57 @@ describe("protectedPaths — the list is derived from the wiring, never copied",
     for (const ghost of [".claude/settings.json", ".opencode/plugins/ai-eng.ts", ".agents/hooks/ai-eng.ts"]) {
       expect(before.literals).not.toContain(join(repo, ghost));
     }
+  });
+
+  test("every machine carrier the registry declares is protected, absolute or relative", () => {
+    // A carrier a person hand-installed is machinery like any other: a session that deletes
+    // it ungoverns the next one, and `.gemini/config/hooks.json` is the newest of them.
+    const agy = join(process.env.AI_ENG_HOME!, ".gemini", "config", "hooks.json");
+    expect(protectedPaths(null).literals).toContain(agy);
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm ${shellSpelling(agy)}` } }, null)?.deny).toBe(true);
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "rm .gemini/config/hooks.json" } }, null)?.deny).toBe(true);
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "echo {} > .gemini/config/hooks.json" } }, null)?.deny).toBe(true);
+    // Every carrier the registry declares is named, not just the newest one.
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "rm .copilot/hooks/ai-eng.json" } }, null)?.deny).toBe(true);
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "rm .codex/hooks.json" } }, null)?.deny).toBe(true);
+  });
+
+  test("a file dropped beside ours in a host's scan folder is a write into machinery", () => {
+    // The host loads every file in these folders, so a stray one there — not only ours —
+    // ungoverns the next session; a write into the folder is denied, not just our entry.
+    const base = process.env.AI_ENG_HOME!;
+    for (const target of [
+      ".config/opencode/plugins/ai-eng-chain.ts",
+      ".omp/agent/hooks/post/evil.ts",
+      ".pi/agent/extensions/evil.ts",
+      ".copilot/hooks/evil.json",
+    ]) {
+      const command = `echo {} > ${join(base, target)}`;
+      expect(runSelfProtect({ tool_name: "Bash", tool_input: { command } }, null)?.deny, target).toBe(true);
+    }
+  });
+
+  test("a repo carrier is protected as a file; its folder only against deletion or rename", () => {
+    // A carrier is governance while it is on disk, and one word takes its folder. But that
+    // folder also holds the project's own files, so the folder is protected by the ancestor
+    // rule (delete/rename), never by a literal that would deny the files beside it.
+    const repo = tempRepo();
+    const carriers = [
+      write(repo, ".cursor/hooks.json", "{}\n"),
+      write(repo, ".github/hooks/ai-eng.json", "{}\n"),
+    ];
+    const paths = protectedPaths(repo);
+    for (const file of carriers) {
+      expect(paths.literals).toContain(file);
+      expect(paths.literals).not.toContain(dirname(file));
+      expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `echo {} > ${shellSpelling(file)}` } }, repo)?.deny).toBe(true);
+      expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm -rf ${shellSpelling(dirname(file))}` } }, repo)?.deny).toBe(true);
+      expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `mv ${shellSpelling(dirname(file))} ${shellSpelling(dirname(file))}.bak` } }, repo)?.deny).toBe(true);
+    }
+    // The project's own files beside the carrier are not machinery: judged normally, allowed.
+    const rules = join(repo, ".cursor", "rules", "house.mdc");
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `echo x > ${shellSpelling(rules)}` } }, repo)).toBeUndefined();
+    expect(runSelfProtect({ tool_name: "Edit", tool_input: { file_path: rules, old_string: "a", new_string: "b" } }, repo)).toBeUndefined();
   });
 
   test("the pin criterion: a 64-hex sha256 in the lock pins spec.html; anything else does not", () => {

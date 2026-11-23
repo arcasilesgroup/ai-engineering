@@ -12,11 +12,12 @@
 // and breaks the loop it governs. What stays protected is the machinery a session could
 // use to unpin, unhook or re-date itself.
 
-import { basename, isAbsolute, join, parse, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, parse, resolve, sep } from "node:path";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
+import surfacesJson from "../surfaces/surfaces.json";
 import { commandIndex, jsonToolOperands, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, type ShellSegment } from "./shell.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
@@ -876,15 +877,48 @@ function isRestrictedCliCommand(command: string, depth = 0): boolean {
   return restrictedCommandWords(words, depth);
 }
 
+/** The carriers the registry declares for one scope, from the one table that knows where
+ *  each host reads them: a host added there is protected here, with no second list to fall
+ *  behind. Read as data so the guard never pulls the templates in. */
+function registryCarriers(scope: "repo" | "machine"): { path: string; chain?: string }[] {
+  const registry = surfacesJson as {
+    surfaces: { carriers: { scope: string; path: string; chain?: string }[] }[];
+  };
+  return registry.surfaces.flatMap((surface) => surface.carriers.filter((carrier) => carrier.scope === scope));
+}
+
+const REPO_CARRIER_PATHS: readonly string[] = registryCarriers("repo").map((carrier) => carrier.path);
+
+/** The machine carriers, entry and chain bundle alike: the bundle beside an in-process entry
+ *  is what the host loads, so a write to it ungoverns the session just as well. */
+const MACHINE_CARRIER_PATHS: readonly string[] = registryCarriers("machine")
+  .flatMap((carrier) => [carrier.path, ...(carrier.chain === undefined ? [] : [carrier.chain])]);
+
+/** The folders a host scans for its plugins: a file of ours (`ai-eng*`) sits inside one, and
+ *  the host loads every file there, so a stray file in it disables the host and the whole
+ *  folder is machinery — not just our entry. A host that files its hooks by event
+ *  (`hooks/pre`, `hooks/post`) scans the folder holding those events, so the event segment
+ *  comes off. A host's own settings file names itself and gets no folder rule. */
+const HOOK_EVENT_FOLDER = new Set(["pre", "post"]);
+
+const MACHINE_SCAN_DIRS: readonly string[] = MACHINE_CARRIER_PATHS
+  .filter((path) => basename(path).startsWith("ai-eng"))
+  .map((path) => dirname(path))
+  .map((folder) => (HOOK_EVENT_FOLDER.has(basename(folder)) ? dirname(folder) : folder));
+
+/** The settings files this install wires, per surface (derived from what install
+ *  wrote; the on-disk check keeps an uninstall from leaving ghosts). */
 function surfacesSettings(repoRoot: string): string[] {
-  // The settings files this install wires, per surface (derived from what install
-  // wrote; the on-disk check keeps an uninstall from leaving ghosts).
   const out: string[] = [];
   const candidates = [
     join(repoRoot, ".claude", "settings.json"),
     join(repoRoot, ".opencode", "plugins", "ai-eng.ts"),
     join(repoRoot, ".agents", "hooks", "ai-eng.ts"),
+    ...REPO_CARRIER_PATHS.map((path) => join(repoRoot, path)),
   ];
+  // The file only: the ancestor rule already denies deleting or renaming the folder that
+  // holds it, while a literal for that folder would deny the project's own files beside it
+  // (`.cursor/rules/x.mdc`, `.claude/agents/x.md`) that are not machinery at all.
   for (const path of candidates) if (existsSync(path)) out.push(path);
   return out;
 }
@@ -901,8 +935,9 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   literals.push(join(machineBase(), ".claude", "skills"));
   literals.push(join(machineBase(), ".agents", "skills"));
   literals.push(join(machineBase(), ".config", "opencode", "skill"));
+  literals.push(join(machineBase(), ".gemini", "config", "skills"));
   literals.push(globalHome);
-  for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".config/opencode/ai-eng", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json", ".gitconfig", ".config/git/config"]) {
+  for (const carrier of [...MACHINE_CARRIER_PATHS, ...MACHINE_SCAN_DIRS, "machine.json", ".gitconfig", ".config/git/config"]) {
     literals.push(join(machineBase(), carrier));
   }
   if (!repoRoot) return { literals: literals.filter((p) => p.length > 0), specPinned: false, terminal: [] };
@@ -993,6 +1028,12 @@ function expandTilde(path: string): string {
   return path;
 }
 
+/** One carrier path as a whole-segment file pattern: a write that names it — absolute or
+ *  relative — is a write to what governs the session, wherever the shell's cwd happens to be. */
+function carrierFilePattern(path: string): string {
+  return `(?:^|/)${path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`;
+}
+
 /** The governed file or path this text offends, or null.
  *
  *  The prose contracts the user owns (AGENTS.md, DECISIONS.md) are
@@ -1006,18 +1047,19 @@ function expandTilde(path: string): string {
 /** Governance files by name, wherever they sit. The governed root is the outermost
  *  governed ancestor, so a config written above the repo (or a hook in a nested one)
  *  would otherwise move the root out from under the session. The host carriers are here
- *  too: a carrier rewritten, or a settings file with `disableAllHooks`, ungoverns the next
- *  session even when this one never wrote a governed file. */
+ *  too — every one the registry declares, from the one table — because a carrier rewritten,
+ *  or a settings file with `disableAllHooks`, ungoverns the next session even when this one
+ *  never wrote a governed file. */
 const GOVERNANCE_FILE = new RegExp([
   String.raw`(?:^|/)\.ai-engineering/(?:config\.toml|overrides\.toml|ai-eng\.lock|arch\.rules\.json)$`,
   String.raw`(?:^|/)\.gitleaks(?:rc\.toml|ignore)$`,
   String.raw`(?:^|/)\.git/(?:hooks(?:/|$)|config$)`,
   String.raw`(?:^|/)\.github/hooks(?:/|$)`,
   String.raw`(?:^|/)\.github/copilot/settings(?:\.local)?\.json$`,
-  String.raw`(?:^|/)\.claude/settings(?:\.local)?\.json$`,
-  String.raw`(?:^|/)\.cursor/hooks\.json$`,
-  String.raw`(?:^|/)\.codex/hooks\.json$`,
+  String.raw`(?:^|/)\.claude/settings\.local\.json$`,
   String.raw`(?:^|/)\.(?:opencode/plugins|agents/hooks)/ai-eng[^/]*$`,
+  ...MACHINE_CARRIER_PATHS.map(carrierFilePattern),
+  ...REPO_CARRIER_PATHS.map(carrierFilePattern),
 ].join("|"), "i");
 
 /** Case-folded on purpose: macOS and Windows filesystems ignore case, so

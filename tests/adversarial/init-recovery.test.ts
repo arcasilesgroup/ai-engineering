@@ -143,7 +143,8 @@ test("a clean machine gets real skill mirrors, not zero-count ghosts", () => {
 test("a surface that cannot deny tools is refused, never declared in config.toml", () => {
   // Zed ships skills and no hot-path hook; declaring it would be a governance claim
   // with nothing to enforce it (§13). Pi is NOT in this club —
-  // its tool_call event can block, so it has an adapter.
+  // its tool_call event can block, so it has an adapter. The refusal names the reason and
+  // never blames the host: both of these hosts CAN deny (`host-only`), we just run no judge.
   const fresh = join(sandbox, "no-adapter-repo");
   mkdirSync(fresh, { recursive: true });
   spawnSync("git", ["init", "-q"], { cwd: fresh });
@@ -153,12 +154,13 @@ test("a surface that cannot deny tools is refused, never declared in config.toml
     env: { ...process.env, AI_ENG_HOME: engHome, NO_COLOR: "1", CI: "1", AI_ENG_NO_UPDATE_NOTICES: "1" },
     input: "",
   });
-  expect((r.stdout ?? "") + (r.stderr ?? "")).toInclude("cannot deny tools");
+  expect((r.stdout ?? "") + (r.stderr ?? "")).toInclude('"zed" is advisory only: no hook of ours judges its calls yet');
+  expect((r.stdout ?? "") + (r.stderr ?? "")).not.toContain("cannot deny tools");
   expect(r.status).toBe(2);
   expect(existsSync(join(fresh, ".ai-engineering", "config.toml"))).toBe(false);
 });
 
-test("init offers only the surfaces that generate files", () => {
+test("init offers only the surfaces it will not refuse", () => {
   const offered = surfaceOptions().map((surface) => surface.id);
   expect(offered).toEqual(["claude-code", "oh-my-pi", "opencode", "cursor", "codex", "copilot-cli", "pi"]);
 });

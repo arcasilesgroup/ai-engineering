@@ -206,6 +206,19 @@ describe("ai-eng config · --add and --remove", () => {
     expect(existsSync(join(repo, ".zed"))).toBe(false);
   });
 
+  test("--add refuses an advisory surface that has an adapter, with the same reason init gives", async () => {
+    // agy has a generator and refuses to be enabled: both commands answer with one sentence.
+    const { repo, home } = governedRepo();
+
+    const { result: code, out } = await runConfig(repo, { add: "agy" });
+
+    expect(code).toBe(2);
+    expect(out).toContain('✗  "agy" is advisory only: no hook of ours judges its calls yet');
+    expect(configOf(repo)).toBe(SOURCE);
+    // The carrier agy declares: nothing was written to the machine either.
+    expect(existsSync(join(home, ".gemini", "config", "hooks.json"))).toBe(false);
+  });
+
   test("--add of an already-enabled surface is reported as unchanged and writes nothing", async () => {
     const { repo, home } = governedRepo();
 

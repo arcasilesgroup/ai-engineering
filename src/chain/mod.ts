@@ -76,6 +76,12 @@ export type ChainOptions = {
   dialect?: Dialect;
   /** In-process mode returns outcomes instead of exiting (OMP/OpenCode plugins). */
   inProcess?: boolean;
+  /** The host has no judge of ours (`can.deny` "host-only"): its payload names no tool we
+   *  mapped, and it reads a non-zero exit as a deny on EVERY call. A payload the chain
+   *  cannot read is therefore allowed with a reason instead of denied — a hook that
+   *  cannot judge must not lock a person out of their editor (README). A surface we can
+   *  govern keeps the fail-closed boundary. */
+  hasNoJudge?: boolean;
 };
 
 export type ChainOutcome =
@@ -176,6 +182,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   try {
     payload = normalise(rawPayload, options.surface, event);
   } catch (error) {
+    if (options.hasNoJudge === true) return allowUnjudged(options);
     // normalise refuses on purpose (an unmeasured tool, an ambiguous patch) with a TypeError
     // that says which; anything else is a payload that could not be read at all.
     const why = error instanceof TypeError && error.message ? `BLOCKED: ${error.message} Nothing here can say whether this action is safe, so it was not run.` : UNREADABLE_PAYLOAD;
@@ -185,6 +192,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   payload._event = event;
   const tool = payload.tool_name;
   if (event === "PreToolUse" && (typeof tool !== "string" || tool.trim().length === 0)) {
+    if (options.hasNoJudge === true) return allowUnjudged(options);
     return denyOutcome(
       "chain",
       "BLOCKED: PreToolUse payload has no tool name, so it cannot be evaluated safely.",
@@ -373,6 +381,17 @@ function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): Gu
   }
 }
 
+/** A call this chain cannot read on a host with no judge of ours: allowed, with the reason
+ *  on stderr so the failure is legible. Denying it would deny every tool call of a person
+ *  who enabled the surface, because the host reads a non-zero exit as a deny — and there
+ *  is no judgement being lost, because no mapping of ours reads that host's payload. */
+function allowUnjudged(options: ChainOptions): ChainOutcome {
+  if (options.inProcess !== true) {
+    process.stderr.write(`[ai-eng] chain: ${options.surface ?? "this surface"} has no tool mapping of ours, so this call was allowed rather than denied.\n`);
+  }
+  return { action: "allow", guards: [], receiptId: null };
+}
+
 function denyOutcome(
   by: string,
   reason: string,
@@ -514,6 +533,12 @@ export function chainMain(event: string, raw: string, options: ChainOptions = {}
     body = JSON.parse(raw) as Record<string, unknown>;
     if (body === null || Array.isArray(body) || typeof body !== "object") throw new Error("not an object");
   } catch {
+    // Same boundary as runChain's: a host with no judge of ours is never denied a call the
+    // chain could not read, because its own contract turns one non-zero exit into a lockout.
+    if (options.hasNoJudge === true) {
+      allowUnjudged(options);
+      process.exit(0);
+    }
     deny("chain", UNREADABLE_PAYLOAD, options.dialect ?? "claude", event);
   }
   const outcome = runChain(body, event, options);

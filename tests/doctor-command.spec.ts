@@ -11,7 +11,7 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { doctorMain } from "../src/commands/doctor.ts";
 import { canonSkills, embeddedTemplate } from "../src/embed.ts";
 import { lockText, sha256 } from "../src/install.ts";
@@ -184,7 +184,7 @@ describe("doctor · a repo where everything is green", () => {
     expect(run.out).toContain("Chain verified.");
     expect(detail(run, "AGENTS.md")).toBe("6 rules · 20 lines");
     expect(detail(run, "config.toml")).toBe("governed · surfaces: claude-code");
-    expect(detail(run, "mirrors")).toBe("3/3 mirrors carry linked skills");
+    expect(detail(run, "mirrors")).toBe("4/4 mirrors carry linked skills");
     expect(detail(run, "canon")).toMatch(/^\d+\/\d+ files verified · 0 drift · 0 missing$/);
     expect(detail(run, "assets")).toBe(`installed by ${VERSION}`);
     expect(detail(run, "git floor")).toBe("marker hooks in .git/hooks/ · gitleaks present");
@@ -193,7 +193,7 @@ describe("doctor · a repo where everything is green", () => {
     expect(detail(run, "friction")).toBe("0 denies/1000 (0/0 calls · 0 false positives)");
     expect(detail(run, "overrides")).toBe("none active");
     expect(detail(run, "arch")).toBe("layer rules in .dependency-cruiser.cjs");
-    expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries");
+    expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries · enforced");
     expect(detail(run, "behaviors")).toBe("no behaviors declared");
     expect(run.out).not.toContain("checkpoint gate");
     expect(run.out).not.toContain("checkpoint-gate-report");
@@ -211,7 +211,7 @@ describe("doctor · a repo where everything is green", () => {
     expect(run.out).toContain("Attention");
     expect(run.out).not.toContain("FAIL — the chain is broken here");
     expect(row(run, "mirrors")).toContain("▲");
-    expect(detail(run, "mirrors")).toBe("3/3 mirrors empty or missing → ai-eng init --global");
+    expect(detail(run, "mirrors")).toBe("4/4 mirrors empty or missing → ai-eng init --global");
     expect(detail(run, "canon")).toContain("files verified · 0 drift");
     expect(detail(run, "canon")).toContain("missing");
   });
@@ -221,7 +221,7 @@ describe("doctor · a repo where everything is green", () => {
     rmSync(join(home, "skills"), { recursive: true, force: true });
     const run = await doctor();
     expect(row(run, "mirrors")).toContain("▲");
-    expect(detail(run, "mirrors")).toBe("3/3 mirrors empty or missing → ai-eng init --global");
+    expect(detail(run, "mirrors")).toBe("4/4 mirrors empty or missing → ai-eng init --global");
     expect(detail(run, "canon")).toContain("missing");
   });
 });
@@ -768,7 +768,7 @@ describe("doctor · surface carriers", () => {
     const { home } = sandbox();
     let run = await doctor();
     expect(row(run, "surface claude-code")).toContain("✗");
-    expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json missing → ai-eng update");
+    expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json missing → ai-eng update · enforced");
     expect(run.code).toBe(2);
 
     const placement = machineCarrier(SURFACES.find((surface) => surface.id === "claude-code")!)!;
@@ -776,7 +776,24 @@ describe("doctor · surface carriers", () => {
     writeFileSync(carrierPath(placement), carrierFiles("claude-code")!.main);
     run = await doctor();
     expect(row(run, "surface claude-code")).toContain("✓");
-    expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries");
+    expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries · enforced");
+  });
+
+  test("agy is reported advisory, never enforced, and its row closes with the marker", async () => {
+    sandbox('[surfaces]\nenabled = ["agy"]\n');
+    const placement = machineCarrier(SURFACES.find((surface) => surface.id === "agy")!)!;
+    expect(placement.path).toBe(".gemini/config/hooks.json");
+    mkdirSync(dirname(carrierPath(placement)), { recursive: true });
+    writeFileSync(carrierPath(placement), carrierFiles("agy")!.main);
+
+    const run = await doctor();
+    const line = detail(run, "surface agy");
+    // The carrier is checked like any other, then the note explains, then the verdict: the
+    // marker is the last thing on the row, so a 900-character caveat cannot bury it.
+    expect(line.startsWith("machine carrier ~/.gemini/config/hooks.json carries the ai-eng entries")).toBe(true);
+    expect(line).toContain("declared advisory, and refused by init and config");
+    expect(line.endsWith("advisory")).toBe(true);
+    expect(line).not.toContain("enforced");
   });
 
   test("a machine carrier that calls a shim no longer on PATH is named (npm swapped for bun)", async () => {
@@ -820,13 +837,13 @@ describe("doctor · surface carriers", () => {
     writeFileSync(entry, "# not what this binary ships\n");
     let run = await doctor();
     expect(row(run, "surface oh-my-pi")).toContain("▲");
-    expect(detail(run, "surface oh-my-pi")).toBe("machine carrier ~/.omp/agent/hooks/pre/ai-eng.ts is NOT the one this binary ships → ai-eng update");
+    expect(detail(run, "surface oh-my-pi")).toBe("machine carrier ~/.omp/agent/hooks/pre/ai-eng.ts is NOT the one this binary ships → ai-eng update · enforced");
 
     writeFileSync(entry, files.main);
     writeFileSync(chain, files.chain!);
     run = await doctor();
     expect(row(run, "surface oh-my-pi")).toContain("✓");
-    expect(detail(run, "surface oh-my-pi")).toBe("machine carrier ~/.omp/agent/hooks/pre/ai-eng.ts matches the binary");
+    expect(detail(run, "surface oh-my-pi")).toBe("machine carrier ~/.omp/agent/hooks/pre/ai-eng.ts matches the binary · enforced");
   });
 
   test("a repo carrier is required for cursor, best-effort for copilot, and absent for zed", async () => {

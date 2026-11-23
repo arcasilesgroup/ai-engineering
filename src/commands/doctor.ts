@@ -16,7 +16,7 @@ import {
   type ReceiptSummary,
 } from "../receipts.ts";
 import { parseLock } from "../install.ts";
-import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, hookLauncher, isOnPath } from "../surfaces/adapters.ts";
+import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, hookLauncher, isOnPath, surfaceEnforcement } from "../surfaces/adapters.ts";
 import { machineStateUnavailable, readMachineState } from "../surfaces/machine-state.ts";
 import { refuseText } from "./init-shared.ts";
 import { VERSION, compareVersions } from "../version.ts";
@@ -493,6 +493,11 @@ function checkSurfaces(root: string | null, surfaces: string[]): CheckResult[] {
     // The row's own caveat, from one place: the surface's measured `note` field,
     // not a substring guess by the row printer.
     if (surface.note !== undefined) parts.push(surface.note);
+    // The enforced / advisory split closes the row: the note is the explanation, this is
+    // the verdict, and the same column the capability matrix
+    // (docs/surface-capability-matrix.md) records. A surface that only observes — or only
+    // denies through the host's own permissions — is advisory, not enforced.
+    parts.push(surfaceEnforcement(surface) === "enforced" ? "enforced" : "advisory");
     rows.push({ name: `surface ${id}`, status, detail: parts.join(" · ") });
   }
   return rows;

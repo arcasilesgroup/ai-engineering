@@ -6,7 +6,11 @@
 
 [surfaces]
 # Which agent surfaces (IDEs/CLIs) this project is governed on. Every client uses
-# the same definitions from ai-eng — no per-IDE forks. Options: claude-code, oh-my-pi, opencode, cursor, codex, copilot-cli, pi, zed.
+# the same definitions from ai-eng — no per-IDE forks. `ai-eng config` offers:
+# claude-code, oh-my-pi, opencode, cursor, codex, copilot-cli, pi.
+# zed and agy are declared advisory and `ai-eng config` refuses them: no hook of ours
+# judges their calls. Written here by hand, they still get skills mirrored, and agy its
+# fail-soft hook file on the next `ai-eng update` (README, Surfaces).
 # `ai-eng config` rewrites this list and installs/removes each surface's adapter files.
 enabled = [{{surfaces}}]
 

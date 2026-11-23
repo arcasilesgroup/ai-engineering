@@ -1,10 +1,11 @@
 // src/surfaces/canon-install.ts — install the global canon once per machine (~/.ai-engineering)
 // and mirror it into the hosts' skill folders: the skills, the agents, the page templates, the per-skill slash
-// commands and the links that point from ~/.claude/skills, ~/.agents/skills and OpenCode's
-// skill dir into the canon. The mirror rule everywhere is the same: ai-eng writes or rewrites
-// only what is provably its own; a link or a file of the user's is kept and named, never
-// repointed or removed. `removeMachineArtifacts` (uninstall's "everything" scope) lives with
-// the carrier side but borrows this module's mirror and command helpers.
+// commands and the links that point from ~/.claude/skills, ~/.agents/skills, OpenCode's
+// skill dir and agy's ~/.gemini/config/skills into the canon. The mirror rule everywhere is
+// the same: ai-eng writes or rewrites only what is provably its own; a link or a file of the
+// user's is kept and named, never repointed or removed. `removeMachineArtifacts` (uninstall's
+// "everything" scope) lives with the carrier side but borrows this module's mirror and
+// command helpers.
 
 import { cpSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync, type Stats } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
@@ -20,14 +21,16 @@ type MirrorTarget = { dir: string; label: string };
 /** Re-exported for the callers that already know the surfaces layer: the definition is
  *  in env.ts, where the guards can reach it without dragging the templates in. */
 
-/** Where each surface discovers skills: one canon, three mirrors beside the canon.
- *  Without the override the base is the physical home. */
+/** Where each surface discovers skills: one canon, four mirrors beside the canon.
+ *  Without the override the base is the physical home. agy reads its global customizations
+ *  (hooks and, unverified, skills) under `~/.gemini/config`, so its mirror sits there. */
 export function mirrorTargets(): MirrorTarget[] {
   const base = machineBase();
   return [
     { dir: join(base, ".claude", "skills"), label: "~/.claude/skills" },
     { dir: join(base, ".agents", "skills"), label: "~/.agents/skills" },
     { dir: join(base, ".config", "opencode", "skill"), label: "~/.config/opencode/skill" },
+    { dir: join(base, ".gemini", "config", "skills"), label: "~/.gemini/config/skills" },
   ];
 }
 

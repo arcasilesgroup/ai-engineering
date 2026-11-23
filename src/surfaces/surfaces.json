@@ -166,6 +166,31 @@
       "note": "needs a one-time /hooks approval: trust is pinned to these exact bytes, so a change re-asks"
     },
     {
+      "id": "agy",
+      "label": "Antigravity CLI",
+      "tier": "skills-only",
+      "can": {
+        "deny": "host-only",
+        "rewriteOut": false,
+        "loop": "unverified"
+      },
+      "promptHook": {
+        "supported": false,
+        "source": "agy-customizations skill hooks.md (2026-11-23): no prompt-submission event — PreInvocation can inject steps and terminate the turn, but it does not inspect the raw prompt before it enters the transcript",
+        "measured": "2026-11-23"
+      },
+      "carriers": [
+        {
+          "scope": "machine",
+          "kind": "settings",
+          "path": ".gemini/config/hooks.json",
+          "source": "antigravity.google/docs/hooks + agy-customizations skill hooks.md (2026-11-23): global hooks load from ~/.gemini/config/hooks.json",
+          "measured": "2026-11-23"
+        }
+      ],
+      "note": "declared advisory, and refused by init and config: no mapping of ours judges an agy call yet, so enabling it would claim a guarantee it cannot keep. The carrier template ships in the binary, guarded per OS at write time, but no command writes it: only a hand-edited [surfaces] enabled = [\"agy\"] plus ai-eng update puts ~/.gemini/config/hooks.json on a machine. The guard is fail-soft: a live PreToolUse probe on agy 1.5.14 recorded camelCase protojson — toolCall.name / toolCall.args.CommandLine — and a top-level {\"decision\":\"deny\",\"reason\"} that blocked a run_command; silence allows, while an empty {} and any non-zero exit both deny (fail closed). That last fact is why every line probes for ai-eng first: when the app the editor was launched from cannot resolve the binary, the line writes one line naming that to stderr and exits 0, instead of denying every tool call of a user who never asked for a broken hook. The payload still names no repository and only run_command / CommandLine were ever measured, so nothing is judged on the chain side until that is measured and mapped. Because agy's shape carries toolCall.name and no mapping of ours reads it, the chain allows a call it cannot read on a host with no judge of ours (can.deny host-only), with one reason line on stderr, instead of denying every call of a hand-enabled surface."
+    },
+    {
       "id": "copilot-cli",
       "label": "GitHub Copilot (CLI + VS Code)",
       "tier": "best-effort",
@@ -197,7 +222,7 @@
           "measured": "2026-11-07"
         }
       ],
-      "note": "One surface for the Copilot harness that the CLI and VS Code share — the same hook files, so the hooks never run twice (VS Code may send the snake_case payload; the chain reads both, tests/chain-dispatch.spec.ts), and both read a top-level permissionDecision (code.visualstudio.com/docs/copilot/customization/hooks); `--surface copilot-vscode` or `vscode` selects it. VS Code finds the skills in ~/.claude/skills and ~/.agents/skills. Command/HTTP userPromptSubmitted output is ignored, postToolUse can add context but does not replace tool output, and receipts persist locally; no token savings from output rewriting"
+      "note": "One surface for the Copilot harness that the CLI and VS Code share — the same hook files, so the hooks never run twice (VS Code may send the snake_case payload; the chain reads both, tests/chain-dispatch.spec.ts), and both read a top-level permissionDecision (code.visualstudio.com/docs/copilot/customization/hooks); `--surface copilot-vscode` or `vscode` selects it. VS Code finds the skills in ~/.claude/skills and ~/.agents/skills. Command/HTTP userPromptSubmitted output is ignored, postToolUse can add context but does not replace tool output, and receipts persist locally; no token savings from output rewriting. preToolUse command hooks fail CLOSED on a crash or non-zero exit and fail OPEN on timeout (docs.github.com/en/copilot/reference/hooks-reference); the template exits 0 when ai-eng is not on PATH on purpose, so a machine without it is not locked out"
     },
     {
       "id": "pi",

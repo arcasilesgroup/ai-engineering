@@ -81,6 +81,7 @@ The spoken-secret guard blocks a prompt that carries a low-entropy credential, w
 
 - The only window that works is the turn the secret is typed.
 - Hosts without a prompt hook are named, not pretended.
+- Corrected 2026-11-23: `agy` joined the hosts with no prompt event, measured on 1.5.14. `docs/surface-capability-matrix.md` owns the current list, host by host, with its measurement dates.
 
 ### Alternatives considered
 

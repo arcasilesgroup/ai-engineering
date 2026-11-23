@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { machineBase } from "../env.ts";
-import { KEEP_EXIT_STATUS, portableHookText, sha256 } from "../install.ts";
+import { AGY_FAIL_SOFT_POSIX, KEEP_EXIT_STATUS, agyFailSoftWindows, portableHookText, sha256 } from "../install.ts";
 import {
   embeddedTemplate, embeddedChainBundle,
 } from "../embed.ts";
@@ -107,9 +107,10 @@ export function carrierPath(placement: Carrier, relative?: string): string {
 }
 
 /** surface id → the entry template and whether the host needs the chain bundle
- *  beside it. Copilot fails CLOSED on a missing binary, in both scopes, so its one
- *  template guards the call per shell (`bash` and `powershell`). Null for a surface
- *  with no generator: no adapter, no offer. */
+ *  beside it. Copilot's one template carries a `command` plus a `powershell` form, so the
+ *  same repo file guards both shells; it exits 0 when `ai-eng` is not on PATH (fail OPEN
+ *  on a missing binary, on purpose — a machine without it is not locked out). Null for a
+ *  surface with no generator: no adapter, no offer. */
 const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean; isExitStatusRead?: boolean }> = {
   // Claude denies by exit status (2); every other JSON host reads the verdict from stdout.
   "claude-code": { main: "settings.claude.json.tpl", chain: false, isExitStatusRead: true },
@@ -119,6 +120,9 @@ const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean; isExitSt
   codex: { main: "settings.codex.json.tpl", chain: false },
   cursor: { main: "settings.cursor.json.tpl", chain: false },
   copilot: { main: "settings.copilot.json.tpl", chain: false },
+  // Advisory, so init and config refuse it: the carrier ships fail-soft, ready for the day
+  // a mapping exists, and cannot be wired up by an accident of the picker.
+  agy: { main: "settings.agy.json.tpl", chain: false },
 };
 
 /** The launcher name a hook line must call on this machine. On Windows a bare `ai-eng`
@@ -171,10 +175,14 @@ export function retireNpmPowerShellShim(platform: NodeJS.Platform = process.plat
  *  `$LASTEXITCODE` is unset there, so `exit` returns the chain's own status. */
 
 /** A settings template with its hook lines calling `launcher`. Only the call is renamed:
- *  the `command -v ai-eng` / `Get-Command ai-eng` probes look for any form of it. */
+ *  the `command -v ai-eng` / `Get-Command ai-eng` probes look for any form of it. The agy
+ *  guard is the one line whose syntax the shell itself owns (`command -v` and `{ …; }` do
+ *  not exist in cmd.exe, which uses `where` and `( … )`), so it is rendered for this OS
+ *  here too, and the guard probes the shim the call actually names. */
 export function withLauncher(template: string, launcher: string = hookLauncher(), isExitStatusRead = false): string {
   if (launcher === "ai-eng") return template;
-  const renamed = template.replaceAll("ai-eng chain ", `${launcher} chain `);
+  const guarded = template.replaceAll(AGY_FAIL_SOFT_POSIX, agyFailSoftWindows(launcher));
+  const renamed = guarded.replaceAll("ai-eng chain ", `${launcher} chain `);
   return isExitStatusRead ? renamed.replace(/("command": "[^"]+ chain [A-Za-z]+)"/g, `$1${KEEP_EXIT_STATUS}"`) : renamed;
 }
 
@@ -232,4 +240,25 @@ export function surfaceCanGovern(surface: Surface): boolean {
   // Only the hosts that RUN us can be governed: a host that denies on its own, without
   // calling our chain, has nowhere for a guard to stand.
   return surface.can.deny === true || surface.can.deny === "throw";
+}
+
+/** True when nothing of ours judges this host's calls: its `can.deny` is `host-only`, so
+ *  the host denies through its own permissions and the payload names no tool of ours. A
+ *  payload the chain cannot read there must be ALLOWED, not denied, because the host
+ *  denies on any non-zero exit: one unreadable payload would otherwise deny every tool
+ *  call of a person who enabled the surface (README, "a hook that cannot judge must not
+ *  lock a person out of their editor"). */
+export function surfaceHasNoJudge(id: string | undefined): boolean {
+  const surface = SURFACES.find((candidate) => candidate.id === id);
+  return surface !== undefined && !surfaceCanGovern(surface);
+}
+
+/** The one fact doctor owes the user per surface: does this host run our chain and
+ *  block the call synchronously (enforced), or only let us observe / rely on the host's
+ *  own permissions (advisory)? A surface is advisory when it has no synchronous pre-tool
+ *  deny we can reach — its `can.deny` is `host-only` or absent — or declares no carrier to
+ *  put one in. The capability matrix (docs/surface-capability-matrix.md) records the same
+ *  split, with the fail-open / fail-closed nuance per host. */
+export function surfaceEnforcement(surface: Surface): "enforced" | "advisory" {
+  return surfaceCanGovern(surface) && surface.carriers.length > 0 ? "enforced" : "advisory";
 }

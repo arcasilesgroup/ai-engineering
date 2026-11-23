@@ -9,10 +9,11 @@ import { test, expect, beforeAll, afterAll } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { SURFACES, machineCarrier, repoCarrier, carrierFiles } from "../src/surfaces/adapters.ts";
+import { delimiter, join } from "node:path";
+import { SURFACES, machineCarrier, repoCarrier, carrierFiles, surfaceCanGovern, surfaceEnforcement, withLauncher } from "../src/surfaces/adapters.ts";
 import { removeMachineArtifacts } from "../src/surfaces/carriers-install.ts";
-import { canonSkills, embeddedPath } from "../src/embed.ts";
+import { canonSkills, embeddedPath, embeddedTemplate } from "../src/embed.ts";
+import { portableHookText } from "../src/install.ts";
 import { machineBase } from "../src/env.ts";
 import { runChain } from "../src/chain/mod.ts";
 
@@ -193,6 +194,135 @@ test("machine carrier paths match each host's documented root, with source and d
   // The two repo readers keep their carriers in the checkout, and they are the only ones.
   const inRepo = SURFACES.filter((surface) => repoCarrier(surface) !== null).map((surface) => surface.id);
   expect(inRepo.sort()).toEqual(["copilot-cli", "cursor"]);
+  // agy declares one machine carrier and no repo carrier, and no consumer may read it as a
+  // host we govern: nothing of ours judges its calls yet, so it is advisory everywhere.
+  const agy = byId("agy")!;
+  expect(agy.carriers.map((carrier) => carrier.path)).toEqual([".gemini/config/hooks.json"]);
+  expect(surfaceCanGovern(agy)).toBe(false);
+  expect(surfaceEnforcement(agy)).toBe("advisory");
+});
+
+/** The two hook commands a rendered agy carrier carries, in event order. */
+function agyCommands(rendered: string): string[] {
+  const settings = JSON.parse(rendered) as Record<string, Record<string, { hooks: { command: string }[] }[]>>;
+  return Object.values(settings["ai-eng-guard"]!)
+    .flatMap((entries) => entries.flatMap((entry) => entry.hooks.map((hook) => hook.command)));
+}
+
+test("the agy carrier renders its guard for the shell that will run it, per OS", () => {
+  // agy denies any non-zero exit, so the guard must answer 0 when it cannot judge — in the
+  // shell the host has. cmd.exe has no `command -v`, no `{ …; }`, and `;` there only breaks
+  // tokens rather than starting the next command, so the call after the guard is joined
+  // with `&`. The two expected lines below are the contract, written by hand from those two
+  // shells, not read back from the renderer.
+  const template = embeddedTemplate("settings.agy.json.tpl");
+  expect(agyCommands(withLauncher(template, "ai-eng"))).toEqual([
+    "command -v ai-eng >/dev/null 2>&1 || { echo ai-eng: not found in PATH, allowing this call >&2; exit 0; }; ai-eng chain PreToolUse --surface agy",
+    "command -v ai-eng >/dev/null 2>&1 || { echo ai-eng: not found in PATH, allowing this call >&2; exit 0; }; ai-eng chain PostToolUse --surface agy",
+  ]);
+  expect(agyCommands(withLauncher(template, "ai-eng.cmd"))).toEqual([
+    "where ai-eng.cmd >nul 2>nul || ( echo ai-eng: not found in PATH, allowing this call 1>&2 & exit /b 0 ) & ai-eng.cmd chain PreToolUse --surface agy",
+    "where ai-eng.cmd >nul 2>nul || ( echo ai-eng: not found in PATH, allowing this call 1>&2 & exit /b 0 ) & ai-eng.cmd chain PostToolUse --surface agy",
+  ]);
+  // Uninstall recognises the carrier whichever shell wrote it: one marker, not two.
+  const writtenHere = agyCommands(template);
+  for (const [index, command] of agyCommands(withLauncher(template, "ai-eng.cmd")).entries()) {
+    expect(portableHookText(command)).toBe(writtenHere[index]!);
+  }
+});
+
+test.skipIf(process.platform === "win32")("agy's carrier allows with a reason on stderr when ai-eng is missing, and reaches the chain when it is there", () => {
+  // The emitted settings file is the generated interface; running its commands is the proof.
+  const commands = agyCommands(carrierFiles("agy")!.main);
+  expect(commands).toHaveLength(2);
+
+  const withoutBinary = join(sandbox, "no-ai-eng-on-path");
+  mkdirSync(withoutBinary, { recursive: true });
+  for (const command of commands) {
+    // /bin/sh by absolute path: the child's PATH is the one under test.
+    const run = spawnSync("/bin/sh", ["-c", command], { encoding: "utf8", env: { PATH: withoutBinary, HOME: home } });
+    expect(run.status).toBe(0);
+    expect(run.stdout).toBe(""); // agy's decision channel stays empty: the one shape the probe proved allows
+    expect(run.stderr).toContain("ai-eng: not found in PATH, allowing this call");
+  }
+
+  // With the binary on PATH the guard hands the call to the chain and prints nothing of its
+  // own: the deny below is the chain's answer, not prose this line invented.
+  const withBinary = join(sandbox, "ai-eng-on-path");
+  mkdirSync(withBinary, { recursive: true });
+  writeFileSync(join(withBinary, "ai-eng"), '#!/bin/sh\nprintf \'%s\\n\' \'{"decision":"deny","reason":"[ai-eng] no-verify"}\'\n', { mode: 0o755 });
+  for (const command of commands) {
+    const run = spawnSync("/bin/sh", ["-c", command], { encoding: "utf8", env: { PATH: withBinary, HOME: home } });
+    expect(run.status).toBe(0);
+    expect(run.stderr).toBe("");
+    expect(JSON.parse(run.stdout)).toEqual({ decision: "deny", reason: "[ai-eng] no-verify" });
+  }
+});
+
+test.skipIf(process.platform !== "win32")("the rendered Windows agy guard runs under cmd.exe: absent allows, present reaches the chain", () => {
+  // The line only exists on Windows, so this is the arm that proves it: a block that closed
+  // the wrong way, or an `exit /b 0` that did not end the line, would deny every agy call of
+  // a user who DID install ai-eng — the lockout the guard exists to prevent. The carrier is
+  // rendered here with the launcher Windows uses, so the proof never depends on this
+  // machine's own shims.
+  const commands = agyCommands(withLauncher(embeddedTemplate("settings.agy.json.tpl"), "ai-eng.cmd"));
+  expect(commands).toHaveLength(2);
+  // `cmd` and `where` are programs outside the shim folder: the system folders must resolve,
+  // and nothing else may — a real ai-eng on PATH would make the first half prove nothing.
+  const systemRoot = process.env.SystemRoot ?? "C:\\Windows";
+  const systemPath = [join(systemRoot, "System32"), systemRoot, join(systemRoot, "System32", "Wbem")].join(delimiter);
+  const run = (command: string, shimDir: string) =>
+    spawnSync("cmd", ["/d", "/s", "/c", command], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: [shimDir, systemPath].join(delimiter) },
+    });
+
+  const withoutBinary = join(sandbox, "win-no-ai-eng");
+  mkdirSync(withoutBinary, { recursive: true });
+  for (const command of commands) {
+    const absent = run(command, withoutBinary);
+    expect(absent.status).toBe(0);
+    expect(absent.stdout).toBe(""); // agy's decision channel stays empty: the one shape the probe proved allows
+    expect(absent.stderr).toContain("ai-eng: not found in PATH, allowing this call");
+  }
+
+  // With the shim on PATH the guard's block is skipped, not the call: the chain still runs.
+  const withBinary = join(sandbox, "win-ai-eng");
+  mkdirSync(withBinary, { recursive: true });
+  writeFileSync(join(withBinary, "ai-eng.cmd"), '@echo {"decision":"deny","reason":"[ai-eng] no-verify"}\r\n');
+  for (const command of commands) {
+    const present = run(command, withBinary);
+    expect(present.status).toBe(0);
+    expect(JSON.parse(present.stdout.trim())).toEqual({ decision: "deny", reason: "[ai-eng] no-verify" });
+  }
+});
+
+test("agy: a payload the chain cannot read is allowed, never denied (the host denies on any non-zero exit)", () => {
+  // agy 1.5.14 sends camelCase protojson — `toolCall.name` / `toolCall.args.CommandLine` —
+  // and denies on any non-zero exit. No mapping of ours reads that shape, so denying it
+  // would deny EVERY agy call of a person who hand-enabled the surface: the lockout the
+  // carrier's fail-soft guard exists to prevent (README: "a hook that cannot judge must
+  // not lock a person out of their editor"). Silence plus exit 0 is agy's own allow.
+  const measured = chain("agy", { toolCall: { name: "run_command", args: { CommandLine: "ls" } } });
+  expect(measured.status).toBe(0);
+  expect(measured.stdout).toBe(""); // agy's decision channel stays empty: silence allows
+  expect(measured.stderr).toInclude("has no tool mapping of ours");
+
+  // The same road for a payload normalise refuses to read at all.
+  const unreadable = chain("agy", { tool_name: "apply_patch", tool_input: { input: 5 } });
+  expect(unreadable.status).toBe(0);
+  expect(unreadable.stdout).toBe("");
+
+  // And for a body that is not JSON: same boundary, same answer.
+  const garbage = run(["chain", "PreToolUse", "--surface", "agy"], repo, "<<not json>>");
+  expect(garbage.status).toBe(0);
+
+  // Scope check: a host the chain CAN judge keeps the fail-closed boundary on that same
+  // unreadable shape, so this is a contract for surfaces with no judge, not a hole in the
+  // payload boundary every governed surface relies on.
+  const governed = chain("claude-code", { toolCall: { name: "run_command", args: { CommandLine: "ls" } } });
+  expect(governed.status).toBe(2);
+  expect(governed.stderr).toInclude("has no tool name");
 });
 
 test("cursor allow envelope: a permitted call answers, and the silent hosts stay silent", () => {

@@ -8,7 +8,7 @@ import { showLogo } from "./branding.ts";
 import { noticeNow, refreshVersionCache, REFRESH_ENV } from "./notice.ts";
 import { info, warn } from "./ui.ts";
 import { chainMain } from "./chain/mod.ts";
-import { surfaceDialect } from "./surfaces/adapters.ts";
+import { surfaceDialect, surfaceHasNoJudge } from "./surfaces/adapters.ts";
 import { doctorMain } from "./commands/doctor.ts";
 import { initMain } from "./commands/init.ts";
 import { updateMain } from "./commands/update.ts";
@@ -121,7 +121,7 @@ const verbMain: Record<string, () => number | Promise<number>> = {
     }
     const raw = await readStdin();
     const surface = surfaceList[0] ?? "claude-code";
-    chainMain(event, raw, { surface, dialect: surfaceDialect(surface) });
+    chainMain(event, raw, { surface, dialect: surfaceDialect(surface), hasNoJudge: surfaceHasNoJudge(surface) });
     return 0; // chainMain exits on its own when it denies
   },
   git: () => floor(String(flags._[1] ?? ""), flags._[2] != null ? String(flags._[2]) : undefined),
