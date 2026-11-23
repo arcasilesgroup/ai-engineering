@@ -92,16 +92,21 @@ const KEEP_EXIT_STATUS_TAIL = new RegExp(`( chain [A-Za-z]+)${KEEP_EXIT_STATUS.r
  *  decision channel, where only silence was measured to allow. */
 const AGY_FAIL_SOFT_REASON = "ai-eng: not found in PATH, allowing this call";
 
-/** The agy fail-soft guard in POSIX shell (macOS, Linux): agy denies any non-zero exit, so
- *  a line that cannot find the binary must answer 0 instead of denying every tool call. */
-export const AGY_FAIL_SOFT_POSIX = `command -v ai-eng >/dev/null 2>&1 || { echo ${AGY_FAIL_SOFT_REASON} >&2; exit 0; }`;
+/** The agy fail-soft guard and the separator that joins it to the chain call, in POSIX
+ *  shell (macOS, Linux): agy denies any non-zero exit, so a line that cannot find the
+ *  binary must answer 0 instead of denying every tool call. The guard is a block, so the
+ *  call after it needs a real command separator, not a line break. */
+export const AGY_FAIL_SOFT_POSIX = `command -v ai-eng >/dev/null 2>&1 || { echo ${AGY_FAIL_SOFT_REASON} >&2; exit 0; }; `;
 
-/** The same guard for cmd.exe, which has no `command -v`, no `||` and no `{ …; }`. */
+/** The same guard in cmd.exe, which has no `command -v`, no `||` before a block, and no
+ *  `; ` command separator — there `;` only breaks tokens, so the chain call is joined
+ *  with `&`. The missing-binary arm exits 0 inside its own block, so the call after it
+ *  never runs when there is nothing to run it with. */
 export function agyFailSoftWindows(launcher: string): string {
-  return `where ${launcher} >nul 2>nul || ( echo ${AGY_FAIL_SOFT_REASON} 1>&2 & exit /b 0 )`;
+  return `where ${launcher} >nul 2>nul || ( echo ${AGY_FAIL_SOFT_REASON} 1>&2 & exit /b 0 ) & `;
 }
 
-const AGY_FAIL_SOFT_WINDOWS_ANY = /where ai-eng\.(?:cmd|exe) >nul 2>nul \|\| \( echo [^)]* 1>&2 & exit \/b 0 \)/g;
+const AGY_FAIL_SOFT_WINDOWS_ANY = /where ai-eng\.(?:cmd|exe) >nul 2>nul \|\| \( echo [^)]* 1>&2 & exit \/b 0 \) & /g;
 
 /** A hook text with this machine's launcher taken back out: the `.cmd`/`.exe` name, the
  *  per-OS agy guard, and the exit-status tail a Windows render adds. The same line on every

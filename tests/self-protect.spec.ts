@@ -75,6 +75,13 @@ describe("protectedPaths — the list is derived from the wiring, never copied",
       ".pi/agent/extensions/ai-eng.ts",
       ".copilot/hooks/ai-eng.json",
       ".gemini/config/hooks.json",
+      // The folders a host scans and loads every file of: ours sits inside, a stray file
+      // in one disables the host.
+      ".config/opencode/plugins",
+      ".config/opencode/ai-eng",
+      ".omp/agent/hooks/pre",
+      ".pi/agent/extensions",
+      ".copilot/hooks",
       "machine.json",
     ]) {
       expect(paths.literals).toContain(join(base, carrier));
@@ -122,6 +129,20 @@ describe("protectedPaths — the list is derived from the wiring, never copied",
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm ${shellSpelling(agy)}` } }, null)?.deny).toBe(true);
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "rm .gemini/config/hooks.json" } }, null)?.deny).toBe(true);
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "echo {} > .gemini/config/hooks.json" } }, null)?.deny).toBe(true);
+  });
+
+  test("a file dropped beside ours in a host's scan folder is a write into machinery", () => {
+    // The host loads every file in these folders, so a stray one there — not only ours —
+    // ungoverns the next session; a write into the folder is denied, not just our entry.
+    const base = process.env.AI_ENG_HOME!;
+    for (const target of [
+      ".config/opencode/plugins/ai-eng-chain.ts",
+      ".pi/agent/extensions/evil.ts",
+      ".copilot/hooks/evil.json",
+    ]) {
+      const command = `echo {} > ${join(base, target)}`;
+      expect(runSelfProtect({ tool_name: "Bash", tool_input: { command } }, null)?.deny, target).toBe(true);
+    }
   });
 
   test("every repo carrier the registry declares is protected, and so is the folder holding it", () => {

@@ -211,19 +211,18 @@ function agyCommands(rendered: string): string[] {
 
 test("the agy carrier renders its guard for the shell that will run it, per OS", () => {
   // agy denies any non-zero exit, so the guard must answer 0 when it cannot judge — in the
-  // shell the host has. cmd.exe has no `command -v`, no `||` and no `{ …; }`, so the line is
-  // rendered per OS when the carrier is written; a single POSIX line on Windows would deny
-  // every call of a user who did install ai-eng.
+  // shell the host has. cmd.exe has no `command -v`, no `{ …; }`, and `;` there only breaks
+  // tokens rather than starting the next command, so the call after the guard is joined
+  // with `&`. The two expected lines below are the contract, written by hand from those two
+  // shells, not read back from the renderer.
   const template = embeddedTemplate("settings.agy.json.tpl");
-  const posixGuard = "command -v ai-eng >/dev/null 2>&1 || { echo ai-eng: not found in PATH, allowing this call >&2; exit 0; }";
   expect(agyCommands(withLauncher(template, "ai-eng"))).toEqual([
-    `${posixGuard}; ai-eng chain PreToolUse --surface agy`,
-    `${posixGuard}; ai-eng chain PostToolUse --surface agy`,
+    "command -v ai-eng >/dev/null 2>&1 || { echo ai-eng: not found in PATH, allowing this call >&2; exit 0; }; ai-eng chain PreToolUse --surface agy",
+    "command -v ai-eng >/dev/null 2>&1 || { echo ai-eng: not found in PATH, allowing this call >&2; exit 0; }; ai-eng chain PostToolUse --surface agy",
   ]);
-  const windowsGuard = "where ai-eng.cmd >nul 2>nul || ( echo ai-eng: not found in PATH, allowing this call 1>&2 & exit /b 0 )";
   expect(agyCommands(withLauncher(template, "ai-eng.cmd"))).toEqual([
-    `${windowsGuard}; ai-eng.cmd chain PreToolUse --surface agy`,
-    `${windowsGuard}; ai-eng.cmd chain PostToolUse --surface agy`,
+    "where ai-eng.cmd >nul 2>nul || ( echo ai-eng: not found in PATH, allowing this call 1>&2 & exit /b 0 ) & ai-eng.cmd chain PreToolUse --surface agy",
+    "where ai-eng.cmd >nul 2>nul || ( echo ai-eng: not found in PATH, allowing this call 1>&2 & exit /b 0 ) & ai-eng.cmd chain PostToolUse --surface agy",
   ]);
   // Uninstall recognises the carrier whichever shell wrote it: one marker, not two.
   const writtenHere = agyCommands(template);

@@ -539,8 +539,10 @@ describe("installer: the files a user shares with us", () => {
     const merged = mergeSharedText(userFile, carrierFiles("agy")!.main);
     expect("refused" in merged).toBe(false);
     if ("refused" in merged) return;
-    // The merged line names this machine's launcher: `ai-eng.cmd`/`ai-eng.exe` on Windows.
-    expect(merged.text).toContain(`${MACHINE_CHAIN} PreToolUse --surface agy`);
+    // The merged line names this machine's launcher, joined to its fail-soft guard by the
+    // separator this OS's shell parses: `;` in sh, `&` in cmd.exe.
+    const guardEnd = process.platform === "win32" ? ") & " : "}; ";
+    expect(merged.text).toContain(`${guardEnd}${MACHINE_CHAIN} PreToolUse --surface agy`);
     expect(merged.text).toContain("herdr notify");
 
     expect(stripSharedText(merged.text)).toBe(userFile);

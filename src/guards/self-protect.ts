@@ -12,7 +12,7 @@
 // and breaks the loop it governs. What stays protected is the machinery a session could
 // use to unpin, unhook or re-date itself.
 
-import { basename, isAbsolute, join, parse, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, parse, resolve, sep } from "node:path";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
@@ -815,6 +815,14 @@ const REPO_CARRIER_PATHS: readonly string[] = registryCarriers("repo").map((carr
 const MACHINE_CARRIER_PATHS: readonly string[] = registryCarriers("machine")
   .flatMap((carrier) => [carrier.path, ...(carrier.chain === undefined ? [] : [carrier.chain])]);
 
+/** The folders a host scans for its plugins: a file of ours (`ai-eng*`) sits inside one, and
+ *  the host loads every file there, so a stray file in it disables the host and the whole
+ *  folder is machinery — not just our entry. A host's own settings file names itself
+ *  (`settings.json`, `hooks.json`) and gets no folder rule. */
+const MACHINE_SCAN_DIRS: readonly string[] = MACHINE_CARRIER_PATHS
+  .filter((path) => basename(path).startsWith("ai-eng"))
+  .map((path) => dirname(path));
+
 /** The settings files this install wires, per surface (derived from what install
  *  wrote; the on-disk check keeps an uninstall from leaving ghosts). */
 function surfacesSettings(repoRoot: string): string[] {
@@ -843,7 +851,7 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   literals.push(join(machineBase(), ".config", "opencode", "skill"));
   literals.push(join(machineBase(), ".gemini", "config", "skills"));
   literals.push(globalHome);
-  for (const carrier of [...MACHINE_CARRIER_PATHS, "machine.json", ".gitconfig", ".config/git/config"]) {
+  for (const carrier of [...MACHINE_CARRIER_PATHS, ...MACHINE_SCAN_DIRS, "machine.json", ".gitconfig", ".config/git/config"]) {
     literals.push(join(machineBase(), carrier));
   }
   if (!repoRoot) return { literals: literals.filter((p) => p.length > 0), specPinned: false, terminal: [] };

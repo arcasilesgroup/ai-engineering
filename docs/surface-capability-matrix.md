@@ -99,8 +99,10 @@ when the carrier is written** — next to the launcher rewrite, never chosen at 
 - **POSIX (macOS, Linux)**: `command -v ai-eng >/dev/null 2>&1 || { echo ai-eng: not found
   in PATH, allowing this call >&2; exit 0; }; ai-eng chain <Event> --surface agy`.
 - **Windows**: `where ai-eng.cmd >nul 2>nul || ( echo ai-eng: not found in PATH, allowing
-  this call 1>&2 & exit /b 0 ); ai-eng.cmd chain <Event> --surface agy` — `command -v`,
-  `||` and `{ …; }` do not exist in cmd.exe, and the probe names the shim the call names.
+  this call 1>&2 & exit /b 0 ) & ai-eng.cmd chain <Event> --surface agy` — `command -v`,
+  `||` and `{ …; }` do not exist in cmd.exe, `;` there only breaks tokens and never starts
+  the next command (so the call is joined with `&`), and the probe names the shim the call
+  names.
 - **The reason goes to stderr, never stdout.** agy reads stdout as its decision document:
   silence allows, `{}` denies, and plain prose there was never probed. Stderr keeps stdout
   empty, the one shape the probe proved allows.
