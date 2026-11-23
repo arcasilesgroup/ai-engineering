@@ -205,6 +205,30 @@ describe("checkBash", () => {
     }
   });
 
+  // The same rule, spelled for Windows, where the shell's own escaping eats the separators of
+  // `C:\dir\file` and a drive letter joined onto the repository makes a temp write look
+  // governed. Both sides: the silence inside this repository is still denied.
+  test("a Windows root is judged by its drive, not by joining the target onto it", () => {
+    const winRoot = "C:\\Users\\runner\\AppData\\Local\\Temp\\noverify-win";
+    const winScratch = "C:\\Users\\runner\\AppData\\Local\\Temp\\noverify-report.txt";
+    for (const target of [
+      "src/a.ts",
+      "src\\a.ts",
+      `${winRoot}\\src\\a.ts`,
+      `"${winRoot}\\src\\a.ts"`,
+    ]) {
+      expect(checkBash(`sed -i 's/x/${TS_IGNORE}/' ${target}`, winRoot)?.deny, target).toBe(true);
+    }
+    for (const target of [
+      winScratch,
+      `"${winScratch}"`,
+      "C:\\Users\\runner\\source\\repos\\other\\src\\a.ts",
+      "D:\\other\\repo\\src\\a.ts",
+    ]) {
+      expect(checkBash(`sed -i 's/x/${TS_IGNORE}/' ${target}`, winRoot), target).toBeUndefined();
+    }
+  });
+
   test.each([
     ["--no-verify commit", "git commit --no-verify -m x", "--no-verify"],
     ["--no-verify push", "git push --no-verify", "--no-verify"],

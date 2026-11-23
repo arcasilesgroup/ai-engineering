@@ -1,7 +1,7 @@
 // --no-verify, and everything else that skips .git/hooks — plus every linter silence
 // too, because silencing a check is the same act as skipping a hook.
 
-import { basename, resolve, isAbsolute, join, relative } from "node:path";
+import { basename, resolve, isAbsolute, join, relative, win32 } from "node:path";
 import { realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { argumentWords, COMMAND_PREFIXES, commandIndex, fileRedirectTargets, inlineShellPrograms, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, staticPrintfValue, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
@@ -326,10 +326,33 @@ function inPlaceEdit(text: string): { files: string[]; program: string[] } | nul
   return { files: operands.slice(1), program: operands.slice(0, 1) };
 }
 
+/** A repository root that lives on a Windows filesystem: a drive letter or a UNC share. */
+const WINDOWS_PATH = /^(?:[A-Za-z]:[\\/]|\\\\)/;
+
+/** Both spellings of a Windows path, the one the guard can compare on. The shell's POSIX
+ *  escaping eats the separators of an unquoted word — the real `C:\dir\file` arrives here as
+ *  `C:dirfile` — while a quoted word keeps them. Dropping the separators from both sides is the
+ *  only reading that survives both, and it is conservative: a word that spells the repository
+ *  with anything after it stays governed. */
+function windowsSpelling(text: string): string {
+  return text.toLowerCase().replace(/[\\/]/g, "");
+}
+
+/** Whether a write target on a Windows root belongs to this repository. A word carrying a drive
+ *  letter is judged by its spelling against the root's, never joined onto the root: joining
+ *  `C:dirfile` to the repository is what made a write to the temp folder look governed. A word
+ *  with no drive letter is still relative, so it keeps the platform's own resolution. */
+function isGovernedWindowsTarget(target: string, repoRoot: string): boolean {
+  if (/^[A-Za-z]:/.test(target)) return windowsSpelling(target).startsWith(windowsSpelling(repoRoot));
+  const inside = win32.relative(repoRoot, win32.resolve(repoRoot, target));
+  return inside === "" || (!inside.startsWith("..") && !win32.isAbsolute(inside));
+}
+
 /** Whether the file a write lands in is one this repository governs. With no repository to
  *  compare against, the write stays governed: this guard does not fall open. */
 function isGovernedTarget(target: string, repoRoot: string | null): boolean {
   if (repoRoot === null) return true;
+  if (WINDOWS_PATH.test(repoRoot)) return isGovernedWindowsTarget(target, repoRoot);
   const root = resolve(repoRoot);
   const inside = relative(root, resolve(root, target));
   return inside === "" || (!inside.startsWith("..") && !isAbsolute(inside));
