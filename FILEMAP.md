@@ -67,9 +67,9 @@ scripts/
   artifact-a11y.ts             The static accessibility gate: markup rules WCAG lets a test prove
   artifact-axe.ts              The browser gate `bun run a11y`: axe-core in system Chrome, keys, reflow, no script
   chain-bundle.ts              Build the chain module the in-process plugin hosts import (into generated/)
-  readme-assets.ts             Renders the README's hero, headings, buttons, cards and figures from brand/tokens.json (no image model)
-  readme-figures.ts            The four figures as data and drawing: nodes, edges, captions and text versions
-  readme-diagrams.ts           Renders the two older README SVGs: the guard flow and the skill chain
+  readme-assets.ts             Renders the README's hero, headings, buttons, cards, skills grid and figures from brand/tokens.json (no image model)
+  readme-figures.ts            The five figures as data and drawing: nodes, one-anchor edges, captions and text versions
+  readme-diagrams.ts           Renders the older skill-chain and guard-flow SVGs, which the README no longer embeds
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
   tokens.ts                    `bun run tokens`: report skill-frontmatter and AGENTS-template byte/4 counts
   package-consumer-smoke.ts    Pack (or take `--tarball`), install in temp npm and Bun consumers, run `ai-eng --version`

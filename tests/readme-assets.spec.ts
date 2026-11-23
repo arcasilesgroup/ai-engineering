@@ -3,8 +3,8 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { BUTTONS, buttonFile, CARDS, cardFile, HEADINGS, headingFile, HERO, heroFile, OUT_DIR, renderedFiles, THEMES } from "../scripts/readme-assets.ts";
-import { DIAGRAM_VARS, FIGURES, figureFile } from "../scripts/readme-figures.ts";
+import { BUTTONS, buttonFile, CARDS, cardFile, HEADINGS, headingFile, HERO, heroFile, OUT_DIR, renderedFiles, SKILL_GROUPS, skillsGridAlt, skillsGridFile, THEMES } from "../scripts/readme-assets.ts";
+import { DIAGRAM_VARS, FIGURES, figureFile, figureSvg } from "../scripts/readme-figures.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
 const README = readFileSync(join(ROOT, "README.md"), "utf8");
@@ -86,10 +86,20 @@ describe("README repeats the assets' words", () => {
     }
   });
 
-  test("the hero's eyebrow and claim are in its alt text", () => {
-    const alt = altFor(heroFile("light"));
-    expect(alt).toContain(HERO.eyebrow);
-    expect(alt).toContain(HERO.claim);
+  test("the hero's alt text is the wordmark and the claim, word for word", () => {
+    expect(altFor(heroFile("light"))).toBe(`${HERO.eyebrow}. ${HERO.claim}`);
+  });
+
+  test("the skills grid names exactly the skills in skills/, once each, and its alt text lists them", () => {
+    const onDisk = readdirSync(join(ROOT, "skills")).filter((name) => existsSync(join(ROOT, "skills", name, "SKILL.md"))).sort();
+    expect(SKILL_GROUPS.flatMap((group) => group.skills).sort()).toEqual(onDisk);
+    expect(altFor(skillsGridFile("light"))).toBe(skillsGridAlt());
+    expect(README).toContain(`${onDisk.length} skills, grouped by job.`);
+  });
+
+  test("the README's figures are numbered in the order a reader meets them", () => {
+    const seen = [...README.matchAll(/<sub><b>Figure (\d)\.<\/b>/g)].map((match) => Number(match[1]));
+    expect(seen).toEqual(FIGURES.map((figure) => figure.n).sort());
   });
 });
 
@@ -103,6 +113,26 @@ describe("the figures stay legible in both modes", () => {
         }
       }
       expect(contrast(vars["--line-strong"] as string, vars["--surface-2"] as string), `${mode} border`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  test("every edge leaves and lands at the middle of a node's side, so a fan shares one anchor", () => {
+    const middles = (svg: string): string[] =>
+      [...svg.matchAll(/<g class="dg-node[^"]*"><rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)].flatMap((match) => {
+        const [x, y, width, height] = match.slice(1, 5).map(Number) as [number, number, number, number];
+        return [`${x} ${y + height / 2}`, `${x + width} ${y + height / 2}`, `${x + width / 2} ${y}`, `${x + width / 2} ${y + height}`];
+      });
+    for (const figure of FIGURES) {
+      const svg = figureSvg(figure);
+      const anchors = new Set(middles(svg));
+      const curves = [...svg.matchAll(/class="dg-edge[^"]*" d="M([\d.]+) ([\d.]+) C([\d.]+) ([\d.]+) [\d.]+ [\d.]+ ([\d.]+) ([\d.]+)"/g)];
+      for (const [, x1, y1, , controlY, stopX, stopY] of curves) {
+        expect(anchors.has(`${x1} ${y1}`), `figure ${figure.n}: edge leaves ${x1},${y1}`).toBe(true);
+        // A horizontal edge leaves flat, so its first control point keeps the start's y.
+        const isHorizontal = controlY === y1;
+        const tip = isHorizontal ? `${Number(stopX) + 8} ${stopY}` : `${stopX} ${Number(stopY) + (Number(stopY) > Number(y1) ? 8 : -8)}`;
+        expect(anchors.has(tip), `figure ${figure.n}: edge lands at ${tip}`).toBe(true);
+      }
     }
   });
 

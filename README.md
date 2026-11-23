@@ -2,14 +2,13 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/hero-dark.webp">
-  <img src=".github/assets/readme/hero-light.webp" alt="{ai} engineering. A local CLI for the coding agent you already run. Your coding agent can't quietly turn off your checks; we publish where it still can." width="100%">
+  <img src=".github/assets/readme/hero-light.webp" alt="{ai} engineering. Guardrails for the AI Coding Agents you already run" width="100%">
 </picture>
 
-When the agent reaches for `git commit --no-verify` or an `eslint-disable` line to turn a red check green,<br/>
-ai-eng refuses the call before it runs and tells the agent why.<br/>
-Every refusal is saved in your repository as a plain file.
+<b>Turn any repo into a governed workspace.</b><br/>
+The agent can't edit its own rules, and every refusal it gets is saved as a file you can read.
 
-<a href="#get-it"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/button-start-dark.webp"><img src=".github/assets/readme/button-start-light.webp" alt="Get started" width="180"></picture></a>&nbsp;&nbsp;<a href="#where-it-stops"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/button-stops-dark.webp"><img src=".github/assets/readme/button-stops-light.webp" alt="See where it stops" width="240"></picture></a>
+<a href="#get-it"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/button-start-dark.webp"><img src=".github/assets/readme/button-start-light.webp" alt="Get started" width="180"></picture></a>&nbsp;&nbsp;<a href="#measured"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/button-proof-dark.webp"><img src=".github/assets/readme/button-proof-light.webp" alt="See the proof" width="200"></picture></a>
 
 <sub>Bun 1.4.4+ · macOS · Linux · Windows · Apache-2.0 · Runs on your machine and calls no model · 7 of 10 agent hosts enforced and verified on 2026-11-23</sub>
 
@@ -21,7 +20,7 @@ Every refusal is saved in your repository as a plain file.
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/github/license/arcasilesgroup/ai-engineering?style=flat-square&amp;labelColor=001E2B&amp;color=00684A"></a>
 </p>
 
-<sub><a href="#guards">Guards</a> · <a href="#receipts">Receipts</a> · <a href="#fail-closed">Fail closed</a> · <a href="#your-repo">Your repo</a> · <a href="#measured">Measured</a> · <a href="#where-it-stops">Where it stops</a> · <a href="#under-the-hood">Under the hood</a> · <a href="#release">Release</a> · <a href="#skills">Skills</a> · <a href="#answers">Answers</a> · <a href="#get-it">Get it</a> · <a href="#build-with-us">Build with us</a></sub>
+<sub><a href="#guards">Guards</a> · <a href="#receipts">Receipts</a> · <a href="#skills">Skills</a> · <a href="#fail-closed">Fail closed</a> · <a href="#your-repo">Your repo</a> · <a href="#measured">Measured</a> · <a href="#where-it-stops">Known limits</a> · <a href="#under-the-hood">Under the hood</a> · <a href="#release">Release</a> · <a href="#answers">Answers</a> · <a href="#get-it">Get it</a> · <a href="#build-with-us">Build with us</a></sub>
 
 </div>
 
@@ -98,17 +97,86 @@ Each guard runs only for the tools it governs, in this order, and the first refu
 <a name="receipts"></a>
 <h2 align="center"><a href="#receipts"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-receipts-dark.webp"><img src=".github/assets/readme/heading-receipts-light.webp" alt="Every refusal on file" width="600"></picture></a></h2>
 
-<p align="center">Git keeps no record of a skipped hook. Every answer here lands in <code>.ai-engineering/receipts/</code> as a plain JSON file you can read and grep.</p>
+<p align="center">Git keeps no record of a skipped check. ai-eng saves every answer as a small file in your repo, so you can see what the agent tried.</p>
 
 <p align="center">
   <a href="src/receipts.ts"><img src=".github/assets/readme/receipt.webp" alt="A terminal. ls lists three receipt files in .ai-engineering/receipts/, one per verdict, plus denies.json. jq prints the first: event PreToolUse, surface claude-code, tool Bash, guards ran self-protect and no-verify, denied_by no-verify, outcome deny, latency 5 ms." width="880"></a>
-  <br/><sub>Three verdicts, three files in your repository. A receipt is a file; anyone who can write to the folder can write one, so treat it as a log, not as proof.</sub>
+  <br/><sub>Three verdicts, three files in <code>.ai-engineering/receipts/</code>. A receipt is a file; anyone who can write to the folder can write one, so treat it as a log, not as proof.</sub>
 </p>
+
+<a name="skills"></a>
+<h2 align="center"><a href="#skills"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-skills-dark.webp"><img src=".github/assets/readme/heading-skills-light.webp" alt="Skills, sorted by the job" width="600"></picture></a></h2>
+
+<p align="center">27 skills, grouped by job. One finds a bug's cause before it touches code; another builds a feature in small steps and asks for your yes twice.</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/skills-grid-dark.webp">
+    <img src=".github/assets/readme/skills-grid-light.webp" alt="The 27 skills in six groups. Shape the idea: ai-brainstorm, ai-research, ai-architect, ai-read-docs. Build it: ai-orchestrator, ai-test-planner, ai-prototype, ai-design-md-planner. Understand the code: ai-explore, ai-codegraph, ai-debug, ai-note. Check the work: ai-verify, ai-adversarial-loop, ai-security, ai-stress-test, ai-audit-code, ai-audit-design, ai-review-ui. Ship and write it up: ai-pr, ai-write, ai-audit-docs, ai-visual-recap, ai-issue-report. Keep the repo in order: ai-triage, ai-refresh-project, ai-writing-behavior." width="880">
+  </picture>
+  <br/><sub>Every skill is a plain instruction file your agent follows. Use any of them, or none.</sub>
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/figure-2-loop-dark.webp">
+    <img src=".github/assets/readme/figure-2-loop-light.webp" alt="Figure 2. The build loop of ai-orchestrator. Your idea goes to a plan after you approve the idea. The plan becomes numbered checkpoints, built one at a time and each gated before the next; a checkpoint that fails a gate does not move on. You review the app, and it ships as a pull request or a local merge." width="880">
+  </picture>
+  <br/><sub><b>Figure 2.</b> The build loop. A checkpoint that fails a gate does not move on, and the loop stops for you twice: to approve the idea before it builds, and to review the app before it ships.</sub>
+</p>
+
+<details>
+<summary>Text version of figure 2</summary>
+
+1. You give `ai-orchestrator` a feature, in your own words. You approve the idea: that is the first stop.
+2. It splits the work into numbered checkpoints, smallest first.
+3. It builds one checkpoint at a time and gates each before the next. A checkpoint that fails a gate does not move on.
+4. You review the app: that is the second stop.
+5. On your approval, it ships as a pull request or a local merge.
+
+</details>
+
+<details>
+<summary>All 27 skills, one line each</summary>
+
+| Group | Skill | What it does |
+|---|---|---|
+| Shape the idea | `ai-brainstorm` | Questions a fuzzy idea until it fits in plain words, then asks for approval |
+| | `ai-research` | Answers from outside the repository with numbered sources, or marks a claim `[unsourced]` |
+| | `ai-architect` | Advises on approach, stack, cost and prior art before the build starts |
+| | `ai-read-docs` | Reads the current docs before you depend on external or versioned behavior |
+| Build it | `ai-orchestrator` | Builds a feature end to end in gated checkpoints |
+| | `ai-test-planner` | Plans and writes tests from the bottom layer up |
+| | `ai-prototype` | Builds a clickable single-file HTML prototype of a screen or flow |
+| | `ai-design-md-planner` | Writes a `DESIGN.md` design system and lints it with the official CLI |
+| Understand the code | `ai-explore` | Answers "where does this live", with `file:line` evidence |
+| | `ai-codegraph` | Maps call chains, blast radius and cross-file links |
+| | `ai-debug` | Names the root cause at `file:line` and writes the failing check before the fix |
+| | `ai-note` | Saves a hard-won finding as committed Markdown, stamped so staleness shows |
+| Check the work | `ai-verify` | Checks finished work at the right depth and returns a verdict with evidence |
+| | `ai-adversarial-loop` | Debates a critic and a fixer, round after round, until the code is clean |
+| | `ai-security` | Runs a six-phase security audit; the finder never verifies its own findings |
+| | `ai-stress-test` | Finds the load that breaks the system |
+| | `ai-audit-code` | Finds the simplest solution that works: least code, fewest dependencies |
+| | `ai-audit-design` | Finds and fixes visual defects in a rendered page, by measurement |
+| | `ai-review-ui` | Screenshots the live UI and its prototype, then compares them |
+| Ship and write it up | `ai-pr` | Runs the pull request: cut, push, open, watch CI, merge. Your words decide how far it goes |
+| | `ai-write` | Writes a README, wiki page or API doc, verified against the tree |
+| | `ai-audit-docs` | Checks the docs against the repository: dead links, false claims, stale versions |
+| | `ai-visual-recap` | Turns a diff into an interactive recap: diagrams, file map, annotated diff |
+| | `ai-issue-report` | Drafts a bug report locally, with sensitive fields removed; sends nothing without your yes |
+| Keep the repo in order | `ai-triage` | Ranks one GitHub or Azure DevOps backlog in a read-only report |
+| | `ai-refresh-project` | Aligns `AGENTS.md`, the docs, the governance files and the branches with the tree |
+| | `ai-writing-behavior` | Writes `BEHAVIOR.md` specs for agent conduct that can be judged |
+
+None of this is required to get the refusals above. The triggers that send a change to a skill are in [docs/skills.md](docs/skills.md).
+
+</details>
 
 <a name="fail-closed"></a>
 <h2 align="center"><a href="#fail-closed"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-fail-closed-dark.webp"><img src=".github/assets/readme/heading-fail-closed-light.webp" alt="Unsure means no" width="600"></picture></a></h2>
 
-<p align="center">A check that crashes or cannot decide refuses the call. Copilot and Codex are the exceptions, and the section names exactly when.</p>
+<p align="center">If a check breaks or cannot decide, the answer is no. Copilot and Codex are the exceptions, and this section says when.</p>
 
 <table align="center">
   <tr>
@@ -136,7 +204,7 @@ The exceptions are real. The Copilot adapter (CLI and VS Code) fails open on a t
 <a name="measured"></a>
 <h2 align="center"><a href="#measured"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-measured-dark.webp"><img src=".github/assets/readme/heading-measured-light.webp" alt="Numbers you can rerun" width="600"></picture></a></h2>
 
-<p align="center">Under 3 ms per tool call at p95 on our Mac, and 7 of 10 hosts enforced and verified. Every figure names its command or the dated matrix.</p>
+<p align="center">On our Mac, 95 in 100 checks add under 3 milliseconds; 7 of the 10 agents we list are enforced and tested. Each one can be rerun.</p>
 
 <table align="center">
   <tr>
@@ -165,18 +233,18 @@ Want the figure for your repo? `ai-eng doctor` counts refusals per 1,000 real to
 <a name="where-it-stops"></a>
 <h2 align="center"><a href="#where-it-stops"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-where-it-stops-dark.webp"><img src=".github/assets/readme/heading-where-it-stops-light.webp" alt="Where the agent still can" width="600"></picture></a></h2>
 
-<p align="center">ai-eng is not a sandbox. This section lists every way past it that we know of, beside the dated host matrix.</p>
+<p align="center">ai-eng catches an agent's visible shortcuts; it does not lock the agent in. This section lists every way past it that we know of.</p>
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/figure-2-layers-dark.webp">
-    <img src=".github/assets/readme/figure-2-layers-light.webp" alt="Figure 2. Five layers, in the order a change meets them, each with the one thing only it stops. The guard chain stops an attempt to skip a check. Git hooks stop a secret in a commit. CI workflows stop a push that skipped the hooks. External review catches a test that was deleted or weakened, which every layer above passes. A merge stops a change nobody approved." width="880">
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/figure-3-layers-dark.webp">
+    <img src=".github/assets/readme/figure-3-layers-light.webp" alt="Figure 3. Five layers, in the order a change meets them, each with the one thing only it stops. The guard chain stops an attempt to skip a check. Git hooks stop a secret in a commit. CI workflows stop a push that skipped the hooks. External review catches a test that was deleted or weakened, which every layer above passes. A merge stops a change nobody approved." width="880">
   </picture>
-  <br/><sub><b>Figure 2.</b> The layers, in the order a change meets them. The dashed row is a gap: no layer above external review reads what a test checks.</sub>
+  <br/><sub><b>Figure 3.</b> The layers, in the order a change meets them. The dashed row is a gap: no layer above external review reads what a test checks.</sub>
 </p>
 
 <details>
-<summary>Text version of figure 2</summary>
+<summary>Text version of figure 3</summary>
 
 1. Guard chain, before the tool runs: it alone stops an attempt to skip a check, because a hook cannot see the flag that skips it.
 2. Git hooks, at commit and push: they alone read the staged diff for a secret, and they run for a person as well as an agent.
@@ -188,14 +256,14 @@ Want the figure for your repo? `ai-eng doctor` counts refusals per 1,000 real to
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/figure-3-surfaces-dark.webp">
-    <img src=".github/assets/readme/figure-3-surfaces-light.webp" alt="Figure 3. Ten agent hosts by what ai-eng can do on each, measured on 2026-11-23. Enforced and verified, seven: claude-code, cursor, copilot-cli, copilot-vscode, opencode, pi and oh-my-pi. Enforced but unverified, one: codex. Advisory, two: zed and agy. Copilot fails open on a timeout or when ai-eng is missing from PATH; codex fails open on a hook error." width="880">
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/figure-4-surfaces-dark.webp">
+    <img src=".github/assets/readme/figure-4-surfaces-light.webp" alt="Figure 4. Ten agent hosts by what ai-eng can do on each, measured on 2026-11-23. Enforced and verified, seven: claude-code, cursor, copilot-cli, copilot-vscode, opencode, pi and oh-my-pi. Enforced but unverified, one: codex. Advisory, two: zed and agy. Copilot fails open on a timeout or when ai-eng is missing from PATH; codex fails open on a hook error." width="880">
   </picture>
-  <br/><sub><b>Figure 3.</b> Which hosts are enforced, which advise, which are unverified. Counts come from the capability matrix, measured 2026-11-23. The dashed box names the source.</sub>
+  <br/><sub><b>Figure 4.</b> Which hosts are enforced, which advise, which are unverified. Counts come from the capability matrix, measured 2026-11-23. The dashed box names the source.</sub>
 </p>
 
 <details>
-<summary>Text version of figure 3</summary>
+<summary>Text version of figure 4</summary>
 
 1. Enforced and verified, 7: `claude-code`, `cursor`, `copilot-cli`, `copilot-vscode`, `opencode`, `pi` and `oh-my-pi`. A denial blocks the call, tested on the measuring machine. The two Copilot hosts fail open on a timeout or when `ai-eng` is not on `PATH`.
 2. Enforced but unverified, 1: `codex`. It is wired to deny, but the CLI was not installed on the measuring machine. It fails open on a hook error.
@@ -214,23 +282,23 @@ Command guards read the visible command text. They do not sandbox opaque program
 
 For untrusted code, use OS-level isolation: a container, a VM or an OS sandbox.
 
-Some limits are not on the host list at all. ai-eng does not read test content, so an agent that deletes a failing test or weakens an assertion still gets a green build. [Figure 2](#where-it-stops) shows which layer is meant to catch that.
+Some limits are not on the host list at all. ai-eng does not read test content, so an agent that deletes a failing test or weakens an assertion still gets a green build. [Figure 3](#where-it-stops) shows which layer is meant to catch that.
 
 <a name="under-the-hood"></a>
 <h2 align="center"><a href="#under-the-hood"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-under-the-hood-dark.webp"><img src=".github/assets/readme/heading-under-the-hood-light.webp" alt="One CLI, many hosts" width="600"></picture></a></h2>
 
-<p align="center">Eight agent hosts call the same local command before a tool runs; seven of them we have verified. It needs no server and calls no model.</p>
+<p align="center">Eight of the agent tools we list ask the same small program before each action; we have tested seven. It needs no server and calls no model.</p>
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/figure-4-single-parse-dark.webp">
-    <img src=".github/assets/readme/figure-4-single-parse-light.webp" alt="Figure 4. One command goes through one shell parse in src/guards/shell.ts into a typed command model. Six guards read that model as predicates: no-verify, no-stash, policy, self-protect, lease and injection. A dashed check, tests/shell-guard-contract.spec.ts, pins what the one reader returns." width="880">
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/figure-5-single-parse-dark.webp">
+    <img src=".github/assets/readme/figure-5-single-parse-light.webp" alt="Figure 5. One command goes through one shell parse in src/guards/shell.ts into a typed command model. Six guards read that model as predicates: no-verify, no-stash, policy, self-protect, lease and injection. A dashed check, tests/shell-guard-contract.spec.ts, pins what the one reader returns." width="880">
   </picture>
-  <br/><sub><b>Figure 4.</b> One parse, many guards. Each guard asks a question of the same typed model, so none reads a command differently from the shell. The dashed box is a test, not a step.</sub>
+  <br/><sub><b>Figure 5.</b> One parse, many guards. Each guard asks a question of the same typed model, so none reads a command differently from the shell. The dashed box is a test, not a step.</sub>
 </p>
 
 <details>
-<summary>Text version of figure 4</summary>
+<summary>Text version of figure 5</summary>
 
 1. A command arrives as text, for example `git commit -n -m fix`.
 2. One reader, `src/guards/shell.ts`, parses it the way the shell will: quotes, escapes, substitutions and heredocs.
@@ -250,7 +318,7 @@ The two hosts that never call the command: Zed has no hook API, and the agy hook
 <a name="release"></a>
 <h2 align="center"><a href="#release"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-release-dark.webp"><img src=".github/assets/readme/heading-release-light.webp" alt="One way to ship" width="600"></picture></a></h2>
 
-<p align="center">Each ai-eng release reaches npm only from a signed tag a person approved, with its provenance verified first. <code>npm audit signatures</code> checks that provenance on your machine.</p>
+<p align="center">Each release reaches npm only after a person approves it, and one command checks the package's signed build record on your machine.</p>
 
 1. A signed annotated tag, from an allowed key, on exactly the dispatched commit.
 2. Every row of [NOTICE.md](NOTICE.md) marked `verified`.
@@ -264,20 +332,6 @@ The rules are in [`scripts/release-policy.ts`](scripts/release-policy.ts) and [`
 npm audit signatures
 gh attestation verify ai-eng-darwin-arm64 --repo arcasilesgroup/ai-engineering   # a binary from the GitHub release
 ```
-
-<a name="skills"></a>
-<h2 align="center"><a href="#skills"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-skills-dark.webp"><img src=".github/assets/readme/heading-skills-light.webp" alt="An optional build loop" width="600"></picture></a></h2>
-
-<p align="center">Give <code>ai-orchestrator</code> a feature and it builds it in checkpoints that pass the same checks. It stops for your yes on the plan and on the result.</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/skill-chain-dark.svg">
-    <img src=".github/assets/skill-chain-light.svg" alt="The orchestrator loop: ai-brainstorm, ai-research and ai-architect are optional inputs; ai-orchestrator splits a feature into numbered checkpoints, builds each through behavior, UI and adversarial review gates, and stops for a human twice; ai-verify, ai-security and ai-write are optional outputs; other skills run on demand" width="100%">
-  </picture>
-</p>
-
-None of this is required to get the refusals above. The 27 skills, the build loop among them, are in [docs/skills.md](docs/skills.md).
 
 <a name="answers"></a>
 <h2 align="center"><a href="#answers"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-answers-dark.webp"><img src=".github/assets/readme/heading-answers-light.webp" alt="What sceptics ask" width="600"></picture></a></h2>
@@ -334,7 +388,7 @@ When it refuses something harmless, it tells you which check fired and why, so y
 <a name="get-it"></a>
 <h2 align="center"><a href="#get-it"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-get-it-dark.webp"><img src=".github/assets/readme/heading-get-it-light.webp" alt="Try it on one repo" width="600"></picture></a></h2>
 
-<p align="center">Install the CLI and run <code>ai-eng init</code> in a repository. Then <code>ai-eng doctor</code> sends one real attack payload and shows you the refusal.</p>
+<p align="center">Set it up in one repository. Its first health check tries a real shortcut and shows you the refusal.</p>
 
 Install [Bun](https://bun.com) (>= 1.4.4) once. On macOS and Linux: `curl -fsSL https://bun.sh/install | bash`. Then the CLI, then govern a repository:
 
@@ -351,7 +405,7 @@ ai-eng doctor
   <br/><sub>a real session, sped up: <code>ai-eng init</code>, then <code>ai-eng doctor</code></sub>
 </p>
 
-More: [install edge cases](docs/install.md) (from source, no administrator rights, Windows) · [CLI](docs/cli.md) · [lanes](docs/lanes.md) · [configuration](docs/configuration.md) · [troubleshooting](docs/troubleshooting.md) · [skills](docs/skills.md).
+More: [install edge cases](docs/install.md) (from source, no administrator rights, Windows) · [CLI](docs/cli.md) · [lanes](docs/lanes.md) · [configuration](docs/configuration.md) · [troubleshooting](docs/troubleshooting.md) · [skills](docs/skills.md) (the triggers that send a change to a skill).
 
 <a name="build-with-us"></a>
 <h2 align="center"><a href="#build-with-us"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-build-with-us-dark.webp"><img src=".github/assets/readme/heading-build-with-us-light.webp" alt="Found a way past it?" width="600"></picture></a></h2>
@@ -365,8 +419,7 @@ bun install
 bun run build                  # compile the binary, skills, agents and templates inside
 bun test                       # unit, adversarial, gate and architecture tests
 bun run lint && bun run typecheck
-bun scripts/readme-diagrams.ts # regenerate the two skill and guard-flow SVGs
-bun scripts/readme-assets.ts   # re-render the README's headings, buttons, cards, hero and figures
+bun scripts/readme-assets.ts   # re-render the README's headings, buttons, cards, skills grid, hero and figures
 ```
 
 The terminal stills are recorded with [VHS](https://github.com/charmbracelet/vhs) from real hook payloads: see `.github/assets/tapes/stills.tape`. Versions come from [changesets](.changeset/README.md); [docs/history](docs/history/recap.html) holds the early design record, which is history.

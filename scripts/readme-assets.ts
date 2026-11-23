@@ -3,7 +3,7 @@
 //
 // Every pixel is typeset or drawn here, from brand/tokens.json and the brand's own component
 // styles, in dark and light: the hero, the section headings, the two buttons, the "blocks" and
-// "informs" cards and the four figures (scripts/readme-figures.ts). A model misspells and its
+// "informs" cards, the skills grid and the five figures (scripts/readme-figures.ts). A model misspells and its
 // output cannot be re-rendered; this can. Change a line in a table below, run
 // `bun scripts/readme-assets.ts`, commit the images it wrote.
 //
@@ -33,13 +33,13 @@ export type Heading = { slug: string; label: string; text: string; accent: strin
 export const HEADINGS: readonly Heading[] = [
   { slug: "guards", label: "Guards", text: "Refused before it runs", accent: "Refused" },
   { slug: "receipts", label: "Receipts", text: "Every refusal on file", accent: "on file" },
+  { slug: "skills", label: "Skills", text: "Skills, sorted by the job", accent: "job" },
   { slug: "fail-closed", label: "Fail closed", text: "Unsure means no", accent: "no" },
   { slug: "your-repo", label: "Your repo", text: "The rules live in your repo", accent: "your repo" },
   { slug: "measured", label: "Measured", text: "Numbers you can rerun", accent: "rerun" },
-  { slug: "where-it-stops", label: "Where it stops", text: "Where the agent still can", accent: "still can" },
+  { slug: "where-it-stops", label: "Known limits", text: "Where the agent still can", accent: "still can" },
   { slug: "under-the-hood", label: "Under the hood", text: "One CLI, many hosts", accent: "One CLI" },
   { slug: "release", label: "Release", text: "One way to ship", accent: "One way" },
-  { slug: "skills", label: "Skills", text: "An optional build loop", accent: "optional" },
   { slug: "answers", label: "Answers", text: "What sceptics ask", accent: "sceptics" },
   { slug: "get-it", label: "Get it", text: "Try it on one repo", accent: "one repo" },
   { slug: "build-with-us", label: "Build with us", text: "Found a way past it?", accent: "way past" },
@@ -49,14 +49,14 @@ export type Button = { slug: string; text: string; width: number; filled: boolea
 
 export const BUTTONS: readonly Button[] = [
   { slug: "start", text: "Get started", width: 180, filled: true },
-  { slug: "stops", text: "See where it stops", width: 240, filled: false },
+  { slug: "proof", text: "See the proof", width: 200, filled: false },
 ];
 
 /** The hero: the brand's artifact hero (field, grid, corner brackets, the {ai} chip, display type, mono line). */
 export const HERO = {
-  eyebrow: "A local CLI for the coding agent you already run",
-  claim: "Your coding agent can't quietly turn off your checks; we publish where it still can.",
-  accent: "quietly",
+  eyebrow: "{ai} engineering",
+  claim: "Guardrails for the AI Coding Agents you already run",
+  accent: "Guardrails",
   width: 1280,
   height: 480,
 } as const;
@@ -83,6 +83,20 @@ export const CARDS: readonly Card[] = [
   },
 ];
 
+/** The skills, grouped by job. `star` marks the one skill the build-loop figure explains. */
+export type SkillGroup = { title: string; line: string; skills: readonly string[]; star?: string };
+
+// tests/readme-assets.spec.ts proves these lists are exactly the directories under skills/.
+export const SKILL_GROUPS: readonly SkillGroup[] = [
+  { title: "Shape the idea", line: "Pin down what to build and why, with sources you can check.", skills: ["ai-brainstorm", "ai-research", "ai-architect", "ai-read-docs"] },
+  { title: "Build it", line: "Make the thing, from a clickable mock-up to the tested feature.", skills: ["ai-orchestrator", "ai-test-planner", "ai-prototype", "ai-design-md-planner"], star: "ai-orchestrator" },
+  { title: "Understand the code", line: "Find where things live, and why they break.", skills: ["ai-explore", "ai-codegraph", "ai-debug", "ai-note"] },
+  { title: "Check the work", line: "A second opinion with evidence, before you ship.", skills: ["ai-verify", "ai-adversarial-loop", "ai-security", "ai-stress-test", "ai-audit-code", "ai-audit-design", "ai-review-ui"] },
+  { title: "Ship and write it up", line: "Open the pull request, and keep the docs true to the code.", skills: ["ai-pr", "ai-write", "ai-audit-docs", "ai-visual-recap", "ai-issue-report"] },
+  { title: "Keep the repo in order", line: "Rank the backlog, and keep the agent's guidance current.", skills: ["ai-triage", "ai-refresh-project", "ai-writing-behavior"] },
+];
+
+const GRID_WIDTH = 880;
 const HEADING_WIDTH = 800;
 const HEADING_HEIGHT = 112;
 const BUTTON_HEIGHT = 48;
@@ -92,6 +106,11 @@ export const headingFile = (slug: string, mode: Mode) => `heading-${slug}-${mode
 export const buttonFile = (slug: string, mode: Mode) => `button-${slug}-${mode}.webp`;
 export const heroFile = (mode: Mode) => `hero-${mode}.webp`;
 export const cardFile = (slug: string, mode: Mode) => `card-${slug}-${mode}.webp`;
+export const skillsGridFile = (mode: Mode) => `skills-grid-${mode}.webp`;
+
+/** The grid's alt text: every group, then every skill in it, so a screen reader gets the same list. */
+export const skillsGridAlt = (): string =>
+  `The ${SKILL_GROUPS.reduce((total, group) => total + group.skills.length, 0)} skills in six groups. ${SKILL_GROUPS.map((group) => `${group.title}: ${group.skills.join(", ")}.`).join(" ")}`;
 
 /** Every file this script owns in OUT_DIR, so a test can prove none is missing or orphaned. */
 export function renderedFiles(): string[] {
@@ -100,6 +119,7 @@ export function renderedFiles(): string[] {
     ...BUTTONS.map((button) => buttonFile(button.slug, mode)),
     ...CARDS.map((card) => cardFile(card.slug, mode)),
     ...FIGURES.map((figure) => figureFile(figure, mode)),
+    skillsGridFile(mode),
     heroFile(mode),
   ]);
 }
@@ -215,6 +235,26 @@ code{font:500 13px/1 ${MONO};color:${theme.ink}}
   );
 }
 
+/** Six tiles, three across: a title and its count, one plain line, then the names in small mono type. */
+function skillsGridPage(theme: Theme): string {
+  const tiles = SKILL_GROUPS.map((group) => {
+    const names = group.skills.map((name) => `<span class="skill">${escapeHtml(name)}${name === group.star ? '<i class="star">★</i>' : ""}</span>`).join("");
+    return `<section><p class="top"><b>${escapeHtml(group.title)}</b><span class="count">${group.skills.length}</span></p><p class="line">${escapeHtml(group.line)}</p><p class="names">${names}</p></section>`;
+  }).join("");
+  return page(
+    `<div id="asset">${tiles}</div>`,
+    `#asset{width:${GRID_WIDTH}px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+section{border:1px solid ${theme.border};border-radius:12px;background:${theme.raised};padding:20px;display:flex;flex-direction:column;gap:10px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.top b{font:800 20px/1.15 ${SANS};font-stretch:92%;letter-spacing:-.02em;color:${theme.ink}}
+.count{font:600 12px/1.5 ${MONO};padding:2px 9px;border-radius:999px;border:1px solid ${theme.good};color:${theme.goodText}}
+.line{font:400 15px/1.45 ${SANS};color:${theme.muted}}
+.names{display:flex;flex-wrap:wrap;gap:6px;padding-top:6px}
+.skill{font:500 12.5px/1 ${MONO};color:${theme.ink};padding:5px 8px;border-radius:6px;border:1px solid ${theme.border};background:${theme.field}}
+.star{font-style:normal;color:${theme.accent};margin-left:5px}`,
+  );
+}
+
 function figurePage(figureIndex: number, mode: Mode): string {
   const vars = Object.entries({ ...DIAGRAM_VARS[mode], "--mono": MONO, "--sans": SANS }).map(([name, value]) => `${name}:${value}`).join(";");
   return page(`<div id="asset">${figureSvg(FIGURES[figureIndex] as (typeof FIGURES)[number])}</div>`, `:root{${vars}}#asset{width:${FIGURE_WIDTH}px;line-height:0}\n${FIGURE_CSS}`);
@@ -235,6 +275,7 @@ function jobs(): Job[] {
       ...BUTTONS.map((button) => ({ file: buttonFile(button.slug, mode), html: buttonPage(button, theme), families: ["Archivo"], isFigure: false })),
       ...CARDS.map((card) => ({ file: cardFile(card.slug, mode), html: cardPage(card, theme), families: both, isFigure: false })),
       ...FIGURES.map((figure, index) => ({ file: figureFile(figure, mode), html: figurePage(index, mode), families: both, isFigure: true })),
+      { file: skillsGridFile(mode), html: skillsGridPage(theme), families: both, isFigure: false },
       { file: heroFile(mode), html: heroPage(theme), families: both, isFigure: false },
     ];
   });

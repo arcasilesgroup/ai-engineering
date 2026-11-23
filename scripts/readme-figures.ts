@@ -1,4 +1,4 @@
-// scripts/readme-figures.ts — the README's four figures, drawn from the repository.
+// scripts/readme-figures.ts — the README's five figures, drawn from the repository.
 //
 // Each figure is data (nodes, edges, a caption, a text version) plus one small drawing
 // routine. `scripts/readme-assets.ts` rasterises them, dark and light, in the shape the
@@ -63,7 +63,8 @@ export const FIGURE_CSS = `${brandDiagramRules()}
 .dg-chip rect{fill:var(--surface-2);stroke:var(--line-strong)}.dg-chip text{fill:var(--text);font-family:var(--mono);font-size:13px}
 .dg-head-t{fill:var(--text);font-family:var(--mono);font-size:14px;font-weight:700}
 .dg-head-t.is-ok{fill:var(--accent)}.dg-head-t.is-gate{fill:var(--warn)}
-.dg-note{fill:var(--dim);font-family:var(--sans);font-size:13px}`;
+.dg-note{fill:var(--dim);font-family:var(--sans);font-size:13px}
+.dg-person{fill:var(--accent)}`;
 
 // ---------------------------------------------------------------------------
 // Drawing parts
@@ -86,24 +87,56 @@ function node(spec: NodeSpec): string {
   return `<g class="dg-node${kindClass}"><rect x="${spec.x}" y="${spec.y}" width="${spec.w}" height="${height}" rx="10"/><text class="t" x="${spec.x + 16}" y="${spec.y + 28}">${escapeXml(spec.title)}</text>${detail}</g>`;
 }
 
-type EdgeSpec = { from: Point; to: Point; direction?: "h" | "v"; isCheck?: boolean };
+type Direction = "h" | "v";
+// `turn` is where along the gap the curve does its turning, 0 to 1. Two edges that share both
+// anchors (the deny path and the dashed crash path in figure 1) take different turns, so the
+// dashed one stays visible beside the solid one instead of hiding under it.
+type EdgeSpec = { from: Point; to: Point; direction?: Direction; isCheck?: boolean; turn?: number };
 
-/** A curved connector that ends in an arrowhead; a dashed amber one is a check, not a flow. */
+/**
+ * A cubic connector that ends in an arrowhead; a dashed amber one is a check, not a flow.
+ * Both control points sit on the travel axis, so the curve leaves and arrives flat: a fan from
+ * one anchor reads as one stem opening into branches, and every arrowhead lands square.
+ */
 function edge(spec: EdgeSpec): string {
   const [x1, y1] = spec.from;
   const [x2, y2] = spec.to;
   const checkClass = spec.isCheck ? " is-check" : "";
+  const turn = spec.turn ?? 0.5;
   const inset = 8;
   if ((spec.direction ?? "h") === "h") {
-    const middle = (x1 + x2) / 2;
     const stop = x2 - inset;
-    return `<path class="dg-edge${checkClass}" d="M${x1} ${y1} C${middle} ${y1} ${middle} ${y2} ${stop} ${y2}"/><path class="dg-head${checkClass}" d="M${x2 - 9} ${y2 - 5} L${x2} ${y2} L${x2 - 9} ${y2 + 5} Z"/>`;
+    const span = stop - x1;
+    return `<path class="dg-edge${checkClass}" d="M${x1} ${y1} C${x1 + span * turn} ${y1} ${x1 + span * turn} ${y2} ${stop} ${y2}"/><path class="dg-head${checkClass}" d="M${x2 - 9} ${y2 - 5} L${x2} ${y2} L${x2 - 9} ${y2 + 5} Z"/>`;
   }
-  const middle = (y1 + y2) / 2;
   const isDown = y2 > y1;
   const stop = isDown ? y2 - inset : y2 + inset;
+  const span = stop - y1;
   const head = isDown ? `M${x2 - 5} ${y2 - 9} L${x2} ${y2} L${x2 + 5} ${y2 - 9} Z` : `M${x2 - 5} ${y2 + 9} L${x2} ${y2} L${x2 + 5} ${y2 + 9} Z`;
-  return `<path class="dg-edge${checkClass}" d="M${x1} ${y1} C${x1} ${middle} ${x2} ${middle} ${x2} ${stop}"/><path class="dg-head${checkClass}" d="${head}"/>`;
+  return `<path class="dg-edge${checkClass}" d="M${x1} ${y1} C${x1} ${y1 + span * turn} ${x2} ${y1 + span * turn} ${x2} ${stop}"/><path class="dg-head${checkClass}" d="${head}"/>`;
+}
+
+type Side = "left" | "right" | "top" | "bottom";
+
+/** The one point where edges meet a side of a node: its middle, never a corner. */
+function anchor(spec: NodeSpec, side: Side): Point {
+  const height = spec.h ?? nodeHeight(spec.lines?.length ?? 0);
+  if (side === "left") return [spec.x, spec.y + height / 2];
+  if (side === "right") return [spec.x + spec.w, spec.y + height / 2];
+  if (side === "top") return [spec.x + spec.w / 2, spec.y];
+  return [spec.x + spec.w / 2, spec.y + height];
+}
+
+type Branch = { at: Point; isCheck?: boolean; turn?: number };
+
+/** Every edge out of one node starts at one anchor, then fans out. */
+function fanOut(from: Point, branches: Branch[], direction: Direction = "h"): string {
+  return branches.map((branch) => edge({ from, to: branch.at, direction, isCheck: branch.isCheck, turn: branch.turn })).join("");
+}
+
+/** Every edge into one node lands on one anchor. */
+function fanIn(branches: Branch[], to: Point, direction: Direction = "h"): string {
+  return branches.map((branch) => edge({ from: branch.at, to, direction, isCheck: branch.isCheck, turn: branch.turn })).join("");
 }
 
 const label = (x: number, y: number, text: string, extraClass = ""): string => `<text class="dg-lbl${extraClass}" x="${x}" y="${y}">${escapeXml(text)}</text>`;
@@ -132,25 +165,26 @@ type Figure = {
 // ---------------------------------------------------------------------------
 
 function toolCallFigure(): string {
-  const chainY = 161;
+  const agent: NodeSpec = { x: 24, y: 170, w: 170, title: "agent", lines: ["proposes a tool call", "before it runs"], kind: "source" };
+  const chain: NodeSpec = { x: 250, y: 161, w: 250, title: "ai-eng chain", lines: ["the host sends it the call", "guards judge it in a fixed", "order; the first deny wins"], kind: "ok" };
+  const allow: NodeSpec = { x: 550, y: 40, w: 170, title: "allow", lines: ["the call goes ahead; a", "test run is rewritten"] };
+  const annotate: NodeSpec = { x: 550, y: 170, w: 170, title: "annotate", lines: ["the call goes ahead,", "a review note rides along"] };
+  const deny: NodeSpec = { x: 550, y: 300, w: 170, title: "deny", lines: ["the call is refused,", "with the reason"], kind: "deny" };
+  const toolRuns: NodeSpec = { x: 770, y: 105, w: 166, title: "tool runs", lines: ["git, the editor", "or the shell"] };
+  const toolNeverRuns: NodeSpec = { x: 770, y: 300, w: 166, title: "tool never runs", lines: ["the agent reads why", "and what to do"], kind: "deny" };
+  const receipts: NodeSpec = { x: 195, y: 404, w: 360, title: ".ai-engineering/receipts/", lines: ["one JSON file per verdict, in your repository"] };
   return [
-    node({ x: 24, y: 170, w: 170, title: "agent", lines: ["proposes a tool call", "before it runs"], kind: "source" }),
-    node({ x: 250, y: chainY, w: 250, title: "ai-eng chain", lines: ["the host sends it the call", "guards judge it in a fixed", "order; the first deny wins"], kind: "ok" }),
-    node({ x: 550, y: 40, w: 170, title: "allow", lines: ["the call goes ahead; a", "test run is rewritten"] }),
-    node({ x: 550, y: 170, w: 170, title: "annotate", lines: ["the call goes ahead,", "a review note rides along"] }),
-    node({ x: 550, y: 300, w: 170, title: "deny", lines: ["the call is refused,", "with the reason"], kind: "deny" }),
-    node({ x: 770, y: 105, w: 166, title: "tool runs", lines: ["git, the editor", "or the shell"] }),
-    node({ x: 770, y: 300, w: 166, title: "tool never runs", lines: ["the agent reads why", "and what to do"], kind: "deny" }),
-    node({ x: 250, y: 404, w: 490, title: ".ai-engineering/receipts/", lines: ["one JSON file per verdict, in your repository"] }),
-    edge({ from: [194, 212], to: [250, 212] }),
-    edge({ from: [500, 176], to: [550, 82] }),
-    edge({ from: [500, 212], to: [550, 212] }),
-    edge({ from: [500, 240], to: [550, 330] }),
-    edge({ from: [500, 256], to: [550, 360], isCheck: true }),
-    edge({ from: [720, 82], to: [770, 130] }),
-    edge({ from: [720, 212], to: [770, 164] }),
-    edge({ from: [720, 342], to: [770, 342] }),
-    edge({ from: [375, chainY + 102], to: [375, 404], direction: "v" }),
+    ...[agent, chain, allow, annotate, deny, toolRuns, toolNeverRuns, receipts].map(node),
+    edge({ from: anchor(agent, "right"), to: anchor(chain, "left") }),
+    fanOut(anchor(chain, "right"), [
+      { at: anchor(allow, "left") },
+      { at: anchor(annotate, "left") },
+      { at: anchor(deny, "left"), turn: 0.3 },
+      { at: anchor(deny, "left"), isCheck: true, turn: 0.75 },
+    ]),
+    fanIn([{ at: anchor(allow, "right") }, { at: anchor(annotate, "right") }], anchor(toolRuns, "left")),
+    edge({ from: anchor(deny, "right"), to: anchor(toolNeverRuns, "left") }),
+    edge({ from: anchor(chain, "bottom"), to: anchor(receipts, "top"), direction: "v" }),
     label(388, 345, "every verdict"),
     label(770, 286, "denied before it runs", " is-key"),
     legend(24, 28, "a step", "a crash or an unsure guard ends in deny"),
@@ -158,7 +192,37 @@ function toolCallFigure(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Figure 2: the layer stack and what only each layer stops
+// Figure 2: the build loop, and the two places it stops for a person
+// ---------------------------------------------------------------------------
+
+/** A small person and a two-line label: the sign for a stop where a human decides. */
+function stopSign(x: number, y: number, first: string, second: string): string {
+  const person = `<g class="dg-person"><circle cx="${x + 5}" cy="${y - 9}" r="3.4"/><path d="M${x} ${y - 1} a5 4.4 0 0 1 10 0 Z"/></g>`;
+  return `${person}${label(x + 16, y - 4, first)}${label(x + 16, y + 10, second)}`;
+}
+
+function buildLoopFigure(): string {
+  const top = 64;
+  const height = 84;
+  const idea: NodeSpec = { x: 24, y: top, w: 140, h: height, title: "your idea", lines: ["a feature, in", "your own words"], kind: "source" };
+  const plan: NodeSpec = { x: 284, y: top, w: 168, h: height, title: "plan", lines: ["numbered checkpoints,", "smallest first"] };
+  const built: NodeSpec = { x: 496, y: top, w: 200, h: height, title: "checkpoints", lines: ["built one at a time, each", "gated before the next"], kind: "ok" };
+  const ship: NodeSpec = { x: 808, y: top, w: 128, h: height, title: "ship it", lines: ["pull request or", "local merge"] };
+  const gates: NodeSpec = { x: 496, y: 196, w: 200, h: height, title: "its gates", lines: ["a checkpoint that fails", "a gate does not move on"], kind: "gate" };
+  return [
+    ...[idea, plan, built, ship, gates].map(node),
+    edge({ from: anchor(idea, "right"), to: anchor(plan, "left") }),
+    edge({ from: anchor(plan, "right"), to: anchor(built, "left") }),
+    edge({ from: anchor(built, "right"), to: anchor(ship, "left") }),
+    edge({ from: anchor(gates, "top"), to: anchor(built, "bottom"), direction: "v", isCheck: true }),
+    stopSign(172, 82, "you approve", "the idea"),
+    stopSign(704, 82, "you review", "the app"),
+    legend(24, 28, "a step", "a check, not a step"),
+  ].join("");
+}
+
+// ---------------------------------------------------------------------------
+// Figure 3: the layer stack and what only each layer stops
 // ---------------------------------------------------------------------------
 
 const LAYERS = [
@@ -174,19 +238,20 @@ function layerStackFigure(): string {
   const rowHeight = 84;
   const rowGap = 16;
   const parts: string[] = [label(24, 30, "layer, in the order met", " is-key"), label(330, 30, "the thing only this layer stops", " is-key")];
+  const layerNodes: NodeSpec[] = LAYERS.map((row, index) => ({ x: 24, y: top + index * (rowHeight + rowGap), w: 250, h: rowHeight, title: row.layer, lines: [row.when, row.sees] }));
   LAYERS.forEach((row, index) => {
-    const y = top + index * (rowHeight + rowGap);
-    parts.push(node({ x: 24, y, w: 250, h: rowHeight, title: row.layer, lines: [row.when, row.sees] }));
-    parts.push(node({ x: 330, y, w: 606, h: rowHeight, title: row.stops, lines: [...row.detail], kind: "isGap" in row ? "gate" : "plain" }));
-    parts.push(edge({ from: [274, y + rowHeight / 2], to: [330, y + rowHeight / 2] }));
-    if (index < LAYERS.length - 1) parts.push(edge({ from: [149, y + rowHeight], to: [149, y + rowHeight + rowGap], direction: "v" }));
+    const layer = layerNodes[index] as NodeSpec;
+    const stops: NodeSpec = { x: 330, y: layer.y, w: 606, h: rowHeight, title: row.stops, lines: [...row.detail], kind: "isGap" in row ? "gate" : "plain" };
+    parts.push(node(layer), node(stops), edge({ from: anchor(layer, "right"), to: anchor(stops, "left") }));
+    const next = layerNodes[index + 1];
+    if (next !== undefined) parts.push(edge({ from: anchor(layer, "bottom"), to: anchor(next, "top"), direction: "v" }));
   });
   parts.push(legend(24, 56 + 5 * rowHeight + 4 * rowGap + 28, "the next layer", "a gap every layer above leaves"));
   return parts.join("");
 }
 
 // ---------------------------------------------------------------------------
-// Figure 4: the single parse
+// Figure 5: the single parse
 // ---------------------------------------------------------------------------
 
 const GUARD_PREDICATES = [
@@ -201,30 +266,24 @@ const GUARD_PREDICATES = [
 function singleParseFigure(): string {
   const guardTop = 38;
   const guardStep = 76;
-  const guards = GUARD_PREDICATES.map(([name, question], index) => {
-    const y = guardTop + index * guardStep;
-    return [
-      node({ x: 744, y, w: 192, title: name, lines: [question] }),
-      edge({ from: [698, 212], to: [744, y + 33] }),
-    ].join("");
-  });
+  const command: NodeSpec = { x: 24, y: 179, w: 180, title: "one command", lines: ["git commit -n -m fix"], kind: "source" };
+  const parse: NodeSpec = { x: 246, y: 161, w: 200, title: "one shell parse", lines: ["src/guards/shell.ts", "reads quotes, escapes,", "substitutions, heredocs"], kind: "ok" };
+  const model: NodeSpec = { x: 488, y: 170, w: 210, title: "typed command model", lines: ["segments and their words", "what is code, what is data"], kind: "ok" };
+  const contract: NodeSpec = { x: 246, y: 340, w: 452, title: "the check on the one reader", lines: ["tests/shell-guard-contract.spec.ts pins what every guard", "reads. A reader that splits or decodes one character", "differently from the shell fails."], kind: "gate" };
+  const guards: NodeSpec[] = GUARD_PREDICATES.map(([name, question], index) => ({ x: 744, y: guardTop + index * guardStep, w: 192, title: name, lines: [question] }));
   return [
-    node({ x: 24, y: 179, w: 180, title: "one command", lines: ["git commit -n -m fix"], kind: "source" }),
-    node({ x: 246, y: 161, w: 200, title: "one shell parse", lines: ["src/guards/shell.ts", "reads quotes, escapes,", "substitutions, heredocs"], kind: "ok" }),
-    node({ x: 488, y: 170, w: 210, title: "typed command model", lines: ["segments and their words", "what is code, what is data"], kind: "ok" }),
-    edge({ from: [204, 212], to: [246, 212] }),
-    edge({ from: [446, 212], to: [488, 212] }),
-    ...guards,
+    ...[command, parse, model, ...guards, contract].map(node),
+    edge({ from: anchor(command, "right"), to: anchor(parse, "left") }),
+    edge({ from: anchor(parse, "right"), to: anchor(model, "left") }),
+    fanOut(anchor(model, "right"), guards.map((guard) => ({ at: anchor(guard, "left") }))),
     label(744, 26, "guards, each a predicate", " is-key"),
-    node({ x: 246, y: 340, w: 452, title: "the check on the one reader", lines: ["tests/shell-guard-contract.spec.ts pins what every guard", "reads. A reader that splits or decodes one character", "differently from the shell fails."], kind: "gate" }),
-    edge({ from: [346, 340], to: [346, 263], direction: "v", isCheck: true }),
-    edge({ from: [593, 340], to: [593, 254], direction: "v", isCheck: true }),
+    fanOut(anchor(contract, "top"), [{ at: anchor(parse, "bottom"), isCheck: true }, { at: anchor(model, "bottom"), isCheck: true }], "v"),
     legend(24, 470, "a step", "a test, not a step"),
   ].join("");
 }
 
 // ---------------------------------------------------------------------------
-// Figure 3: surfaces, from the capability matrix
+// Figure 4: surfaces, from the capability matrix
 // ---------------------------------------------------------------------------
 
 const ENFORCED_VERIFIED = ["claude-code", "cursor", "copilot-cli", "copilot-vscode", "opencode", "pi", "oh-my-pi"] as const;
@@ -256,7 +315,7 @@ function surfacesFigure(): string {
 }
 
 // ---------------------------------------------------------------------------
-// The four figures: the words the README repeats, and the drawing
+// The five figures: the words the README repeats, and the drawing
 // ---------------------------------------------------------------------------
 
 export const FIGURES: readonly Figure[] = [
@@ -278,10 +337,25 @@ export const FIGURES: readonly Figure[] = [
   },
   {
     n: 2,
+    slug: "loop",
+    height: 304,
+    alt: "Figure 2. The build loop of ai-orchestrator. Your idea goes to a plan after you approve the idea. The plan becomes numbered checkpoints, built one at a time and each gated before the next; a checkpoint that fails a gate does not move on. You review the app, and it ships as a pull request or a local merge.",
+    caption: "Figure 2. The build loop. A checkpoint that fails a gate does not move on, and the loop stops for you twice: to approve the idea before it builds, and to review the app before it ships.",
+    textVersion: [
+      "You give `ai-orchestrator` a feature, in your own words. You approve the idea: that is the first stop.",
+      "It splits the work into numbered checkpoints, smallest first.",
+      "It builds one checkpoint at a time and gates each before the next. A checkpoint that fails a gate does not move on.",
+      "You review the app: that is the second stop.",
+      "On your approval, it ships as a pull request or a local merge.",
+    ],
+    svg: buildLoopFigure,
+  },
+  {
+    n: 3,
     slug: "layers",
     height: 590,
-    alt: "Figure 2. Five layers, in the order a change meets them, each with the one thing only it stops. The guard chain stops an attempt to skip a check. Git hooks stop a secret in a commit. CI workflows stop a push that skipped the hooks. External review catches a test that was deleted or weakened, which every layer above passes. A merge stops a change nobody approved.",
-    caption: "Figure 2. The layers, in the order a change meets them. The dashed row is a gap: no layer above external review reads what a test checks.",
+    alt: "Figure 3. Five layers, in the order a change meets them, each with the one thing only it stops. The guard chain stops an attempt to skip a check. Git hooks stop a secret in a commit. CI workflows stop a push that skipped the hooks. External review catches a test that was deleted or weakened, which every layer above passes. A merge stops a change nobody approved.",
+    caption: "Figure 3. The layers, in the order a change meets them. The dashed row is a gap: no layer above external review reads what a test checks.",
     textVersion: [
       "Guard chain, before the tool runs: it alone stops an attempt to skip a check, because a hook cannot see the flag that skips it.",
       "Git hooks, at commit and push: they alone read the staged diff for a secret, and they run for a person as well as an agent.",
@@ -292,11 +366,11 @@ export const FIGURES: readonly Figure[] = [
     svg: layerStackFigure,
   },
   {
-    n: 4,
+    n: 5,
     slug: "single-parse",
     height: 504,
-    alt: "Figure 4. One command goes through one shell parse in src/guards/shell.ts into a typed command model. Six guards read that model as predicates: no-verify, no-stash, policy, self-protect, lease and injection. A dashed check, tests/shell-guard-contract.spec.ts, pins what the one reader returns.",
-    caption: "Figure 4. One parse, many guards. Each guard asks a question of the same typed model, so none reads a command differently from the shell. The dashed box is a test, not a step.",
+    alt: "Figure 5. One command goes through one shell parse in src/guards/shell.ts into a typed command model. Six guards read that model as predicates: no-verify, no-stash, policy, self-protect, lease and injection. A dashed check, tests/shell-guard-contract.spec.ts, pins what the one reader returns.",
+    caption: "Figure 5. One parse, many guards. Each guard asks a question of the same typed model, so none reads a command differently from the shell. The dashed box is a test, not a step.",
     textVersion: [
       "A command arrives as text, for example `git commit -n -m fix`.",
       "One reader, `src/guards/shell.ts`, parses it the way the shell will: quotes, escapes, substitutions and heredocs.",
@@ -307,11 +381,11 @@ export const FIGURES: readonly Figure[] = [
     svg: singleParseFigure,
   },
   {
-    n: 3,
+    n: 4,
     slug: "surfaces",
     height: 508,
-    alt: "Figure 3. Ten agent hosts by what ai-eng can do on each, measured on 2026-11-23. Enforced and verified, seven: claude-code, cursor, copilot-cli, copilot-vscode, opencode, pi and oh-my-pi. Enforced but unverified, one: codex. Advisory, two: zed and agy. Copilot fails open on a timeout or when ai-eng is missing from PATH; codex fails open on a hook error.",
-    caption: "Figure 3. Which hosts are enforced, which advise, which are unverified. Counts come from the capability matrix, measured 2026-11-23. The dashed box names the source.",
+    alt: "Figure 4. Ten agent hosts by what ai-eng can do on each, measured on 2026-11-23. Enforced and verified, seven: claude-code, cursor, copilot-cli, copilot-vscode, opencode, pi and oh-my-pi. Enforced but unverified, one: codex. Advisory, two: zed and agy. Copilot fails open on a timeout or when ai-eng is missing from PATH; codex fails open on a hook error.",
+    caption: "Figure 4. Which hosts are enforced, which advise, which are unverified. Counts come from the capability matrix, measured 2026-11-23. The dashed box names the source.",
     textVersion: [
       "Enforced and verified, 7: `claude-code`, `cursor`, `copilot-cli`, `copilot-vscode`, `opencode`, `pi` and `oh-my-pi`. A denial blocks the call, tested on the measuring machine. The two Copilot hosts fail open on a timeout or when `ai-eng` is not on `PATH`.",
       "Enforced but unverified, 1: `codex`. It is wired to deny, but the CLI was not installed on the measuring machine. It fails open on a hook error.",
