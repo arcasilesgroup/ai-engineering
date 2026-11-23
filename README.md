@@ -202,12 +202,14 @@ Copilot: `userPromptSubmitted` command output is ignored.
 
 The Antigravity CLI (agy) is declared and **advisory**, and it cannot be enabled:
 `ai-eng init --surface agy` and `ai-eng config --add agy` are refused, because no hook of
-ours judges an agy call yet. Its carrier still ships, guarded: because agy denies on any
-non-zero exit, every line first checks for `ai-eng` and, when the app the editor was
-launched from cannot resolve it, prints one line saying so and allows the call — a hook
-that cannot judge must not lock a person out of their editor. The
-[capability matrix](docs/surface-capability-matrix.md) records why that trade is honest and
-what would make the surface enforceable.
+ours judges an agy call yet. Its hook file ships as a template inside the binary and no
+command writes it — only a hand-edited `[surfaces] enabled = ["agy"]` followed by `ai-eng
+update` does. That template is guarded per OS: because agy denies on any non-zero exit,
+every line first checks for `ai-eng` and, when the app the editor was launched from cannot
+resolve it, writes one line to stderr and allows the call — a hook that cannot judge must
+not lock a person out of their editor, and stdout stays empty because that is where agy
+reads its decision. The [capability matrix](docs/surface-capability-matrix.md) records why
+that trade is honest and what would make the surface enforceable.
 
 Command guards read the visible command text. They do not sandbox opaque programs or scripts
 prepared in earlier calls: a script written in one call and run in a later call does

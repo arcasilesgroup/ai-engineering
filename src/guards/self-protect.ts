@@ -17,6 +17,7 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
+import surfacesJson from "../surfaces/surfaces.json";
 import { commandIndex, jsonToolOperands, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, type ShellSegment } from "./shell.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
@@ -797,14 +798,23 @@ function isRestrictedCliCommand(command: string, depth = 0): boolean {
   return restrictedCommandWords(words, depth);
 }
 
+/** Every repo carrier the registry declares, from the one table that knows: a host added
+ *  there is a protected ancestor here, with no second list to fall behind. Read as data so
+ *  the guard never pulls the templates in. */
+const REPO_CARRIER_PATHS: readonly string[] = (surfacesJson as {
+  surfaces: { carriers: { scope: string; path: string }[] }[];
+}).surfaces.flatMap((surface) =>
+  surface.carriers.filter((carrier) => carrier.scope === "repo").map((carrier) => carrier.path));
+
+/** The settings files this install wires, per surface (derived from what install
+ *  wrote; the on-disk check keeps an uninstall from leaving ghosts). */
 function surfacesSettings(repoRoot: string): string[] {
-  // The settings files this install wires, per surface (derived from what install
-  // wrote; the on-disk check keeps an uninstall from leaving ghosts).
   const out: string[] = [];
   const candidates = [
     join(repoRoot, ".claude", "settings.json"),
     join(repoRoot, ".opencode", "plugins", "ai-eng.ts"),
     join(repoRoot, ".agents", "hooks", "ai-eng.ts"),
+    ...REPO_CARRIER_PATHS.map((path) => join(repoRoot, path)),
   ];
   for (const path of candidates) if (existsSync(path)) out.push(path);
   return out;

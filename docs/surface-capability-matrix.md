@@ -31,7 +31,7 @@ aligned to it; update all three together when a host changes.
 | `copilot-cli` | copilot 1.0.115-7 | sync pre-tool (`preToolUse`) in `.github/hooks/ai-eng.json` + `~/.copilot/hooks/ai-eng.json` | stdout JSON `permissionDecision: deny`, exit 0 | yes | fail **closed** on crash/non-zero exit; fail **open** on timeout and when `ai-eng` missing | `userPromptSubmitted` output ignored → advisory | **enforced** (tool calls) |
 | `copilot-vscode` | VS Code Copilot harness (shared) | same harness and hook files as the CLI | same as above | yes | same as above | same advisory prompt hook | **enforced** (tool calls) |
 | `pi` | pi 1.6.0 | in-process extension (`.pi/agent/extensions/ai-eng.ts`) | return `{ block, reason }` | yes | fail closed (block) | none | **enforced** |
-| `agy` | agy 1.5.14 | sync pre-tool (`PreToolUse`) in `~/.gemini/config/hooks.json`, one machine carrier, shipped **fail-soft**: the line probes for `ai-eng` and answers one line + exit 0 when it cannot be resolved | stdout JSON `decision: deny`, exit 0 (probed live; no mapping of ours judges an agy call yet) | no: the chain has nothing to judge — no tool mapping, and the payload names no repository | fail **closed** on a judged call (non-zero exit or `{}` denies), so the carrier's own probe is what keeps a missing binary from denying everything | none (`PreInvocation` can terminate, does not inspect the prompt) | **advisory** |
+| `agy` | agy 1.5.14 | sync pre-tool (`PreToolUse`) in `~/.gemini/config/hooks.json` — **a template in the binary, not an installed hook**: nothing writes it (init and config refuse the surface), so only a hand-edited `[surfaces] enabled = ["agy"]` plus `ai-eng update` puts the file on disk | stdout JSON `decision: deny`, exit 0 (probed live; no mapping of ours judges an agy call yet) | no: the chain has nothing to judge — no tool mapping, and the payload names no repository | fail **closed** on a judged call (non-zero exit or `{}` denies), so the carrier's own guard is what keeps a missing binary from denying everything | none (`PreInvocation` can terminate, does not inspect the prompt) | **advisory** |
 | `zed` | zed 1.28.1 | none (WASM extension API cannot intercept a tool call) | — | — | — | — | **advisory** (skills only) |
 
 ## Copilot, CLI and VS Code separately
@@ -83,25 +83,33 @@ What the probe did not settle (2026-11-23, the same day):
 - Only `run_command` / `CommandLine` were measured, and no rewrite field was: every other
   agy tool name would have to be measured and mapped before a guard could judge it.
 
-So `agy` ships as a registry declaration, a skill mirror and a **fail-soft carrier**, and
-it is not selectable: `ai-eng init --surface agy` and `ai-eng config --add agy` are
-refused with one sentence — *no hook of ours judges its calls yet* — because enabling the
-surface would claim a guarantee it cannot keep. `doctor` prints `advisory` for it, and the
-skills mirror at `~/.gemini/config/skills` is the only thing installed for it (recorded as
-unverified: it rests on the same claim about `~/.gemini/config/` that the hook path rests
-on).
+So `agy` is a registry declaration, a skill mirror, and a **carrier template that nothing
+installs**: `ai-eng init --surface agy` and `ai-eng config --add agy` are refused with one
+sentence — *no hook of ours judges its calls yet* — because enabling the surface would
+claim a guarantee it cannot keep, so no shipped command writes the file. A reader who
+hand-edits `[surfaces] enabled = ["agy"]` and runs `ai-eng update` is the only way
+`~/.gemini/config/hooks.json` ever lands on a machine, and `doctor` then reads it and still
+serves `advisory`. The skills mirror at `~/.gemini/config/skills` is the only thing install
+writes for agy (recorded as unverified: it rests on the same claim about
+`~/.gemini/config/` that the hook path rests on).
 
-The carrier's line is guarded, not bare:
+If that file is there, its line is guarded, not bare, and the guard is **rendered per OS
+when the carrier is written** — next to the launcher rewrite, never chosen at runtime:
 
-- **A line that cannot find `ai-eng` answers, and allows.** `command -v ai-eng … || { echo
-  <why>; exit 0; }` precedes every hook line, `PreToolUse` and `PostToolUse` alike. The
-  host denies on any non-zero exit, so a bare line would deny every tool call of a user
-  whose app (a macOS GUI app gets a minimal `PATH`) cannot see the binary installed from
-  their terminal. The reason is printed, so the failure is legible instead of silent.
-- **That trade is honest because the alternative is a lockout.** A hook we cannot run
-  judges nothing either way; the only difference between the two failure shapes is whether
-  the editor still works. The surface already advertises itself as advisory, so failing
-  open costs no guarantee that was ever claimed.
+- **POSIX (macOS, Linux)**: `command -v ai-eng >/dev/null 2>&1 || { echo ai-eng: not found
+  in PATH, allowing this call >&2; exit 0; }; ai-eng chain <Event> --surface agy`.
+- **Windows**: `where ai-eng.cmd >nul 2>nul || ( echo ai-eng: not found in PATH, allowing
+  this call 1>&2 & exit /b 0 ); ai-eng.cmd chain <Event> --surface agy` — `command -v`,
+  `||` and `{ …; }` do not exist in cmd.exe, and the probe names the shim the call names.
+- **The reason goes to stderr, never stdout.** agy reads stdout as its decision document:
+  silence allows, `{}` denies, and plain prose there was never probed. Stderr keeps stdout
+  empty, the one shape the probe proved allows.
+- **That trade is honest because the alternative is a lockout.** The host denies on any
+  non-zero exit, so a bare line would deny every tool call of a user whose app (a macOS GUI
+  app gets a minimal `PATH`) cannot see the binary installed from their terminal. A hook we
+  cannot run judges nothing either way; the only difference between the two failure shapes
+  is whether the editor still works. The surface already advertises itself as advisory, so
+  failing open costs no guarantee that was ever claimed.
 - **What would change the verdict:** a measured mapping of agy's other tool names and
   argument keys (only `run_command` / `CommandLine` were ever probed) and a payload that
   carries the repository the call belongs to. Until then the chain has nothing to judge,

@@ -105,6 +105,18 @@ describe("protectedPaths — the list is derived from the wiring, never copied",
     }
   });
 
+  test("every repo carrier the registry declares is protected, and so is the folder holding it", () => {
+    // A carrier is only governance while it is on disk, and a writer that takes the whole
+    // folder takes it: `rm -rf .cursor` ungoverns the next Cursor session in one word.
+    const repo = tempRepo();
+    for (const carrier of [".cursor/hooks.json", ".github/hooks/ai-eng.json"]) {
+      const file = write(repo, carrier, "{}\n");
+      expect(protectedPaths(repo).literals).toContain(file);
+      const folder = carrier.split("/")[0]!;
+      expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm -rf ${shellSpelling(join(repo, folder))}` } }, repo)?.deny).toBe(true);
+    }
+  });
+
   test("the pin criterion: a 64-hex sha256 in the lock pins spec.html; anything else does not", () => {
     const hex64 = "a".repeat(64);
     const pinned = tempRepo();
