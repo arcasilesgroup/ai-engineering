@@ -67,7 +67,16 @@ describe("protectedPaths — the list is derived from the wiring, never copied",
     expect(paths.literals).toContain(join(base, ".claude", "skills"));
     expect(paths.literals).toContain(join(base, ".agents", "skills"));
     expect(paths.literals).toContain(join(base, ".config", "opencode", "skill"));
-    for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json"]) {
+    for (const carrier of [
+      ".claude/settings.json",
+      ".config/opencode/plugins/ai-eng.ts",
+      ".codex/hooks.json",
+      ".omp/agent/hooks/pre/ai-eng.ts",
+      ".pi/agent/extensions/ai-eng.ts",
+      ".copilot/hooks/ai-eng.json",
+      ".gemini/config/hooks.json",
+      "machine.json",
+    ]) {
       expect(paths.literals).toContain(join(base, carrier));
     }
     expect(paths.specPinned).toBe(false);
@@ -103,6 +112,16 @@ describe("protectedPaths — the list is derived from the wiring, never copied",
     for (const ghost of [".claude/settings.json", ".opencode/plugins/ai-eng.ts", ".agents/hooks/ai-eng.ts"]) {
       expect(before.literals).not.toContain(join(repo, ghost));
     }
+  });
+
+  test("every machine carrier the registry declares is protected, absolute or relative", () => {
+    // A carrier a person hand-installed is machinery like any other: a session that deletes
+    // it ungoverns the next one, and `.gemini/config/hooks.json` is the newest of them.
+    const agy = join(process.env.AI_ENG_HOME!, ".gemini", "config", "hooks.json");
+    expect(protectedPaths(null).literals).toContain(agy);
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm ${shellSpelling(agy)}` } }, null)?.deny).toBe(true);
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "rm .gemini/config/hooks.json" } }, null)?.deny).toBe(true);
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "echo {} > .gemini/config/hooks.json" } }, null)?.deny).toBe(true);
   });
 
   test("every repo carrier the registry declares is protected, and so is the folder holding it", () => {

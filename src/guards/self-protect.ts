@@ -798,13 +798,22 @@ function isRestrictedCliCommand(command: string, depth = 0): boolean {
   return restrictedCommandWords(words, depth);
 }
 
-/** Every repo carrier the registry declares, from the one table that knows: a host added
- *  there is a protected ancestor here, with no second list to fall behind. Read as data so
- *  the guard never pulls the templates in. */
-const REPO_CARRIER_PATHS: readonly string[] = (surfacesJson as {
-  surfaces: { carriers: { scope: string; path: string }[] }[];
-}).surfaces.flatMap((surface) =>
-  surface.carriers.filter((carrier) => carrier.scope === "repo").map((carrier) => carrier.path));
+/** The carriers the registry declares for one scope, from the one table that knows where
+ *  each host reads them: a host added there is protected here, with no second list to fall
+ *  behind. Read as data so the guard never pulls the templates in. */
+function registryCarriers(scope: "repo" | "machine"): { path: string; chain?: string }[] {
+  const registry = surfacesJson as {
+    surfaces: { carriers: { scope: string; path: string; chain?: string }[] }[];
+  };
+  return registry.surfaces.flatMap((surface) => surface.carriers.filter((carrier) => carrier.scope === scope));
+}
+
+const REPO_CARRIER_PATHS: readonly string[] = registryCarriers("repo").map((carrier) => carrier.path);
+
+/** The machine carriers, entry and chain bundle alike: the bundle beside an in-process entry
+ *  is what the host loads, so a write to it ungoverns the session just as well. */
+const MACHINE_CARRIER_PATHS: readonly string[] = registryCarriers("machine")
+  .flatMap((carrier) => [carrier.path, ...(carrier.chain === undefined ? [] : [carrier.chain])]);
 
 /** The settings files this install wires, per surface (derived from what install
  *  wrote; the on-disk check keeps an uninstall from leaving ghosts). */
@@ -834,7 +843,7 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   literals.push(join(machineBase(), ".config", "opencode", "skill"));
   literals.push(join(machineBase(), ".gemini", "config", "skills"));
   literals.push(globalHome);
-  for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".config/opencode/ai-eng", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json", ".gitconfig", ".config/git/config"]) {
+  for (const carrier of [...MACHINE_CARRIER_PATHS, "machine.json", ".gitconfig", ".config/git/config"]) {
     literals.push(join(machineBase(), carrier));
   }
   if (!repoRoot) return { literals: literals.filter((p) => p.length > 0), specPinned: false, terminal: [] };
@@ -949,6 +958,7 @@ const GOVERNANCE_FILE = new RegExp([
   String.raw`(?:^|/)\.claude/settings(?:\.local)?\.json$`,
   String.raw`(?:^|/)\.cursor/hooks\.json$`,
   String.raw`(?:^|/)\.codex/hooks\.json$`,
+  String.raw`(?:^|/)\.gemini/config/hooks\.json$`,
   String.raw`(?:^|/)\.(?:opencode/plugins|agents/hooks)/ai-eng[^/]*$`,
 ].join("|"), "i");
 
