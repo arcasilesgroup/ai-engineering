@@ -36,8 +36,8 @@ aligned to it; update all three together when a host changes.
 
 ## Copilot, CLI and VS Code separately
 
-The captain's request is Copilot, so it is split here even though both hosts read the same
-files.
+Copilot reaches one hook harness from two hosts, so it is split here even though both read
+the same files.
 
 - **Copilot CLI** and **Copilot in VS Code** share one harness and one hook format
   (docs.github.com/en/copilot/reference/hooks-reference: "VS Code, the GitHub Copilot app,
