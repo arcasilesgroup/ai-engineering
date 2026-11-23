@@ -62,6 +62,7 @@ export default {
             const judgement = { tool_name: name, tool_input: input, session_id: call?.sessionID, tool_use_id: call?.id, cwd };
             const before = chain("PreToolUse", judgement, { surface: "opencode" });
             if (before.action === "deny") throw new Error(`[ai-eng] ${before.by}: ${before.reason}`);
+            if (before.action === "review") process.stderr.write(`[ai-eng] ${before.by}: ${before.reason}\n`);
             if (before.action === "rewrite" && typeof input["command"] === "string") input["command"] = before.command;
             let result: unknown;
             try {
@@ -78,6 +79,7 @@ export default {
               // verdict itself names the guard and quotes a short excerpt, by design.
               throw new Error(`[ai-eng] ${after.by}: ${after.reason}`);
             }
+            if (after.action === "review") process.stderr.write(`[ai-eng] ${after.by}: ${after.reason}\n`);
             return result;
           };
         });

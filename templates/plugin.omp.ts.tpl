@@ -28,6 +28,7 @@ export default function (pi: { on: (event: string, handler: (event: never, ctx: 
       { surface: "oh-my-pi" },
     );
     if (outcome.action === "deny") return { block: true, reason: `[ai-eng] ${outcome.by}: ${outcome.reason}` };
+    if (outcome.action === "review") process.stderr.write(`[ai-eng] ${outcome.by}: ${outcome.reason}\n`);
     if (outcome.action === "rewrite") return { input: { ...call.input, command: outcome.command } };
     return undefined;
   });
@@ -45,6 +46,7 @@ export default function (pi: { on: (event: string, handler: (event: never, ctx: 
       // with the reason instead of the injected text reaching the model.
       return { content: [{ type: "text", text: `[ai-eng] ${outcome.by}: ${outcome.reason}` }], isError: true };
     }
+    if (outcome.action === "review") process.stderr.write(`[ai-eng] ${outcome.by}: ${outcome.reason}\n`);
     return undefined;
   });
 }

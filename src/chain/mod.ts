@@ -83,7 +83,7 @@ export type ChainOutcome =
   | { action: "allow"; guards: string[]; receiptId: string | null }
   | { action: "deny"; by: string; reason: string; guards: string[]; receiptId: string | null }
   | { action: "rewrite"; command: string; guards: string[]; receiptId: string | null }
-  | { action: "review"; reason: string; rule: { id: string; name: string; risk: number }; guards: string[]; receiptId: string | null };
+  | { action: "review"; by: string; reason: string; rule: { id: string; name: string; risk: number }; guards: string[]; receiptId: string | null };
 
 type EventName = keyof typeof TABLE;
 
@@ -232,7 +232,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   }
 
   const ran: string[] = [];
-  let reviewResult: { reason: string; rule: { id: string; name: string; risk: number } } | undefined;
+  let reviewResult: { by: string; reason: string; rule: { id: string; name: string; risk: number } } | undefined;
   for (const row of selected(event, tool)) {
     ran.push(row.name);
     const outcome = dispatchGuard(row.name, payload, ctx);
@@ -251,15 +251,15 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     // match (highest risk, block-priority sorted) is recorded; subsequent
     // reviews within the same chain run are still collected but not surfaced.
     if (outcome !== undefined && outcome.deny === false && "review" in outcome && reviewResult === undefined) {
-      reviewResult = { reason: outcome.reason, rule: outcome.rule };
+      reviewResult = { by: row.name, reason: outcome.reason, rule: outcome.rule };
     }
   }
 
   if (dedup) rememberVerdict(cacheFile, fp, { deny: false });
   const latency = Math.max(1, Date.now() - started);
-  // Phase 1: if a local rule triggered review (not block), record it in the
-  // receipt but still allow the call. The receipt carries the review metadata
-  // for later analysis; the call itself proceeds.
+  // Phase 1: if a local rule triggered review (not block), still allow the call. The
+  // host's own channel carries the note (the plugin templates and the cursor envelope), so
+  // the verdict names the guard and the rule it came from; the call itself proceeds.
   if (reviewResult !== undefined) {
     const receipt = recordReceipt({
       event,
@@ -270,7 +270,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
       outcome: "allow",
       session_id: sessionId(),
     }, root);
-    return { action: "review", reason: reviewResult.reason, rule: reviewResult.rule, guards: ran, receiptId: receipt?.operation_id ?? null };
+    return { action: "review", by: reviewResult.by, reason: reviewResult.reason, rule: reviewResult.rule, guards: ran, receiptId: receipt?.operation_id ?? null };
   }
   const receipt = recordReceipt({
     event,
@@ -511,7 +511,10 @@ export function chainMain(event: string, raw: string, options: ChainOptions = {}
     deny("chain", UNREADABLE_PAYLOAD, options.dialect ?? "claude", event);
   }
   const outcome = runChain(body, event, options);
-  // An allow is a verdict too, and one host reads an empty answer as a refusal.
-  if (outcome.action === "allow" || outcome.action === "review") allow(options.dialect ?? "claude");
+  // An allow is a verdict too, and one host reads an empty answer as a refusal. A review
+  // carries its note on the same envelope: a note no host prints is not a verdict.
+  if (outcome.action === "allow" || outcome.action === "review") {
+    allow(options.dialect ?? "claude", outcome.action === "review" ? `${outcome.by}: ${outcome.reason}` : undefined);
+  }
   process.exit(0);
 }

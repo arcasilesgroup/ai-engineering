@@ -174,6 +174,50 @@ function sedInPlaceTargets(args: readonly ShellWord[]): ShellWord[] {
     .filter((word) => !word.value.startsWith("/dev/") && !/[$`*?[]/.test(word.unquoted));
 }
 
+/** Options whose next word is a value, never a path (`truncate -s 0 file`, `touch -t <stamp> file`). */
+const WRITER_VALUE_OPTIONS: Record<string, RegExp> = {
+  touch: /^(?:-[A-Za-z]*[trd]|--(?:date|reference|time))$/,
+  mkdir: /^(?:-[A-Za-z]*m|--(?:mode|context))$/,
+  truncate: /^(?:-[A-Za-z]*[sr]|--(?:size|reference))$/,
+  cp: /^(?:-[A-Za-z]*[tS]|--(?:target-directory|suffix|backup|sparse|reflink))$/,
+  mv: /^(?:-[A-Za-z]*[tS]|--(?:target-directory|suffix|backup))$/,
+};
+
+/** The paths a writer verb acts on, once its options and their values are out of the way. */
+function writerPaths(verb: string, args: readonly ShellWord[]): string[] {
+  const takesValue = WRITER_VALUE_OPTIONS[verb];
+  const paths: string[] = [];
+  const add = (word: ShellWord): void => {
+    if (!word.value.startsWith("/dev/") && !/[$`*?[]/.test(word.unquoted)) paths.push(word.value);
+  };
+  for (let index = 0; index < args.length; index++) {
+    const word = args[index]!;
+    if (word.value === "--") {
+      for (const after of args.slice(index + 1)) add(after);
+      break;
+    }
+    if (word.value.startsWith("-")) {
+      if (takesValue?.test(word.value) === true) index++;
+      continue;
+    }
+    add(word);
+  }
+  return paths;
+}
+
+/** The folder a `cp`/`mv` writes into: the `-t`/`--target-directory` folder itself, else the
+ *  folder the last operand names. */
+function copyWriteDir(verb: string, args: readonly ShellWord[]): string | null {
+  for (let index = 0; index < args.length; index++) {
+    const value = args[index]!.value;
+    const kept = value.startsWith("--target-directory=") ? value.slice("--target-directory=".length) : value === "-t" || value === "--target-directory" ? args[index + 1]?.value : undefined;
+    if (kept === undefined) continue;
+    return kept.length > 0 && !kept.startsWith("/dev/") && !/[$`*?[]/.test(kept) ? kept : null;
+  }
+  const last = writerPaths(verb, args).at(-1);
+  return last === undefined ? null : dirname(last);
+}
+
 /** Directories a shell command writes into via redirects (`>`, `>>`) or common file-writing verbs.
  *  `2>&1`, `>&-`, `/dev/*`, and read commands return nothing. */
 function shellWriteDirs(command: string, cwd: string): string[] {
@@ -197,12 +241,11 @@ function shellWriteDirs(command: string, cwd: string): string[] {
       if (!/[$`*?[]/.test(target.unquoted)) dirs.push(dirname(resolve(dir, target.value)));
     }
     const args = plain.slice(at + 1);
-    const nonFlagPaths = args.filter((word) => !word.value.startsWith("-") && !word.value.startsWith("/dev/") && !/[$`*?[]/.test(word.unquoted));
     if (SHELL_FILE_WRITERS.has(verb)) {
-      for (const target of nonFlagPaths) dirs.push(dirname(resolve(dir, target.value)));
-    } else if (SHELL_DEST_WRITERS.has(verb) && nonFlagPaths.length >= 2) {
-      const dest = nonFlagPaths.at(-1)!;
-      dirs.push(dirname(resolve(dir, dest.value)));
+      for (const target of writerPaths(verb, args)) dirs.push(dirname(resolve(dir, target)));
+    } else if (SHELL_DEST_WRITERS.has(verb)) {
+      const destination = copyWriteDir(verb, args);
+      if (destination !== null) dirs.push(resolve(dir, destination));
     } else if (verb === "sed") {
       for (const target of sedInPlaceTargets(args)) dirs.push(dirname(resolve(dir, target.value)));
     }

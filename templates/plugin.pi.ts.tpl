@@ -22,6 +22,7 @@ export default function (pi: ExtensionAPI): void {
       { surface: "pi" },
     );
     if (outcome.action === "deny") return { block: true, reason: `[ai-eng] ${outcome.by}: ${outcome.reason}` };
+    if (outcome.action === "review") process.stderr.write(`[ai-eng] ${outcome.by}: ${outcome.reason}\n`);
     // pi applies input mutations to the real tool call — that is the rewrite arm.
     if (outcome.action === "rewrite") event.input["command"] = outcome.command;
     return;
@@ -38,6 +39,7 @@ export default function (pi: ExtensionAPI): void {
       // with the reason instead of the injected text reaching the model.
       return { content: [{ type: "text", text: `[ai-eng] ${outcome.by}: ${outcome.reason}` }], isError: true };
     }
+    if (outcome.action === "review") process.stderr.write(`[ai-eng] ${outcome.by}: ${outcome.reason}\n`);
     return;
   });
 }
