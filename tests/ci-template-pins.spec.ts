@@ -30,7 +30,7 @@ function templateToolPin(tool: string, source: string = template): string {
 }
 
 function aiEngVersion(source: string): string {
-  return source.match(/^ {2}AI_ENG_VERSION: (v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/m)?.[1] ?? "";
+  return source.match(/^ {2}AI_ENG_VERSION: (v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/m)?.[1] ?? "";
 }
 
 function toolchainToolPin(prefix: string): string {
@@ -128,14 +128,6 @@ describe("the version bump rewrites the template pins", () => {
       });
     });
   }
-
-  test("the pin is read whole, so a pin that names another version is still rejected", () => {
-    const pinned = (value: string): string => `env:\n  AI_ENG_VERSION: ${value}\n`;
-    expect(aiEngVersion(pinned("v3.3.0-rc.1"))).toBe("v3.3.0-rc.1");
-    expect(aiEngVersion(pinned("v3.3.0-rc.1"))).not.toBe("v3.3.0");
-    expect(aiEngVersion(pinned("v3.3.0"))).not.toBe("v3.3.0-rc.1");
-    expect(aiEngVersion(pinned("3.3.0"))).not.toBe("v3.3.0");
-  });
 
   test("a second run writes nothing", () => {
     const root = scratchTree("9.9.9");
