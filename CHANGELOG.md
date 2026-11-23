@@ -1,5 +1,41 @@
 # Changelog
 
+## 3.2.4
+
+### Patch Changes
+
+- [#812](https://github.com/arcasilesgroup/ai-engineering/pull/812) [`2bd6853`](https://github.com/arcasilesgroup/ai-engineering/commit/2bd68532f5d7aebabc73d33486529bd251df2369) Thanks [@soydachi](https://github.com/soydachi)! - One design system for every HTML artifact, with the gates that keep it honest.
+  
+  `brand/components.css` and `brand/components.js` now carry the component layer —
+  diagrams, tabs, copy blocks, filters, steps, checklists, callouts, category chips,
+  verdict and terminal cards — beside `brand/tokens.json`. `bun scripts/brand.ts gen`
+  inlines them between markers into all eight templates and into `brand/gallery.html`,
+  the gallery that shows every part live with the markup that makes it, and `parity`
+  fails on a hand edit. Every colour pair a component uses is declared in
+  `tokens.json` and measured by `brand.ts contrast`; prose is left-aligned, and code
+  wells moved onto `--surface` where a comment clears 4.5:1.
+  
+  Two gates protect the result. `tests/artifact-a11y.spec.ts` runs a static
+  accessibility gate inside `bun test` — language, one rendered `h1`, heading order,
+  table captions and header scope, SVG names, resolvable and unique ids, no external
+  request, no inline handler, zoom, and the forced-colours, reduced-motion and print
+  layers — with one failing fixture per rule. `bun run a11y` opens all nine pages in
+  the system Chrome at 320, 390, 768 and 1440px and under forced colours, runs
+  axe-core's WCAG 2.0, 2.1 and 2.2 A and AA rules, walks every tab set with the
+  keyboard, and proves 320px reflow and the no-script reading. It runs as its own CI
+  job so the unit suite still passes without Chrome.
+  
+  The templates also ship ready slots — a diagram with a text version, decisions with
+  expand all, a stats row and options in tabs — and the page templates now install
+  beside the skills.
+
+- [#817](https://github.com/arcasilesgroup/ai-engineering/pull/817) [`30c2f93`](https://github.com/arcasilesgroup/ai-engineering/commit/30c2f93d7c0786e91d0313b95b3a9f2ceaa286f8) Thanks [@soydachi](https://github.com/soydachi)! - The Version Packages PR now carries the CI template pin: `bun run version-packages`
+  runs `changeset version` and then `scripts/sync-ci-template-pins.ts`, which rewrites
+  `AI_ENG_VERSION` in `templates/ci.yml.tpl` and `templates/azure-pipelines.yml.tpl`
+  from `package.json`. A bump can no longer leave the templates pinning the previous
+  release, and a template that loses its pin fails the release loudly instead of
+  shipping without one.
+
 ## 3.2.3
 
 ### Patch Changes
