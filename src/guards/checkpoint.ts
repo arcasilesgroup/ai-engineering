@@ -314,7 +314,7 @@ function checkFirstPlan(root: string, checkpoint: Checkpoint): CheckpointGuardRe
   try {
     // A symlink is not the file the person approved. Following it would let a
     // session point the approval check at a file they wrote somewhere else.
-    const descriptor = openSync(join(root, ".ai-engineering", "brainstorm.html"), constants.O_RDONLY | constants.O_NOFOLLOW);
+    const descriptor = openSync(join(root, ".ai-engineering", "brainstorm.html"), constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
     try {
       html = readFileSync(descriptor, "utf8");
     } finally {
@@ -642,6 +642,30 @@ function resetStopCounter(path: string): void {
   }
 }
 
+function readNoFollowFile(path: string): string | null {
+  let descriptor: number;
+  try {
+    descriptor = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+  try {
+    return readFileSync(descriptor, "utf8");
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+function writeNoFollowFile(path: string, content: string): void {
+  const descriptor = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0), 0o600);
+  try {
+    writeFileSync(descriptor, content);
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
 /** How many consecutive Stops this session was refused for `reason`, this one included.
  *  The file holds the count, a newline, and the reason; another reason starts again at one. */
 function bumpStopCounter(path: string, root: string, reason: string): number {
@@ -650,7 +674,7 @@ function bumpStopCounter(path: string, root: string, reason: string): number {
   try {
     const stat = lstatSync(path);
     if (stat.isSymbolicLink() || !stat.isFile()) throw new Error(`${path} is not a regular file`);
-    const stored = readFileSync(path, "utf8");
+    const stored = readNoFollowFile(path) ?? "";
     const newline = stored.indexOf("\n");
     const previous = Number(stored.slice(0, newline));
     if (newline > 0 && stored.slice(newline + 1) === reason && Number.isSafeInteger(previous) && previous > 0) count = previous;
@@ -658,7 +682,7 @@ function bumpStopCounter(path: string, root: string, reason: string): number {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
   const next = count + 1;
-  writeFileSync(path, `${next}\n${reason}`, { mode: 0o600 });
+  writeNoFollowFile(path, `${next}\n${reason}`);
   return next;
 }
 
@@ -671,12 +695,12 @@ function warnOnce(root: string, sessionId: unknown, line: string): void {
     let seen = "";
     try {
       if (!lstatSync(path).isFile()) throw new Error(`${path} is not a regular file`);
-      seen = readFileSync(path, "utf8");
+      seen = readNoFollowFile(path) ?? "";
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
     if (seen.split("\n").includes(line)) return;
-    writeFileSync(path, `${seen}${line}\n`, { mode: 0o600 });
+    writeNoFollowFile(path, `${seen}${line}\n`);
   } catch {
     /* said below, unremembered */
   }

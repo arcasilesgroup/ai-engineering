@@ -4,7 +4,7 @@
 // denies, because denying everything on a surface is how you disable a whole
 // product by installing it.
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { closeSync, constants, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRules, home } from "../env.ts";
@@ -46,7 +46,7 @@ export const TABLE: Record<string, GuardRow[]> = {
     { name: "policy", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ },
-    { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|Task|Agent|Bash)$/ },
+    { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|NotebookEdit|Task|Agent|Bash|PowerShell|shell|command)$/ },
     { name: "lease", matcher: /^(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|shell|command)$/ },
     { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
   ],
@@ -101,9 +101,29 @@ type Verdict = { deny: boolean; by?: string; message?: string };
 
 /** Verdict cache keyed on the fingerprint of one physical call: a second delivery of
  *  the same call gets the guard's own words instead of re-running every guard. */
+/** Read a regular file and refuse a symlink. A link planted on the cache would
+ *  otherwise be followed into whatever the session points it at. */
+const NO_FOLLOW = constants.O_NOFOLLOW ?? 0;
+
+function readUnlinked(file: string): string | null {
+  let descriptor: number;
+  try {
+    descriptor = openSync(file, constants.O_RDONLY | NO_FOLLOW);
+  } catch {
+    return null;
+  }
+  try {
+    return readFileSync(descriptor, "utf8");
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
 function cachedVerdict(file: string, fp: string): Verdict | null {
   try {
-    const book = JSON.parse(readFileSync(file, "utf8")) as Record<string, Verdict>;
+    const raw = readUnlinked(file);
+    if (raw === null) return null;
+    const book = JSON.parse(raw) as Record<string, Verdict>;
     const entry = book[fp];
     if (!entry || typeof entry.deny !== "boolean") return null;
     if (entry.deny && !(typeof entry.by === "string" && typeof entry.message === "string")) return null;
@@ -117,9 +137,10 @@ function rememberVerdict(file: string, fp: string, verdict: Verdict): void {
   try {
     let book: Record<string, Verdict> = {};
     try {
-      book = JSON.parse(readFileSync(file, "utf8")) as Record<string, Verdict>;
+      const raw = readUnlinked(file);
+      if (raw !== null) book = JSON.parse(raw) as Record<string, Verdict>;
     } catch {
-      /* first entry */
+      /* first entry, or a book that is not JSON */
     }
     // The directory does not exist until the first verdict lands: without this the write
     // threw ENOENT into the catch below and the cache silently never worked at all.
@@ -127,7 +148,12 @@ function rememberVerdict(file: string, fp: string, verdict: Verdict): void {
     book[fp] = verdict;
     const trimmed: Record<string, Verdict> = {};
     for (const key of Object.keys(book).slice(-500)) trimmed[key] = book[key]!;
-    writeFileSync(file, JSON.stringify(trimmed));
+    const descriptor = openSync(file, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | NO_FOLLOW, 0o600);
+    try {
+      writeFileSync(descriptor, JSON.stringify(trimmed));
+    } finally {
+      closeSync(descriptor);
+    }
   } catch {
     /* state must never break the chain */
   }

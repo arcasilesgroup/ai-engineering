@@ -1,8 +1,11 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runChain } from "../src/chain/mod.ts";
 import { loadLocalRules } from "../src/env.ts";
+import { fingerprint, normalise } from "../src/payload.ts";
 import { runSelfProtect } from "../src/guards/self-protect.ts";
 import { evaluate } from "../src/guards/policy.ts";
 import { runNoStash } from "../src/guards/no-stash.ts";
@@ -285,5 +288,72 @@ describe("checkpoint and lease close NotebookEdit, Bash write, and lease removal
     // Removing the lease file itself is blocked by self-protect; removing a normal file is not.
     expect(runSelfProtect(bash("rm .git/ai-eng/lease.json"), dir)?.deny).toBe(true);
     expect(runSelfProtect(bash("rm tmp-notes.txt"), dir)).toBeUndefined();
+  });
+});
+
+describe("verdict cache, checkpoint-stop counter, and brainstorm symlink protection", () => {
+  test("verdict cache refuses symlinks via O_NOFOLLOW and routes NotebookEdit through checkpoint", () => {
+    const dir = repo();
+    const fakeHome = mkdtempSync(join(tmpdir(), "ai-eng-verdict-home-"));
+    tempDirs.push(fakeHome);
+    const prevHome = process.env.AI_ENG_HOME;
+    process.env.AI_ENG_HOME = fakeHome;
+    try {
+      const sessionId = "verdict-symlink-session";
+      const raw = {
+        tool_name: "Bash",
+        tool_input: { command: "git commit --no-verify -m pwned" },
+        tool_use_id: "toolu_symlink_1",
+        session_id: sessionId,
+        cwd: dir,
+      };
+      const fp = fingerprint(normalise(raw, undefined, "PreToolUse"));
+      const forged = join(dir, "forged-verdict.json");
+      writeFileSync(forged, JSON.stringify({ [fp]: { deny: false } }));
+      const cacheDir = join(fakeHome, "cache", "verdicts");
+      mkdirSync(cacheDir, { recursive: true });
+      const cacheFile = join(cacheDir, `${createHash("sha256").update(sessionId).digest("hex").slice(0, 32)}.json`);
+      symlinkSync(forged, cacheFile);
+
+      // Attack: symlinked verdict cache must be ignored (O_NOFOLLOW) so no-verify still denies.
+      expect(runChain(raw, "PreToolUse", { inProcess: true }).action).toBe("deny");
+      // Benign: a normal read call still passes through the chain.
+      expect(runChain({ tool_name: "Bash", tool_input: { command: "git status" }, tool_use_id: "toolu_ok_1", session_id: sessionId, cwd: dir }, "PreToolUse", { inProcess: true }).action).toBe("allow");
+
+      // TABLE routes NotebookEdit to checkpoint (attack denied, normal notebook allowed).
+      const cpPath = join(dir, ".ai-engineering", "workflow", "checkpoints", "demo.json");
+      expect(runChain({ tool_name: "NotebookEdit", tool_input: { notebook_path: cpPath, new_source: "{}" }, session_id: sessionId, cwd: dir }, "PreToolUse", { inProcess: true }).action).toBe("deny");
+      expect(runChain({ tool_name: "NotebookEdit", tool_input: { notebook_path: join(dir, "notes.ipynb"), new_source: "x = 1" }, session_id: sessionId, cwd: dir }, "PreToolUse", { inProcess: true }).action).toBe("allow");
+    } finally {
+      if (prevHome === undefined) delete process.env.AI_ENG_HOME;
+      else process.env.AI_ENG_HOME = prevHome;
+    }
+  });
+
+  test("checkpoint-stop counter is unwritable and symlinked brainstorm.html is refused", () => {
+    const dir = repo();
+    const stopFile = join(dir, ".ai-engineering", "cache", "checkpoint-stop", "abc.txt");
+    expect(runSelfProtect({ tool_name: "Write", tool_input: { file_path: stopFile, content: "99\n" } }, dir)?.deny).toBe(true);
+    expect(runSelfProtect(bash("rm -rf .ai-engineering/cache/checkpoint-stop"), dir)?.deny).toBe(true);
+    // Benign: normal session artifact inside .ai-engineering stays writable.
+    expect(runSelfProtect({ tool_name: "Write", tool_input: { file_path: join(dir, ".ai-engineering", "research", "note.md"), content: "ok\n" } }, dir)).toBeUndefined();
+
+    // Symlinked brainstorm.html is refused by O_NOFOLLOW when approving a first checkpoint plan.
+    Bun.spawnSync(["git", "init", "-q", "--template=", "-b", "main"], { cwd: dir });
+    const today = new Date().toISOString().slice(0, 10);
+    const externalBrainstorm = join(dir, "external-brainstorm.html");
+    writeFileSync(
+      externalBrainstorm,
+      `<!doctype html><html><head><meta name="ai-feature" content="demo"><meta name="ai-approved" content="${today}"></head><body><div class="meta">complete · ${today}</div></body></html>`,
+    );
+    symlinkSync(externalBrainstorm, join(dir, ".ai-engineering", "brainstorm.html"));
+    const plan = JSON.stringify({
+      version: 2,
+      slug: "demo",
+      lifecycle: { phase: "implementation", plan_approval: "approved", app_review: "not-started", reviewed_base: null, reviewed_feature: null },
+      checkpoints: [{ id: 1, title: "CP1", status: "pending", gates: { behavior: { status: "pending" }, ui: { status: "n/a" }, review: { status: "pending" } } }],
+    });
+    const planPath = join(dir, ".ai-engineering", "workflow", "checkpoints", "demo.json");
+    expect(runCheckpointGuard({ tool_name: "Write", tool_input: { file_path: planPath, content: plan } }, dir)?.deny).toBe(true);
   });
 });
