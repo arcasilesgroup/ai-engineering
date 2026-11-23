@@ -9,6 +9,7 @@ import { runNoStash } from "../src/guards/no-stash.ts";
 import { checkBash, checkContent, hooksPathTargets, runNoVerify } from "../src/guards/no-verify.ts";
 import { readTargets, runInjection } from "../src/guards/injection.ts";
 import { evaluateLocalRules, type LocalRule } from "../src/guards/local-rules.ts";
+import { runLoopGuard } from "../src/guards/loop.ts";
 
 const tempDirs: string[] = [];
 
@@ -227,5 +228,31 @@ describe("injection closes the traced bypasses and still allows normal reads", (
     const matcher = new RegExp(`^(?:${tpl.hooks.PostToolUse[0]!.matcher})$`);
     expect(matcher.test("mcp__github__get_issue")).toBe(true);
     expect(matcher.test("WebFetch")).toBe(true);
+  });
+});
+
+describe("loop counts failures from OpenCode, OMP, and Pi without firing on non-errors", () => {
+  test("five string or structured failures deny the next call; non-error outputs pass", () => {
+    const failCmd = "bun run hardening-loop-fail-" + Math.random().toString(16).slice(2);
+    const stringFail = { _event: "PostToolUse", tool_name: "Bash", tool_input: { command: failCmd }, tool_response: "{\"isError\":true}" };
+    for (let n = 0; n < 5; n += 1) runLoopGuard(stringFail, false);
+    expect(runLoopGuard({ _event: "PreToolUse", tool_name: "Bash", tool_input: { command: failCmd + " --next" } }, false)?.deny).toBe(true);
+
+    const pluginCmd = "bun run hardening-loop-plugin-" + Math.random().toString(16).slice(2);
+    const pluginFail = { _event: "PostToolUse", tool_name: "Bash", tool_input: { command: pluginCmd }, tool_response: { text: "command failed", isError: true } };
+    for (let n = 0; n < 5; n += 1) runLoopGuard(pluginFail, false);
+    expect(runLoopGuard({ _event: "PreToolUse", tool_name: "Bash", tool_input: { command: pluginCmd + " --next" } }, false)?.deny).toBe(true);
+
+    // Benign: five passing runs (even with the word "error" in text) never trigger the failure arm.
+    const okCmd = "bun run hardening-loop-ok-" + Math.random().toString(16).slice(2);
+    const pluginOk = { _event: "PostToolUse", tool_name: "Bash", tool_input: { command: okCmd }, tool_response: { text: "0 error(s)", isError: false } };
+    for (let n = 0; n < 5; n += 1) runLoopGuard(pluginOk, false);
+    expect(runLoopGuard({ _event: "PreToolUse", tool_name: "Bash", tool_input: { command: okCmd + " --next" } }, false)).toBeUndefined();
+
+    // All three in-process plugin templates pass structured { text, isError } on PostToolUse.
+    for (const tplName of ["plugin.omp.ts.tpl", "plugin.opencode.ts.tpl", "plugin.pi.ts.tpl"]) {
+      const source = readFileSync(join(import.meta.dir, "..", "templates", tplName), "utf8");
+      expect(source, tplName).toContain("isError:");
+    }
   });
 });

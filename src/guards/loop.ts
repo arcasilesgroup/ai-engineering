@@ -71,7 +71,15 @@ function saveState(state: LoopState): void {
 /** Authoritative failure fields only. Scanning output for the word "error" makes a
  *  guard fire on a passing test suite that prints one. */
 function failed(payload: Payload): boolean {
-  const response = payload.tool_response;
+  let response = payload.tool_response;
+  if (typeof response === "string") {
+    try {
+      const parsed = JSON.parse(response) as unknown;
+      if (parsed !== null && typeof parsed === "object") response = parsed;
+    } catch {
+      return false;
+    }
+  }
   if (response !== null && typeof response === "object") {
     const record = response as Record<string, unknown>;
     return Boolean(record["is_error"] || record["isError"]);

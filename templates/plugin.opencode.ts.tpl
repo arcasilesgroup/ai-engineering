@@ -63,8 +63,15 @@ export default {
             const before = chain("PreToolUse", judgement, { surface: "opencode" });
             if (before.action === "deny") throw new Error(`[ai-eng] ${before.by}: ${before.reason}`);
             if (before.action === "rewrite" && typeof input["command"] === "string") input["command"] = before.command;
-            const result = await execute(input, call);
-            const after = chain("PostToolUse", { ...judgement, tool_response: textOf(result) }, { surface: "opencode" });
+            let result: unknown;
+            try {
+              result = await execute(input, call);
+            } catch (error) {
+              chain("PostToolUse", { ...judgement, tool_response: { text: error instanceof Error ? error.message : String(error), isError: true } }, { surface: "opencode" });
+              throw error;
+            }
+            const failed = result !== null && typeof result === "object" && ((result as { isError?: boolean; is_error?: boolean }).isError === true || (result as { isError?: boolean; is_error?: boolean }).is_error === true);
+            const after = chain("PostToolUse", { ...judgement, tool_response: { text: textOf(result), isError: failed } }, { surface: "opencode" });
             if (after.action === "deny") {
               // Containment, not prevention: the tool already ran, so the whole result is
               // rejected — no result field reaches the model or the host's consumers. The

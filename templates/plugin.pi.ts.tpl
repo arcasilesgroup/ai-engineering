@@ -30,7 +30,7 @@ export default function (pi: ExtensionAPI): void {
   pi.on("tool_result", (event, ctx) => {
     const outcome = chain(
       "PostToolUse",
-      { tool_name: event.toolName, tool_input: event.input, tool_response: textOf(event.content), tool_use_id: event.toolCallId, cwd: ctx.cwd },
+      { tool_name: event.toolName, tool_input: event.input, tool_response: { text: textOf(event.content), isError: (event as { isError?: boolean }).isError === true }, tool_use_id: event.toolCallId, cwd: ctx.cwd },
       { surface: "pi" },
     );
     if (outcome.action === "deny") {

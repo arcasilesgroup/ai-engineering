@@ -7,7 +7,7 @@
 // carries a copy.
 import { chain } from "./.ai-eng-chain.ts";
 
-type ToolCall = { toolName: string; input: Record<string, unknown>; sessionID?: string; callID?: string };
+type ToolCall = { toolName: string; input: Record<string, unknown>; sessionID?: string; callID?: string; isError?: boolean };
 type Part = { type?: string; text?: string };
 
 /** The tool's own output as text: the injection guard's containment arm reads it. */
@@ -37,7 +37,7 @@ export default function (pi: { on: (event: string, handler: (event: never, ctx: 
     const context = ctx as unknown as { cwd?: string };
     const outcome = chain(
       "PostToolUse",
-      { tool_name: call.toolName, tool_input: call.input, tool_response: textOf(call.content), session_id: call.sessionID, tool_use_id: call.callID, cwd: context.cwd },
+      { tool_name: call.toolName, tool_input: call.input, tool_response: { text: textOf(call.content), isError: call.isError === true }, session_id: call.sessionID, tool_use_id: call.callID, cwd: context.cwd },
       { surface: "oh-my-pi" },
     );
     if (outcome.action === "deny") {
