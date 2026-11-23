@@ -63,6 +63,7 @@ export default {
             const before = chain("PreToolUse", judgement, { surface: "opencode" });
             if (before.action === "deny") throw new Error(`[ai-eng] ${before.by}: ${before.reason}`);
             if (before.action === "rewrite" && typeof input["command"] === "string") input["command"] = before.command;
+            if (before.action === "review") process.stderr.write(`[ai-eng] injection: ${before.reason}\n`);
             const result = await execute(input, call);
             const after = chain("PostToolUse", { ...judgement, tool_response: textOf(result) }, { surface: "opencode" });
             if (after.action === "deny") {
@@ -71,6 +72,7 @@ export default {
               // verdict itself names the guard and quotes a short excerpt, by design.
               throw new Error(`[ai-eng] ${after.by}: ${after.reason}`);
             }
+            if (after.action === "review") process.stderr.write(`[ai-eng] injection: ${after.reason}\n`);
             return result;
           };
         });

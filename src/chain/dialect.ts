@@ -84,6 +84,27 @@ export function allow(dialect: Dialect = "claude"): void {
   process.stdout.write(`${JSON.stringify({ permission: "allow" })}\n`);
 }
 
+/** The annotated-allow envelope (review): allows the call to proceed while surfacing the
+ *  one-line annotation in both stderr and the host's own JSON context channel, so a
+ *  review verdict is never dropped into silence or misread as a Cursor refusal. */
+export function review(guard: string, message: string, dialect: Dialect = "claude", event = "PreToolUse"): void {
+  const text = `[ai-eng] ${guard}: ${message}`.replace(/[\r\n]/g, " ");
+  process.stderr.write(`${text}\n`);
+  if (dialect === "codex") {
+    process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: event, permissionDecision: "allow", additionalContext: text } })}\n`);
+    return;
+  }
+  if (dialect === "cursor") {
+    process.stdout.write(`${JSON.stringify({ permission: "allow", agent_message: text })}\n`);
+    return;
+  }
+  if (dialect === "copilot") {
+    process.stdout.write(`${JSON.stringify({ permissionDecision: "allow", permissionDecisionReason: text })}\n`);
+    return;
+  }
+  process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } })}\n`);
+}
+
 export type Override = { name: string; reason: string; until?: string };
 
 /** Read active overrides — the ONLY mechanism that turns a guard off.

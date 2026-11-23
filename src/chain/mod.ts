@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRules, home } from "../env.ts";
 import { normalise, deduplicable, fingerprint, loopExact } from "../payload.ts";
 import type { Payload } from "../payload.ts";
-import { deny, allow, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
+import { deny, allow, allowRewrite, review, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
 import { runNoStash } from "../guards/no-stash.ts";
 import { leaseMinutes, readLease, releaseLease, runLease } from "../guards/lease.ts";
@@ -97,7 +97,12 @@ function selected(event: string, tool: string): GuardRow[] {
   return TABLE[key]!.filter((row) => row.matcher.test(tool));
 }
 
-type Verdict = { deny: boolean; by?: string; message?: string };
+type Verdict = {
+  deny: boolean;
+  by?: string;
+  message?: string;
+  review?: { reason: string; rule: { id: string; name: string; risk: number } };
+};
 
 /** Verdict cache keyed on the fingerprint of one physical call: a second delivery of
  *  the same call gets the guard's own words instead of re-running every guard. */
@@ -223,6 +228,9 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
       if (verdict.deny) {
         return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started, root, tool);
       }
+      if (verdict.review !== undefined) {
+        return { action: "review", reason: verdict.review.reason, rule: verdict.review.rule, guards: [], receiptId: null };
+      }
       return { action: "allow", guards: [], receiptId: null };
     }
   }
@@ -251,7 +259,9 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     }
   }
 
-  if (dedup) rememberVerdict(cacheFile, fp, { deny: false });
+  if (dedup) {
+    rememberVerdict(cacheFile, fp, reviewResult !== undefined ? { deny: false, review: reviewResult } : { deny: false });
+  }
   const latency = Math.max(1, Date.now() - started);
   // Phase 1: if a local rule triggered review (not block), record it in the
   // receipt but still allow the call. The receipt carries the review metadata
@@ -338,7 +348,7 @@ function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): Gu
           return runPolicy(command, cwd, policyModeFor(ctx.repoRoot));
         }
         case "injection":
-          return runInjection(payload);
+          return runInjection(payload, ctx.repoRoot);
         case "spoken-secret":
           return runSpokenSecret(payload);
         case "checkpoint":
@@ -507,7 +517,8 @@ export function chainMain(event: string, raw: string, options: ChainOptions = {}
     deny("chain", UNREADABLE_PAYLOAD, options.dialect ?? "claude", event);
   }
   const outcome = runChain(body, event, options);
-  // An allow is a verdict too, and one host reads an empty answer as a refusal.
+  // An allow is a verdict too, and a review verdict must actually print its annotation.
   if (outcome.action === "allow") allow(options.dialect ?? "claude");
+  else if (outcome.action === "review") review("injection", outcome.reason, options.dialect ?? "claude", event);
   process.exit(0);
 }

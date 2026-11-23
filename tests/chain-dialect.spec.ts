@@ -9,7 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runChain } from "../src/chain/mod.ts";
-import { deny, allowRewrite, allow, readOverrides, overrideDaysLeft, overrideActive } from "../src/chain/dialect.ts";
+import { deny, allowRewrite, allow, review, readOverrides, overrideDaysLeft, overrideActive } from "../src/chain/dialect.ts";
 
 class ExitSignal extends Error {
   constructor(readonly code: number) {
@@ -210,6 +210,48 @@ describe("allow — silence, except where an empty stdout is a policy error", ()
       spy.mockRestore();
     }
     expect(JSON.parse(out.join(""))).toEqual({ permission: "allow" });
+  });
+});
+
+describe("review — every host renders the annotation while allowing the call", () => {
+  function captureReview(dialect: "claude" | "codex" | "cursor" | "copilot", event = "PreToolUse"): { json: Record<string, unknown>; stderr: string } {
+    const out: string[] = [];
+    const err: string[] = [];
+    const outSpy = spyOn(process.stdout, "write").mockImplementation(((chunk: string) => {
+      out.push(String(chunk));
+      return true;
+    }) as never);
+    const errSpy = spyOn(process.stderr, "write").mockImplementation(((chunk: string) => {
+      err.push(String(chunk));
+      return true;
+    }) as never);
+    try {
+      review("injection", "NOTE: report.md contains instruction-shaped text", dialect, event);
+      return { json: JSON.parse(out.join("")) as Record<string, unknown>, stderr: err.join("") };
+    } finally {
+      outSpy.mockRestore();
+      errSpy.mockRestore();
+    }
+  }
+
+  test("claude prints additionalContext JSON and a single-line stderr annotation", () => {
+    const { json, stderr } = captureReview("claude", "PreToolUse");
+    expect(stderr).toBe("[ai-eng] injection: NOTE: report.md contains instruction-shaped text\n");
+    expect(json).toEqual({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        additionalContext: "[ai-eng] injection: NOTE: report.md contains instruction-shaped text",
+      },
+    });
+  });
+
+  test("codex, cursor and copilot each receive an allow envelope carrying the annotation", () => {
+    const expected = "[ai-eng] injection: NOTE: report.md contains instruction-shaped text";
+    expect(captureReview("codex", "PreToolUse").json).toEqual({
+      hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow", additionalContext: expected },
+    });
+    expect(captureReview("cursor", "PreToolUse").json).toEqual({ permission: "allow", agent_message: expected });
+    expect(captureReview("copilot", "PreToolUse").json).toEqual({ permissionDecision: "allow", permissionDecisionReason: expected });
   });
 });
 
