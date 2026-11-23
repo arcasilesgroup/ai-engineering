@@ -18,7 +18,7 @@ import { SURFACES, surfaceCanGovern, machineCarrier, retireNpmPowerShellShim } f
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
 import { canonicalSurfaceId, home, isCiProvider, CI_PROVIDERS, type CiProvider } from "../env.ts";
-import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine, refuseText, AZURE_PORTAL_STEPS, CI_PICK_MESSAGE, ciOptions } from "./init-shared.ts";
+import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine, refuseText, AZURE_PORTAL_STEPS, CI_PICK_MESSAGE, ciOptions, isLegacyHooksPath } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
 import { retiredPaths, sweepRetiredAssets } from "./uninstall.ts";
@@ -96,12 +96,13 @@ function scaffoldProject(surfaces: string[], ci: CiProvider, contract: PlanEntry
   // so a repo that points it somewhere else (husky, pre-commit) would carry our floor and
   // never run it. Deleting that setting for the user is not ours to do: it is named, with
   // the one line that fixes it, and a value we set ourselves in an older release is
-  // cleaned up because it IS ours.
-  const hooksPath = spawnSync("git", ["-C", cwd, "config", "--get", "core.hooksPath"], { encoding: "utf8" });
+  // cleaned up because it IS ours. `--local` so an environment or global value is not
+  // mistaken for this repo's. A path that merely contains "ai-eng" is still the user's.
+  const hooksPath = spawnSync("git", ["-C", cwd, "config", "--local", "--get", "core.hooksPath"], { encoding: "utf8" });
   const hooksPathValue = (hooksPath.stdout ?? "").trim();
   if (hooksPathValue.length > 0) {
-    if (hooksPathValue.includes("ai-eng")) {
-      spawnSync("git", ["-C", cwd, "config", "--unset", "core.hooksPath"]);
+    if (isLegacyHooksPath(hooksPathValue)) {
+      spawnSync("git", ["-C", cwd, "config", "--local", "--unset", "core.hooksPath"]);
       rows.push(ui.fileRow("updated", "core.hooksPath", `unset — was ${hooksPathValue}`));
     } else {
       rows.push({ mark: "warn", text: `core.hooksPath is yours (${hooksPathValue}): git will not read .git/hooks, so the ai-eng floor does not run. Keep it and call \`ai-eng git pre-commit\` from your hook, or unset it.` });

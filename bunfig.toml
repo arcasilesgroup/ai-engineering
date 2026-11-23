@@ -1,4 +1,8 @@
 [test]
+# coverage = false wins over `bun test --coverage`: the flag collects nothing
+# while this line is here. CI measures coverage with its own config
+# (.github/workflows/check.yml writes .bunfig.coverage.toml). Bun 1.4.4's lcov
+# reporter writes line and function records only, not branch records.
 coverage = false
 # ./tests/preload.ts pins stdin/stdout isTTY off: the suite's prompt-driving and
 # rendering assertions assume a piped runner, not the terminal `bun test` was typed in.

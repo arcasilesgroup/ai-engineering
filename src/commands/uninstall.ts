@@ -21,7 +21,7 @@ import {
   readProjectFileSnapshot, refusedChangeText, safeProjectPath, unlinkProjectPath, withSafeProjectParent, writeProjectFile,
   CANON_OWNERSHIP_NAME, type ProjectFileSnapshot,
 } from "../embed.ts";
-import { ciEntries, planEntries, refuseText } from "./init-shared.ts";
+import { ciEntries, planEntries, refuseText, isLegacyHooksPath } from "./init-shared.ts";
 import { select, isCancel } from "@clack/prompts";
 import * as ui from "../ui.ts";
 import { VERSION } from "../version.ts";
@@ -479,8 +479,15 @@ export async function uninstallMain(): Promise<number> {
   const declared = enabledSurfaces();
   // ── project side ──────────────────────────────────────────────
   const removed: ui.Row[] = [];
-  spawnSync("git", ["-C", root, "config", "--unset", "core.hooksPath"]);
-  removed.push(ui.fileRow("updated", "core.hooksPath", "reverted to default"));
+  // Only the local value, and only the path an older release wrote. A global
+  // setting stays, a path that merely contains "ai-eng" stays, and a repo with
+  // nothing set is not told that something was reverted.
+  const hooksPath = spawnSync("git", ["-C", root, "config", "--local", "--get", "core.hooksPath"], { encoding: "utf8" });
+  const hooksPathValue = (hooksPath.stdout ?? "").trim();
+  if (isLegacyHooksPath(hooksPathValue)) {
+    const unset = spawnSync("git", ["-C", root, "config", "--local", "--unset", "core.hooksPath"], { encoding: "utf8" });
+    if (unset.status === 0) removed.push(ui.fileRow("updated", "core.hooksPath", "reverted to default"));
+  }
   sweepProjectSide(root, declared, removed);
   // Rendered as one block: what went, at a glance.
   ui.section("Removed", removed);

@@ -103,6 +103,15 @@ export function detectCommands(root: string = repoTemplateRoot()): string {
   return "typecheck: (detect your language here) · test: (your runner)";
 }
 
+/** The only core.hooksPath an older release wrote. A path that merely contains
+ *  "ai-eng" is the user's directory, not this one. */
+export const LEGACY_HOOKS_PATH = ".ai-engineering/git-template/hooks";
+
+export function isLegacyHooksPath(value: string): boolean {
+  const normalized = value.replace(/\\/g, "/").replace(/\/+$/, "");
+  return normalized === LEGACY_HOOKS_PATH || normalized.endsWith(`/${LEGACY_HOOKS_PATH}`);
+}
+
 export function gitHookEntries(): PlanEntry[] {
   // Marker-managed shims land directly in .git/hooks/ — one copy, standard
   // location, no core.hooksPath redirect, no .ai-engineering/git duplicate.

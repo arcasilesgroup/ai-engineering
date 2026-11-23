@@ -255,6 +255,73 @@ afterAll(() => {
   stdin.restore();
 });
 
+describe("uninstall · core.hooksPath", () => {
+  function governed(): string {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    fs.mkdirSync(join(cwd, ".ai-engineering"), { recursive: true });
+    fs.writeFileSync(join(cwd, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+    return cwd;
+  }
+
+  function localHooksPath(cwd: string): string {
+    return spawnSync("git", ["-C", cwd, "config", "--local", "--get", "core.hooksPath"], { encoding: "utf8" }).stdout?.trim() ?? "";
+  }
+
+  test("nothing local was set, so nothing is called reverted", async () => {
+    governed();
+    const { result, out } = await uninstall([
+      [SELECT, PROJECT_KEYS],
+      [CONFIRM, "y"],
+    ]);
+    expect(result).toBe(0);
+    expect(out).not.toContain("reverted to default");
+  });
+
+  test("a local path that merely contains ai-eng stays", async () => {
+    const cwd = governed();
+    spawnSync("git", ["-C", cwd, "config", "--local", "core.hooksPath", "/tmp/ai-eng-hooks"]);
+    const { result, out } = await uninstall([
+      [SELECT, PROJECT_KEYS],
+      [CONFIRM, "y"],
+    ]);
+    expect(result).toBe(0);
+    expect(localHooksPath(cwd)).toBe("/tmp/ai-eng-hooks");
+    expect(out).not.toContain("reverted to default");
+  });
+
+  test("the hooks path an older install wrote is reverted", async () => {
+    const cwd = governed();
+    spawnSync("git", ["-C", cwd, "config", "--local", "core.hooksPath", ".ai-engineering/git-template/hooks"]);
+    const { result, out } = await uninstall([
+      [SELECT, PROJECT_KEYS],
+      [CONFIRM, "y"],
+    ]);
+    expect(result).toBe(0);
+    expect(localHooksPath(cwd)).toBe("");
+    expect(out).toContain("core.hooksPath · reverted to default");
+  });
+
+  test("a global hooks path is left where it is", async () => {
+    const cwd = governed();
+    spawnSync("git", ["config", "--global", "core.hooksPath", "/tmp/global-hooks"], {
+      env: { ...process.env, GIT_CONFIG_GLOBAL: process.env["GIT_CONFIG_GLOBAL"] ?? "" },
+    });
+    const { result, out } = await uninstall([
+      [SELECT, PROJECT_KEYS],
+      [CONFIRM, "y"],
+    ]);
+    expect(result).toBe(0);
+    const globalHooks = spawnSync("git", ["config", "--global", "--get", "core.hooksPath"], {
+      encoding: "utf8",
+      env: { ...process.env, GIT_CONFIG_GLOBAL: process.env["GIT_CONFIG_GLOBAL"] ?? "" },
+    }).stdout?.trim();
+    expect(globalHooks).toBe("/tmp/global-hooks");
+    expect(localHooksPath(cwd)).toBe("");
+    expect(out).not.toContain("reverted to default");
+  });
+});
+
 describe("uninstall · this project (the lock is the ownership register)", () => {
   test("an init-shaped install is swept: the contract, the spec and the plan stay", async () => {
     const { cwd } = sandboxed();

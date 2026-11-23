@@ -8,12 +8,13 @@
 // fail-closed boundaries (unreadable payload, crashing guard).
 
 import { describe, expect, test, afterAll, beforeEach } from "bun:test";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runChain, TABLE, type ChainOutcome } from "../src/chain/mod.ts";
+import { fingerprint, normalise } from "../src/payload.ts";
 
 const cli = join(import.meta.dir, "..", "src", "cli.ts");
 let scratch: string;
@@ -35,6 +36,7 @@ beforeEach(() => {
     process.chdir(scratch);
   }
   rmSync(join(scratch, ".ai-engineering"), { recursive: true, force: true });
+  rmSync(join(machineHome, "cache", "verdicts"), { recursive: true, force: true });
   mkdirSync(join(scratch, ".ai-engineering"), { recursive: true });
   writeFileSync(join(scratch, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
 });
@@ -411,7 +413,7 @@ describe("runChain — fail-closed boundaries", () => {
 describe("runChain — the verdict cache", () => {
   test("a second delivery of the same physical call replays the verdict, not the guards", () => {
     const first = RUN(bash("git commit --no-verify -m x"));
-    const dir = join(scratch, ".ai-engineering", "cache", "verdicts");
+    const dir = join(machineHome, "cache", "verdicts");
     expect(existsSync(dir)).toBe(true);
     const files = readdirSync(dir);
     expect(files.length).toBe(1);
@@ -437,7 +439,7 @@ describe("runChain — the verdict cache", () => {
 
   test("a cached allow is a verdict too: the second delivery skips the guards", () => {
     RUN(bash("git status"));
-    const dir = join(scratch, ".ai-engineering", "cache", "verdicts");
+    const dir = join(machineHome, "cache", "verdicts");
     const book = JSON.parse(
       readFileSync(join(dir, readdirSync(dir)[0]!), "utf8"),
     ) as Record<string, { deny: boolean }>;
@@ -448,25 +450,36 @@ describe("runChain — the verdict cache", () => {
 
   test("a call without tool_use_id is never cached: it is not addressable", () => {
     RUN({ tool_name: "Bash", tool_input: { command: "git status" }, session_id: "anon" });
-    const dir = join(scratch, ".ai-engineering", "cache", "verdicts");
+    const dir = join(machineHome, "cache", "verdicts");
     expect(existsSync(dir)).toBe(false);
   });
 
   test("different sessions get different cache files named by a hash, never the raw id", () => {
     RUN({ tool_name: "Bash", tool_input: { command: "git status" }, tool_use_id: "u", session_id: "session/../evil" });
-    const dir = join(scratch, ".ai-engineering", "cache", "verdicts");
+    const dir = join(machineHome, "cache", "verdicts");
     for (const file of readdirSync(dir)) {
       expect(file).toMatch(/^[0-9a-f]{32}\.json$/);
     }
   });
 
-  test("the cache lives inside .ai-engineering, the directory the lock owns", () => {
+  test("the verdict cache lives outside the repo, beside the loop state", () => {
     RUN(bash("git status"));
-    expect(existsSync(join(scratch, ".ai-engineering", "cache", "verdicts"))).toBe(true);
+    expect(existsSync(join(machineHome, "cache", "verdicts"))).toBe(true);
+    expect(existsSync(join(scratch, ".ai-engineering", "cache", "verdicts"))).toBe(false);
+  });
+
+  test("an allow planted in the repo cache does not let a hook skip through", () => {
+    const payload = bash("git commit --no-verify -m x", "u-planted");
+    const fp = fingerprint(normalise(payload, undefined, "PreToolUse"));
+    const dir = join(scratch, ".ai-engineering", "cache", "verdicts");
+    mkdirSync(dir, { recursive: true });
+    const name = `${createHash("sha256").update("dispatch").digest("hex").slice(0, 32)}.json`;
+    writeFileSync(join(dir, name), JSON.stringify({ [fp]: { deny: false } }));
+    expect(RUN(payload).action).toBe("deny");
   });
   test("a malformed cache file is not a crash: the chain re-decides", () => {
     RUN(bash("git status"));
-    const dir = join(scratch, ".ai-engineering", "cache", "verdicts");
+    const dir = join(machineHome, "cache", "verdicts");
     writeFileSync(join(dir, readdirSync(dir)[0]!), "{not json");
     // A fresh call: the corrupted fingerprint's loop window may already be hot.
     const outcome = RUN(bash("git status --long", "u-fresh"));

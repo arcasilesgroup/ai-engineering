@@ -959,15 +959,19 @@ describe("doctor --gc", () => {
   });
 
   test("the verdict cache keeps the last week and old retention claims go; today's claim stays", async () => {
-    const { root } = sandbox();
+    const { root, home } = sandbox();
     const cache = join(root, ".ai-engineering", "cache");
     mkdirSync(join(cache, "verdicts"), { recursive: true });
     const stale = join(cache, "verdicts", "a".repeat(32) + ".json");
     const fresh = join(cache, "verdicts", "b".repeat(32) + ".json");
+    const liveStale = join(home, "cache", "verdicts", "d".repeat(32) + ".json");
+    mkdirSync(join(liveStale, ".."), { recursive: true });
     writeFileSync(stale, "{}");
     writeFileSync(fresh, "{}");
+    writeFileSync(liveStale, "{}");
     const old = new Date(Date.now() - 8 * 86_400_000);
     utimesSync(stale, old, old);
+    utimesSync(liveStale, old, old);
     const today = `receipts-retention-${new Date().toISOString().slice(0, 10)}`;
     writeFileSync(join(cache, "receipts-retention-2026-01-01"), "");
     writeFileSync(join(cache, today), "");
@@ -977,9 +981,10 @@ describe("doctor --gc", () => {
     symlinkSync(join(outside, "keep.json"), join(cache, "verdicts", "c".repeat(32) + ".json"));
 
     const run = await doctor({ gc: true });
-    expect(run.out).toContain("✓ cache/verdicts/: 1 older than 7 days deleted");
+    expect(run.out).toContain("✓ cache/verdicts/: 2 older than 7 days deleted");
     expect(run.out).toContain("✓ cache/: 1 old retention claim deleted");
     expect(existsSync(stale)).toBe(false);
+    expect(existsSync(liveStale)).toBe(false);
     expect(existsSync(fresh)).toBe(true);
     expect(existsSync(join(cache, "receipts-retention-2026-01-01"))).toBe(false);
     expect(existsSync(join(cache, today))).toBe(true);

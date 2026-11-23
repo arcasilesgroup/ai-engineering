@@ -4,7 +4,7 @@
 import { basename, resolve, isAbsolute, join } from "node:path";
 import { realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
-import { commandIndex, normalizeRedirects, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
+import { COMMAND_PREFIXES, commandIndex, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
 
 type Skip = { pattern: RegExp; label: string };
 
@@ -43,6 +43,61 @@ function argumentWords(text: string): ShellWord[] {
     kept.push(words[at]!);
   }
   return kept;
+}
+
+const XARGS_STDIN = "xargs completing git arguments from stdin";
+
+/** Same option-value spellings commandIndex consumes. A drift here would read a
+ *  prefix value as the program (`sudo -u xargs` is a user, not xargs). */
+function prefixTakesValue(prefix: string, option: string): boolean {
+  if (prefix === "xargs") return /^-[0-9A-Za-z]*[aIiLlnsPEed]$/.test(option);
+  if (prefix === "sudo") return /^-[A-Za-z]*[ugCDhpRrT]$/.test(option);
+  if (prefix === "doas") return /^-[A-Za-z]*[uC]$/.test(option);
+  if (prefix === "env") return /^-[A-Za-z]*[uCS]$/.test(option);
+  if (prefix === "nice") return option === "-n";
+  if (prefix === "timeout") return /^-[sk]$/.test(option);
+  if (prefix === "stdbuf") return /^-[ioe]$/.test(option);
+  if (prefix === "exec") return option === "-a";
+  return false;
+}
+
+/** When xargs builds this git command, the words it appends are not on the line.
+ *  `placeholder` is the -I / -i / --replace token stdin is substituted for. */
+function xargsFeed(words: ShellWord[], gitAt: number): { invokes: boolean; placeholder: string | undefined } {
+  let index = 0;
+  let sawXargs = false;
+  let placeholder: string | undefined;
+  while (index < words.length) {
+    const value = words[index]!.value;
+    const name = basename(value);
+    if (RESERVED_WORDS.has(value) || /^[A-Za-z_]\w*=/.test(value)) {
+      index++;
+      continue;
+    }
+    if (!COMMAND_PREFIXES.has(name)) return { invokes: sawXargs && index === gitAt, placeholder };
+    if (name === "xargs") sawXargs = true;
+    const prefix = name;
+    index++;
+    while (index < words.length && /^(?:-|[A-Za-z_]\w*=|\d+(?:\.\d+)?[smhd]?$)/.test(words[index]!.value)) {
+      const option = words[index]!.value;
+      if (prefix === "xargs") {
+        const attached = /^(?:-I|-J|-i|--replace=)(.+)$/.exec(option)?.[1];
+        if (attached !== undefined) placeholder = attached;
+        else if (option === "-i" || option === "--replace") placeholder = "{}";
+        else if ((option === "-I" || option === "-J") && words[index + 1] !== undefined) placeholder = words[index + 1]!.value;
+      }
+      index += prefixTakesValue(prefix, option) ? 2 : 1;
+    }
+  }
+  return { invokes: false, placeholder };
+}
+
+/** stdin can still name the hooked subcommand when the line has none, or when the
+ *  subcommand word is the xargs placeholder (`xargs git`, `xargs -I{} git {}`). */
+function xargsHidesHook(words: ShellWord[], gitAt: number, sub: string): boolean {
+  const feed = xargsFeed(words, gitAt);
+  if (!feed.invokes) return false;
+  return sub === "" || (feed.placeholder !== undefined && sub === feed.placeholder);
 }
 
 /** The hook skip a hooked git command spells as the shell will read it, or null. A message
@@ -95,7 +150,10 @@ function gitInvocationSkip(segment: ShellSegment, words: ShellWord[], gitAt: num
     const expanded = gitHookSkip(alias.startsWith("!") ? alias.slice(1) : `git ${alias}`, depth + 1);
     if (expanded) return expanded;
   }
-  if (!HOOKED.has(sub)) return null;
+  if (!HOOKED.has(sub)) {
+    if (xargsHidesHook(words, gitAt, sub)) return XARGS_STDIN;
+    return null;
+  }
   // Another git directory, exec path or config home is another set of hooks.
   if (environment.some((value) => /^(?:GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|GIT_TEMPLATE_DIR|HOME|XDG_CONFIG_HOME)=/.test(value))
     || globals.some((option) => /^--(?:git-dir|exec-path)(?:=|$)/.test(option))) {
@@ -124,6 +182,10 @@ function gitInvocationSkip(segment: ShellSegment, words: ShellWord[], gitAt: num
     if (value.startsWith("--no-veri")) return "--no-verify";
     if (sub === "commit" && /^-[a-zA-Z]*n[a-zA-Z]*$/.test(value)) return "git commit -n";
   }
+  // Appended by xargs, so they are not words on this line: a pipe, -I{}, or a
+  // process substitution feeding xargs. A non-hooked utility stays allowed
+  // (`git ls-files | xargs wc -l`, `xargs git status`).
+  if (xargsFeed(words, gitAt).invokes) return XARGS_STDIN;
   return null;
 }
 

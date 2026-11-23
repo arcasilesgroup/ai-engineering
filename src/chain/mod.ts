@@ -7,7 +7,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
-import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRules } from "../env.ts";
+import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRules, home } from "../env.ts";
 import { normalise, deduplicable, fingerprint, loopExact } from "../payload.ts";
 import type { Payload } from "../payload.ts";
 import { deny, allow, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
@@ -210,14 +210,13 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   const overrides = readOverrides(root);
   const ctx: ChainContext = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
 
-  // Same call, same answer: no guard decides the same call twice. The cache lives inside
-  // .ai-engineering/ — the directory the lock owns and uninstall sweeps — and not at the
-  // repo root, where it would be an unowned directory our own `git add -A` commits, with
-  // the guard's own messages (absolute paths included) in it. The filename is
-  // DERIVED, never the raw session id: a host-supplied string with a slash or `..` in it
-  // would put this write outside the cache directory.
+  // Same call, same answer: no guard decides the same call twice. The file sits
+  // beside the loop window, under the machine home and outside the repo: a checkout
+  // the governed party can write must not be able to store its own allow. The
+  // filename is DERIVED, never the raw session id: a host-supplied string with a
+  // slash or `..` in it would put this write outside the cache directory.
   const dedup = deduplicable(payload) && event === "PreToolUse";
-  const cacheFile = join(root, ".ai-engineering", "cache", "verdicts", `${createHash("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
+  const cacheFile = join(home(), "cache", "verdicts", `${createHash("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
   if (dedup) {
     const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {

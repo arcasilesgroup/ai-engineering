@@ -204,6 +204,32 @@ describe("checkBash", () => {
     expect(checkBash(command, null)).toMatchObject({ deny: true, reason: expect.stringContaining(skipReason(label)) });
   });
 
+  // xargs completes argv from stdin, from -I{}, or from a process substitution.
+  // A hooked git command hides --no-verify there. wc and a non-hooked git
+  // subcommand do not: those rows stay allowed so a later change cannot ban xargs outright.
+  test.each([
+    ["a pipe into xargs git commit", "printf %s --no-verify | xargs git commit -m sneaky"],
+    ["xargs -I{}", "xargs -I{} git commit -m {}"],
+    ["xargs -I {}", "xargs -I {} git commit -m {}"],
+    ["stdin from a process substitution", "xargs git commit -m sneaky < <(printf %s --no-verify)"],
+    ["xargs -a fed by a process substitution", "xargs -a <(printf %s --no-verify) git commit -m sneaky"],
+    ["the subcommand itself on stdin", "printf %s commit | xargs git"],
+    ["xargs -I{} supplying the subcommand", "xargs -I{} git {}"],
+  ])("denies %s when xargs can supply the arguments", (_name, command) => {
+    expect(checkBash(command, null)).toMatchObject({
+      deny: true,
+      reason: expect.stringContaining(skipReason("xargs completing git arguments from stdin")),
+    });
+  });
+
+  test.each([
+    ["git ls-files piped to xargs wc", "git ls-files | xargs wc -l"],
+    ["xargs git status", "printf %s -- | xargs git status"],
+    ["xargs git log -n", "xargs git log -n 5"],
+  ])("allows benign xargs: %s", (_name, command) => {
+    expect(checkBash(command, null)).toBeUndefined();
+  });
+
   test.each([
     ["clean commit", "git commit -m ok"],
     ["HUSKY=1", "HUSKY=1 git commit -m ok"],

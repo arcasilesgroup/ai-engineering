@@ -39,6 +39,9 @@ jobs:
         run: |
           set -euo pipefail
           # Keep the check's single serial suite run as the coverage source for Sonar.
+          # Line and function coverage only. Branch coverage is blocked on
+          # oven-sh/bun#46534 and arrives with that upstream change: this
+          # config has no switch for it, and no second coverage tool is added.
           trap 'rm -f .bunfig.coverage.toml' EXIT
           printf '[test]\ncoverage = true\ncoverageReporter = ["lcov"]\ncoverageDir = "coverage"\npreload = ["./tests/preload.ts"]\n' > .bunfig.coverage.toml
           bun --config=.bunfig.coverage.toml test --parallel=1
