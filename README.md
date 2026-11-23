@@ -35,8 +35,8 @@ The agent can't edit its own rules, and every refusal it gets is saved as a file
 </p>
 
 <p align="center">
-  <a href="src/guards/no-verify.ts"><img src=".github/assets/readme/deny-silence.webp" alt="A terminal. The payload of an edit that adds an eslint-disable comment goes into ai-eng chain PreToolUse. The answer: this silences a check, and silencing a check is skipping a hook. A legitimate skip goes in .ai-engineering/overrides.toml with a reason. Exit 2." width="880"></a>
-  <br/><sub>The agent tried to silence a linter in an edit. Refused, with the one legitimate way around it.</sub>
+  <a href="src/guards/no-verify.ts"><img src=".github/assets/readme/deny-silence.webp" alt="A terminal. The payload of an edit that adds an eslint-disable comment goes into ai-eng chain PreToolUse. The answer: this silences a check, and silencing a check is skipping a hook, so the edit is refused. Exit 2." width="880"></a>
+  <br/><sub>The agent tried to silence a linter in an edit. Refused: only the loop guard takes an override, so the way out here is to fix the code or ask a person to change the rule in a reviewed diff.</sub>
 </p>
 
 <p align="center">
@@ -184,8 +184,8 @@ None of this is required to get the refusals above. The triggers that send a cha
     <td><b>Unsure means refuse.</b> A guard that cannot decide refuses it too.</td>
   </tr>
   <tr>
-    <td><b>One written bypass.</b> An entry in <code>.ai-engineering/overrides.toml</code> needs a <code>reason</code> and an <code>until</code> date. Each override lands in the receipt and in the commit.</td>
-    <td><b>Expiry turns it back on.</b> <code>ai-eng doctor</code> lists every active entry with its time left. When the date passes, the check is on again.</td>
+    <td><b>One written bypass.</b> The loop guard reads <code>.ai-engineering/overrides.toml</code>; an entry there needs a <code>reason</code> and an <code>until</code> date. No other guard reads that file.</td>
+    <td><b>Expiry turns it back on.</b> <code>ai-eng doctor</code> lists every active entry with its time left. When the date passes, the loop guard is on again.</td>
   </tr>
 </table>
 
@@ -194,7 +194,7 @@ The exceptions are real. The Copilot adapter (CLI and VS Code) fails open on a t
 <a name="your-repo"></a>
 <h2 align="center"><a href="#your-repo"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-your-repo-dark.webp"><img src=".github/assets/readme/heading-your-repo-light.webp" alt="The rules live in your repo" width="600"></picture></a></h2>
 
-<p align="center">They are files in git, reviewed like code. The agent's edits to them are refused, and turning a check off takes a dated entry that expires.</p>
+<p align="center">They are files in git, reviewed like code. The agent's edits to them are refused, and turning the loop guard off takes a dated entry that expires.</p>
 
 - **Versioned files.** `AGENTS.md`, `DECISIONS.md`, `.ai-engineering/config.toml` and the git hooks sit in your repository, plus `~/.ai-engineering/` on your machine.
 - **Self-protected.** `self-protect` is the first guard in the order. The agent cannot write to the files that govern it; a person changes them in a reviewed diff.
@@ -346,7 +346,7 @@ Yes, and we list how. It is not a sandbox: command checks read the visible comma
 <details>
 <summary><b>Can I turn a check off?</b></summary>
 
-Yes, in one place. Add an entry to `.ai-engineering/overrides.toml` with a reason and an end date. The agent cannot write to that file, the commit message must carry the reason, and `ai-eng doctor` shows every active entry with its time left. When the date passes, the check turns itself back on. To remove everything, run `ai-eng uninstall`; it keeps your own files.
+For one guard, yes. The loop guard reads `.ai-engineering/overrides.toml`: add an entry there with a reason and an end date and the repeated call goes through. The agent cannot write to that file, and `ai-eng doctor` shows every active entry with its time left. When the date passes, the loop guard is on again. Every other guard has no override today: the way out is to run the call another way, or to ask a person to change the rule in a reviewed diff. To remove everything, run `ai-eng uninstall`; it keeps your own files.
 
 </details>
 
@@ -381,7 +381,7 @@ Measured on 2026-11-23, it enforces and has verified Claude Code, Cursor, Copilo
 <details>
 <summary><b>What happens when it is wrong?</b></summary>
 
-When it refuses something harmless, it tells you which check fired and why, so you can add a dated override. `ai-eng doctor` warns if refusals climb above 50 per 1,000 calls. Every false alarm we have fixed is kept in a test, paired with the attack it looks like. When it misses something, report it: on an enforced host, a way past a check that our list does not already name is a security bug.
+When it refuses something harmless, it tells you which check fired and why. Only the loop guard takes a dated override; for any other guard, run the call another way or ask a person to change the rule in a reviewed diff. `ai-eng doctor` warns if refusals climb above 50 per 1,000 calls. Every false alarm we have fixed is kept in a test, paired with the attack it looks like. When it misses something, report it: on an enforced host, a way past a check that our list does not already name is a security bug.
 
 </details>
 
