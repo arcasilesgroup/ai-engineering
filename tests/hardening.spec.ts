@@ -76,8 +76,9 @@ describe("self-protect closes the traced bypasses and still allows ordinary comm
     denied("f=.ai-engineering/config.toml; f=safe.txt true; rm \"$f\"");
     denied("f=.ai-engineering/config.toml; f=safe.txt >/dev/null true; rm \"$f\"");
     denied("f=.ai-engineering/config.toml; \"f=safe.txt\"; rm \"$f\"");
-    // sh keeps a prefix before a special builtin such as `:`; bash does not.
-    denied("f=safe.txt; f=.ai-engineering/config.toml :; rm \"$f\"");
+    // bash and zsh run the command with the prefix as its environment and keep the earlier value.
+    denied("f=.ai-engineering/config.toml; f=safe.txt :; rm \"$f\"");
+    allowed("f=safe.txt; f=.ai-engineering/config.toml :; rm \"$f\"");
     allowed("f=safe.txt; f=.ai-engineering/config.toml true; rm \"$f\"");
     allowed("NODE_ENV=test bun test; rm tmp-notes.txt");
   });
@@ -100,7 +101,14 @@ describe("self-protect closes the traced bypasses and still allows ordinary comm
       ["f=safe.txt; if true; then f=.ai-engineering/config.toml; fi; rm \"$f\"", true],
       ["f=\"\"; f+=.ai-engineering/config.toml; rm \"$f\"", true],
       ["f=.ai-engineering; f+=/config.toml; rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; { f=safe.txt; } & rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; { f=safe.txt; } | cat; rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; if true; then f=safe.txt; fi | cat; rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; for i in 1; do f=safe.txt; done & rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; cat | { f=safe.txt; }; rm \"$f\"", true],
+      ["{ f=.ai-engineering/config.toml; rm \"$f\"; } &", true],
       ["f=.ai-engineering/config.toml; { f=safe.txt; }; rm \"$f\"", false],
+      ["f=safe.txt; { f=.ai-engineering/config.toml; } & rm \"$f\"", false],
       ["f=safe; f+=.txt; rm \"$f\"", false],
     ];
     for (const [command, shouldDeny] of cases) {
@@ -222,8 +230,15 @@ describe("policy closes the traced bypasses and still allows ordinary commands",
       ["f=safe.txt; { f=/etc/hosts; }; echo x > \"$f\"", false],
       ["f=safe.txt; if true; then f=/etc/hosts; fi; echo x > \"$f\"", false],
       ["f=\"\"; f+=/etc/hosts; echo x > \"$f\"", false],
+      ["f=/etc/hosts; { f=notes.txt; } | cat; echo x > \"$f\"", false],
+      ["f=/etc/hosts; if true; then f=notes.txt; fi | cat; echo x > \"$f\"", false],
+      ["f=/etc/hosts; { f=notes.txt; } & echo x > \"$f\"", false],
+      ["f=/etc/hosts; f=notes.txt :; echo x > \"$f\"", false],
+      ["f=safe.txt; printf -v f %b /etc/hosts; echo x > \"$f\"", false],
+      ["f=safe.txt; printf -v f %s /etc /hosts; echo x > \"$f\"", false],
       ["f=/etc/hosts; { f=notes.txt; }; echo x > \"$f\"", true],
       ["f=notes; f+=.txt; echo x > \"$f\"", true],
+      ["f=notes.txt; printf -v f %b safe.txt; echo x > \"$f\"", true],
     ];
     for (const [command, shouldAllow] of cases) {
       if (shouldAllow) allowed(command);
