@@ -433,6 +433,32 @@ describe("the rounds document", () => {
     ]);
   });
 
+  test("renders a finding with a file path and no line number without a colon suffix", () => {
+    const noLine = finding({ id: "file-no-line", severity: "warning", file: "src/guards/nope.ts" });
+    const report = checkFindings(input([noLine]), stubFacts(emptyRepo));
+    expect(renderAnnotations(report)[0]).toBe("phantom-location  src/guards/nope.ts  file-no-line (warning)");
+  });
+
+  test("assigns 1-based positional round numbers when raw rounds omit `round` in both array and object shapes", () => {
+    const arrayDoc = parseRoundDocument(
+      JSON.stringify([
+        { findings: [finding({ id: "first" })] },
+        { findings: [finding({ id: "second" })] },
+      ]),
+    );
+    expect(arrayDoc.rounds.map((round) => round.number)).toEqual([1, 2]);
+
+    const objectDoc = parseRoundDocument(
+      JSON.stringify({
+        rounds: [
+          { findings: [finding({ id: "first" })] },
+          { findings: [finding({ id: "second" })] },
+        ],
+      }),
+    );
+    expect(objectDoc.rounds.map((round) => round.number)).toEqual([1, 2]);
+  });
+
   test("reads the live `{rounds:[…]}` shape and the bare `{findings:[…]}` shape", () => {
     const live = parseRoundDocument(JSON.stringify({ run_id: "r", rounds: [{ round: 1, findings: [finding({ id: "live" })] }] }));
     expect(live.rounds[0]!.findings[0]!.id).toBe("live");

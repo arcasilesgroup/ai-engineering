@@ -255,6 +255,12 @@ export function formatCountLine(counts: Counts): string {
   ].join(" · ");
 }
 
+function formatFindingLocation(finding: Finding): string | null {
+  const path = citedPath(finding);
+  if (path === null) return null;
+  return finding.line === undefined ? path : `${path}:${finding.line}`;
+}
+
 /** One annotated finding, signal first and evidence under it. Nothing is hidden: the same
  *  finding is in the review's own output, and this is the note attached to it. */
 export function renderAnnotations(report: CheckReport): string[] {
@@ -262,8 +268,7 @@ export function renderAnnotations(report: CheckReport): string[] {
   for (const verdict of report.verdicts) {
     if (verdict.hits.length === 0) continue;
     const { finding } = verdict;
-    const path = citedPath(finding);
-    const where = path === null ? null : finding.line === undefined ? path : `${path}:${finding.line}`;
+    const where = formatFindingLocation(finding);
     for (const hit of verdict.hits) {
       const header =
         where === null
@@ -325,7 +330,7 @@ function rawFindings(record: RawRecord): Finding[] {
       list = [];
     }
   }
-  return Array.isArray(list) ? list.map(parseFinding).filter((finding): finding is Finding => finding !== null) : [];
+  return Array.isArray(list) ? list.map((item) => parseFinding(item)).filter((finding): finding is Finding => finding !== null) : [];
 }
 
 /** A list of ids, however the document carries it: the live shape writes an array, and the
@@ -370,7 +375,7 @@ export function parseRoundDocument(text: string): RoundDocument {
     throw new Error(`the rounds document is not JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
   if (Array.isArray(parsed)) {
-    const rounds = parsed.map(parseRound).filter((round): round is ReviewRound => round !== null);
+    const rounds = parsed.map((item, position) => parseRound(item, position)).filter((round): round is ReviewRound => round !== null);
     if (rounds.length === 0) throw new Error("the rounds document has no review round: run `no-mistakes axi rounds --step review --json`");
     return { rounds: sortRounds(rounds), base: null, head: null };
   }
@@ -379,12 +384,12 @@ export function parseRoundDocument(text: string): RoundDocument {
   const base = asString(record.base_sha) ?? asString(record.base);
   const head = asString(record.head_sha) ?? asString(record.head);
   if (Array.isArray(record.rounds)) {
-    const rounds = record.rounds.map(parseRound).filter((round): round is ReviewRound => round !== null);
+    const rounds = record.rounds.map((item, position) => parseRound(item, position)).filter((round): round is ReviewRound => round !== null);
     if (rounds.length === 0) throw new Error("the rounds document has no review round: run `no-mistakes axi rounds --step review --json`");
     return { rounds: sortRounds(rounds), base, head };
   }
   if (Array.isArray(record.findings)) {
-    const findings = record.findings.map(parseFinding).filter((finding): finding is Finding => finding !== null);
+    const findings = record.findings.map((item) => parseFinding(item)).filter((finding): finding is Finding => finding !== null);
     return { rounds: [{ number: 1, findings, selected: new Set(), isUserSelection: false, head }], base, head };
   }
   throw new Error("the document has neither rounds nor findings: pass `axi rounds --step review --json` or a `{findings:[…]}` file");
@@ -407,27 +412,47 @@ export type RoundSelection = {
   base: string | null;
 };
 
+function applyUserDeclines(declined: Set<string>, round: ReviewRound): void {
+  for (const finding of round.findings) {
+    if (!round.selected.has(finding.id)) declined.add(finding.id);
+  }
+  // A later round that selected the id ended the decline: a finding fixed and then
+  // re-raised is an incomplete fix, not a decided theme, and must stay clean.
+  for (const id of round.selected) declined.delete(id);
+}
+
+function declinedBefore(rounds: readonly ReviewRound[], targetRound: number): Set<string> {
+  const declined = new Set<string>();
+  for (const round of rounds) {
+    if (round.number < targetRound && round.isUserSelection) applyUserDeclines(declined, round);
+  }
+  return declined;
+}
+
+function selectedFrom(rounds: readonly ReviewRound[], targetRound: number): Set<string> {
+  const selected = new Set<string>();
+  for (const round of rounds) {
+    if (round.number < targetRound) continue;
+    for (const id of round.selected) selected.add(id);
+  }
+  return selected;
+}
+
 export function selectRound(document: RoundDocument, requestedRound?: number): RoundSelection {
-  const numbers = document.rounds.map((round) => round.number);
   const anchor = document.rounds.at(-1);
   if (anchor === undefined) throw new Error("the rounds document has no review round");
   const number = requestedRound ?? anchor.number;
   const reviewed = document.rounds.find((round) => round.number === number);
   if (reviewed === undefined) {
+    const numbers = document.rounds.map((round) => round.number);
     throw new Error(`round ${number} is not in the document; its review rounds are ${numbers.join(", ")}`);
   }
-  const declined = new Set<string>();
-  const fixedLater = new Set<string>();
-  for (const round of document.rounds) {
-    if (round.number < number && round.isUserSelection) {
-      for (const finding of round.findings) {
-        if (!round.selected.has(finding.id)) declined.add(finding.id);
-      }
-      // A later round that selected the id ended the decline: a finding fixed and then
-      // re-raised is an incomplete fix, not a decided theme, and must stay clean.
-      for (const id of round.selected) declined.delete(id);
-    }
-    if (round.number >= number) for (const id of round.selected) fixedLater.add(id);
-  }
-  return { number, findings: reviewed.findings, declined, fixedLater, head: reviewed.head, base: document.base };
+  return {
+    number,
+    findings: reviewed.findings,
+    declined: declinedBefore(document.rounds, number),
+    fixedLater: selectedFrom(document.rounds, number),
+    head: reviewed.head,
+    base: document.base,
+  };
 }
