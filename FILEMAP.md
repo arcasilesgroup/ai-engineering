@@ -17,6 +17,12 @@ brand/
 docs/
   global-carriers.md           Host carrier paths and their machine/repository scope
   surface-capability-matrix.md What each host can enforce, measured; the table doctor and the README follow
+  install.md                   Install edge cases: from source, no administrator rights, the Windows gitleaks fallback
+  cli.md                       Every CLI verb, by who runs it, and how to read a findings check
+  lanes.md                     One task, one lane: list, tidy, park, drop, worktrees
+  configuration.md             config.toml tables, the command-scope policy, the surface tiers
+  troubleshooting.md           Symptom, cause, fix
+  skills.md                    The build loop, its triggers and the catalogue of all 27 skills
   history/                     Records, never rewritten: the early blueprint, the recap, the learnings log
 .changeset/
   <slug>.md                    Pending package version and release summary
@@ -52,6 +58,7 @@ tests/
   git-context.spec.ts          Git runner and context resolver over real temp repos with isolated config
   checkpoint-guard.spec.ts     Checkpoint schema, lifecycle gates and Stop enforcement
   workflow-checkpoint.spec.ts  Checkpoint codec, legacy normalization and lifecycle transitions
+  readme-assets.spec.ts        Every README image exists and is used; alt text, captions and text versions match the figures
   docs-lint.spec.ts             CLI verb citations and relative Markdown/HTML link integrity
   worktree-command.spec.ts     CLI contracts for worktree creation, registered-checkout lifecycle and safe removal
   skills-lint.spec.ts           Skill frontmatter, Lifecycle, relative links and workflow contracts
@@ -60,6 +67,9 @@ scripts/
   artifact-a11y.ts             The static accessibility gate: markup rules WCAG lets a test prove
   artifact-axe.ts              The browser gate `bun run a11y`: axe-core in system Chrome, keys, reflow, no script
   chain-bundle.ts              Build the chain module the in-process plugin hosts import (into generated/)
+  readme-assets.ts             Renders the README's hero, headings, buttons, cards and figures from brand/tokens.json (no image model)
+  readme-figures.ts            The four figures as data and drawing: nodes, edges, captions and text versions
+  readme-diagrams.ts           Renders the two older README SVGs: the guard flow and the skill chain
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
   tokens.ts                    `bun run tokens`: report skill-frontmatter and AGENTS-template byte/4 counts
   package-consumer-smoke.ts    Pack (or take `--tarball`), install in temp npm and Bun consumers, run `ai-eng --version`
