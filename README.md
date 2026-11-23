@@ -208,8 +208,10 @@ update` does. That template is guarded per OS: because agy denies on any non-zer
 every line first checks for `ai-eng` and, when the app the editor was launched from cannot
 resolve it, writes one line to stderr and allows the call — a hook that cannot judge must
 not lock a person out of their editor, and stdout stays empty because that is where agy
-reads its decision. The [capability matrix](docs/surface-capability-matrix.md) records why
-that trade is honest and what would make the surface enforceable.
+reads its decision. The Windows form of that line is rendered but has never been run on
+Windows, and which shell agy uses there is unmeasured — so nothing is claimed for it. The
+[capability matrix](docs/surface-capability-matrix.md) records why that trade is honest,
+what is unverified, and what would make the surface enforceable.
 
 Command guards read the visible command text. They do not sandbox opaque programs or scripts
 prepared in earlier calls: a script written in one call and run in a later call does

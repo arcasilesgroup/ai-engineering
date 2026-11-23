@@ -176,9 +176,9 @@ export function retireNpmPowerShellShim(platform: NodeJS.Platform = process.plat
 
 /** A settings template with its hook lines calling `launcher`. Only the call is renamed:
  *  the `command -v ai-eng` / `Get-Command ai-eng` probes look for any form of it. The agy
- *  guard is the one line whose syntax the shell itself owns (`command -v`, `||`, `{ …; }`
- *  do not exist in cmd.exe), so it is rendered for this OS here too: no host ever receives
- *  a line its shell cannot parse, and the guard probes the shim the call actually names. */
+ *  guard is the one line whose syntax the shell itself owns (`command -v` and `{ …; }` do
+ *  not exist in cmd.exe, which uses `where` and `( … )`), so it is rendered for this OS
+ *  here too, and the guard probes the shim the call actually names. */
 export function withLauncher(template: string, launcher: string = hookLauncher(), isExitStatusRead = false): string {
   if (launcher === "ai-eng") return template;
   const guarded = template.replaceAll(AGY_FAIL_SOFT_POSIX, agyFailSoftWindows(launcher));

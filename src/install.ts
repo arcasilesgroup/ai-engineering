@@ -98,10 +98,10 @@ const AGY_FAIL_SOFT_REASON = "ai-eng: not found in PATH, allowing this call";
  *  call after it needs a real command separator, not a line break. */
 export const AGY_FAIL_SOFT_POSIX = `command -v ai-eng >/dev/null 2>&1 || { echo ${AGY_FAIL_SOFT_REASON} >&2; exit 0; }; `;
 
-/** The same guard in cmd.exe, which has no `command -v`, no `||` before a block, and no
- *  `; ` command separator — there `;` only breaks tokens, so the chain call is joined
- *  with `&`. The missing-binary arm exits 0 inside its own block, so the call after it
- *  never runs when there is nothing to run it with. */
+/** The same guard in cmd.exe, which has no `command -v` and no `{ …; }` (it uses `where`
+ *  and `( … )`) and where `;` only breaks tokens, never starts the next command — so the
+ *  chain call is joined with `&`. The missing-binary arm exits 0 inside its own block, so
+ *  the call after it never runs when there is nothing to run it with. */
 export function agyFailSoftWindows(launcher: string): string {
   return `where ${launcher} >nul 2>nul || ( echo ${AGY_FAIL_SOFT_REASON} 1>&2 & exit /b 0 ) & `;
 }
