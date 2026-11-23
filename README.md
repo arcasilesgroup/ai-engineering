@@ -202,19 +202,13 @@ Copilot: `userPromptSubmitted` command output is ignored.
 
 The Antigravity CLI (agy) is declared and **advisory**, and it cannot be enabled:
 `ai-eng init --surface agy` and `ai-eng config --add agy` are refused, because no hook of
-ours judges an agy call yet. Its hook file ships as a template inside the binary and no
-command writes it — only a hand-edited `[surfaces] enabled = ["agy"]` followed by `ai-eng
-update` does. That template is guarded per OS: because agy denies on any non-zero exit,
-every line first checks for `ai-eng` and, when the app the editor was launched from cannot
-resolve it, writes one line to stderr and allows the call — a hook that cannot judge must
-not lock a person out of their editor, and stdout stays empty because that is where agy
-reads its decision. The chain answers the same way one layer down: agy's payload names
-`toolCall.name`, no mapping of ours reads it, and a call the chain cannot read on a host it
-has no judge for is allowed with a line saying why, because agy turns one non-zero exit
-into a lockout. The Windows form of that line is rendered but has never been run on
-Windows, and which shell agy uses there is unmeasured — so nothing is claimed for it. The
-[capability matrix](docs/surface-capability-matrix.md) records why that trade is honest,
-what is unverified, and what would make the surface enforceable.
+ours judges an agy call yet. No command enables the surface: only a hand-edited
+`[surfaces] enabled = ["agy"]` followed by `ai-eng update` writes its hook file
+(`~/.gemini/config/hooks.json`), and that file fails soft rather than risk a lockout,
+because agy denies on any non-zero exit — a hook that cannot judge must not lock a person
+out of their editor. What is measured, what is unverified (the Windows form has never been
+run) and what would make the surface enforceable are in the
+[capability matrix](docs/surface-capability-matrix.md).
 
 Command guards read the visible command text. They do not sandbox opaque programs or scripts
 prepared in earlier calls: a script written in one call and run in a later call does
@@ -294,10 +288,10 @@ Five triggers send work to the skill that declares them. A **path** trigger read
 
 ## Surfaces
 
-A surface is an agent host: an IDE or a CLI. `ai-eng` writes one set of definitions and
-mirrors it into every surface you enable, so the same guard judges the same call whichever
-host sent it. [`src/surfaces/surfaces.json`](src/surfaces/surfaces.json) records what each
-host supports.
+A surface is an agent host: an IDE or a CLI. `ai-eng` writes one set of definitions,
+enables them per surface you choose, and mirrors the skills into every host's skill folder,
+so the same guard judges the same call whichever host sent it.
+[`src/surfaces/surfaces.json`](src/surfaces/surfaces.json) records what each host supports.
 
 | Tier | Meaning | Surfaces |
 |---|---|---|
@@ -307,11 +301,12 @@ host supports.
 | skills-only | skills, no interception | `zed`, `agy` |
 
 `ai-eng config --add <id>` and `ai-eng config --remove <id>` turn a surface on or off and
-regenerate its files (`agy` and `zed` are declared but refused: see the matrix). `ai-eng doctor` reports, per surface, whether its hook file is where
-that host reads it, and whether the surface is **enforced** (synchronous pre-tool deny) or
-**advisory** (observation only). The [capability matrix](docs/surface-capability-matrix.md)
-is the measured truth for what each host can and cannot enforce; [Global
-carriers](docs/global-carriers.md) explains how the carrier files are installed and removed.
+regenerate its files (`agy` and `zed` are declared but refused: see the matrix). `ai-eng
+doctor` reports, per surface, whether its hook file is where that host reads it, and whether
+the surface is **enforced** (synchronous pre-tool deny) or **advisory** (observation only).
+The [capability matrix](docs/surface-capability-matrix.md) is the measured truth for what
+each host can and cannot enforce; [Global carriers](docs/global-carriers.md) explains how
+the carrier files are installed and removed.
 
 ## CLI
 

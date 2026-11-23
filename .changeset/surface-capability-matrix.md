@@ -7,8 +7,8 @@ Copilot, and every other IDE, in one measured capability matrix.
 `docs/surface-capability-matrix.md` records, per host, what `ai-eng` enforces and what it
 cannot: the hook event and where it lives, the denial envelope, whether a denied call is
 really denied, how the host treats a broken guard, and whether the prompt hook blocks.
-`ai-eng doctor` closes every `surface <id>` row with `enforced` or `advisory` from the same
-table, and the README's tier table points at it.
+`ai-eng doctor` closes every `surface <id>` row with `enforced` or `advisory`, the same
+split this table records, and the README's tier table points at it.
 
 `agy` (Antigravity CLI) is declared there as **advisory**, and `init --surface agy` and
 `config --add agy` refuse it: no mapping of ours judges an agy call yet. Its contract was

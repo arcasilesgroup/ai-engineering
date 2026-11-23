@@ -58,8 +58,9 @@ files.
 
 ## agy, probed once and shipped fail-soft
 
-PROBE (2026-11-23, agy 1.5.14, a `.agents/hooks.json` at a project root, headless print
-mode `agy --print-timeout 90s -p "…"`):
+PROBE (2026-11-23, agy 1.5.14, a `.agents/hooks.json` at a project root — a repo carrier
+this release does not ship, so the shipped carrier is the machine one in the table above —
+headless print mode `agy --print-timeout 90s -p "…"`):
 
 1. The `PreToolUse` hook fired with a camelCase protojson payload:
    `toolCall.name` (`run_command`) and `toolCall.args.CommandLine` carry the command.
