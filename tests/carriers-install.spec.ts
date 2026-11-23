@@ -529,6 +529,24 @@ describe("installer: the files a user shares with us", () => {
     expect(stripSharedText(current)).toBe(restored);
   });
 
+  test("stripping our agy hook restores the user's named hooks around it", () => {
+    // agy's hooks.json is a map of NAMED hooks with no top-level `hooks` key, so a strip
+    // that only walked arrays would leave `"ai-eng-guard": {}` or the matcher stub behind
+    // in the user's file. The expected text is the file the user had before init.
+    const userHook = [{ matcher: "*", hooks: [{ type: "command", command: "herdr notify" }] }];
+    const guarded = (event: string) => [{
+      matcher: "*",
+      hooks: [{ type: "command", command: `ai-eng chain ${event} --surface agy`, timeout: 10 }],
+    }];
+    const current = `${JSON.stringify({
+      "ai-eng-guard": { PreToolUse: guarded("PreToolUse"), PostToolUse: guarded("PostToolUse") },
+      herdr: { PreInvocation: userHook },
+    }, null, 2)}\n`;
+    const restored = `${JSON.stringify({ herdr: { PreInvocation: userHook } }, null, 2)}\n`;
+
+    expect(stripSharedText(current)).toBe(restored);
+  });
+
   test("recognizes every exact hook command from the embedded settings templates", () => {
     const generatedCommands = new Set<string>();
     for (const path of embeddedUnder("templates/settings.").keys()) {
@@ -1762,7 +1780,7 @@ describe("installCanon and what leaves with it", () => {
     expect(readdirSync(dotfiles)).toEqual(["mine.md"]);
   });
 
-  test("installCanon writes the canon, the three mirrors and one slash command per skill", () => {
+  test("installCanon writes the canon, the four mirrors and one slash command per skill", () => {
     const base = useHome("canon");
     // A skill of our own, whose description is folded YAML, and one with a description long
     // enough to be cut at a word boundary.
@@ -2000,10 +2018,10 @@ describe("installCanon and what leaves with it", () => {
       (entry) => entry.isDirectory() && !entry.name.startsWith("."),
     );
     const commands = readdirSync(join(base, ".config", "opencode", "commands")).length;
-    // Every skill in the canon is linked into each of the three mirrors — the real
+    // Every skill in the canon is linked into each of the four mirrors — the real
     // directory of theirs in `.claude/skills` is neither replaced nor counted — and every
     // skill also left one slash command.
-    expect(removeMachineArtifacts()).toBe(canonDirs.length * 3 + commands);
+    expect(removeMachineArtifacts()).toBe(canonDirs.length * 4 + commands);
 
     for (const target of mirrorTargets()) {
       const left = existsSync(target.dir) ? readdirSync(target.dir) : [];

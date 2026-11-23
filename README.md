@@ -198,7 +198,12 @@ The Copilot adapter (CLI and VS Code) shares one harness and one hook file set f
 hosts. Its `preToolUse` command hook **fails closed** on a crash or non-zero exit, but
 **fails open** when `ai-eng` is not on `PATH` (the template exits 0 on purpose, so a
 machine without it is not locked out) and on a timeout. The prompt hook is advisory on
-Copilot: `userPromptSubmitted` command output is ignored. See the [capability
+Copilot: `userPromptSubmitted` command output is ignored.
+
+The Antigravity CLI (agy) adapter is **advisory**: its hook reaches the chain without the
+repository the call belongs to, so every call reads as ungoverned and is allowed. Only its
+machine carrier is installed — a committed hook would deny every tool call on a machine
+without `ai-eng` on `PATH`, because agy denies on a missing binary. See the [capability
 matrix](docs/surface-capability-matrix.md) for the per-host split.
 
 Command guards read the visible command text. They do not sandbox opaque programs or scripts
@@ -287,7 +292,7 @@ host supports.
 | Tier | Meaning | Surfaces |
 |---|---|---|
 | core | deny, plus a rewritten command where the host allows it | `claude-code`, `oh-my-pi`, `opencode`, `cursor`, `pi` |
-| experimental | works, less proven | `codex`, `agy` |
+| experimental | works, less proven | `codex`, `agy` (advisory) |
 | best-effort | the host limits the outcome | `copilot-cli` |
 | skills-only | skills, no interception | `zed` |
 

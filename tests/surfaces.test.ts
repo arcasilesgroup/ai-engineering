@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SURFACES, machineCarrier, repoCarrier, carrierFiles } from "../src/surfaces/adapters.ts";
+import { SURFACES, machineCarrier, repoCarrier, carrierFiles, surfaceCanGovern, surfaceEnforcement } from "../src/surfaces/adapters.ts";
 import { removeMachineArtifacts } from "../src/surfaces/carriers-install.ts";
 import { canonSkills, embeddedPath } from "../src/embed.ts";
 import { machineBase } from "../src/env.ts";
@@ -175,7 +175,7 @@ test("init scaffolds each surface's carrier where its host reads it", () => {
   expectLocalCanon();
 });
 
-test("init scaffolds agy's carriers where agy reads them", () => {
+test("init scaffolds agy's machine carrier where agy reads it, and no repo hook", () => {
   const fresh = join(sandbox, "agy-repo");
   const geminiHooks = join(home, ".gemini", "config", "hooks.json");
   const geminiBefore = '{\n  "herdr": {\n    "PreInvocation": []\n  }\n}\n';
@@ -185,13 +185,14 @@ test("init scaffolds agy's carriers where agy reads them", () => {
   spawnSync("git", ["init", "-q"], { cwd: fresh });
   const r = run(["init", "--yes", "--surface", "agy"], fresh);
   expect(r.status).toBe(0);
-  // Repo carrier: .agents/hooks.json at the project root (agy's workspace scope).
-  expect(existsSync(join(fresh, ".agents", "hooks.json"))).toBe(true);
-  expect(readFileSync(join(fresh, ".agents", "hooks.json"), "utf8")).toInclude("--surface agy");
   // Machine carrier: ~/.gemini/config/hooks.json merged by marker beside the user's hooks.
   const after = readFileSync(geminiHooks, "utf8");
   expect(after).toInclude("--surface agy");
   expect((JSON.parse(after) as { herdr?: unknown }).herdr).toEqual({ PreInvocation: [] });
+  // No repo carrier on purpose: agy denies on a missing binary, so a committed hook would
+  // lock a teammate without ai-eng on PATH out of every tool call.
+  expect(existsSync(join(fresh, ".agents", "hooks.json"))).toBe(false);
+  expect(repoCarrier(SURFACES.find((surface) => surface.id === "agy")!)).toBeNull();
 });
 
 test("machine carrier paths match each host's documented root, with source and date", () => {
@@ -229,7 +230,11 @@ test("machine carrier paths match each host's documented root, with source and d
   }
   // The two repo readers keep their carriers in the checkout, and they are the only ones.
   const inRepo = SURFACES.filter((surface) => repoCarrier(surface) !== null).map((surface) => surface.id);
-  expect(inRepo.sort()).toEqual(["agy", "copilot-cli", "cursor"]);
+  expect(inRepo.sort()).toEqual(["copilot-cli", "cursor"]);
+  // agy is the one surface whose carrier reaches the chain without the repo the call
+  // belongs to, so doctor must never call it enforced.
+  expect(surfaceEnforcement(SURFACES.find((surface) => surface.id === "agy")!)).toBe("advisory");
+  expect(surfaceCanGovern(SURFACES.find((surface) => surface.id === "agy")!)).toBe(true);
 });
 
 test("cursor allow envelope: a permitted call answers, and the silent hosts stay silent", () => {

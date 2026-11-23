@@ -170,9 +170,10 @@
       "label": "Antigravity CLI",
       "tier": "experimental",
       "dialect": "agy",
+      "enforcement": "advisory",
       "can": {
         "deny": true,
-        "rewriteOut": true,
+        "rewriteOut": false,
         "loop": "unverified"
       },
       "promptHook": {
@@ -187,16 +188,9 @@
           "path": ".gemini/config/hooks.json",
           "source": "antigravity.google/docs/hooks + agy-customizations skill hooks.md (2026-11-23): global hooks load from ~/.gemini/config/hooks.json",
           "measured": "2026-11-23"
-        },
-        {
-          "scope": "repo",
-          "kind": "settings",
-          "path": ".agents/hooks.json",
-          "source": "antigravity.google/docs/hooks + agy-customizations skill hooks.md (2026-11-23): workspace hooks load from .agents/hooks.json at project root",
-          "measured": "2026-11-23"
         }
       ],
-      "note": "verified live on agy 1.5.14: PreToolUse denies via top-level {\"decision\":\"deny\",\"reason\"} on stdout, silence allows, an empty {} and any non-zero exit both deny (fail-closed). The hook runs with cwd = the directory holding hooks.json, and the payload is camelCase protojson with toolCall.name / toolCall.args.CommandLine. PostToolUse carries no result content, so the fetched-content containment arm cannot fire; PreToolUse deny of run_command and file writes is enforced"
+      "note": "advisory on purpose. A live PreToolUse probe on agy 1.5.14 recorded camelCase protojson — toolCall.name / toolCall.args.CommandLine — and a top-level {\"decision\":\"deny\",\"reason\"} that did block a run_command; silence allows, an empty {} and any non-zero exit both deny (fail closed). What the payload does not carry is the repository the call belongs to: the hook runs in the directory holding hooks.json (~/.gemini/config), which the chain reads as an ungoverned root and lets through. Only the machine carrier is installed, because a repo-committed hook would lock out a teammate without ai-eng on PATH. No rewrite field was measured, so a wrap passes the command through unchanged; PostToolUse carries no result content. The wiring ships ready for the day a payload names its repository root"
     },
     {
       "id": "copilot-cli",

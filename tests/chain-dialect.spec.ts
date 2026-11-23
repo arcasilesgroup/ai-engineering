@@ -186,10 +186,14 @@ describe("allowRewrite — the rewrite reaches the host in the field that host r
     expect(code).toBe(0);
     expect(json).toEqual({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow", updatedInput: { command: "bun test" } } });
   });
-  test("cursor wants updated_input, copilot wants modifiedArgs", () => {
+  test("cursor wants updated_input, copilot wants modifiedArgs, agy gets the call unchanged", () => {
     expect(envelope(() => allowRewrite("bun test", "cursor")).json).toEqual({ permission: "allow", updated_input: { command: "bun test" } });
     expect(envelope(() => allowRewrite("bun test", "copilot")).json).toEqual({ permissionDecision: "allow", modifiedArgs: { command: "bun test" } });
-    expect(envelope(() => allowRewrite("bun test", "agy")).json).toEqual({ decision: "allow", overwrite: { CommandLine: "bun test" } });
+    // No rewrite field was measured on agy. Silence is the only answer that cannot deny the
+    // call (agy denies on `{}`), so the command runs as the agent wrote it.
+    const agy = envelope(() => allowRewrite("bun test", "agy"));
+    expect(agy.code).toBe(0);
+    expect(agy.stdout).toBe("");
   });
 });
 
