@@ -6,7 +6,7 @@ them: [NOTICE.md](../NOTICE.md) and [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTI
 
 One skill is the build loop: `ai-orchestrator`. Give it a feature. It splits the work into
 checkpoints, smallest first, and builds each one through its gates. A checkpoint that fails a
-gate does not move on. The loop stops for you twice: to approve the plan, and to review the
+gate does not move on. The loop stops for you twice: to approve the idea, and to review the
 app.
 
 - **Before the loop (optional):** `ai-brainstorm` pins the idea in plain words,

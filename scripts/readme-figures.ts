@@ -131,12 +131,12 @@ type Branch = { at: Point; isCheck?: boolean; turn?: number };
 
 /** Every edge out of one node starts at one anchor, then fans out. */
 function fanOut(from: Point, branches: Branch[], direction: Direction = "h"): string {
-  return branches.map((branch) => edge({ from, to: branch.at, direction, isCheck: branch.isCheck, turn: branch.turn })).join("");
+  return branches.map(({ at, ...rest }) => edge({ from, to: at, direction, ...rest })).join("");
 }
 
 /** Every edge into one node lands on one anchor. */
 function fanIn(branches: Branch[], to: Point, direction: Direction = "h"): string {
-  return branches.map((branch) => edge({ from: branch.at, to, direction, isCheck: branch.isCheck, turn: branch.turn })).join("");
+  return branches.map(({ at, ...rest }) => edge({ from: at, to, direction, ...rest })).join("");
 }
 
 const label = (x: number, y: number, text: string, extraClass = ""): string => `<text class="dg-lbl${extraClass}" x="${x}" y="${y}">${escapeXml(text)}</text>`;
@@ -398,7 +398,7 @@ export const FIGURES: readonly Figure[] = [
 
 export const figureFile = (figure: Figure, mode: Mode): string => `figure-${figure.n}-${figure.slug}-${mode}.webp`;
 
-/** The inline SVG for one figure and mode, background card included. */
+/** The inline SVG for one figure, background card included. */
 export function figureSvg(figure: Figure): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${FIGURE_WIDTH}" height="${figure.height}" viewBox="0 0 ${FIGURE_WIDTH} ${figure.height}"><rect x=".5" y=".5" width="${FIGURE_WIDTH - 1}" height="${figure.height - 1}" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)"/>${figure.svg()}</svg>`;
 }
