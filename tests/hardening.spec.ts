@@ -18,6 +18,7 @@ import { evaluateLocalRules, type LocalRule } from "../src/guards/local-rules.ts
 import { runLoopGuard } from "../src/guards/loop.ts";
 import { runCheckpointGuard } from "../src/guards/checkpoint.ts";
 import { runLease } from "../src/guards/lease.ts";
+import { readNoFollowFile, writeNoFollowFile } from "../src/shared-project-fs.ts";
 import { candidates, judge, runSpokenSecret } from "../src/guards/spoken-secret.ts";
 import { compileGitleaksShim, useGitleaksShim } from "./fixtures/gitleaks-shim.ts";
 
@@ -806,6 +807,32 @@ describe("verdict cache, checkpoint-stop counter, and brainstorm symlink protect
       if (prevSession === undefined) delete process.env.AI_ENG_SESSION;
       else process.env.AI_ENG_SESSION = prevSession;
     }
+  });
+
+  // Windows reaches the same refusal another way: libuv defines O_NOFOLLOW for POSIX only, so
+  // on Windows the flag is absent, reads as 0 in the OR, and the open follows the link quietly.
+  // lstat is that platform's own link test, and it has to give the same answer the flag gives.
+  test("where the open has no O_NOFOLLOW the link is still refused, and a real file still reads", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ai-eng-nofollow-"));
+    tempDirs.push(dir);
+    const forged = join(dir, "forged-verdict.json");
+    writeFileSync(forged, JSON.stringify({ planted: { deny: false } }));
+    const cacheFile = join(dir, "cache.json");
+    symlinkSync(forged, cacheFile);
+
+    // Attack: the link is refused with the ELOOP an O_NOFOLLOW open throws, bytes untouched.
+    expect(() => readNoFollowFile(cacheFile, "win32")).toThrow(/ELOOP/);
+    expect(() => writeNoFollowFile(cacheFile, "{}", "win32")).toThrow(/ELOOP/);
+    expect(readNoFollowFile(forged)).toBe('{"planted":{"deny":false}}');
+
+    // Benign: a normal cache file is read and replaced exactly as it is on POSIX.
+    const plain = join(dir, "plain.json");
+    writeFileSync(plain, '{"entry":1}');
+    expect(readNoFollowFile(plain, "win32")).toBe(readNoFollowFile(plain));
+    writeNoFollowFile(plain, '{"entry":2}', "win32");
+    expect(readNoFollowFile(plain, "win32")).toBe('{"entry":2}');
+    // Absent is still absent — refusing a link must not turn into an error on the normal path.
+    expect(readNoFollowFile(join(dir, "no-such-cache.json"), "win32")).toBeNull();
   });
 
   test("checkpoint-stop counter is unwritable and symlinked brainstorm.html is refused", () => {
