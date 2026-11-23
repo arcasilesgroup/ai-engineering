@@ -20,6 +20,8 @@ export type Receipt = {
   ts: string;
   /** The session this receipt belongs to when the surface supplied an id. */
   session_id?: string;
+  /** True when a denial was later marked as a false positive for friction tracking. */
+  false_positive?: boolean;
 };
 
 const AI_DIR = ".ai-engineering";
@@ -94,6 +96,14 @@ export type ReceiptSummary = {
   denies: number;
   p50: number;
   p95: number;
+  /** Real chain calls in the window (excluding doctor's own synthetic probe). */
+  friction_calls: number;
+  /** Real chain denies in the window (excluding doctor's own synthetic probe). */
+  friction_denies: number;
+  /** Denies explicitly labelled as false positives (`false_positive: true`). */
+  false_positives: number;
+  /** Denies per 1000 real chain calls (0 when friction_calls is 0). */
+  denies_per_1000: number;
   /** deny counts by guards.denied_by, by tool, by surface — the "unknown" tool of the
    *  unreadable-payload deny is its own honest bucket, never merged into a real one. */
   per_guard: Record<string, number>;
@@ -121,6 +131,9 @@ export function isChainReceipt(event: string): boolean {
 interface ReceiptTally {
   total: number;
   denies: number;
+  friction_calls: number;
+  friction_denies: number;
+  false_positives: number;
   latencies: number[];
   per: Record<"per_guard" | "per_tool" | "per_surface", Record<string, number>>;
   daily: Record<string, DailyPoint>;
@@ -143,6 +156,12 @@ function tallyReceipt(receipt: Receipt, tally: ReceiptTally): void {
     tally.per.per_guard[guard] = (tally.per.per_guard[guard] ?? 0) + 1;
     tally.per.per_tool[tool] = (tally.per.per_tool[tool] ?? 0) + 1;
     tally.per.per_surface[surface] = (tally.per.per_surface[surface] ?? 0) + 1;
+  }
+  const isSyntheticProbe = typeof receipt.session_id === "string" && receipt.session_id.startsWith("doctor-");
+  if (isChainReceipt(receipt.event) && !isSyntheticProbe) {
+    tally.friction_calls += 1;
+    if (receipt.outcome === "deny") tally.friction_denies += 1;
+    if (receipt.false_positive === true) tally.false_positives += 1;
   }
   const day = typeof receipt.ts === "string" ? printable(receipt.ts.slice(0, 10)) : "";
   if (day !== "") {
@@ -191,14 +210,26 @@ export function summarizeReceipts(dir?: string | null): ReceiptSummary {
 }
 
 function emptyTally(): ReceiptTally {
-  return { total: 0, denies: 0, latencies: [], per: { per_guard: {}, per_tool: {}, per_surface: {} }, daily: {} };
+  return { total: 0, denies: 0, friction_calls: 0, friction_denies: 0, false_positives: 0, latencies: [], per: { per_guard: {}, per_tool: {}, per_surface: {} }, daily: {} };
 }
 
 function summaryOf(tally: ReceiptTally): ReceiptSummary {
   const { latencies } = tally;
   latencies.sort((a, b) => a - b);
   const pick = (q: number) => (latencies.length ? latencies[Math.min(latencies.length - 1, Math.floor(q * latencies.length))]! : 0);
-  return { total: tally.total, denies: tally.denies, p50: pick(0.5), p95: pick(0.95), ...tally.per, daily: tally.daily };
+  const deniesPer1000 = tally.friction_calls > 0 ? Math.round((tally.friction_denies / tally.friction_calls) * 1000) : 0;
+  return {
+    total: tally.total,
+    denies: tally.denies,
+    p50: pick(0.5),
+    p95: pick(0.95),
+    friction_calls: tally.friction_calls,
+    friction_denies: tally.friction_denies,
+    false_positives: tally.false_positives,
+    denies_per_1000: deniesPer1000,
+    ...tally.per,
+    daily: tally.daily,
+  };
 }
 
 /** A summand from a file an adversary may have written: finite, non-negative, whole,
