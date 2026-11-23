@@ -206,7 +206,7 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
   };
   const openCompound = (closer: string): void => {
     // Read before the cut, which starts the next segment with no pipe behind it.
-    const isIsolated = isAfterPipe;
+    const isIsolated = isAfterPipe || isCoprocPrefix(current);
     cut();
     const frameScope = ++nextScope;
     scopeParents.set(frameScope, scope);
@@ -245,7 +245,7 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
   // `#` of `a\ #` (an escaped space, still inside the word) is a character, as in bash.
   let isWordStart = true;
   // Grammar stands where a command starts, never as an argument: in `echo if` the `if` is data.
-  const isCommandStart = (): boolean => current.trim().split(/\s+/).every((word) => word.length === 0 || RESERVED_WORDS.has(word));
+  const isCommandStart = (): boolean => isCoprocPrefix(current) || current.trim().split(/\s+/).every((word) => word.length === 0 || RESERVED_WORDS.has(word));
   for (let index = 0; index < source.length; index++) {
     const char = source[index]!;
     const next = source[index + 1];
@@ -300,7 +300,6 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
       isWordStart = true;
       index += heredoc.length - 1;
     } else if (redirectAt(source, index) !== null) {
-      resolveCompounds(false);
       const operator = redirectAt(source, index)!;
       // `2>&1` copies a descriptor. Respelled ` > 1` it would read as a write to a file named
       // 1, so the descriptor is spelled as the file it is: /dev/fd/1. A redirect right after
@@ -313,7 +312,7 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
       isWordStart = true;
       index += operator.length - 1;
     } else if (char === "\n" && pending.length > 0) {
-      cut();
+      cut(isAfterPipe);
       isWordStart = true;
       for (const heredoc of pending.splice(0)) {
         const bodyStart = index + 1;
@@ -385,7 +384,8 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
       if (char === "&" && next === "&") index++;
       // `;&` and `;;` fall through a case, they do not put the command behind them in the background.
       resolveCompounds(isBackground && source[index - 1] !== ";");
-      cut(false, isBackground);
+      // A line that ends on `|` continues the pipeline: the next command is still after a pipe.
+      cut(char === "\n" && isAfterPipe, isBackground);
       isWordStart = true;
     } else {
       current += char;
@@ -429,6 +429,11 @@ function compoundTokenAt(source: string, at: number): string | null {
   if (token === undefined || !COMPOUND_WORDS.has(token)) return null;
   const after = source[at + token.length];
   return after === undefined || /[\s;&|()<>]/.test(after) ? token : null;
+}
+
+/** `coproc { …; }` and `coproc name { …; }` run the compound in a subshell, as `&` would. */
+function isCoprocPrefix(text: string): boolean {
+  return /^\s*coproc(?:\s+[A-Za-z_]\w*)?\s*$/.test(text);
 }
 
 /** Commands that run the command after them (`nice -n 5 git …`, `sudo -u x rm …`). */
@@ -769,9 +774,13 @@ export function applySegmentAssignments(text: string, variables: VariableMap, re
   }
 }
 
-/** The text `printf` prints for the `\` escapes in one of its words, or null for `\c`,
- *  which stops the output where it stands. An escape it does not know stands as written. */
-function printfEscapes(text: string): string | null {
+const OCTAL_DIGITS = /^[0-7]{1,3}/;
+
+/** The text `printf` prints for the `\` escapes in one of its words, or null for an escape
+ *  whose output this reader cannot compute (`\c` stops the output, `\u`/`\U` name a code
+ *  point). One to three octal digits are one character, and in a `%b` argument a leading
+ *  zero is a prefix for three more. An escape it does not know stands as written. */
+function printfEscapes(text: string, isArgument = false): string | null {
   let out = "";
   for (let index = 0; index < text.length; index++) {
     const char = text[index]!;
@@ -781,15 +790,19 @@ function printfEscapes(text: string): string | null {
     }
     const next = text[index + 1] ?? "";
     index++;
-    if (next === "c") return null;
-    const octal = next === "0" ? /^[0-7]{1,3}/.exec(text.slice(index + 1)) : null;
-    const hex = next === "x" ? /^[0-9a-fA-F]{1,2}/.exec(text.slice(index + 1)) : null;
-    if (octal !== null) {
-      out += String.fromCharCode(parseInt(octal[0]!, 8));
-      index += octal[0]!.length;
-    } else if (hex !== null) {
-      out += String.fromCharCode(parseInt(hex[0]!, 16));
-      index += hex[0]!.length;
+    if (next === "c" || next === "u" || next === "U") return null;
+    const prefixed = isArgument && next === "0" ? OCTAL_DIGITS.exec(text.slice(index + 1))?.[0] : undefined;
+    const hex = next === "x" ? /^[0-9a-fA-F]{1,2}/.exec(text.slice(index + 1))?.[0] : undefined;
+    const octal = OCTAL_DIGITS.exec(text.slice(index))?.[0];
+    if (prefixed !== undefined) {
+      out += String.fromCharCode(parseInt(prefixed, 8));
+      index += prefixed.length;
+    } else if (hex !== undefined) {
+      out += String.fromCharCode(parseInt(hex, 16));
+      index += hex.length;
+    } else if (octal !== undefined) {
+      out += String.fromCharCode(parseInt(octal, 8));
+      index += octal.length - 1;
     } else {
       out += PRINTF_ESCAPES[next] ?? `\\${next}`;
     }
@@ -818,7 +831,7 @@ export function staticPrintfValue(args: readonly string[]): string | null {
       if (token === "%%") return "%";
       const next = values[index++] ?? "";
       if (token === "%s") return next;
-      const expanded = printfEscapes(next);
+      const expanded = printfEscapes(next, true);
       if (expanded === null) isUnknown = true;
       return expanded ?? "";
     });

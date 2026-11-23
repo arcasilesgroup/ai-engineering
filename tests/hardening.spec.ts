@@ -86,8 +86,11 @@ describe("self-protect closes the traced bypasses and still allows ordinary comm
   test("printf -v and read mutations are visible to the next command", () => {
     denied("f=safe.txt; printf -v f %s/%s .ai-engineering config.toml; echo x > \"$f\"");
     denied("f=safe.txt; printf -v f \"%b\" \".ai-engineering/config.toml\"; echo x > \"$f\"");
+    denied("f=safe.txt; printf -v f '%b' '\\56ai-engineering\\57config.toml'; echo x > \"$f\"");
+    denied("f=safe.txt; printf -v f '\\56ai-engineering\\57config.toml'; echo x > \"$f\"");
     denied("f=safe.txt; read f <<< .ai-engineering/config.toml; rm \"$f\"");
     allowed("printf -v name %s hello; echo \"$name\"");
+    allowed("printf -v name '%b' 'hi\\nthere'; echo \"$name\"");
   });
 
   test("subshells, pipelines, and background commands do not leak variable mutations; current-shell groups and += do", () => {
@@ -106,8 +109,15 @@ describe("self-protect closes the traced bypasses and still allows ordinary comm
       ["f=.ai-engineering/config.toml; if true; then f=safe.txt; fi | cat; rm \"$f\"", true],
       ["f=.ai-engineering/config.toml; for i in 1; do f=safe.txt; done & rm \"$f\"", true],
       ["f=.ai-engineering/config.toml; cat | { f=safe.txt; }; rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; { f=safe.txt; } >/dev/null | cat; rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; { f=safe.txt; } 2>/dev/null & rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; if true; then f=safe.txt; fi >/dev/null | cat; rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; true |\n{ f=safe.txt; }; rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; coproc { f=safe.txt; }; rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; coproc mycop { f=safe.txt; }; rm \"$f\"", true],
       ["{ f=.ai-engineering/config.toml; rm \"$f\"; } &", true],
       ["f=.ai-engineering/config.toml; { f=safe.txt; }; rm \"$f\"", false],
+      ["f=.ai-engineering/config.toml; { f=safe.txt; } >/dev/null; rm \"$f\"", false],
       ["f=safe.txt; { f=.ai-engineering/config.toml; } & rm \"$f\"", false],
       ["f=safe; f+=.txt; rm \"$f\"", false],
     ];
@@ -233,10 +243,15 @@ describe("policy closes the traced bypasses and still allows ordinary commands",
       ["f=/etc/hosts; { f=notes.txt; } | cat; echo x > \"$f\"", false],
       ["f=/etc/hosts; if true; then f=notes.txt; fi | cat; echo x > \"$f\"", false],
       ["f=/etc/hosts; { f=notes.txt; } & echo x > \"$f\"", false],
+      ["f=/etc/hosts; { f=notes.txt; } >/dev/null | cat; echo x > \"$f\"", false],
+      ["f=/etc/hosts; true |\n{ f=notes.txt; }; echo x > \"$f\"", false],
+      ["f=/etc/hosts; coproc { f=notes.txt; }; echo x > \"$f\"", false],
+      ["f=safe.txt; printf -v f '%b' '\\57etc\\57hosts'; echo x > \"$f\"", false],
       ["f=/etc/hosts; f=notes.txt :; echo x > \"$f\"", false],
       ["f=safe.txt; printf -v f %b /etc/hosts; echo x > \"$f\"", false],
       ["f=safe.txt; printf -v f %s /etc /hosts; echo x > \"$f\"", false],
       ["f=/etc/hosts; { f=notes.txt; }; echo x > \"$f\"", true],
+      ["f=/etc/hosts; { f=notes.txt; } >/dev/null; echo x > \"$f\"", true],
       ["f=notes; f+=.txt; echo x > \"$f\"", true],
       ["f=notes.txt; printf -v f %b safe.txt; echo x > \"$f\"", true],
     ];
