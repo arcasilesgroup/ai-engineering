@@ -31,7 +31,7 @@ export const SIGNALS: readonly Signal[] = ["phantom-location", "absence-contradi
 /** What a check found: the signal, and the evidence that fired it. */
 export type Hit = { signal: Signal; evidence: string };
 
-/** One annotated line of an added file: the line number the new side gives it. */
+/** One added line of a file: the line number the new side gives it. */
 export type AddedLine = { line: number; text: string };
 
 /** What the checks may ask of the repository, and nothing else. Pure callers stub this,
@@ -102,7 +102,7 @@ const MIN_TOKEN = 3;
 
 const SHORT_SHA = 8;
 
-/** Both templates, every captured token, in the order the description raises them. */
+/** Both templates, every unique captured token, in the order the description raises them. */
 export function absenceTokens(description: string): string[] {
   const found: { at: number; token: string }[] = [];
   for (const template of [ABSENCE_BEFORE, ABSENCE_AFTER]) {

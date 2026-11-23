@@ -33,6 +33,7 @@ docs/
 src/
   payload.ts                   Normalized tool payloads and shared call fingerprints
   commands/
+    findings.ts                CLI parser and Git-backed runner for `ai-eng findings check`
     worktree.ts                CLI parser for new, list, merge, request-changes and rm
   git/
     run.ts                     The one Git runner: status, raw stdout/stderr, optional global/system-config isolation, commit identity
@@ -44,6 +45,7 @@ src/
     checkpoint.ts              Checkpoint schema, lifecycle transitions, legacy normalization and brainstorm approval
   guards/
     checkpoint.ts              Checkpoint schema, lifecycle, gate order and Stop enforcement in the chain
+  shared-findings.ts           Pure review-finding signal checks, tallies and round parsing
   shared-hash.ts               Shared SHA-256 file hashing helper
   shared-project-fs.ts         Guarded project-path reads and writes: refuse links and paths that leave the repository
 tests/
@@ -96,8 +98,10 @@ tests/
   shell-guard-contract.spec.ts  The shared shell reader: segments, quoting, redirects and substitutions
   guards-contract.spec.ts      Exact verdicts of the smaller guards and the override switch
   floor-contract.spec.ts       Uninstall's git-template restore and pre-push through the hook entry
+  findings-check.spec.ts       Both-sided signal checks, counter invariants, round selection and Git-fact contracts
   receipts-retention.spec.ts   Daily, batched receipt retention triggered by the chain
   fixtures/
+    findings/                  Captured multi-round review fixture (`rounds-hardening.json`) for findings checks
     env-snapshot.preload.ts    Records env and cwd before and after every suite for test-hygiene.spec.ts
     sandbox-env.ts             Snapshot/restore of AI_ENG_HOME, PI_CODING_AGENT_DIR, GIT_CONFIG_GLOBAL for sandboxed suites
     private-stdin.ts           A suite-owned stdin for prompt-driving suites, so runner input never answers a prompt
