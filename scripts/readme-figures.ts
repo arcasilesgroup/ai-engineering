@@ -33,7 +33,7 @@ export const DIAGRAM_VARS: Record<Mode, Record<string, string>> = {
   dark: {
     "--surface": colour("gray.dark4"), "--surface-2": colour("gray.dark3"), "--line-strong": colour("gray.base"),
     "--accent": colour("green.base"), "--accent-dim": colour("green.light1"), "--text": colour("white"), "--dim": colour("gray.light1"),
-    "--comment": colour("gray.base"), "--warn": colour("yellow.base"), "--bad": colour("red.light1"), "--ok": colour("green.base"),
+    "--comment": colour("gray.light1"), "--warn": colour("yellow.base"), "--bad": colour("red.light1"), "--ok": colour("green.base"),
   },
   light: {
     "--surface": colour("white"), "--surface-2": colour("gray.light3"), "--line-strong": colour("gray.base"),
@@ -186,7 +186,7 @@ function layerStackFigure(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Figure 3: the single parse
+// Figure 4: the single parse
 // ---------------------------------------------------------------------------
 
 const GUARD_PREDICATES = [
@@ -224,7 +224,7 @@ function singleParseFigure(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Figure 4: surfaces, from the capability matrix
+// Figure 3: surfaces, from the capability matrix
 // ---------------------------------------------------------------------------
 
 const ENFORCED_VERIFIED = ["claude-code", "cursor", "copilot-cli", "copilot-vscode", "opencode", "pi", "oh-my-pi"] as const;

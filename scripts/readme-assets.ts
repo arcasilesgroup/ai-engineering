@@ -7,7 +7,7 @@
 // output cannot be re-rendered; this can. Change a line in a table below, run
 // `bun scripts/readme-assets.ts`, commit the images it wrote.
 //
-// The three terminal stills in .github/assets/readme/ are not drawn here: VHS records them
+// The four terminal stills in .github/assets/readme/ are not drawn here: VHS records them
 // from real hook payloads (.github/assets/tapes/stills.tape).
 //
 // Pass a filename fragment to render only the matching files (`bun scripts/readme-assets.ts figure-`).
@@ -277,8 +277,31 @@ async function main(): Promise<void> {
 }
 
 async function boxTextOverflow(box: Locator): Promise<string | null> {
-  const isOverflowing = await box.evaluate((element) => [...element.querySelectorAll("*")].some((child) => child.scrollWidth > element.clientWidth));
-  return isOverflowing ? "text is wider than its canvas" : null;
+  const isOverflowing = await box.evaluate((element) => {
+    if (element.scrollWidth > element.clientWidth || element.scrollHeight > element.clientHeight) return true;
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    const contentLeft = rect.left + Number.parseFloat(style.borderLeftWidth) + Number.parseFloat(style.paddingLeft);
+    const contentRight = rect.right - Number.parseFloat(style.borderRightWidth) - Number.parseFloat(style.paddingRight);
+    const contentTop = rect.top + Number.parseFloat(style.borderTopWidth) + Number.parseFloat(style.paddingTop);
+    const contentBottom = rect.bottom - Number.parseFloat(style.borderBottomWidth) - Number.parseFloat(style.paddingBottom);
+    const slack = 0.5;
+    for (const child of element.querySelectorAll("*")) {
+      if (child.scrollWidth > child.clientWidth) return true;
+      if (getComputedStyle(child).position === "absolute") continue;
+      const childRect = child.getBoundingClientRect();
+      if (
+        childRect.left < contentLeft - slack ||
+        childRect.right > contentRight + slack ||
+        childRect.top < contentTop - slack ||
+        childRect.bottom > contentBottom + slack
+      ) {
+        return true;
+      }
+    }
+    return false;
+  });
+  return isOverflowing ? "text overflows its canvas" : null;
 }
 
 /** SVG text never wraps: any line that leaves its node, column or the canvas is a layout bug. */

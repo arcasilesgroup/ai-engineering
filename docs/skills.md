@@ -24,7 +24,7 @@ Five triggers send work to the skill that declares them. A **path** trigger read
 | `security` | path | `ai-security` | the diff touches auth, sessions, crypto, secrets, SQL, migrations, dependency manifests, `.github/workflows/`, `src/chain/` or `src/guards/` |
 | `open-questions` | judgment | `ai-research` | the brainstorm has open questions, or the plan cites an external API or version |
 | `arch-change` | judgment | `ai-architect` | the work adds a subsystem, or changes a layer contract or a dependency direction |
-| `public-interface` | judgment | `ai-write` | the diff changes a public interface, a documented behavior or a command shown in this README |
+| `public-interface` | judgment | `ai-write` | the diff changes a public interface, a documented behavior or a command shown in the README |
 
 ## All 27 skills
 
