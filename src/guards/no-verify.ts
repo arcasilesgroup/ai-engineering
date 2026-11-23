@@ -63,7 +63,7 @@ function prefixTakesValue(prefix: string, option: string): boolean {
 
 /** When xargs builds this git command, the words it appends are not on the line.
  *  `placeholder` is the -I / -i / --replace token stdin is substituted for. */
-function xargsFeed(words: ShellWord[], gitAt: number): { invokes: boolean; placeholder?: string } {
+function xargsFeed(words: ShellWord[], gitAt: number): { invokes: boolean; placeholder: string | undefined } {
   let index = 0;
   let sawXargs = false;
   let placeholder: string | undefined;
