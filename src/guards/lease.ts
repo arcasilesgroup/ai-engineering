@@ -14,11 +14,11 @@
 // without an id, every call would look like a new session.
 
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { loadConfig } from "../env.ts";
 import type { Payload } from "../payload.ts";
 import type { GuardResult } from "./no-verify.ts";
-import { commandIndex, shellSegments, shellWords } from "./shell.ts";
+import { commandIndex, inlineShellPrograms, shellSegments, shellWords } from "./shell.ts";
 
 const MINUTE_MS = 60 * 1000;
 const FILE_WRITES = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
@@ -121,6 +121,60 @@ function gitWriteDirs(command: string, cwd: string): string[] {
   return dirs;
 }
 
+const SHELL_FILE_WRITERS = new Set(["rm", "touch", "mkdir", "truncate", "tee"]);
+const SHELL_DEST_WRITERS = new Set(["cp", "mv"]);
+
+/** Advance `dir` when a segment is a plain `cd`/`pushd` in an unambiguous command. */
+function nextDir(dir: string, cwd: string, isCdSure: boolean, words: ReturnType<typeof shellWords>, at: number): string {
+  const values = words.map((word) => word.value);
+  const target = words[at + 1];
+  const isPlain = target !== undefined && values.length === at + 2 && !/[$*?]/.test(target.unquoted) && !target.unquoted.startsWith("~") && target.value !== "-";
+  if (isCdSure && isPlain && existsSync(resolve(dir, target.value))) return resolve(dir, target.value);
+  return isCdSure ? cwd : dir;
+}
+
+/** Directories a shell command writes into via redirects (`>`, `>>`) or common file-writing verbs.
+ *  `2>&1`, `>&-`, `/dev/*`, and read commands return nothing. */
+function shellWriteDirs(command: string, cwd: string): string[] {
+  const segments = shellSegments(command);
+  if (segments === null) return [];
+  const isCdSure = !UNSURE_CD.test(command);
+  let dir = cwd;
+  const dirs: string[] = [];
+  for (const segment of segments) {
+    const words = shellWords(segment.text);
+    const plain = words.filter((word) => !word.isOperator);
+    const values = plain.map((word) => word.value);
+    const at = commandIndex(values);
+    const verb = basename(values[at] ?? "");
+    if (verb === "cd" || verb === "pushd") {
+      dir = nextDir(dir, cwd, isCdSure, plain, at);
+      continue;
+    }
+    for (let index = 0; index < words.length; index++) {
+      const word = words[index]!;
+      if (!word.isOperator || !word.value.includes(">") || word.value.includes("&")) continue;
+      const target = words[index + 1];
+      if (target === undefined || target.isOperator) continue;
+      // `2>&1` and `>&-` copy or close a descriptor. The `&` stays on the target word.
+      if (/^\d+$/.test(target.value) || target.value === "-" || target.value.startsWith("&") || target.value.startsWith("/dev/")) continue;
+      if (/[$`*?[]/.test(target.unquoted)) continue;
+      dirs.push(dirname(resolve(dir, target.value)));
+    }
+    const args = plain.slice(at + 1);
+    const nonFlagPaths = args.filter((word) => !word.value.startsWith("-") && !word.value.startsWith("/dev/") && !/[$`*?[]/.test(word.unquoted));
+    if (SHELL_FILE_WRITERS.has(verb)) {
+      for (const target of nonFlagPaths) dirs.push(dirname(resolve(dir, target.value)));
+    } else if (SHELL_DEST_WRITERS.has(verb) && nonFlagPaths.length >= 2) {
+      const dest = nonFlagPaths.at(-1)!;
+      dirs.push(dirname(resolve(dir, dest.value)));
+    } else if (verb === "sed" && args.some((word) => /^-[A-Za-z]*i/.test(word.value))) {
+      for (const target of nonFlagPaths.slice(1)) dirs.push(dirname(resolve(dir, target.value)));
+    }
+  }
+  return dirs;
+}
+
 /** The file a file-writing tool targets, as the host names it. */
 function targetPath(payload: Payload): string | null {
   for (const key of ["file_path", "notebook_path", "path"]) {
@@ -171,9 +225,13 @@ function writtenCheckouts(payload: Payload, root: string): string[] {
   if (FILE_WRITES.has(payload.tool_name)) {
     const target = targetPath(payload);
     dirs = [target === null ? cwd : dirname(resolve(cwd, target))];
-  } else if (payload.tool_name === "Bash" || payload.tool_name === "PowerShell") {
+  } else if (payload.tool_name === "Bash" || payload.tool_name === "PowerShell" || payload.tool_name === "shell" || payload.tool_name === "command") {
     const command = payload.tool_input["command"];
-    dirs = typeof command === "string" ? gitWriteDirs(command, cwd) : [];
+    if (typeof command !== "string") dirs = [];
+    else {
+      const programs = [command, ...inlineShellPrograms(command)];
+      dirs = programs.flatMap((program) => [...gitWriteDirs(program, cwd), ...shellWriteDirs(program, cwd)]);
+    }
   } else {
     return [];
   }

@@ -10,6 +10,8 @@ import { checkBash, checkContent, hooksPathTargets, runNoVerify } from "../src/g
 import { readTargets, runInjection } from "../src/guards/injection.ts";
 import { evaluateLocalRules, type LocalRule } from "../src/guards/local-rules.ts";
 import { runLoopGuard } from "../src/guards/loop.ts";
+import { runCheckpointGuard } from "../src/guards/checkpoint.ts";
+import { runLease } from "../src/guards/lease.ts";
 
 const tempDirs: string[] = [];
 
@@ -254,5 +256,34 @@ describe("loop counts failures from OpenCode, OMP, and Pi without firing on non-
       const source = readFileSync(join(import.meta.dir, "..", "templates", tplName), "utf8");
       expect(source, tplName).toContain("isError:");
     }
+  });
+});
+
+describe("checkpoint and lease close NotebookEdit, Bash write, and lease removal bypasses", () => {
+  test("checkpoint rejects NotebookEdit on checkpoint JSON and allows normal notebooks", () => {
+    const dir = repo();
+    const cpPath = join(dir, ".ai-engineering", "workflow", "checkpoints", "demo.json");
+    expect(runCheckpointGuard({ tool_name: "NotebookEdit", tool_input: { notebook_path: cpPath, new_source: "{}" } }, dir)?.deny).toBe(true);
+    expect(runCheckpointGuard({ tool_name: "NotebookEdit", tool_input: { notebook_path: join(dir, "analysis.ipynb"), new_source: "x = 1" } }, dir)).toBeUndefined();
+  });
+
+  test("lease blocks Bash writes and bash -c commits from another session, while allowing reads and /tmp writes", () => {
+    const dir = repo();
+    Bun.spawnSync(["git", "init", "-q", "--template=", "-b", "main"], { cwd: dir });
+    const edit = { tool_name: "Edit", tool_input: { file_path: join(dir, "a.ts") }, session_id: "session-a", cwd: dir };
+    expect(runLease(edit, dir, 1_000)).toBeUndefined();
+    const other = (command: string) => ({ tool_name: "Bash", tool_input: { command }, session_id: "session-b", cwd: dir });
+    expect(runLease(other("echo pwn > a.txt"), dir, 2_000)?.deny).toBe(true);
+    expect(runLease(other("rm a.txt"), dir, 2_000)?.deny).toBe(true);
+    expect(runLease(other("echo pwn | tee a.txt"), dir, 2_000)?.deny).toBe(true);
+    expect(runLease(other("bash -c \"git commit -m x\""), dir, 2_000)?.deny).toBe(true);
+    // Benign reads, stderr redirects, and writes outside the repo stay allowed.
+    expect(runLease(other("git status"), dir, 2_000)).toBeUndefined();
+    expect(runLease(other("ls -la"), dir, 2_000)).toBeUndefined();
+    expect(runLease(other("echo ok > /dev/null"), dir, 2_000)).toBeUndefined();
+    expect(runLease(other("touch /tmp/other-session-scratch.txt"), dir, 2_000)).toBeUndefined();
+    // Removing the lease file itself is blocked by self-protect; removing a normal file is not.
+    expect(runSelfProtect(bash("rm .git/ai-eng/lease.json"), dir)?.deny).toBe(true);
+    expect(runSelfProtect(bash("rm tmp-notes.txt"), dir)).toBeUndefined();
   });
 });
