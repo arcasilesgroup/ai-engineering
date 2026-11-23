@@ -2,15 +2,16 @@
 // at 85 while the measured incremental score was 58.51, so every governance pull
 // request was red and the red meant nothing.
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "bun:test";
 
 function mutationThresholds(): { high: number; low: number; break: number } {
   const run = spawnSync(
     process.execPath,
     ["-e", "const config = await import('./stryker.conf.mjs'); console.log(JSON.stringify(config.default.thresholds));"],
-    { cwd: new URL("..", import.meta.url).pathname, encoding: "utf8" },
+    { cwd: fileURLToPath(new URL("..", import.meta.url)), encoding: "utf8" },
   );
-  if (run.status !== 0) throw new Error(run.stderr || "could not load stryker.conf.mjs");
+  if (run.status !== 0) throw new Error(run.stderr || run.stdout || `could not load stryker.conf.mjs (status ${run.status})`);
   return JSON.parse(run.stdout) as { high: number; low: number; break: number };
 }
 
