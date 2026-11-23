@@ -372,6 +372,7 @@ describe("spoken-secret and floor close raw tokens, my- placeholders, orphan Rec
     expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "use " + ghp + " for the deploy" })?.deny).toBe(true);
     expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "paste " + skProj + " into env" })?.deny).toBe(true);
     expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "example " + placeholder })).toBeUndefined();
+    expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "Check how ADMIN_PASSWORD=my-password is handled in the docs." })).toBeUndefined();
     expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "describe the prefix only" })).toBeUndefined();
     // An assigned raw token is reported once, never double-counted.
     expect(candidates("GITHUB_TOKEN=" + ghp).auto).toHaveLength(1);

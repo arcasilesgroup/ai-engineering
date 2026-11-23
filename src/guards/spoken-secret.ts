@@ -53,7 +53,7 @@ const ASSIGNED =
 // `val` is the first bare token; `clause` runs to the end of the sentence, because an
 // unquoted passphrase ("purple monkey dishwasher") has no token boundary to stop at.
 const SPOKEN =
-  /\b(?<key>(?:[A-Za-z]+[ _-]){0,3}?(?:pass(?:word|phrase)|secret|api[ _-]?key|access[ _-]?key|token|credential)s?)\b(?:\s+(?:is|are|was|will be)|\s*[:=])\s+(?<val>"[^"\n]+"|'[^'\n]+'|`[^`\n]+`|[^\s,;]+)(?<rest>[^,;.\n]*)/gi;
+  /(?<![=:\w-])(?<key>(?:[A-Za-z]+[ _-]){0,3}?(?:pass(?:word|phrase)|secret|api[ _-]?key|access[ _-]?key|token|credential)s?)\b(?:\s+(?:is|are|was|will be)|\s*[:=])\s+(?<val>"[^"\n]+"|'[^'\n]+'|`[^`\n]+`|[^\s,;]+)(?<rest>[^,;.\n]*)/gi;
 
 const QUOTES = "\"'`";
 
@@ -174,7 +174,7 @@ export function candidates(prompt: string): Candidates {
     seen.add(trimmed);
     const key = keyWithoutValues(rawKey, valueParts);
     // an exact span: quoted, or a single bare token that stands on its own
-    if (quoted || usable(trimmed)) {
+    if (quoted || usable(trimmed) || PLACEHOLDER.test(trimmed)) {
       if (usable(trimmed)) auto.push({ value: trimmed, label: labelFor(key) });
       continue;
     }
