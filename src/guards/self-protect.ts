@@ -837,12 +837,10 @@ function surfacesSettings(repoRoot: string): string[] {
     join(repoRoot, ".agents", "hooks", "ai-eng.ts"),
     ...REPO_CARRIER_PATHS.map((path) => join(repoRoot, path)),
   ];
-  for (const path of candidates) {
-    if (!existsSync(path)) continue;
-    // The folder goes with the file: a carrier is deleted as often by taking its folder as
-    // by naming it, and `rm -rf .cursor` is one word.
-    out.push(path, dirname(path));
-  }
+  // The file only: the ancestor rule already denies deleting or renaming the folder that
+  // holds it, while a literal for that folder would deny the project's own files beside it
+  // (`.cursor/rules/x.mdc`, `.claude/agents/x.md`) that are not machinery at all.
+  for (const path of candidates) if (existsSync(path)) out.push(path);
   return out;
 }
 

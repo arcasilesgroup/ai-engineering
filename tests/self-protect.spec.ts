@@ -151,17 +151,27 @@ describe("protectedPaths — the list is derived from the wiring, never copied",
     }
   });
 
-  test("every repo carrier the registry declares is protected, and so is the folder holding it", () => {
-    // A carrier is only governance while it is on disk, and a writer that takes the whole
-    // folder takes it: `rm -rf .cursor` ungoverns the next Cursor session in one word.
+  test("a repo carrier is protected as a file; its folder only against deletion or rename", () => {
+    // A carrier is governance while it is on disk, and one word takes its folder. But that
+    // folder also holds the project's own files, so the folder is protected by the ancestor
+    // rule (delete/rename), never by a literal that would deny the files beside it.
     const repo = tempRepo();
-    for (const carrier of [".cursor/hooks.json", ".github/hooks/ai-eng.json"]) {
-      const file = write(repo, carrier, "{}\n");
-      const paths = protectedPaths(repo);
+    const carriers = [
+      write(repo, ".cursor/hooks.json", "{}\n"),
+      write(repo, ".github/hooks/ai-eng.json", "{}\n"),
+    ];
+    const paths = protectedPaths(repo);
+    for (const file of carriers) {
       expect(paths.literals).toContain(file);
-      expect(paths.literals).toContain(dirname(file));
+      expect(paths.literals).not.toContain(dirname(file));
+      expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `echo {} > ${shellSpelling(file)}` } }, repo)?.deny).toBe(true);
       expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm -rf ${shellSpelling(dirname(file))}` } }, repo)?.deny).toBe(true);
+      expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `mv ${shellSpelling(dirname(file))} ${shellSpelling(dirname(file))}.bak` } }, repo)?.deny).toBe(true);
     }
+    // The project's own files beside the carrier are not machinery: judged normally, allowed.
+    const rules = join(repo, ".cursor", "rules", "house.mdc");
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `echo x > ${shellSpelling(rules)}` } }, repo)).toBeUndefined();
+    expect(runSelfProtect({ tool_name: "Edit", tool_input: { file_path: rules, old_string: "a", new_string: "b" } }, repo)).toBeUndefined();
   });
 
   test("the pin criterion: a 64-hex sha256 in the lock pins spec.html; anything else does not", () => {
