@@ -67,10 +67,7 @@ function managedCommands(): Set<string> {
   for (const path of embeddedUnder("templates/settings.").keys()) {
     if (!path.endsWith(".json.tpl")) continue;
     const settings = JSON.parse(embeddedTemplate(path.slice("templates/".length))) as { hooks?: unknown };
-    // Walk the WHOLE template, not just a top-level `hooks` key: agy's hooks.json is a
-    // map of named hooks (no `hooks` key), so a walk from `.hooks` would never see its
-    // command and uninstall would leave the carrier behind.
-    collectHookCommands(settings, commands);
+    collectHookCommands(settings.hooks, commands);
   }
   managedHookCommands = commands;
   return commands;

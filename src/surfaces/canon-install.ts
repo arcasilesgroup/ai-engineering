@@ -23,7 +23,7 @@ type MirrorTarget = { dir: string; label: string };
 
 /** Where each surface discovers skills: one canon, four mirrors beside the canon.
  *  Without the override the base is the physical home. agy reads its global customizations
- *  (hooks and skills) from the same ~/.gemini/config root its carrier lives in. */
+ *  (hooks and, unverified, skills) under `~/.gemini/config`, so its mirror sits there. */
 export function mirrorTargets(): MirrorTarget[] {
   const base = machineBase();
   return [

@@ -128,20 +128,6 @@ const COPILOT_ARGS: Record<string, string> = {
   file_text: "content",
 };
 
-/** Antigravity CLI (agy) tool names → guard names. Only what was measured live on agy
- *  1.5.14: a PreToolUse probe recorded `run_command` with `toolCall.args.CommandLine`.
- *  Anything not in this map passes through under its own name — a new host tool is never
- *  mangled, and only the loop guard's `.*` matcher counts it (same fail-open-on-unknown
- *  stance as the default path). */
-const AGY_TOOLS: Record<string, string> = {
-  run_command: "Bash",
-};
-
-/** agy's PascalCase argument keys → the keys every guard reads. One key, measured. */
-const AGY_ARGS: Record<string, string> = {
-  CommandLine: "command",
-};
-
 const PATCH_FILE = /^\*\*\* (Add|Update|Delete) File: (.+)$/;
 const PATCH_MOVE = /^\*\*\* Move to: (.+)$/;
 
@@ -216,19 +202,6 @@ function patchInput(patch: string, explicitPath?: string): Record<string, unknow
   return { file_path: filePaths[0], file_paths: filePaths, patch, content: added.join("\n") };
 }
 
-/** A patch is many writes in one call: read every path or refuse the call, never `{}`.
- *  One reading for every surface — a tool named apply_patch with no readable patch is a
- *  call the guards cannot judge, and an Edit/Write that carries one is replaced by it. */
-function readPatch(tool: string, input: unknown): { tool_name: string; tool_input: Record<string, unknown> } | null {
-  if (tool !== "apply_patch" && tool !== "Edit" && tool !== "Write") return null;
-  const patch = patchText(input);
-  if (patch === null) {
-    if (tool === "apply_patch") throw new TypeError("apply_patch input is not a readable patch.");
-    return null;
-  }
-  return { tool_name: "Edit", tool_input: patchInput(patch, targetOf(input)) };
-}
-
 /** The one target path a call names, after refusing a call that names two. */
 function targetOf(input: unknown): string | undefined {
   if (input === null || typeof input !== "object" || Array.isArray(input)) return undefined;
@@ -265,47 +238,6 @@ function parseArgs(args: unknown): Record<string, unknown> {
   const decoded = decodeArgs(args);
   if (typeof decoded === "string") throw new TypeError("Copilot toolArgs must contain a JSON object.");
   return decoded;
-}
-
-/** Antigravity CLI (agy) PreToolUse → one payload. The host sends `toolCall.name` /
- *  `toolCall.args` (camelCase protojson, PascalCase arg keys) and reads a top-level
- *  `decision` — nothing like the Claude/Copilot floors. A run_command's command lives in
- *  `toolCall.args.CommandLine`, which AGY_ARGS maps to the `command` every guard reads. */
-function normaliseAgy(out: Record<string, unknown>, strict: boolean): void {
-  const toolCall = out.toolCall;
-  if (toolCall === null || typeof toolCall !== "object" || Array.isArray(toolCall)) {
-    if (strict) throw new TypeError("agy toolCall must be an object.");
-    out.tool_name = "";
-    out.tool_input = {};
-    return;
-  }
-  const call = toolCall as Record<string, unknown>;
-  const rawName = call.name;
-  if (typeof rawName !== "string" || rawName.length === 0) {
-    out.tool_name = "";
-    out.tool_input = {};
-    return;
-  }
-  const tool = AGY_TOOLS[rawName] ?? rawName;
-  out.tool_name = tool;
-  const rawArgs = call.args;
-  if (rawArgs === null || typeof rawArgs !== "object" || Array.isArray(rawArgs)) {
-    // Unreadable arguments on the pre-tool event: the call cannot be judged, so it is refused.
-    if (strict) throw new TypeError("agy toolCall.args must be an object.");
-    out.tool_input = {};
-  } else {
-    const mapped: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(rawArgs as Record<string, unknown>)) mapped[AGY_ARGS[key] ?? key] = value;
-    const patched = readPatch(tool, mapped);
-    out.tool_input = patched?.tool_input ?? mapped;
-    if (patched !== null) out.tool_name = patched.tool_name;
-  }
-  // conversationId is the session; toolCall.id is the dedup key ("call_<n>", live probe).
-  out.session_id ??= out.conversationId;
-  out.tool_use_id ??= call.id;
-  // The probe recorded no result content, so an `error` string is the only failure signal
-  // there is; without it the loop guard's failure arm never sees a failed agy call.
-  if (typeof out.error === "string" && out.error.length > 0) out.tool_response ??= { is_error: true, error: out.error };
 }
 
 /** Copilot CLI (both hook spellings) → one payload, or a throw the chain turns into a deny.
@@ -381,17 +313,22 @@ export function normalise(raw: Record<string, unknown>, surface?: string, event?
   const isCopilot = surface === "copilot-cli" || surface === "copilot";
   if (isCopilot) {
     normaliseCopilot(out, strict);
-  } else if (surface === "agy") {
-    normaliseAgy(out, strict);
   } else {
     out.tool_name = out.tool_name ?? out.tool ?? "";
     if (surface && typeof out.tool_name === "string") {
       out.tool_name = TOOL_ALIASES_BY_SURFACE[surface]?.[out.tool_name] ?? out.tool_name;
     }
     const toolInput = out.tool_input ?? out.input ?? {};
-    const patched = typeof out.tool_name === "string" ? readPatch(out.tool_name, toolInput) : null;
-    out.tool_input = patched?.tool_input ?? toolInput;
-    if (patched !== null) out.tool_name = patched.tool_name;
+    // A patch is many writes in one call: read every path or refuse the call, never `{}`.
+    const isPatchTool = out.tool_name === "apply_patch";
+    const patch = isPatchTool || out.tool_name === "Edit" || out.tool_name === "Write" ? patchText(toolInput) : null;
+    if (isPatchTool && patch === null) throw new TypeError("apply_patch input is not a readable patch.");
+    if (patch !== null) {
+      out.tool_name = "Edit";
+      out.tool_input = patchInput(patch, targetOf(toolInput));
+    } else {
+      out.tool_input = toolInput;
+    }
   }
   if (typeof out.tool_input !== "object" || out.tool_input === null) out.tool_input = {};
   const input = out.tool_input as Record<string, unknown>;
@@ -407,8 +344,8 @@ export function normalise(raw: Record<string, unknown>, surface?: string, event?
   // Copilot sends tool_input.path, and the injection guard would run and allow the
   // read it exists to stop.
   if (!mapped.file_path && typeof mapped.notebook_path === "string") mapped.file_path = mapped.notebook_path;
-  if (strict && typeof out.tool_name === "string" && (isCopilot || surface === "agy")) {
-    if (isCopilot && !mapped.file_path && typeof mapped.path === "string") mapped.file_path = mapped.path;
+  if (isCopilot && strict && typeof out.tool_name === "string") {
+    if (!mapped.file_path && typeof mapped.path === "string") mapped.file_path = mapped.path;
     requireArgs(out.tool_name, mapped);
   }
   out.tool_input = mapped;

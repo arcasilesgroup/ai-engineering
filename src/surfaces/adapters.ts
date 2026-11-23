@@ -24,12 +24,6 @@ export type Surface = {
    *  hosts that run the chain in-process — their template turns the outcome into
    *  throw/block itself. */
   readonly dialect?: Dialect;
-  /** Whether `doctor` may CALL this surface enforced. Absent means the answer is derived:
-   *  the host runs our chain and declares a carrier. A surface whose carrier reaches the
-   *  chain without the repository the call belongs to is advisory however good its
-   *  denial vocabulary is — the chain reads an ungoverned root and lets every call
-   *  through. The reason, and the measurement behind it, live in `note`. */
-  readonly enforcement?: "enforced" | "advisory";
   readonly can: {
     /** `true` we deny · `"throw"` we deny by throwing (in-process hosts) · `"host-only"`
      *  the HOST can deny through its own permissions and we have no hook to run in — the
@@ -126,7 +120,6 @@ const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean; isExitSt
   codex: { main: "settings.codex.json.tpl", chain: false },
   cursor: { main: "settings.cursor.json.tpl", chain: false },
   copilot: { main: "settings.copilot.json.tpl", chain: false },
-  agy: { main: "settings.agy.json.tpl", chain: false },
 };
 
 /** The launcher name a hook line must call on this machine. On Windows a bare `ai-eng`
@@ -245,11 +238,9 @@ export function surfaceCanGovern(surface: Surface): boolean {
 /** The one fact doctor owes the user per surface: does this host run our chain and
  *  block the call synchronously (enforced), or only let us observe / rely on the host's
  *  own permissions (advisory)? A surface is advisory when it has no synchronous pre-tool
- *  deny we can reach — its `can.deny` is `host-only` or absent, it declares no carrier —
- *  or when the registry records that its carrier cannot name the repo (agy).
- *  The capability matrix (docs/surface-capability-matrix.md) records the same split, with
- *  the fail-open / fail-closed nuance per host. */
+ *  deny we can reach — its `can.deny` is `host-only` or absent — or declares no carrier to
+ *  put one in. The capability matrix (docs/surface-capability-matrix.md) records the same
+ *  split, with the fail-open / fail-closed nuance per host. */
 export function surfaceEnforcement(surface: Surface): "enforced" | "advisory" {
-  if (surface.enforcement !== undefined) return surface.enforcement;
   return surfaceCanGovern(surface) && surface.carriers.length > 0 ? "enforced" : "advisory";
 }

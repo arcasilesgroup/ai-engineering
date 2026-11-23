@@ -529,31 +529,12 @@ describe("installer: the files a user shares with us", () => {
     expect(stripSharedText(current)).toBe(restored);
   });
 
-  test("stripping our agy hook restores the user's named hooks around it", () => {
-    // agy's hooks.json is a map of NAMED hooks with no top-level `hooks` key, so a strip
-    // that only walked arrays would leave `"ai-eng-guard": {}` or the matcher stub behind
-    // in the user's file. The expected text is the file the user had before init.
-    const userHook = [{ matcher: "*", hooks: [{ type: "command", command: "herdr notify" }] }];
-    const guarded = (event: string) => [{
-      matcher: "*",
-      hooks: [{ type: "command", command: `ai-eng chain ${event} --surface agy`, timeout: 10 }],
-    }];
-    const current = `${JSON.stringify({
-      "ai-eng-guard": { PreToolUse: guarded("PreToolUse"), PostToolUse: guarded("PostToolUse") },
-      herdr: { PreInvocation: userHook },
-    }, null, 2)}\n`;
-    const restored = `${JSON.stringify({ herdr: { PreInvocation: userHook } }, null, 2)}\n`;
-
-    expect(stripSharedText(current)).toBe(restored);
-  });
-
   test("recognizes every exact hook command from the embedded settings templates", () => {
     const generatedCommands = new Set<string>();
     for (const path of embeddedUnder("templates/settings.").keys()) {
       if (!path.endsWith(".json.tpl")) continue;
       const settings = JSON.parse(embeddedTemplate(path.slice("templates/".length))) as { hooks?: unknown };
-      // Walk the WHOLE template: agy's hooks.json has no top-level `hooks` key.
-      collectTemplateCommands(settings, generatedCommands);
+      collectTemplateCommands(settings.hooks, generatedCommands);
     }
 
     expect(generatedCommands.size).toBeGreaterThan(0);

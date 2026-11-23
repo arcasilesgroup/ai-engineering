@@ -200,11 +200,12 @@ hosts. Its `preToolUse` command hook **fails closed** on a crash or non-zero exi
 machine without it is not locked out) and on a timeout. The prompt hook is advisory on
 Copilot: `userPromptSubmitted` command output is ignored.
 
-The Antigravity CLI (agy) adapter is **advisory**: its hook reaches the chain without the
-repository the call belongs to, so every call reads as ungoverned and is allowed. Only its
-machine carrier is installed — a committed hook would deny every tool call on a machine
-without `ai-eng` on `PATH`, because agy denies on a missing binary. See the [capability
-matrix](docs/surface-capability-matrix.md) for the per-host split.
+The Antigravity CLI (agy) is declared but **advisory**: `ai-eng` writes no hook for it yet.
+Its hook contract was probed and a top-level `decision: deny` does block a call, but the
+payload names no repository and, because agy denies on any non-zero exit, a carrier the
+hosting app cannot resolve would deny every tool call outright. Only its skills are
+mirrored. The [capability matrix](docs/surface-capability-matrix.md) records what a carrier
+has to satisfy before it ships.
 
 Command guards read the visible command text. They do not sandbox opaque programs or scripts
 prepared in earlier calls: a script written in one call and run in a later call does
@@ -292,9 +293,9 @@ host supports.
 | Tier | Meaning | Surfaces |
 |---|---|---|
 | core | deny, plus a rewritten command where the host allows it | `claude-code`, `oh-my-pi`, `opencode`, `cursor`, `pi` |
-| experimental | works, less proven | `codex`, `agy` (advisory) |
+| experimental | works, less proven | `codex` |
 | best-effort | the host limits the outcome | `copilot-cli` |
-| skills-only | skills, no interception | `zed` |
+| skills-only | skills, no interception | `zed`, `agy` |
 
 `ai-eng config --add <id>` and `ai-eng config --remove <id>` turn a surface on or off and
 regenerate its files. `ai-eng doctor` reports, per surface, whether its hook file is where

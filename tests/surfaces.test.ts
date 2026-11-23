@@ -92,24 +92,6 @@ test("copilot: permissionDecision on stdout, exit 0", () => {
   expect(body.permissionDecisionReason).toInclude("[ai-eng] no-verify");
 });
 
-test("agy: decision deny on stdout, exit 0 (live-verified envelope)", () => {
-  // agy sends toolCall.name / toolCall.args.CommandLine (camelCase protojson, live probe
-  // on 1.5.14) and reads a top-level `decision` — not the Claude/Copilot envelope.
-  const r = chain("agy", { toolCall: { id: "call_1", name: "run_command", args: { CommandLine: "git commit -n -m x" } }, conversationId: "agy-s", cwd: repo });
-  expect(r.status).toBe(0);
-  const body = JSON.parse(r.stdout) as { decision?: string; reason?: string };
-  expect(body.decision).toBe("deny");
-  expect(body.reason).toInclude("[ai-eng] no-verify");
-});
-
-test("agy: run_command maps to the Bash the guards know", () => {
-  // A non-guard command under the same envelope allows, and agy answers with silence
-  // (empty stdout), not an envelope — writing nothing is what agy reads as allow.
-  const r = chain("agy", { toolCall: { id: "call_2", name: "run_command", args: { CommandLine: "git status" } }, conversationId: "agy-s", cwd: repo });
-  expect(r.status).toBe(0);
-  expect(r.stdout.trim()).toBe("");
-});
-
 test("cursor calls the shell tool Shell: the alias still reaches the guards", () => {
   const r = chain("cursor", { tool_name: "Shell", tool_input: { command: "git commit -n -m x" }, session_id: "surfaces" });
   expect(r.status).toBe(0);
@@ -175,26 +157,6 @@ test("init scaffolds each surface's carrier where its host reads it", () => {
   expectLocalCanon();
 });
 
-test("init scaffolds agy's machine carrier where agy reads it, and no repo hook", () => {
-  const fresh = join(sandbox, "agy-repo");
-  const geminiHooks = join(home, ".gemini", "config", "hooks.json");
-  const geminiBefore = '{\n  "herdr": {\n    "PreInvocation": []\n  }\n}\n';
-  mkdirSync(join(home, ".gemini", "config"), { recursive: true });
-  writeFileSync(geminiHooks, geminiBefore);
-  mkdirSync(fresh, { recursive: true });
-  spawnSync("git", ["init", "-q"], { cwd: fresh });
-  const r = run(["init", "--yes", "--surface", "agy"], fresh);
-  expect(r.status).toBe(0);
-  // Machine carrier: ~/.gemini/config/hooks.json merged by marker beside the user's hooks.
-  const after = readFileSync(geminiHooks, "utf8");
-  expect(after).toInclude("--surface agy");
-  expect((JSON.parse(after) as { herdr?: unknown }).herdr).toEqual({ PreInvocation: [] });
-  // No repo carrier on purpose: agy denies on a missing binary, so a committed hook would
-  // lock a teammate without ai-eng on PATH out of every tool call.
-  expect(existsSync(join(fresh, ".agents", "hooks.json"))).toBe(false);
-  expect(repoCarrier(SURFACES.find((surface) => surface.id === "agy")!)).toBeNull();
-});
-
 test("machine carrier paths match each host's documented root, with source and date", () => {
   // The table IS the claim: init writes from it, doctor checks against it, and a wrong
   // path here is the OMP bug again — a carrier that exists everywhere and is read by
@@ -231,10 +193,13 @@ test("machine carrier paths match each host's documented root, with source and d
   // The two repo readers keep their carriers in the checkout, and they are the only ones.
   const inRepo = SURFACES.filter((surface) => repoCarrier(surface) !== null).map((surface) => surface.id);
   expect(inRepo.sort()).toEqual(["copilot-cli", "cursor"]);
-  // agy is the one surface whose carrier reaches the chain without the repo the call
-  // belongs to, so doctor must never call it enforced.
-  expect(surfaceEnforcement(SURFACES.find((surface) => surface.id === "agy")!)).toBe("advisory");
-  expect(surfaceCanGovern(SURFACES.find((surface) => surface.id === "agy")!)).toBe(true);
+  // agy ships no carrier at all: declared so its measured capabilities are recorded and
+  // its skills can be mirrored, and every consumer has to read it as advisory — never as a
+  // host we govern, since there is no hook of ours in its path.
+  const agy = byId("agy")!;
+  expect(agy.carriers).toEqual([]);
+  expect(surfaceCanGovern(agy)).toBe(false);
+  expect(surfaceEnforcement(agy)).toBe("advisory");
 });
 
 test("cursor allow envelope: a permitted call answers, and the silent hosts stay silent", () => {

@@ -368,7 +368,7 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
   test("surfaceOptions offers only surfaces with an adapter behind them", () => {
     const options = surfaceOptions();
     const ids = options.map((s) => s.id);
-    expect([...ids].sort()).toEqual(["agy", "claude-code", "codex", "copilot-cli", "cursor", "oh-my-pi", "opencode", "pi"]);
+    expect([...ids].sort()).toEqual(["claude-code", "codex", "copilot-cli", "cursor", "oh-my-pi", "opencode", "pi"]);
     expect(ids).not.toContain("zed"); // declared, but nothing generates for it
     for (const surface of options) expect(hasAdapter(surface.id)).toBe(true);
     expect(hasAdapter("zed")).toBe(false);
