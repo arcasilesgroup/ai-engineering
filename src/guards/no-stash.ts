@@ -4,7 +4,7 @@
 
 import type { Payload } from "../payload.ts";
 import type { GuardResult } from "./no-verify.ts";
-import { commandIndex, shellSegments, shellWords } from "./shell.ts";
+import { commandIndex, inlineShellPrograms, shellSegments, shellWords } from "./shell.ts";
 
 /** The subcommands that read a stash or bring it back. Everything else makes or drops one. */
 const RESTORES = new Set(["list", "show", "apply", "pop", "branch"]);
@@ -29,16 +29,21 @@ function stashSubcommand(segment: string): string | null {
 }
 
 export function runNoStash(payload: Payload): GuardResult {
-  if (payload.tool_name !== "Bash" && payload.tool_name !== "PowerShell") return undefined;
+  if (payload.tool_name !== "Bash" && payload.tool_name !== "PowerShell" && payload.tool_name !== "shell" && payload.tool_name !== "command") return undefined;
   const command = payload.tool_input["command"];
   if (typeof command !== "string" || command.length === 0) return undefined;
   // A command the grammar cannot read is the other guards' to judge; this one only
   // speaks about a stash it can see.
   const segments = shellSegments(command);
   if (segments === null) return undefined;
-  for (const segment of segments) {
-    const subcommand = stashSubcommand(segment.text);
-    if (subcommand !== null && !RESTORES.has(subcommand)) return { deny: true, reason: REASON };
+  const programs = [command, ...inlineShellPrograms(command)];
+  for (const program of programs) {
+    const parts = program === command ? segments : shellSegments(program);
+    if (parts === null) continue;
+    for (const segment of parts) {
+      const subcommand = stashSubcommand(segment.text);
+      if (subcommand !== null && !RESTORES.has(subcommand)) return { deny: true, reason: REASON };
+    }
   }
   return undefined;
 }

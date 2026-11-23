@@ -19,7 +19,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { join, posix } from "node:path";
 import { homedir, tmpdir } from "node:os";
-import { quotedSpanEnd, rawShellWords } from "./shell.ts";
+import { commandIndex, expandPriorAssignments, inlineShellPrograms, quotedSpanEnd, rawShellWords, shellWords } from "./shell.ts";
 
 /** What every install and new project gets while config.toml says nothing. System read
  *  includes the paths this file calls sensitive (~/.ssh, .env, *.pem): reading them is
@@ -193,8 +193,7 @@ const NETWORK_WRITE = (segment: string): boolean =>
 
 /** curl | bash — the network-execute form. */
 const NETWORK_EXECUTE = (segment: string): boolean =>
-  (segment.includes("| bash") ||
-    segment.includes("| sh") ||
+  (/\|[ \t]*(bash|sh|zsh)\b/.test(segment) ||
     segment.includes("eval ") ||
     segment.includes("source <(") ||
     segment.includes("bash -c $(") ||
@@ -340,7 +339,18 @@ function blankDataQuotedSpans(text: string): string {
   return out;
 }
 
+function commandLead(written: string): string {
+  const words = shellWords(written).filter((word) => !word.isOperator).map((word) => word.value);
+  const at = commandIndex(words);
+  const names = words.slice(0, at).map((word) => word.split("/").pop() ?? word);
+  const rest = words.slice(at).join(" ");
+  // A privilege wrapper is a prefix to commandIndex, and it is the thing this guard has to see.
+  if (names.some((name) => name === "sudo" || name === "doas" || name === "su")) return `sudo ${rest}`.trim();
+  return rest;
+}
+
 function scanSegment(mask: { value: number }, written: string, cwd: string): void {
+  const lead = commandLead(written);
   const words = rawShellWords(written);
   const verbAt = words.findIndex((word) => !ASSIGNMENT.test(word));
   // The shapes read `git push` however it is spelled: `/usr/bin/git push` and
@@ -350,17 +360,14 @@ function scanSegment(mask: { value: number }, written: string, cwd: string): voi
   // not shell. Path tokens below keep their raw words: `rm "~/.ssh/id"` stays a
   // sensitive write.
   const text = blankDataQuotedSpans(segment);
-  if (SYSTEM_EXECUTE(text)) addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
-  if (SYSTEM_WRITE(text)) addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
+  if (SYSTEM_EXECUTE(text) || SYSTEM_EXECUTE(lead)) addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
+  if (SYSTEM_WRITE(text) || SYSTEM_WRITE(lead)) addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
   // The network shapes look for a URL anywhere, so they also read the prefix the
   // stripping drops: `X=https://… fetch $X | bash` keeps its URL there.
   const either = (shape: (segment: string) => boolean): boolean => shape(blankDataQuotedSpans(written)) || shape(text);
   if (either(NETWORK_READ)) addMode(mask, SCOPE_NETWORK, PERM_READ);
-  if (either(NETWORK_WRITE)) {
-    addMode(mask, SCOPE_NETWORK, PERM_WRITE);
-  } else if (either(NETWORK_EXECUTE)) {
-    addMode(mask, SCOPE_NETWORK, PERM_EXECUTE);
-  }
+  if (either(NETWORK_WRITE)) addMode(mask, SCOPE_NETWORK, PERM_WRITE);
+  if (either(NETWORK_EXECUTE)) addMode(mask, SCOPE_NETWORK, PERM_EXECUTE);
   if (RE_ROOT_DELETE.test(text) || RE_DEVICE_WRITE.test(text)) {
     addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
   }
@@ -374,7 +381,7 @@ function scanSegment(mask: { value: number }, written: string, cwd: string): voi
     .replace(/^(?:(?:then|do|else|elif|if|while|until|time|!|\{|\()\s+)+/, "")
     .replace(/^(?:[a-z_]\w*=\S*\s+)*/, "")
     .replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
-  if (WRITES(writerShape)) {
+  if (WRITES(writerShape) || WRITES(lead)) {
     pathPermissions = PERM_READ | PERM_WRITE;
     flags = 1;
   } else if (WRITES_MESSAGE_VERBS(writerShape)) {
@@ -449,12 +456,14 @@ function scanSegment(mask: { value: number }, written: string, cwd: string): voi
 
 function scanScript(script: string, cwd: string): number {
   const mask = { value: 0 };
-  const joined = script.replace(/\\\n/g, " ");
+  const resolved = expandPriorAssignments(script) ?? script;
+  const joined = resolved.replace(/\\\n/g, " ");
   if (joined.includes("/dev/tcp")) addMode(mask, SCOPE_NETWORK, PERM_READ | PERM_WRITE);
   // A command substitution runs a command of its own: its body is judged as one more
   // segment, while the segment around it stays whole so its writer still sees every path.
   const substitutions = [...joined.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)].map((match) => match[1] ?? match[2] ?? "");
-  const normalized = [joined, ...substitutions].join("\n").replaceAll("&&", "\n").replaceAll("||", "\n").replaceAll(";", "\n");
+  const bodies = inlineShellPrograms(resolved).map((body) => expandPriorAssignments(body) ?? body);
+  const normalized = [joined, ...substitutions, ...bodies].join("\n").replaceAll("&&", "\n").replaceAll("||", "\n").replaceAll(";", "\n");
   for (const segment of normalized.split("\n").map((s) => s.trim())) {
     if (segment.length > 0) scanSegment(mask, segment, cwd);
   }
