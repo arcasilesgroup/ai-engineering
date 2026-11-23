@@ -7,7 +7,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, sep } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { isNetworkPath, protectedPaths, writesTo, runSelfProtect, type ProtectedPaths } from "../src/guards/self-protect.ts";
 
 /** A path as a Bash command line carries it: a backslash in an unquoted word is an escape
@@ -79,7 +79,9 @@ describe("protectedPaths — the list is derived from the wiring, never copied",
       // in one disables the host.
       ".config/opencode/plugins",
       ".config/opencode/ai-eng",
-      ".omp/agent/hooks/pre",
+      // omp files its hooks under `hooks/pre|post`, so the folder that holds those events is
+      // the scan root: a file dropped in `hooks/post` is loaded the same way as one in `pre`.
+      ".omp/agent/hooks",
       ".pi/agent/extensions",
       ".copilot/hooks",
       "machine.json",
@@ -129,6 +131,9 @@ describe("protectedPaths — the list is derived from the wiring, never copied",
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm ${shellSpelling(agy)}` } }, null)?.deny).toBe(true);
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "rm .gemini/config/hooks.json" } }, null)?.deny).toBe(true);
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "echo {} > .gemini/config/hooks.json" } }, null)?.deny).toBe(true);
+    // Every carrier the registry declares is named, not just the newest one.
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "rm .copilot/hooks/ai-eng.json" } }, null)?.deny).toBe(true);
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "rm .codex/hooks.json" } }, null)?.deny).toBe(true);
   });
 
   test("a file dropped beside ours in a host's scan folder is a write into machinery", () => {
@@ -137,6 +142,7 @@ describe("protectedPaths — the list is derived from the wiring, never copied",
     const base = process.env.AI_ENG_HOME!;
     for (const target of [
       ".config/opencode/plugins/ai-eng-chain.ts",
+      ".omp/agent/hooks/post/evil.ts",
       ".pi/agent/extensions/evil.ts",
       ".copilot/hooks/evil.json",
     ]) {
@@ -151,9 +157,10 @@ describe("protectedPaths — the list is derived from the wiring, never copied",
     const repo = tempRepo();
     for (const carrier of [".cursor/hooks.json", ".github/hooks/ai-eng.json"]) {
       const file = write(repo, carrier, "{}\n");
-      expect(protectedPaths(repo).literals).toContain(file);
-      const folder = carrier.split("/")[0]!;
-      expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm -rf ${shellSpelling(join(repo, folder))}` } }, repo)?.deny).toBe(true);
+      const paths = protectedPaths(repo);
+      expect(paths.literals).toContain(file);
+      expect(paths.literals).toContain(dirname(file));
+      expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm -rf ${shellSpelling(dirname(file))}` } }, repo)?.deny).toBe(true);
     }
   });
 

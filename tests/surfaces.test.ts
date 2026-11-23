@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SURFACES, machineCarrier, repoCarrier, carrierFiles, surfaceCanGovern, surfaceEnforcement, withLauncher } from "../src/surfaces/adapters.ts";
+import { SURFACES, machineCarrier, repoCarrier, carrierFiles, hookLauncher, surfaceCanGovern, surfaceEnforcement, withLauncher } from "../src/surfaces/adapters.ts";
 import { removeMachineArtifacts } from "../src/surfaces/carriers-install.ts";
 import { canonSkills, embeddedPath, embeddedTemplate } from "../src/embed.ts";
 import { portableHookText } from "../src/install.ts";
@@ -256,6 +256,35 @@ test.skipIf(process.platform === "win32")("agy's carrier allows with a reason on
     expect(run.status).toBe(0);
     expect(run.stderr).toBe("");
     expect(JSON.parse(run.stdout)).toEqual({ decision: "deny", reason: "[ai-eng] no-verify" });
+  }
+});
+
+test.skipIf(process.platform !== "win32")("the rendered Windows agy guard runs under cmd.exe: absent allows, present reaches the chain", () => {
+  // The line only exists on Windows, so this is the arm that proves it: a block that closed
+  // the wrong way, or an `exit /b 0` that did not end the line, would deny every agy call of
+  // a user who DID install ai-eng — the lockout the guard exists to prevent.
+  const launcher = hookLauncher();
+  if (launcher === "ai-eng" || launcher === "ai-eng.exe") return; // an .exe shim is not a batch file
+  const commands = agyCommands(carrierFiles("agy")!.main);
+  expect(commands).toHaveLength(2);
+
+  const withoutBinary = join(sandbox, "win-no-ai-eng");
+  mkdirSync(withoutBinary, { recursive: true });
+  for (const command of commands) {
+    const run = spawnSync("cmd", ["/d", "/s", "/c", command], { encoding: "utf8", env: { ...process.env, PATH: withoutBinary } });
+    expect(run.status).toBe(0);
+    expect(run.stdout).toBe(""); // agy's decision channel stays empty: the one shape the probe proved allows
+    expect(run.stderr).toContain("ai-eng: not found in PATH, allowing this call");
+  }
+
+  // With the shim on PATH the guard's block is skipped, not the call: the chain still runs.
+  const withBinary = join(sandbox, "win-ai-eng");
+  mkdirSync(withBinary, { recursive: true });
+  writeFileSync(join(withBinary, launcher), '@echo {"decision":"deny","reason":"[ai-eng] no-verify"}\r\n');
+  for (const command of commands) {
+    const run = spawnSync("cmd", ["/d", "/s", "/c", command], { encoding: "utf8", env: { ...process.env, PATH: withBinary } });
+    expect(run.status).toBe(0);
+    expect(JSON.parse(run.stdout.trim())).toEqual({ decision: "deny", reason: "[ai-eng] no-verify" });
   }
 });
 

@@ -817,11 +817,15 @@ const MACHINE_CARRIER_PATHS: readonly string[] = registryCarriers("machine")
 
 /** The folders a host scans for its plugins: a file of ours (`ai-eng*`) sits inside one, and
  *  the host loads every file there, so a stray file in it disables the host and the whole
- *  folder is machinery — not just our entry. A host's own settings file names itself
- *  (`settings.json`, `hooks.json`) and gets no folder rule. */
+ *  folder is machinery — not just our entry. A host that files its hooks by event
+ *  (`hooks/pre`, `hooks/post`) scans the folder holding those events, so the event segment
+ *  comes off. A host's own settings file names itself and gets no folder rule. */
+const HOOK_EVENT_FOLDER = new Set(["pre", "post"]);
+
 const MACHINE_SCAN_DIRS: readonly string[] = MACHINE_CARRIER_PATHS
   .filter((path) => basename(path).startsWith("ai-eng"))
-  .map((path) => dirname(path));
+  .map((path) => dirname(path))
+  .map((folder) => (HOOK_EVENT_FOLDER.has(basename(folder)) ? dirname(folder) : folder));
 
 /** The settings files this install wires, per surface (derived from what install
  *  wrote; the on-disk check keeps an uninstall from leaving ghosts). */
@@ -833,7 +837,12 @@ function surfacesSettings(repoRoot: string): string[] {
     join(repoRoot, ".agents", "hooks", "ai-eng.ts"),
     ...REPO_CARRIER_PATHS.map((path) => join(repoRoot, path)),
   ];
-  for (const path of candidates) if (existsSync(path)) out.push(path);
+  for (const path of candidates) {
+    if (!existsSync(path)) continue;
+    // The folder goes with the file: a carrier is deleted as often by taking its folder as
+    // by naming it, and `rm -rf .cursor` is one word.
+    out.push(path, dirname(path));
+  }
   return out;
 }
 
@@ -942,6 +951,12 @@ function expandTilde(path: string): string {
   return path;
 }
 
+/** One carrier path as a whole-segment file pattern: a write that names it — absolute or
+ *  relative — is a write to what governs the session, wherever the shell's cwd happens to be. */
+function carrierFilePattern(path: string): string {
+  return `(?:^|/)${path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`;
+}
+
 /** The governed file or path this text offends, or null.
  *
  *  The prose contracts the user owns (AGENTS.md, DECISIONS.md) are
@@ -955,19 +970,19 @@ function expandTilde(path: string): string {
 /** Governance files by name, wherever they sit. The governed root is the outermost
  *  governed ancestor, so a config written above the repo (or a hook in a nested one)
  *  would otherwise move the root out from under the session. The host carriers are here
- *  too: a carrier rewritten, or a settings file with `disableAllHooks`, ungoverns the next
- *  session even when this one never wrote a governed file. */
+ *  too — every one the registry declares, from the one table — because a carrier rewritten,
+ *  or a settings file with `disableAllHooks`, ungoverns the next session even when this one
+ *  never wrote a governed file. */
 const GOVERNANCE_FILE = new RegExp([
   String.raw`(?:^|/)\.ai-engineering/(?:config\.toml|overrides\.toml|ai-eng\.lock|arch\.rules\.json)$`,
   String.raw`(?:^|/)\.gitleaks(?:rc\.toml|ignore)$`,
   String.raw`(?:^|/)\.git/(?:hooks(?:/|$)|config$)`,
   String.raw`(?:^|/)\.github/hooks(?:/|$)`,
   String.raw`(?:^|/)\.github/copilot/settings(?:\.local)?\.json$`,
-  String.raw`(?:^|/)\.claude/settings(?:\.local)?\.json$`,
-  String.raw`(?:^|/)\.cursor/hooks\.json$`,
-  String.raw`(?:^|/)\.codex/hooks\.json$`,
-  String.raw`(?:^|/)\.gemini/config/hooks\.json$`,
+  String.raw`(?:^|/)\.claude/settings\.local\.json$`,
   String.raw`(?:^|/)\.(?:opencode/plugins|agents/hooks)/ai-eng[^/]*$`,
+  ...MACHINE_CARRIER_PATHS.map(carrierFilePattern),
+  ...REPO_CARRIER_PATHS.map(carrierFilePattern),
 ].join("|"), "i");
 
 /** Case-folded on purpose: macOS and Windows filesystems ignore case, so
