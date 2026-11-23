@@ -160,7 +160,7 @@ test("a surface that cannot deny tools is refused, never declared in config.toml
   expect(existsSync(join(fresh, ".ai-engineering", "config.toml"))).toBe(false);
 });
 
-test("init offers only the surfaces that generate files", () => {
+test("init offers only the surfaces it will not refuse", () => {
   const offered = surfaceOptions().map((surface) => surface.id);
   expect(offered).toEqual(["claude-code", "oh-my-pi", "opencode", "cursor", "codex", "copilot-cli", "pi"]);
 });

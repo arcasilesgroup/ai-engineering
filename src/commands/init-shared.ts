@@ -188,8 +188,9 @@ function surfaceEntries(id: string): PlanEntry[] {
   return entries;
 }
 
-/** A surface earns a place in a picker only with an adapter behind it: the
- *  declaration in surfaces.json is the plan, the generator is the proof. */
+/** Whether this release ships a generator for the surface: the declaration in
+ *  surfaces.json is the plan, the generator is the proof. A picker option needs more than
+ *  that — `surfaceOptions` also requires that a hook of ours can judge the host. */
 export function hasAdapter(id: string): boolean {
   return carrierFiles(id) !== null;
 }
