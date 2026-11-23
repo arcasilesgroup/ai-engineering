@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { runSelfProtect } from "../src/guards/self-protect.ts";
 import { evaluate } from "../src/guards/policy.ts";
 import { runNoStash } from "../src/guards/no-stash.ts";
+import { checkBash, checkContent, hooksPathTargets, runNoVerify } from "../src/guards/no-verify.ts";
 
 const tempDirs: string[] = [];
 
@@ -116,5 +117,40 @@ describe("no-stash sees a stash inside bash -c and still allows a list", () => {
     expect(runNoStash(bash("bash -c -- \"git stash push\""))?.deny).toBe(true);
     expect(runNoStash(bash("git stash list"))).toBeUndefined();
     expect(runNoStash(bash("bash -c \"git stash list\""))).toBeUndefined();
+  });
+});
+
+describe("no-verify closes the traced bypasses and still allows ordinary edits", () => {
+  test("a later segment can still set core.hooksPath", () => {
+    expect(hooksPathTargets("git config --get user.name && git config core.hooksPath /dev/null")).toEqual(["/dev/null"]);
+    expect(hooksPathTargets("git config --get core.hooksPath")).toEqual([]);
+  });
+
+  test("shell programs, multi-file edits, notebooks, and oxlint silences are judged without false positives", () => {
+    const root = repo();
+    expect(runNoVerify(bash("bash -c \"git commit --no-verify -m x\""), root)?.deny).toBe(true);
+    expect(runNoVerify(bash("sh -c \"git commit -n -m x\""), root)?.deny).toBe(true);
+    expect(runNoVerify(bash("bash -c -- \"git push --no-verify\""), root)?.deny).toBe(true);
+    expect(runNoVerify(bash("git status"), root)).toBeUndefined();
+    expect(runNoVerify(bash("git commit -m \"feat: land it\""), root)).toBeUndefined();
+
+    const oxlintSilence = "// " + ["oxlint", "disable"].join("-") + "-next-line";
+    const biomeSilence = "// " + ["biome", "ignore"].join("-") + " lint/suspicious/noExplicitAny";
+    const pyTypeIgnore = "# " + ["type:", "ignore"].join(" ");
+    const tsIgnore = ["@", "ts-ignore"].join("");
+
+    expect(runNoVerify({ tool_name: "MultiEdit", tool_input: { edits: [{ new_string: oxlintSilence }] } }, root)?.deny).toBe(true);
+    expect(runNoVerify({ tool_name: "NotebookEdit", tool_input: { new_source: pyTypeIgnore } }, root)?.deny).toBe(true);
+    expect(runNoVerify({ tool_name: "Write", tool_input: { content: biomeSilence } }, root)?.deny).toBe(true);
+    expect(checkBash("echo '" + oxlintSilence + "' >> src/a.ts", root)?.deny).toBe(true);
+    expect(checkBash("echo '// " + tsIgnore + "' | tee src/a.ts", root)?.deny).toBe(true);
+    expect(checkBash("cat <<'EOF' > src/a.ts\n" + oxlintSilence + "\nEOF", root)?.deny).toBe(true);
+
+    // Benign: prose mentioning the directive name, normal edits, and searches redirecting stderr.
+    expect(runNoVerify({ tool_name: "Edit", tool_input: { new_string: "const answer = 1;\n" } }, root)).toBeUndefined();
+    expect(checkContent("Document how " + ["oxlint", "disable"].join("-") + " works in README.\n")).toBeUndefined();
+    expect(checkBash("rg '" + tsIgnore + "' src/ 2>/dev/null", root)).toBeUndefined();
+    expect(checkBash("git grep '" + tsIgnore + "' 2>&1", root)).toBeUndefined();
+    expect(checkBash("git commit -F - <<'EOF'\nfix: block " + tsIgnore + " comments\nEOF", root)).toBeUndefined();
   });
 });

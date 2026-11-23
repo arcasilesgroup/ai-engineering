@@ -4,7 +4,7 @@
 import { basename, resolve, isAbsolute, join } from "node:path";
 import { realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
-import { COMMAND_PREFIXES, commandIndex, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
+import { COMMAND_PREFIXES, commandIndex, inlineShellPrograms, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
 
 type Skip = { pattern: RegExp; label: string };
 
@@ -194,6 +194,11 @@ const SILENCES: RegExp[] = [
   /\/\*\s*eslint-disable(?!-next-line\s+prettier)/,
   /@ts-(ignore|expect-error|nocheck)/,
   /#\s*(noqa|nosec)\b/,
+  /\/\/\s*oxlint-disable\b/,
+  /\/\*\s*oxlint-disable\b/,
+  /\/\/\s*biome-ignore\b/,
+  /\/\*\s*biome-ignore\b/,
+  /#\s*type:\s*ignore\b/,
   /\bNOLINTNEXTLINE\b/,
   /"\$allow-list"\s*:/,
 ];
@@ -207,26 +212,28 @@ const INLINE = /-c\s*core\.hookspath(?:=(\S*))?(?=\s|$)/gi;
  *  floor's own location, since init wires no redirect there — so `--unset` is the safe
  *  direction (it restores the hooks, it does not stop them) and the set-or-change
  *  direction is the one this list exists to deny. */
-export function hooksPathTargets(command: string): string[] {
+function hooksPathTargetsIn(command: string): string[] {
   const words = command.split(/\s+/);
   const found: string[] = [];
   for (const match of command.matchAll(INLINE)) found.push((match[1] ?? "true").replace(/^["']|["']$/g, ""));
   if (words.some((w) => w === "config") && words.some((w) => w.toLowerCase() === "core.hookspath")) {
+    // A read flag only covers the segment it stands in. The next segment can still set the key.
     if (!words.some((w) => ["--get", "--get-all", "--list"].includes(w))) {
       const index = words.findIndex((w) => w.toLowerCase() === "core.hookspath");
       const after = words.slice(index + 1).filter((w) => !w.startsWith("-"));
-      // A bare `--unset` leaves nothing after the key: no target, allowed. Anything
-      // trailing still reads as a value — git itself would refuse it, but refusing a
-      // half-readable config edit is the cheap side to err on.
       if (after.length > 0) found.push(after[0]!.replace(/^["']|["']$/g, ""));
     }
   }
   return found;
 }
 
-/** Decided on the value, never on the verb: core.hooksPath may only name this repo's own
- *  .git/hooks. Resolved against the repo root first: a relative spelling of that
- *  directory is the same directory, and a string comparison would deny it. */
+/** Every value this command would leave core.hooksPath at, one shell segment at a time. */
+export function hooksPathTargets(command: string): string[] {
+  const segments = shellSegments(normalizeRedirects(command));
+  const pieces = segments === null ? [command] : segments.map((segment) => segment.text);
+  return pieces.flatMap(hooksPathTargetsIn);
+}
+
 export function hooksPathElsewhere(value: string, repoRoot: string | null): boolean {
   if (!value) return true;
   const root = repoRoot ?? process.cwd();
@@ -251,7 +258,8 @@ function skipDenial(label: string): GuardResult {
   };
 }
 
-export function checkBash(rawCommand: string, repoRoot: string | null): GuardResult {
+export function checkBash(rawCommand: string, repoRoot: string | null, depth = 0): GuardResult {
+  if (depth > 3) return skipDenial("a shell command nested too deep to read");
   const tokenSkip = gitHookSkip(rawCommand);
   if (tokenSkip) return skipDenial(tokenSkip);
   // `--no-ver''ify` and `\-\-no-verify` are `--no-verify` to the shell; judge both forms.
@@ -262,6 +270,57 @@ export function checkBash(rawCommand: string, repoRoot: string | null): GuardRes
   }
   // The raw patterns name what they recognise; a git command they miss is still unread.
   if (tokenSkip === undefined && /\bgit\b/.test(rawCommand)) return skipDenial("a git command whose quoting or expansion cannot be read");
+  const written = silenceInWrites(rawCommand);
+  if (written) return written;
+  if (depth === 0) {
+    for (const inner of inlineShellPrograms(rawCommand)) {
+      const nested = checkBash(inner, repoRoot, depth + 1);
+      if (nested) return nested;
+    }
+  }
+  return undefined;
+}
+
+/** True when a shell segment redirects output into a real file (not `2>&1`, `>&-`, or `/dev/null`). */
+function hasFileRedirect(text: string): boolean {
+  const words = shellWords(text);
+  for (let index = 0; index < words.length; index++) {
+    const word = words[index]!;
+    if (!word.isOperator || !word.value.includes(">") || word.value.includes("&")) continue;
+    const target = words[index + 1];
+    if (target === undefined || target.isOperator) continue;
+    if (/^\d+$/.test(target.value) || target.value === "-" || target.value.startsWith("&") || target.value.startsWith("/dev/")) continue;
+    return true;
+  }
+  return false;
+}
+
+/** True when this segment invokes `tee` targeting at least one real file. */
+function isTeeToFile(text: string): boolean {
+  const words = argumentWords(text).map((word) => word.value);
+  const at = commandIndex(words);
+  if (basename(words[at] ?? "") !== "tee") return false;
+  return words.slice(at + 1).some((arg) => !arg.startsWith("-") && !arg.startsWith("/dev/"));
+}
+
+/** A redirect or tee into a file carries the bytes a shell write puts on disk.
+ *  Stderr redirects (`2>&1`, `2>/dev/null`) and commit-message heredocs are not file writes. */
+function silenceInWrites(command: string): GuardResult {
+  const segments = shellSegments(command);
+  if (segments === null) return undefined;
+  for (let index = 0; index < segments.length; index++) {
+    const segment = segments[index]!;
+    const next = segments[index + 1];
+    const pipesIntoTee = next !== undefined && next.isAfterPipe && isTeeToFile(next.text);
+    const writesFile = hasFileRedirect(segment.text) || isTeeToFile(segment.text) || pipesIntoTee;
+    if (!writesFile) continue;
+    for (const heredoc of segment.heredocs) {
+      const hit = checkContent(heredoc.body);
+      if (hit) return hit;
+    }
+    const hit = checkContent(segment.text);
+    if (hit) return hit;
+  }
   return undefined;
 }
 
@@ -292,14 +351,33 @@ export function checkContent(content: string): GuardResult {
   return undefined;
 }
 
+function writtenChunks(input: Record<string, unknown>): string[] {
+  const chunks: string[] = [];
+  // An empty new_string is the edit. content beside it is not a second write.
+  const primary = typeof input["new_string"] === "string" ? input["new_string"] : input["content"];
+  if (typeof primary === "string" && primary.length > 0) chunks.push(primary);
+  const source = input["new_source"];
+  if (typeof source === "string" && source.length > 0) chunks.push(source);
+  const edits = input["edits"];
+  if (!Array.isArray(edits)) return chunks;
+  for (const edit of edits) {
+    if (edit === null || typeof edit !== "object" || Array.isArray(edit)) continue;
+    const next = (edit as Record<string, unknown>)["new_string"];
+    if (typeof next === "string" && next.length > 0) chunks.push(next);
+  }
+  return chunks;
+}
+
 export function runNoVerify(payload: Payload, repoRoot: string | null): GuardResult {
-  if (payload.tool_name === "Bash" || payload.tool_name === "PowerShell") {
+  const shells = new Set(["Bash", "PowerShell", "shell", "command"]);
+  if (shells.has(payload.tool_name)) {
     const command = payload.tool_input["command"];
     if (typeof command === "string" && command.length > 0) return checkBash(command, repoRoot);
     return undefined;
   }
-  // Edit|Write|MultiEdit|NotebookEdit judge the content being written.
-  const newString = payload.tool_input["new_string"] ?? payload.tool_input["content"] ?? "";
-  if (typeof newString === "string" && newString.length > 0) return checkContent(newString);
+  for (const chunk of writtenChunks(payload.tool_input)) {
+    const hit = checkContent(chunk);
+    if (hit) return hit;
+  }
   return undefined;
 }
