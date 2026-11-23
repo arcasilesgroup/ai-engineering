@@ -87,7 +87,7 @@ describe("README repeats the assets' words", () => {
   });
 
   test("the hero's alt text is the wordmark and the claim, word for word", () => {
-    expect(altFor(heroFile("light"))).toBe(`${HERO.eyebrow}. ${HERO.claim}`);
+    expect(altFor(heroFile("light"))).toBe(`${HERO.wordmark}. ${HERO.claim}`);
   });
 
   test("the skills grid names exactly the skills in skills/, once each, and its alt text lists them", () => {

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!--
+    The mark is the wordmark's braces and letters: { ai }.
+
+    It is drawn as text, which means the face has to be one the favicon context
+    actually has. That context is an isolated image: NO webfont and no page CSS
+    reach it, so naming 'JetBrains Mono' here was a fiction — the glyphs rendered in
+    whatever mono the OS happened to substitute, which is why the .ico (rasterised
+    elsewhere, with the real font) and this file disagreed. The stack below is
+    deliberately generic, and the .ico is now cut from this exact file, so the two
+    cannot drift again. System mono at 16px is indistinguishable from the brand face;
+    a missing face is not.
+  -->
+  <rect width="32" height="32" rx="7" fill="#001E2B"/>
+  <rect x="0.5" y="0.5" width="31" height="31" rx="6.5" fill="none" stroke="#00ED64" stroke-opacity="0.35"/>
+  <text x="16" y="17" text-anchor="middle" dominant-baseline="central"
+        font-family="ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace"
+        font-size="14" font-weight="700" letter-spacing="-1">
+    <tspan fill="#00ED64">{</tspan><tspan fill="#E8EEF7">ai</tspan><tspan fill="#00ED64">}</tspan>
+  </text>
+</svg>

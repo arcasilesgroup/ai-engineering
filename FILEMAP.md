@@ -14,6 +14,7 @@ brand/
   components.css               Style body spliced between the brand CSS markers
   components.js                The page script: scroll-spy, tabs, copy, filters, expand all
   gallery.html.tpl             The reference page: every component live, its markup and its do and don't
+  mark.svg                     The {ai} mark, copied byte for byte from the website's favicon; the README hero draws it as an image
 docs/
   global-carriers.md           Host carrier paths and their machine/repository scope
   surface-capability-matrix.md What each host can enforce, measured; the table doctor and the README follow

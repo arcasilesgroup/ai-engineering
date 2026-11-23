@@ -14,7 +14,7 @@
 // Needs Google Chrome (playwright-core drives it, as scripts/artifact-axe.ts does), network
 // for Google Fonts at render time only, and `cwebp`. The README itself loads no font.
 
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Locator, Page } from "playwright-core";
@@ -54,9 +54,13 @@ export const BUTTONS: readonly Button[] = [
 
 /** The hero: the brand's artifact hero (field, grid, corner brackets, the {ai} chip, display type, mono line). */
 export const HERO = {
-  eyebrow: "{ai} engineering",
+  wordmark: "{ai} engineering",
   claim: "Guardrails for the AI Coding Agents you already run",
   accent: "Guardrails",
+  lightFrom: "you already run",
+  command: "git commit --no-verify",
+  verdict: "deny",
+  ledger: "{ai} engineering · local · no model calls",
   width: 1280,
   height: 480,
 } as const;
@@ -138,6 +142,7 @@ export type Theme = {
   buttonInk: string;
   fill: string;
   grid: string;
+  band: string;
   glow: string;
   bad: string;
   badText: string;
@@ -149,12 +154,12 @@ export type Theme = {
 export const THEMES: Record<Mode, Theme> = {
   dark: {
     field: colour("black"), raised: colour("gray.dark4"), ink: colour("white"), muted: colour("gray.light1"), accent: colour("green.base"),
-    border: colour("gray.base"), buttonInk: colour("black"), fill: colour("green.base"), grid: `${colour("gray.dark2")}4D`, glow: `${colour("gray.dark4")}66`,
+    border: colour("gray.base"), buttonInk: colour("black"), fill: colour("green.base"), grid: `${colour("white")}0D`, band: `${colour("white")}08`, glow: `${colour("green.base")}14`,
     bad: colour("red.light1"), badText: colour("red.light2"), good: colour("green.base"), goodText: colour("green.light1"),
   },
   light: {
     field: colour("gray.light3"), raised: colour("white"), ink: colour("black"), muted: colour("gray.dark1"), accent: colour("green.dark2"),
-    border: colour("gray.base"), buttonInk: colour("black"), fill: colour("green.base"), grid: `${colour("gray.light1")}73`, glow: `${colour("green.light3")}99`,
+    border: colour("gray.base"), buttonInk: colour("black"), fill: colour("green.base"), grid: `${colour("gray.dark1")}14`, band: `${colour("white")}B3`, glow: `${colour("green.dark2")}14`,
     bad: colour("red.dark2"), badText: colour("red.dark2"), good: colour("green.dark2"), goodText: colour("green.dark2"),
   },
 };
@@ -202,19 +207,46 @@ function buttonPage(button: Button, theme: Theme): string {
   );
 }
 
-/** The brand hero (brand/components.css `.hero`): a faint grid, four green brackets, the {ai} chip, display type, a mono line. */
+// The mark is the website's favicon, copied byte for byte (brand/mark.svg). It goes in as an image, the
+// way a browser draws a favicon, so no glyph here is typeset or redrawn: the tilt and the glow move the
+// whole mark and change no part of it.
+const MARK_DATA_URI = `data:image/svg+xml;base64,${readFileSync(join(ROOT, "brand", "mark.svg")).toString("base64")}`;
+
+/**
+ * The brand hero (brand/components.css `.hero`) with a few extra beats: a faint grid under a brighter band, four
+ * green brackets, the tilted mark on a soft glow, a two-weight claim whose first word sits inside a rule, four
+ * crosshairs around the claim, one product moment (the refused call) and a mono ledger.
+ */
 function heroPage(theme: Theme): string {
+  const tailAt = HERO.claim.indexOf(HERO.lightFrom);
+  if (tailAt < 0) throw new Error(`lightFrom "${HERO.lightFrom}" is not in the claim`);
+  const heavy = HERO.claim.slice(0, tailAt).trimEnd();
+  const light = HERO.claim.slice(tailAt);
   return page(
-    `<div id="asset"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-<div class="mark"><em>{</em>ai<em>}</em></div><h1>${withAccent(HERO.claim, HERO.accent)}</h1><p class="meta">${escapeHtml(HERO.eyebrow)}</p></div>`,
+    `<div id="asset"><i class="band"></i><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+<div class="mark" data-overhang><img alt="" src="${MARK_DATA_URI}"></div>
+<h1 data-overhang><i class="plus tl"></i><i class="plus tr"></i><i class="plus bl"></i><i class="plus br"></i>${withAccent(heavy, HERO.accent)}<span class="light">${escapeHtml(light)}</span></h1>
+<p class="term"><span>$ ${escapeHtml(HERO.command)}</span><span class="cursor" data-overhang></span><b>${escapeHtml(HERO.verdict)}</b></p>
+<p class="meta">${escapeHtml(HERO.ledger)}</p></div>`,
     `#asset{position:relative;overflow:hidden;width:${HERO.width}px;height:${HERO.height}px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 96px;
-background-color:${theme.field};background-image:linear-gradient(${theme.grid} 1px,transparent 1px),linear-gradient(90deg,${theme.grid} 1px,transparent 1px),radial-gradient(ellipse 80% 60% at 50% 0%,${theme.glow},transparent);background-size:32px 32px,32px 32px,100% 100%}
+background-color:${theme.field};background-image:linear-gradient(${theme.grid} 1px,transparent 1px),linear-gradient(90deg,${theme.grid} 1px,transparent 1px);background-size:32px 32px}
+.band{position:absolute;left:0;right:0;top:110px;height:250px;background:${theme.band};-webkit-mask-image:radial-gradient(ellipse 52% 50% at 50% 50%,#000 55%,transparent 100%);mask-image:radial-gradient(ellipse 52% 50% at 50% 50%,#000 55%,transparent 100%)}
 .corner{position:absolute;width:26px;height:26px;border:0 solid ${theme.accent};opacity:.9}
-.tl{top:20px;left:20px;border-width:2px 0 0 2px}.tr{top:20px;right:20px;border-width:2px 2px 0 0}.bl{bottom:20px;left:20px;border-width:0 0 2px 2px}.br{bottom:20px;right:20px;border-width:0 2px 2px 0}
-.mark{display:flex;width:56px;height:56px;align-items:center;justify-content:center;border:1px solid ${theme.border};border-radius:8px;background:${theme.raised};font:700 20px/1 ${MONO};letter-spacing:-.04em;color:${theme.ink};margin-bottom:28px}
-.mark em{color:${theme.accent}}
-h1{font:800 58px/1.08 ${SANS};font-stretch:92%;letter-spacing:-.03em;color:${theme.ink};max-width:1100px}h1 em{color:${theme.accent}}
-.meta{font:500 14px/1.6 ${MONO};letter-spacing:.02em;color:${theme.muted};margin-top:28px}`,
+.corner.tl{top:20px;left:20px;border-width:2px 0 0 2px}.corner.tr{top:20px;right:20px;border-width:2px 2px 0 0}.corner.bl{bottom:20px;left:20px;border-width:0 0 2px 2px}.corner.br{bottom:20px;right:20px;border-width:0 2px 2px 0}
+.mark{position:relative;width:72px;height:72px;margin-bottom:26px;transform:rotate(-3deg)}
+.mark::before{content:"";position:absolute;left:50%;top:50%;width:230px;height:230px;margin:-115px 0 0 -115px;border-radius:50%;background:radial-gradient(circle,${theme.glow},transparent 68%)}
+.mark img{position:relative;display:block;width:72px;height:72px}
+h1{position:relative;display:inline-block;font:800 58px/1.1 ${SANS};font-stretch:92%;letter-spacing:-.03em;color:${theme.ink}}
+h1 em{color:${theme.accent};text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:8px;text-decoration-skip-ink:none}
+h1 .light{display:block;font-weight:400}
+.plus{position:absolute;width:12px;height:12px}.plus::before,.plus::after{content:"";position:absolute;background:${theme.accent};opacity:.9}
+.plus::before{left:5px;top:0;width:2px;height:12px}.plus::after{top:5px;left:0;height:2px;width:12px}
+.plus.tl{left:-32px;top:-12px}.plus.tr{right:-32px;top:-12px}.plus.bl{left:-32px;bottom:-12px}.plus.br{right:-32px;bottom:-12px}
+.term{margin-top:26px;display:flex;align-items:center;font:500 18px/1 ${MONO};color:${theme.muted}}
+.term b{font-weight:700;color:${theme.accent}}
+.cursor{position:relative;display:inline-block;width:10px;height:20px;margin:0 11px;background:${theme.muted};opacity:.9}
+.cursor::after{content:"";position:absolute;left:-3px;right:-3px;top:50%;height:2px;background:${theme.ink};transform:translateY(-1px)}
+.meta{margin-top:20px;font:500 14px/1 ${MONO};letter-spacing:.16em;color:${theme.muted}}`,
   );
 }
 
@@ -318,8 +350,8 @@ async function main(): Promise<void> {
 }
 
 async function boxTextOverflow(box: Locator): Promise<string | null> {
-  const isOverflowing = await box.evaluate((element) => {
-    if (element.scrollWidth > element.clientWidth || element.scrollHeight > element.clientHeight) return true;
+  const culprit = await box.evaluate((element): string | null => {
+    if (element.scrollWidth > element.clientWidth || element.scrollHeight > element.clientHeight) return `the canvas scrolls (${element.scrollWidth}x${element.scrollHeight} in ${element.clientWidth}x${element.clientHeight})`;
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
     const contentLeft = rect.left + Number.parseFloat(style.borderLeftWidth) + Number.parseFloat(style.paddingLeft);
@@ -328,7 +360,8 @@ async function boxTextOverflow(box: Locator): Promise<string | null> {
     const contentBottom = rect.bottom - Number.parseFloat(style.borderBottomWidth) - Number.parseFloat(style.paddingBottom);
     const slack = 0.5;
     for (const child of element.querySelectorAll("*")) {
-      if (child.scrollWidth > child.clientWidth) return true;
+      // A box that draws outside itself on purpose (the hero's crosshairs, the glow round the mark) says so with data-overhang.
+      if (!child.hasAttribute("data-overhang") && child.scrollWidth > child.clientWidth) return `<${child.tagName.toLowerCase()} class="${child.className}"> is wider than its box`;
       if (getComputedStyle(child).position === "absolute") continue;
       const childRect = child.getBoundingClientRect();
       if (
@@ -337,12 +370,12 @@ async function boxTextOverflow(box: Locator): Promise<string | null> {
         childRect.top < contentTop - slack ||
         childRect.bottom > contentBottom + slack
       ) {
-        return true;
+        return `<${child.tagName.toLowerCase()} class="${child.className}"> leaves the canvas content box`;
       }
     }
-    return false;
+    return null;
   });
-  return isOverflowing ? "text overflows its canvas" : null;
+  return culprit ? `text overflows its canvas: ${culprit}` : null;
 }
 
 /** SVG text never wraps: any line that leaves its node, column or the canvas is a layout bug. */
