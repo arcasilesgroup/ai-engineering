@@ -98,6 +98,12 @@ describe("deny — one envelope per host, chosen by what that host's validator r
     expect(json).toEqual({ permissionDecision: "deny", permissionDecisionReason: "[ai-eng] no-verify: no --no-verify" });
   });
 
+  test("agy carries the decision and reason in the JSON and exits 0", () => {
+    const { json, code } = envelope(() => deny("no-verify", "no --no-verify", "agy"));
+    expect(code).toBe(0);
+    expect(json).toEqual({ decision: "deny", reason: "[ai-eng] no-verify: no --no-verify" });
+  });
+
   test("a denied loop names the only thing that unblocks it: an override with a reason and a date", () => {
     const { stderr } = envelope(() => deny("loop", "the same call five times", "claude"));
     expect(stderr).toContain("[[guard.off]] with reason + until");
@@ -127,6 +133,10 @@ describe("CP5 U30 — deny and Stop envelopes", () => {
     ["Copilot CLI denial is permissionDecision JSON with exit 0", "copilot", "PreToolUse", 0, {
       permissionDecision: "deny",
       permissionDecisionReason: stopReason,
+    }],
+    ["agy denial is decision JSON with exit 0", "agy", "PreToolUse", 0, {
+      decision: "deny",
+      reason: stopReason,
     }],
   ] as const;
 
@@ -179,6 +189,7 @@ describe("allowRewrite — the rewrite reaches the host in the field that host r
   test("cursor wants updated_input, copilot wants modifiedArgs", () => {
     expect(envelope(() => allowRewrite("bun test", "cursor")).json).toEqual({ permission: "allow", updated_input: { command: "bun test" } });
     expect(envelope(() => allowRewrite("bun test", "copilot")).json).toEqual({ permissionDecision: "allow", modifiedArgs: { command: "bun test" } });
+    expect(envelope(() => allowRewrite("bun test", "agy")).json).toEqual({ decision: "allow", overwrite: { CommandLine: "bun test" } });
   });
 });
 
