@@ -160,6 +160,29 @@ describe("checkBash", () => {
     expect(checkBash("git config core.hooksPath .git/hooks", root)).toBeUndefined();
   });
 
+  test("a silence is denied only when a write puts it in a file this repository governs", () => {
+    const scratch = join(tmpdir(), "noverify-report.txt");
+    // The bytes a redirect or tee lands are the command's output; naming a token is not writing it.
+    for (const command of [
+      `git log --oneline -S "${TS_IGNORE}" > ${scratch}`,
+      `rg ${NOLINT} src/ > ${scratch}`,
+      `gh pr create --body "explains ${TS_IGNORE}" > ${scratch}`,
+      `git commit -m "docs: explain ${TS_IGNORE}" 2>&1 | tee commit.log`,
+      `rg '${TS_IGNORE}' src/ > notes.txt`,
+    ]) {
+      expect(checkBash(command, root), command).toBeUndefined();
+    }
+    // Writing the token itself into a source file is still the silenced check.
+    for (const command of [
+      `echo '// ${NOLINT}' > src/a.ts`,
+      `printf '%s\\n' '// ${TS_IGNORE}' >> src/a.ts`,
+      `echo '// ${TS_IGNORE}' | tee src/a.ts`,
+      `echo '// ${TS_IGNORE}' > a.ts`,
+    ]) {
+      expect(checkBash(command, root)?.deny, command).toBe(true);
+    }
+  });
+
   test.each([
     ["--no-verify commit", "git commit --no-verify -m x", "--no-verify"],
     ["--no-verify push", "git push --no-verify", "--no-verify"],

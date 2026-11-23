@@ -89,6 +89,8 @@ describe("self-protect closes the traced bypasses and still allows ordinary comm
     denied("f=safe.txt; printf -v f '%b' '\\56ai-engineering\\57config.toml'; echo x > \"$f\"");
     denied("f=safe.txt; printf -v f '\\56ai-engineering\\57config.toml'; echo x > \"$f\"");
     denied("f=safe.txt; read f <<< .ai-engineering/config.toml; rm \"$f\"");
+    denied("f=safe.txt; time -p printf -v f %s .ai-engineering/config.toml; rm \"$f\"");
+    denied("f=safe.txt; time read f <<< .ai-engineering/config.toml; rm \"$f\"");
     allowed("printf -v name %s hello; echo \"$name\"");
     allowed("printf -v name '%b' 'hi\\nthere'; echo \"$name\"");
   });
@@ -115,8 +117,14 @@ describe("self-protect closes the traced bypasses and still allows ordinary comm
       ["f=.ai-engineering/config.toml; true |\n{ f=safe.txt; }; rm \"$f\"", true],
       ["f=.ai-engineering/config.toml; coproc { f=safe.txt; }; rm \"$f\"", true],
       ["f=.ai-engineering/config.toml; coproc mycop { f=safe.txt; }; rm \"$f\"", true],
+      ["f=safe.txt; time { f=.ai-engineering/config.toml; }; rm \"$f\"", true],
+      ["f=safe.txt; time -p { f=.ai-engineering/config.toml; }; rm \"$f\"", true],
+      ["f=safe.txt; time f=.ai-engineering/config.toml; rm \"$f\"", true],
+      ["f=safe.txt; ! time { f=.ai-engineering/config.toml; }; rm \"$f\"", true],
       ["{ f=.ai-engineering/config.toml; rm \"$f\"; } &", true],
       ["f=.ai-engineering/config.toml; { f=safe.txt; }; rm \"$f\"", false],
+      ["f=.ai-engineering/config.toml; time { f=safe.txt; }; rm \"$f\"", false],
+      ["f=.ai-engineering/config.toml; time -p f=safe.txt; rm \"$f\"", false],
       ["f=.ai-engineering/config.toml; { f=safe.txt; } >/dev/null; rm \"$f\"", false],
       ["f=safe.txt; { f=.ai-engineering/config.toml; } & rm \"$f\"", false],
       ["f=safe; f+=.txt; rm \"$f\"", false],
@@ -246,11 +254,14 @@ describe("policy closes the traced bypasses and still allows ordinary commands",
       ["f=/etc/hosts; { f=notes.txt; } >/dev/null | cat; echo x > \"$f\"", false],
       ["f=/etc/hosts; true |\n{ f=notes.txt; }; echo x > \"$f\"", false],
       ["f=/etc/hosts; coproc { f=notes.txt; }; echo x > \"$f\"", false],
+      ["f=notes.txt; time -p { f=/etc/hosts; }; echo x > \"$f\"", false],
+      ["f=notes.txt; time f=/etc/hosts; echo x > \"$f\"", false],
       ["f=safe.txt; printf -v f '%b' '\\57etc\\57hosts'; echo x > \"$f\"", false],
       ["f=/etc/hosts; f=notes.txt :; echo x > \"$f\"", false],
       ["f=safe.txt; printf -v f %b /etc/hosts; echo x > \"$f\"", false],
       ["f=safe.txt; printf -v f %s /etc /hosts; echo x > \"$f\"", false],
       ["f=/etc/hosts; { f=notes.txt; }; echo x > \"$f\"", true],
+      ["f=/etc/hosts; time { f=notes.txt; }; echo x > \"$f\"", true],
       ["f=/etc/hosts; { f=notes.txt; } >/dev/null; echo x > \"$f\"", true],
       ["f=notes; f+=.txt; echo x > \"$f\"", true],
       ["f=notes.txt; printf -v f %b safe.txt; echo x > \"$f\"", true],

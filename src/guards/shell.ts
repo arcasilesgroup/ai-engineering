@@ -245,7 +245,7 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
   // `#` of `a\ #` (an escaped space, still inside the word) is a character, as in bash.
   let isWordStart = true;
   // Grammar stands where a command starts, never as an argument: in `echo if` the `if` is data.
-  const isCommandStart = (): boolean => isCoprocPrefix(current) || current.trim().split(/\s+/).every((word) => word.length === 0 || RESERVED_WORDS.has(word));
+  const isCommandStart = (): boolean => isCoprocPrefix(current) || isGrammarPrefix(shellWords(current));
   for (let index = 0; index < source.length; index++) {
     const char = source[index]!;
     const next = source[index + 1];
@@ -434,6 +434,21 @@ function compoundTokenAt(source: string, at: number): string | null {
 /** `coproc { …; }` and `coproc name { …; }` run the compound in a subshell, as `&` would. */
 function isCoprocPrefix(text: string): boolean {
   return /^\s*coproc(?:\s+[A-Za-z_]\w*)?\s*$/.test(text);
+}
+
+/** Grammar standing where a command starts rather than being it: a reserved word, bash's
+ *  `time` keyword, and the `-p` that may follow it. Each runs the words after it in this shell. */
+function isGrammarAt(words: readonly ShellWord[], at: number): boolean {
+  const word = words[at]!;
+  if (word.isQuoted || word.isOperator) return false;
+  if (RESERVED_WORDS.has(word.value) || word.value === "time") return true;
+  const before = words[at - 1];
+  return word.value === "-p" && before !== undefined && !before.isQuoted && before.value === "time";
+}
+
+/** Whether every word of `words` is grammar in front of a command, so a keyword after it starts one. */
+function isGrammarPrefix(words: readonly ShellWord[]): boolean {
+  return words.every((_word, at) => isGrammarAt(words, at));
 }
 
 /** Commands that run the command after them (`nice -n 5 git …`, `sudo -u x rm …`). */
@@ -749,7 +764,7 @@ export function applySegmentAssignments(text: string, variables: VariableMap, re
       index++;
       continue;
     }
-    if (prefix.length === 0 && !word.isQuoted && RESERVED_WORDS.has(word.value)) continue;
+    if (prefix.length === 0 && isGrammarAt(words, index)) continue;
     const assignment = /^[A-Za-z_]\w*\+?=/.test(word.unquoted) ? /^([A-Za-z_]\w*)(\+?)=(.*)$/s.exec(word.value) : null;
     if (assignment === null) {
       commandAt = index;

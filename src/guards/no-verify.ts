@@ -1,7 +1,7 @@
 // --no-verify, and everything else that skips .git/hooks — plus every linter silence
 // too, because silencing a check is the same act as skipping a hook.
 
-import { basename, resolve, isAbsolute, join } from "node:path";
+import { basename, resolve, isAbsolute, join, relative } from "node:path";
 import { realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { argumentWords, COMMAND_PREFIXES, commandIndex, fileRedirectTargets, inlineShellPrograms, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
@@ -254,7 +254,7 @@ export function checkBash(rawCommand: string, repoRoot: string | null, depth = 0
   }
   // The raw patterns name what they recognise; a git command they miss is still unread.
   if (tokenSkip === undefined && /\bgit\b/.test(rawCommand)) return skipDenial("a git command whose quoting or expansion cannot be read");
-  const written = silenceInWrites(rawCommand);
+  const written = silenceInWrites(rawCommand, repoRoot);
   if (written) return written;
   if (depth === 0) {
     for (const inner of inlineShellPrograms(rawCommand)) {
@@ -265,31 +265,56 @@ export function checkBash(rawCommand: string, repoRoot: string | null, depth = 0
   return undefined;
 }
 
-/** True when this segment invokes `tee` targeting at least one real file. */
-function isTeeToFile(text: string): boolean {
+/** The files a `tee` in this segment writes, ignoring options and devices. */
+function teeTargets(text: string): string[] {
   const words = argumentWords(text).map((word) => word.value);
   const at = commandIndex(words);
-  if (basename(words[at] ?? "") !== "tee") return false;
-  return words.slice(at + 1).some((arg) => !arg.startsWith("-") && !arg.startsWith("/dev/"));
+  if (basename(words[at] ?? "") !== "tee") return [];
+  return words.slice(at + 1).filter((arg) => !arg.startsWith("-") && !arg.startsWith("/dev/"));
+}
+
+/** The text an `echo` or `printf` copies to its output, which this command's redirect or a
+ *  downstream `tee` then puts in the file. Every other program writes its own output. */
+function printedTexts(text: string): string[] {
+  const words = argumentWords(text).map((word) => word.value);
+  const at = commandIndex(words);
+  const verb = basename(words[at] ?? "");
+  if (verb === "echo") return [words.slice(at + 1).join(" ")];
+  return verb === "printf" ? words.slice(at + 1) : [];
+}
+
+/** Whether the file a write lands in is one this repository governs. With no repository to
+ *  compare against, the write stays governed: this guard does not fall open. */
+function isGovernedTarget(target: string, repoRoot: string | null): boolean {
+  if (repoRoot === null) return true;
+  const root = resolve(repoRoot);
+  const inside = relative(root, resolve(root, target));
+  return inside === "" || (!inside.startsWith("..") && !isAbsolute(inside));
 }
 
 /** A redirect or tee into a file carries the bytes a shell write puts on disk.
- *  Stderr redirects (`2>&1`, `2>/dev/null`) and commit-message heredocs are not file writes. */
-function silenceInWrites(command: string): GuardResult {
+ *  Stderr redirects (`2>&1`, `2>/dev/null`) and commit-message heredocs are not file writes,
+ *  and a token that only names a silence in the command's own arguments is never written. */
+function silenceInWrites(command: string, repoRoot: string | null): GuardResult {
   const segments = shellSegments(normalizeRedirects(command));
   if (segments === null) return undefined;
   for (let index = 0; index < segments.length; index++) {
     const segment = segments[index]!;
     const next = segments[index + 1];
-    const pipesIntoTee = next !== undefined && next.isAfterPipe && isTeeToFile(next.text);
-    const writesFile = fileRedirectTargets(shellWords(segment.text)).length > 0 || isTeeToFile(segment.text) || pipesIntoTee;
-    if (!writesFile) continue;
+    const targets = [
+      ...fileRedirectTargets(shellWords(segment.text)).map((word) => word.value),
+      ...teeTargets(segment.text),
+      ...(next !== undefined && next.isAfterPipe ? teeTargets(next.text) : []),
+    ];
+    if (!targets.some((target) => isGovernedTarget(target, repoRoot))) continue;
     for (const heredoc of segment.heredocs) {
       const hit = checkContent(heredoc.body);
       if (hit) return hit;
     }
-    const hit = checkContent(segment.text);
-    if (hit) return hit;
+    for (const printed of printedTexts(segment.text)) {
+      const hit = checkContent(printed);
+      if (hit) return hit;
+    }
   }
   return undefined;
 }
