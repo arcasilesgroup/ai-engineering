@@ -26,7 +26,13 @@ jobs:
       - uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
         id: changesets
         with:
-          version-script: npx changeset version
+          # One act, not two: `version-packages` is changesets followed by the script that
+          # rewrites the AI_ENG_VERSION pin in templates/ — the pin names the version the
+          # templates install, so a bump that leaves it behind ships pipelines pointing at
+          # the previous release. The action's `version-script` input is the hook, because
+          # changesets 3 bumps package.json without running a package `version` script, and
+          # everything this command writes lands in the same Version Packages PR.
+          version-script: bun run version-packages
           # Deliberately not a publish: a workflow that both versions and deploys makes
           # the deployment a side effect of merging, so versioning stays here and the
           # deployment is release.yml's job with an explicit channel.

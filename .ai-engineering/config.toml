@@ -9,6 +9,14 @@
 enabled = ["claude-code", "oh-my-pi", "opencode", "cursor", "codex", "pi", "copilot-cli"]
 
 
+[git]
+# The base every guard resolves. Named here rather than detected, because detection reads
+# the clone's origin/HEAD, and a mirror or a shallow checkout can lack it: the pre-push
+# guard then cannot rule out a push to the base and refuses every push, with a message
+# telling the pusher to set exactly this. This repository has one base; say it once.
+base = "main"
+
+
 [guards]
 # Loop guard thresholds: identical-call repetition and failure streaks (§10).
 loop_window = 6    # remembered calls
