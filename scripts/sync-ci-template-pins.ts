@@ -9,18 +9,18 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { releaseFlags } from "./release-flags.ts";
 
-const KEY = "AI_ENG_VERSION";
+const PIN_NAME = "AI_ENG_VERSION";
 const TEMPLATES = ["templates/ci.yml.tpl", "templates/azure-pipelines.yml.tpl"];
 
 // Only the value moves: the indentation, the key and every other byte of the file stay as
 // they are, so the pin is a one-value edit and not a reformat of hand-written YAML.
 function pinLine(): RegExp {
-  return new RegExp(`^([ \\t]*${KEY}:[ \\t]*)v\\S+$`, "gm");
+  return new RegExp(`^([ \\t]*${PIN_NAME}:[ \\t]*)v\\S+$`, "gm");
 }
 
 export function syncPinText(text: string, pin: string, file: string): string {
   if (!pinLine().test(text)) {
-    throw new Error(`${file} has no "${KEY}: vX.Y.Z" line to rewrite: a template without the pin ships a pipeline that cannot find its binary.`);
+    throw new Error(`${file} has no "${PIN_NAME}: vX.Y.Z" line to rewrite: a template without the pin ships a pipeline that cannot find its binary.`);
   }
   return text.replace(pinLine(), (_line, prefix: string) => `${prefix}${pin}`);
 }
@@ -45,8 +45,8 @@ export function syncCiTemplatePins(root: string): { file: string; pin: string }[
 if (import.meta.main) {
   try {
     const changed = syncCiTemplatePins(resolve(process.argv[2] ?? join(import.meta.dir, "..")));
-    for (const { file, pin } of changed) process.stdout.write(`${file}: ${KEY} ${pin}\n`);
-    if (changed.length === 0) process.stdout.write(`${KEY}: every template already pins this version\n`);
+    for (const { file, pin } of changed) process.stdout.write(`${file}: ${PIN_NAME} ${pin}\n`);
+    if (changed.length === 0) process.stdout.write(`${PIN_NAME}: every template already pins this version\n`);
   } catch (error) {
     process.stderr.write(`sync-ci-template-pins: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(2);
