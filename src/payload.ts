@@ -128,6 +128,46 @@ const COPILOT_ARGS: Record<string, string> = {
   file_text: "content",
 };
 
+/** Antigravity CLI (agy) tool names → guard names. Tool names are the CORTEX step
+ *  type lowercased (antigravity.google/docs/hooks, agy-customizations skill hooks.md),
+ *  verified live on agy 1.5.14: a PreToolUse probe recorded `run_command` with
+ *  `toolCall.args.CommandLine`. Anything not in this map passes through under its own
+ *  name — a new host tool is never mangled, and only the loop guard's `.*` matcher
+ *  counts it (same fail-open-on-unknown stance as the default path). */
+const AGY_TOOLS: Record<string, string> = {
+  run_command: "Bash",
+  shell: "Bash",
+  powershell: "PowerShell",
+  view_file: "Read",
+  read_file: "Read",
+  edit_file: "Edit",
+  apply_diff: "Edit",
+  apply_patch: "Edit",
+  str_replace_editor: "Edit",
+  write_file: "Write",
+  create_file: "Write",
+  grep: "Grep",
+  rg: "Grep",
+  glob: "Glob",
+  list_files: "Glob",
+  web_fetch: "WebFetch",
+  web_search: "WebSearch",
+  task: "Task",
+  subagent: "Task",
+  spawn_agent: "Task",
+};
+
+/** agy's PascalCase argument keys → the keys every guard reads. */
+const AGY_ARGS: Record<string, string> = {
+  CommandLine: "command",
+  Cwd: "cwd",
+  Path: "file_path",
+  FilePath: "file_path",
+  Content: "content",
+  OldContent: "old_string",
+  NewContent: "new_string",
+};
+
 const PATCH_FILE = /^\*\*\* (Add|Update|Delete) File: (.+)$/;
 const PATCH_MOVE = /^\*\*\* Move to: (.+)$/;
 
@@ -240,6 +280,39 @@ function parseArgs(args: unknown): Record<string, unknown> {
   return decoded;
 }
 
+/** Antigravity CLI (agy) PreToolUse → one payload. The host sends `toolCall.name` /
+ *  `toolCall.args` (camelCase protojson, PascalCase arg keys) and reads a top-level
+ *  `decision` — nothing like the Claude/Copilot floors. A run_command's command lives in
+ *  `toolCall.args.CommandLine`, which AGY_ARGS maps to the `command` every guard reads. */
+function normaliseAgy(out: Record<string, unknown>, strict: boolean): void {
+  const toolCall = out.toolCall;
+  if (toolCall === null || typeof toolCall !== "object" || Array.isArray(toolCall)) {
+    if (strict) throw new TypeError("agy toolCall must be an object.");
+    out.tool_name = "";
+    out.tool_input = {};
+    return;
+  }
+  const call = toolCall as Record<string, unknown>;
+  const rawName = call.name;
+  if (typeof rawName !== "string" || rawName.length === 0) {
+    out.tool_name = "";
+    out.tool_input = {};
+    return;
+  }
+  out.tool_name = AGY_TOOLS[rawName] ?? rawName;
+  const rawArgs = call.args;
+  if (rawArgs === null || typeof rawArgs !== "object" || Array.isArray(rawArgs)) {
+    out.tool_input = {};
+  } else {
+    const mapped: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(rawArgs as Record<string, unknown>)) mapped[AGY_ARGS[key] ?? key] = value;
+    out.tool_input = mapped;
+  }
+  // conversationId is the session; toolCall.id is the dedup key ("call_<n>", live probe).
+  out.session_id ??= out.conversationId;
+  out.tool_use_id ??= call.id;
+}
+
 /** Copilot CLI (both hook spellings) → one payload, or a throw the chain turns into a deny.
  *  Fail closed on a tool nobody measured, on shell keystrokes, and on missing arguments. */
 function normaliseCopilot(out: Record<string, unknown>, strict: boolean): void {
@@ -313,6 +386,8 @@ export function normalise(raw: Record<string, unknown>, surface?: string, event?
   const isCopilot = surface === "copilot-cli" || surface === "copilot";
   if (isCopilot) {
     normaliseCopilot(out, strict);
+  } else if (surface === "agy") {
+    normaliseAgy(out, strict);
   } else {
     out.tool_name = out.tool_name ?? out.tool ?? "";
     if (surface && typeof out.tool_name === "string") {

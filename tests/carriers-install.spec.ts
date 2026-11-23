@@ -534,7 +534,8 @@ describe("installer: the files a user shares with us", () => {
     for (const path of embeddedUnder("templates/settings.").keys()) {
       if (!path.endsWith(".json.tpl")) continue;
       const settings = JSON.parse(embeddedTemplate(path.slice("templates/".length))) as { hooks?: unknown };
-      collectTemplateCommands(settings.hooks, generatedCommands);
+      // Walk the WHOLE template: agy's hooks.json has no top-level `hooks` key.
+      collectTemplateCommands(settings, generatedCommands);
     }
 
     expect(generatedCommands.size).toBeGreaterThan(0);

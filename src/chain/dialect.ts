@@ -18,13 +18,17 @@
 //   (3.12+ validators, cursor.com/docs/hooks).
 // - copilot: stdout {"permissionDecision":"deny","permissionDecisionReason"}, exit 0;
 //   exit 2 also denies, but the JSON is the contract that carries the reason.
+// - agy: stdout {"decision":"deny","reason"}, exit 0. Antigravity CLI (agy) reads the
+//   top-level `decision` field; a non-zero exit and even an empty `{}` both deny, and
+//   only silence (empty stdout) allows — the opposite of Copilot, whose `{}` is "no
+//   decision". Verified live on agy 1.5.14.
 // - throw (OpenCode/Oh My Pi) is not here: those two hosts run the chain in-process
 //   and their templates turn the outcome into throw/block themselves.
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export type Dialect = "claude" | "codex" | "cursor" | "copilot";
+export type Dialect = "claude" | "codex" | "cursor" | "copilot" | "agy";
 
 function writeJsonAndExit(decision: unknown, status: number): never {
   try {
@@ -55,6 +59,9 @@ export function deny(guard: string, message: string, dialect: Dialect = "claude"
   if (dialect === "copilot") {
     writeJsonAndExit({ permissionDecision: "deny", permissionDecisionReason: text }, 0);
   }
+  if (dialect === "agy") {
+    writeJsonAndExit({ decision: "deny", reason: text }, 0);
+  }
   process.exit(2);
 }
 
@@ -69,6 +76,11 @@ export function allowRewrite(command: string, dialect: Dialect = "claude", event
   }
   if (dialect === "copilot") {
     writeJsonAndExit({ permissionDecision: "allow", modifiedArgs: { command } }, 0);
+  }
+  if (dialect === "agy") {
+    // agy's `overwrite` shallow-merges into toolCall.args, and run_command names the
+    // command `CommandLine` — so the rewrite replaces exactly the field that ran.
+    writeJsonAndExit({ decision: "allow", overwrite: { CommandLine: command } }, 0);
   }
   writeJsonAndExit({ permission: "allow", updatedInput: { command } }, 0);
 }

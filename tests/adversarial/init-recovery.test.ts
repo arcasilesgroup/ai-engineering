@@ -160,7 +160,7 @@ test("a surface that cannot deny tools is refused, never declared in config.toml
 
 test("init offers only the surfaces that generate files", () => {
   const offered = surfaceOptions().map((surface) => surface.id);
-  expect(offered).toEqual(["claude-code", "oh-my-pi", "opencode", "cursor", "codex", "copilot-cli", "pi"]);
+  expect(offered).toEqual(["claude-code", "oh-my-pi", "opencode", "cursor", "codex", "agy", "copilot-cli", "pi"]);
 });
 
 test("config --add in a bare repo says 'run ai-eng init first', not ENOENT", () => {

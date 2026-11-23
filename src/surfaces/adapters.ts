@@ -107,9 +107,10 @@ export function carrierPath(placement: Carrier, relative?: string): string {
 }
 
 /** surface id → the entry template and whether the host needs the chain bundle
- *  beside it. Copilot fails CLOSED on a missing binary, in both scopes, so its one
- *  template guards the call per shell (`bash` and `powershell`). Null for a surface
- *  with no generator: no adapter, no offer. */
+ *  beside it. Copilot's one template carries a `command` plus a `powershell` form, so the
+ *  same repo file guards both shells; it exits 0 when `ai-eng` is not on PATH (fail OPEN
+ *  on a missing binary, on purpose — a machine without it is not locked out). Null for a
+ *  surface with no generator: no adapter, no offer. */
 const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean; isExitStatusRead?: boolean }> = {
   // Claude denies by exit status (2); every other JSON host reads the verdict from stdout.
   "claude-code": { main: "settings.claude.json.tpl", chain: false, isExitStatusRead: true },
@@ -119,6 +120,7 @@ const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean; isExitSt
   codex: { main: "settings.codex.json.tpl", chain: false },
   cursor: { main: "settings.cursor.json.tpl", chain: false },
   copilot: { main: "settings.copilot.json.tpl", chain: false },
+  agy: { main: "settings.agy.json.tpl", chain: false },
 };
 
 /** The launcher name a hook line must call on this machine. On Windows a bare `ai-eng`
@@ -232,4 +234,14 @@ export function surfaceCanGovern(surface: Surface): boolean {
   // Only the hosts that RUN us can be governed: a host that denies on its own, without
   // calling our chain, has nowhere for a guard to stand.
   return surface.can.deny === true || surface.can.deny === "throw";
+}
+
+/** The one fact doctor owes the user per surface: does this host run our chain and
+ *  block the call synchronously (enforced), or only let us observe / rely on the host's
+ *  own permissions (advisory)? A surface is advisory when it has no synchronous pre-tool
+ *  deny we can reach — its `can.deny` is `host-only` or absent, or it declares no carrier.
+ *  The capability matrix (docs/surface-capability-matrix.md) records the same split, with
+ *  the fail-open / fail-closed nuance per host. */
+export function surfaceEnforcement(surface: Surface): "enforced" | "advisory" {
+  return surfaceCanGovern(surface) && surface.carriers.length > 0 ? "enforced" : "advisory";
 }

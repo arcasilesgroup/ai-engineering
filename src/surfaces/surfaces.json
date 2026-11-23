@@ -166,6 +166,39 @@
       "note": "needs a one-time /hooks approval: trust is pinned to these exact bytes, so a change re-asks"
     },
     {
+      "id": "agy",
+      "label": "Antigravity CLI",
+      "tier": "experimental",
+      "dialect": "agy",
+      "can": {
+        "deny": true,
+        "rewriteOut": true,
+        "loop": "unverified"
+      },
+      "promptHook": {
+        "supported": false,
+        "source": "agy-customizations skill hooks.md (2026-11-23): no prompt-submission event — PreInvocation can inject steps and terminate the turn, but it does not inspect the raw prompt before it enters the transcript",
+        "measured": "2026-11-23"
+      },
+      "carriers": [
+        {
+          "scope": "machine",
+          "kind": "settings",
+          "path": ".gemini/config/hooks.json",
+          "source": "antigravity.google/docs/hooks + agy-customizations skill hooks.md (2026-11-23): global hooks load from ~/.gemini/config/hooks.json",
+          "measured": "2026-11-23"
+        },
+        {
+          "scope": "repo",
+          "kind": "settings",
+          "path": ".agents/hooks.json",
+          "source": "antigravity.google/docs/hooks + agy-customizations skill hooks.md (2026-11-23): workspace hooks load from .agents/hooks.json at project root",
+          "measured": "2026-11-23"
+        }
+      ],
+      "note": "verified live on agy 1.5.14: PreToolUse denies via top-level {\"decision\":\"deny\",\"reason\"} on stdout, silence allows, an empty {} and any non-zero exit both deny (fail-closed). The hook runs with cwd = the directory holding hooks.json, and the payload is camelCase protojson with toolCall.name / toolCall.args.CommandLine. PostToolUse carries no result content, so the fetched-content containment arm cannot fire; PreToolUse deny of run_command and file writes is enforced"
+    },
+    {
       "id": "copilot-cli",
       "label": "GitHub Copilot (CLI + VS Code)",
       "tier": "best-effort",
@@ -197,7 +230,7 @@
           "measured": "2026-11-07"
         }
       ],
-      "note": "One surface for the Copilot harness that the CLI and VS Code share — the same hook files, so the hooks never run twice (VS Code may send the snake_case payload; the chain reads both, tests/chain-dispatch.spec.ts), and both read a top-level permissionDecision (code.visualstudio.com/docs/copilot/customization/hooks); `--surface copilot-vscode` or `vscode` selects it. VS Code finds the skills in ~/.claude/skills and ~/.agents/skills. Command/HTTP userPromptSubmitted output is ignored, postToolUse can add context but does not replace tool output, and receipts persist locally; no token savings from output rewriting"
+      "note": "One surface for the Copilot harness that the CLI and VS Code share — the same hook files, so the hooks never run twice (VS Code may send the snake_case payload; the chain reads both, tests/chain-dispatch.spec.ts), and both read a top-level permissionDecision (code.visualstudio.com/docs/copilot/customization/hooks); `--surface copilot-vscode` or `vscode` selects it. VS Code finds the skills in ~/.claude/skills and ~/.agents/skills. Command/HTTP userPromptSubmitted output is ignored, postToolUse can add context but does not replace tool output, and receipts persist locally; no token savings from output rewriting. preToolUse command hooks fail CLOSED on a crash or non-zero exit and fail OPEN on timeout (docs.github.com/en/copilot/reference/hooks-reference); the template exits 0 when ai-eng is not on PATH on purpose, so a machine without it is not locked out"
     },
     {
       "id": "pi",

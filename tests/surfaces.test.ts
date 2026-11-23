@@ -92,6 +92,24 @@ test("copilot: permissionDecision on stdout, exit 0", () => {
   expect(body.permissionDecisionReason).toInclude("[ai-eng] no-verify");
 });
 
+test("agy: decision deny on stdout, exit 0 (live-verified envelope)", () => {
+  // agy sends toolCall.name / toolCall.args.CommandLine (camelCase protojson, live probe
+  // on 1.5.14) and reads a top-level `decision` — not the Claude/Copilot envelope.
+  const r = chain("agy", { toolCall: { id: "call_1", name: "run_command", args: { CommandLine: "git commit -n -m x" } }, conversationId: "agy-s", cwd: repo });
+  expect(r.status).toBe(0);
+  const body = JSON.parse(r.stdout) as { decision?: string; reason?: string };
+  expect(body.decision).toBe("deny");
+  expect(body.reason).toInclude("[ai-eng] no-verify");
+});
+
+test("agy: run_command maps to the Bash the guards know", () => {
+  // A non-guard command under the same envelope allows, and agy answers with silence
+  // (empty stdout), not an envelope — writing nothing is what agy reads as allow.
+  const r = chain("agy", { toolCall: { id: "call_2", name: "run_command", args: { CommandLine: "git status" } }, conversationId: "agy-s", cwd: repo });
+  expect(r.status).toBe(0);
+  expect(r.stdout.trim()).toBe("");
+});
+
 test("cursor calls the shell tool Shell: the alias still reaches the guards", () => {
   const r = chain("cursor", { tool_name: "Shell", tool_input: { command: "git commit -n -m x" }, session_id: "surfaces" });
   expect(r.status).toBe(0);
@@ -157,6 +175,25 @@ test("init scaffolds each surface's carrier where its host reads it", () => {
   expectLocalCanon();
 });
 
+test("init scaffolds agy's carriers where agy reads them", () => {
+  const fresh = join(sandbox, "agy-repo");
+  const geminiHooks = join(home, ".gemini", "config", "hooks.json");
+  const geminiBefore = '{\n  "herdr": {\n    "PreInvocation": []\n  }\n}\n';
+  mkdirSync(join(home, ".gemini", "config"), { recursive: true });
+  writeFileSync(geminiHooks, geminiBefore);
+  mkdirSync(fresh, { recursive: true });
+  spawnSync("git", ["init", "-q"], { cwd: fresh });
+  const r = run(["init", "--yes", "--surface", "agy"], fresh);
+  expect(r.status).toBe(0);
+  // Repo carrier: .agents/hooks.json at the project root (agy's workspace scope).
+  expect(existsSync(join(fresh, ".agents", "hooks.json"))).toBe(true);
+  expect(readFileSync(join(fresh, ".agents", "hooks.json"), "utf8")).toInclude("--surface agy");
+  // Machine carrier: ~/.gemini/config/hooks.json merged by marker beside the user's hooks.
+  const after = readFileSync(geminiHooks, "utf8");
+  expect(after).toInclude("--surface agy");
+  expect((JSON.parse(after) as { herdr?: unknown }).herdr).toEqual({ PreInvocation: [] });
+});
+
 test("machine carrier paths match each host's documented root, with source and date", () => {
   // The table IS the claim: init writes from it, doctor checks against it, and a wrong
   // path here is the OMP bug again — a carrier that exists everywhere and is read by
@@ -192,7 +229,7 @@ test("machine carrier paths match each host's documented root, with source and d
   }
   // The two repo readers keep their carriers in the checkout, and they are the only ones.
   const inRepo = SURFACES.filter((surface) => repoCarrier(surface) !== null).map((surface) => surface.id);
-  expect(inRepo.sort()).toEqual(["copilot-cli", "cursor"]);
+  expect(inRepo.sort()).toEqual(["agy", "copilot-cli", "cursor"]);
 });
 
 test("cursor allow envelope: a permitted call answers, and the silent hosts stay silent", () => {

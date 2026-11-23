@@ -823,7 +823,7 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   literals.push(join(machineBase(), ".agents", "skills"));
   literals.push(join(machineBase(), ".config", "opencode", "skill"));
   literals.push(globalHome);
-  for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".config/opencode/ai-eng", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json", ".gitconfig", ".config/git/config"]) {
+  for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".config/opencode/ai-eng", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", ".gemini/config/hooks.json", "machine.json", ".gitconfig", ".config/git/config"]) {
     literals.push(join(machineBase(), carrier));
   }
   if (!repoRoot) return { literals: literals.filter((p) => p.length > 0), specPinned: false, terminal: [] };
@@ -938,6 +938,7 @@ const GOVERNANCE_FILE = new RegExp([
   String.raw`(?:^|/)\.claude/settings(?:\.local)?\.json$`,
   String.raw`(?:^|/)\.cursor/hooks\.json$`,
   String.raw`(?:^|/)\.codex/hooks\.json$`,
+  String.raw`(?:^|/)\.agents/hooks\.json$`,
   String.raw`(?:^|/)\.(?:opencode/plugins|agents/hooks)/ai-eng[^/]*$`,
 ].join("|"), "i");
 

@@ -194,8 +194,12 @@ A guard bypass is a critical bug. Report it through [SECURITY.md](SECURITY.md).
 
 The guards stop an agent's mistakes. They are not a sandbox.
 
-The Copilot adapter (CLI and VS Code) fails open on purpose when `ai-eng` is not on `PATH`, so
-a machine without it is not locked out. A hook that times out also lets the call proceed.
+The Copilot adapter (CLI and VS Code) shares one harness and one hook file set for both
+hosts. Its `preToolUse` command hook **fails closed** on a crash or non-zero exit, but
+**fails open** when `ai-eng` is not on `PATH` (the template exits 0 on purpose, so a
+machine without it is not locked out) and on a timeout. The prompt hook is advisory on
+Copilot: `userPromptSubmitted` command output is ignored. See the [capability
+matrix](docs/surface-capability-matrix.md) for the per-host split.
 
 Command guards read the visible command text. They do not sandbox opaque programs or scripts
 prepared in earlier calls: a script written in one call and run in a later call does
@@ -283,14 +287,16 @@ host supports.
 | Tier | Meaning | Surfaces |
 |---|---|---|
 | core | deny, plus a rewritten command where the host allows it | `claude-code`, `oh-my-pi`, `opencode`, `cursor`, `pi` |
-| experimental | works, less proven | `codex` |
+| experimental | works, less proven | `codex`, `agy` |
 | best-effort | the host limits the outcome | `copilot-cli` |
 | skills-only | skills, no interception | `zed` |
 
 `ai-eng config --add <id>` and `ai-eng config --remove <id>` turn a surface on or off and
 regenerate its files. `ai-eng doctor` reports, per surface, whether its hook file is where
-that host reads it. [Global carriers](docs/global-carriers.md) explains how those files are
-installed and removed.
+that host reads it, and whether the surface is **enforced** (synchronous pre-tool deny) or
+**advisory** (observation only). The [capability matrix](docs/surface-capability-matrix.md)
+is the measured truth for what each host can and cannot enforce; [Global
+carriers](docs/global-carriers.md) explains how the carrier files are installed and removed.
 
 ## CLI
 

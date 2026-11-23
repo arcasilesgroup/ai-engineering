@@ -192,7 +192,7 @@ describe("doctor · a repo where everything is green", () => {
     expect(detail(run, "receipts")).toMatch(/^last 14d: \d+ runs · \d+ denies · p50 \d+ms · p95 \d+ms \(ceiling 50\)( · top [^ ]+)?$/);
     expect(detail(run, "overrides")).toBe("none active");
     expect(detail(run, "arch")).toBe("layer rules in .dependency-cruiser.cjs");
-    expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries");
+    expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries · enforced");
     expect(detail(run, "behaviors")).toBe("no behaviors declared");
     expect(run.out).not.toContain("checkpoint gate");
     expect(run.out).not.toContain("checkpoint-gate-report");
@@ -732,7 +732,7 @@ describe("doctor · surface carriers", () => {
     const { home } = sandbox();
     let run = await doctor();
     expect(row(run, "surface claude-code")).toContain("✗");
-    expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json missing → ai-eng update");
+    expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json missing → ai-eng update · enforced");
     expect(run.code).toBe(2);
 
     const placement = machineCarrier(SURFACES.find((surface) => surface.id === "claude-code")!)!;
@@ -740,7 +740,7 @@ describe("doctor · surface carriers", () => {
     writeFileSync(carrierPath(placement), carrierFiles("claude-code")!.main);
     run = await doctor();
     expect(row(run, "surface claude-code")).toContain("✓");
-    expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries");
+    expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries · enforced");
   });
 
   test("a machine carrier that calls a shim no longer on PATH is named (npm swapped for bun)", async () => {
@@ -784,13 +784,13 @@ describe("doctor · surface carriers", () => {
     writeFileSync(entry, "# not what this binary ships\n");
     let run = await doctor();
     expect(row(run, "surface oh-my-pi")).toContain("▲");
-    expect(detail(run, "surface oh-my-pi")).toBe("machine carrier ~/.omp/agent/hooks/pre/ai-eng.ts is NOT the one this binary ships → ai-eng update");
+    expect(detail(run, "surface oh-my-pi")).toBe("machine carrier ~/.omp/agent/hooks/pre/ai-eng.ts is NOT the one this binary ships → ai-eng update · enforced");
 
     writeFileSync(entry, files.main);
     writeFileSync(chain, files.chain!);
     run = await doctor();
     expect(row(run, "surface oh-my-pi")).toContain("✓");
-    expect(detail(run, "surface oh-my-pi")).toBe("machine carrier ~/.omp/agent/hooks/pre/ai-eng.ts matches the binary");
+    expect(detail(run, "surface oh-my-pi")).toBe("machine carrier ~/.omp/agent/hooks/pre/ai-eng.ts matches the binary · enforced");
   });
 
   test("a repo carrier is required for cursor, best-effort for copilot, and absent for zed", async () => {
