@@ -1,0 +1,144 @@
+[
+  {
+    "round": 1,
+    "reviewed_head_sha": "d4a2fda84afde602f2bd7b6b7e75fcb9d3f40f69",
+    "selection_source": "user",
+    "selected_finding_ids": ["compound-command-pipeline-scope-leak", "policy-unresolved-variable-hides-write-target"],
+    "findings": [
+      {
+        "id": "compound-command-pipeline-scope-leak",
+        "severity": "warning",
+        "file": "src/guards/shell.ts",
+        "line": 171,
+        "description": "Sibling left behind by review round 3's subshell-scope fix (587e67a)."
+      },
+      {
+        "id": "policy-unresolved-variable-hides-write-target",
+        "severity": "warning",
+        "file": "src/guards/shell.ts",
+        "line": 683,
+        "description": "Round 3 changed an uncomputable value from delete(name) to set(name, null), and round 2 fed this map into policy via expandedSegments (src/guards/policy.ts:468)."
+      },
+      {
+        "id": "injection-review-arms-have-no-reader",
+        "severity": "info",
+        "file": "src/guards/injection.ts",
+        "line": 279,
+        "description": "Round 4 (587e67a) downgraded mcp__.* PostToolUse IOC hits and oversized MCP output from the base arm's deny to review."
+      }
+    ]
+  },
+  {
+    "round": 2,
+    "reviewed_head_sha": "b8ca51b8f22b208c2d4cae9746384dcd6a07fa53",
+    "selection_source": "user",
+    "selected_finding_ids": [
+      "compound-command-pipeline-scope-leak",
+      "policy-unresolved-variable-hides-write-target",
+      "compound-scope-resolved-before-pipe-or-background",
+      "printf-escapes-octal-not-read-like-bash"
+    ],
+    "findings": [
+      {
+        "id": "compound-command-pipeline-scope-leak",
+        "severity": "warning",
+        "file": "src/guards/shell.ts",
+        "line": 171,
+        "description": "Sibling left behind by review round 3's subshell-scope fix (587e67a)."
+      },
+      {
+        "id": "policy-unresolved-variable-hides-write-target",
+        "severity": "warning",
+        "file": "src/guards/shell.ts",
+        "line": 683,
+        "description": "Round 3 changed an uncomputable value from delete(name) to set(name, null), and round 2 fed this map into policy via expandedSegments (src/guards/policy.ts:468)."
+      },
+      {
+        "id": "injection-review-arms-have-no-reader",
+        "severity": "info",
+        "file": "src/guards/injection.ts",
+        "line": 279,
+        "description": "Round 4 (587e67a) downgraded mcp__.* PostToolUse IOC hits and oversized MCP output from the base arm's deny to review."
+      },
+      {
+        "id": "compound-scope-resolved-before-pipe-or-background",
+        "severity": "error",
+        "file": "src/guards/shell.ts",
+        "line": 303,
+        "description": "The b8ca51b compound-scope fix resolves a closed compound as soon as a redirection follows its closing word: the redirect branch calls resolveCompounds(false) at shell.ts:303."
+      },
+      {
+        "id": "printf-escapes-octal-not-read-like-bash",
+        "severity": "warning",
+        "file": "src/guards/shell.ts",
+        "line": 785,
+        "description": "b8ca51b added printfEscapes and started accepting `%b`, but its escape reader is not bash's."
+      }
+    ]
+  },
+  {
+    "round": 3,
+    "reviewed_head_sha": "b35f722fba2a49f8f9ea2c086ae6c85f5d98ec1a",
+    "selection_source": "user",
+    "selected_finding_ids": [
+      "compound-command-pipeline-scope-leak",
+      "policy-unresolved-variable-hides-write-target",
+      "injection-review-arms-have-no-reader",
+      "compound-scope-resolved-before-pipe-or-background",
+      "printf-escapes-octal-not-read-like-bash",
+      "shell-time-keyword-hides-assignment",
+      "no-verify-file-write-scans-whole-segment"
+    ],
+    "findings": [
+      {
+        "id": "compound-command-pipeline-scope-leak",
+        "severity": "warning",
+        "file": "src/guards/shell.ts",
+        "line": 171,
+        "description": "Sibling left behind by review round 3's subshell-scope fix (587e67a)."
+      },
+      {
+        "id": "policy-unresolved-variable-hides-write-target",
+        "severity": "warning",
+        "file": "src/guards/shell.ts",
+        "line": 683,
+        "description": "Round 3 changed an uncomputable value from delete(name) to set(name, null), and round 2 fed this map into policy via expandedSegments (src/guards/policy.ts:468)."
+      },
+      {
+        "id": "injection-review-arms-have-no-reader",
+        "severity": "info",
+        "file": "src/guards/injection.ts",
+        "line": 279,
+        "description": "Round 4 (587e67a) downgraded mcp__.* PostToolUse IOC hits and oversized MCP output from the base arm's deny to review."
+      },
+      {
+        "id": "compound-scope-resolved-before-pipe-or-background",
+        "severity": "error",
+        "file": "src/guards/shell.ts",
+        "line": 303,
+        "description": "The b8ca51b compound-scope fix resolves a closed compound as soon as a redirection follows its closing word: the redirect branch calls resolveCompounds(false) at shell.ts:303."
+      },
+      {
+        "id": "printf-escapes-octal-not-read-like-bash",
+        "severity": "warning",
+        "file": "src/guards/shell.ts",
+        "line": 785,
+        "description": "b8ca51b added printfEscapes and started accepting `%b`, but its escape reader is not bash's."
+      },
+      {
+        "id": "shell-time-keyword-hides-assignment",
+        "severity": "warning",
+        "file": "src/guards/shell.ts",
+        "line": 248,
+        "description": "The compound-scope rework (round 3, 587e67a) makes `isCommandStart` accept only RESERVED_WORDS/COMPOUND_CLOSERS."
+      },
+      {
+        "id": "no-verify-file-write-scans-whole-segment",
+        "severity": "warning",
+        "file": "src/guards/no-verify.ts",
+        "line": 291,
+        "description": "`silenceInWrites` runs `checkContent` over the entire shell segment whenever that segment redirects to any file, or pipes into `tee`."
+      }
+    ]
+  }
+]

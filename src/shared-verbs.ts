@@ -21,6 +21,7 @@ export const MACHINE_VERBS: readonly { readonly verb: string; readonly descripti
   { verb: "git", description: "pre-commit, commit-msg, pre-push" },
   { verb: "wrap", description: "run tests, print failures only" },
   { verb: "worktree", description: "new, list, merge, rm a lane checkout" },
+  { verb: "findings", description: "annotate review findings a program can disprove" },
 ];
 
 /** Every verb the binary answers to. */
