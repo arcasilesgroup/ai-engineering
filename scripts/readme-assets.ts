@@ -52,7 +52,7 @@ export const BUTTONS: readonly Button[] = [
   { slug: "proof", text: "See the proof", width: 200, filled: false },
 ];
 
-/** The hero: the brand's artifact hero (field, grid, corner brackets, the {ai} chip, display type, mono line). */
+/** The hero copy and canvas: tilted brand/mark.svg on a soft glow, two-weight claim, refused-call line, and mono ledger. */
 export const HERO = {
   wordmark: "{ai} engineering",
   claim: "Guardrails for the AI Coding Agents you already run",

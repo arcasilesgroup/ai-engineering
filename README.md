@@ -71,7 +71,7 @@ The agent can't edit its own rules, and every refusal it gets is saved as a file
   </tr>
 </table>
 
-Seven guards read each governed tool call and answer before the tool runs. The cards split what stops the agent from what only tells it. The hosts where a refusal stands are in [Where the agent still can](#where-it-stops).
+Seven protection guards read each governed tool call and answer before the tool runs. The cards split what stops the agent from what only tells it. The hosts where a refusal stands are in [Where the agent still can](#where-it-stops).
 
 <details>
 <summary>The nine checks, in order</summary>
