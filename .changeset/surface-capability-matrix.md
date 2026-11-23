@@ -21,5 +21,7 @@ guard is rendered per OS at write time (the Windows form is rendered but unexecu
 unclaimed). Every line probes for `ai-eng` first and, when the
 app the editor was launched from cannot resolve it, writes one line to stderr and allows
 the call, so a hook that cannot judge never denies a person their editor and stdout stays
-empty for agy's decision channel. Its skills are mirrored into
-`~/.gemini/config/skills`.
+empty for agy's decision channel. The chain keeps that promise one layer down: agy's
+payload names no tool of ours, so a call it cannot read is allowed with a line saying why,
+while a host the chain can judge keeps the fail-closed boundary. Its skills are mirrored
+into `~/.gemini/config/skills`.

@@ -242,6 +242,17 @@ export function surfaceCanGovern(surface: Surface): boolean {
   return surface.can.deny === true || surface.can.deny === "throw";
 }
 
+/** True when nothing of ours judges this host's calls: its `can.deny` is `host-only`, so
+ *  the host denies through its own permissions and the payload names no tool of ours. A
+ *  payload the chain cannot read there must be ALLOWED, not denied, because the host
+ *  denies on any non-zero exit: one unreadable payload would otherwise deny every tool
+ *  call of a person who enabled the surface (README, "a hook that cannot judge must not
+ *  lock a person out of their editor"). */
+export function surfaceHasNoJudge(id: string | undefined): boolean {
+  const surface = SURFACES.find((candidate) => candidate.id === id);
+  return surface !== undefined && !surfaceCanGovern(surface);
+}
+
 /** The one fact doctor owes the user per surface: does this host run our chain and
  *  block the call synchronously (enforced), or only let us observe / rely on the host's
  *  own permissions (advisory)? A surface is advisory when it has no synchronous pre-tool

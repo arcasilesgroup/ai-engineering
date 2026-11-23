@@ -297,6 +297,34 @@ test.skipIf(process.platform !== "win32")("the rendered Windows agy guard runs u
   }
 });
 
+test("agy: a payload the chain cannot read is allowed, never denied (the host denies on any non-zero exit)", () => {
+  // agy 1.5.14 sends camelCase protojson — `toolCall.name` / `toolCall.args.CommandLine` —
+  // and denies on any non-zero exit. No mapping of ours reads that shape, so denying it
+  // would deny EVERY agy call of a person who hand-enabled the surface: the lockout the
+  // carrier's fail-soft guard exists to prevent (README: "a hook that cannot judge must
+  // not lock a person out of their editor"). Silence plus exit 0 is agy's own allow.
+  const measured = chain("agy", { toolCall: { name: "run_command", args: { CommandLine: "ls" } } });
+  expect(measured.status).toBe(0);
+  expect(measured.stdout).toBe(""); // agy's decision channel stays empty: silence allows
+  expect(measured.stderr).toInclude("has no tool mapping of ours");
+
+  // The same road for a payload normalise refuses to read at all.
+  const unreadable = chain("agy", { tool_name: "apply_patch", tool_input: { input: 5 } });
+  expect(unreadable.status).toBe(0);
+  expect(unreadable.stdout).toBe("");
+
+  // And for a body that is not JSON: same boundary, same answer.
+  const garbage = run(["chain", "PreToolUse", "--surface", "agy"], repo, "<<not json>>");
+  expect(garbage.status).toBe(0);
+
+  // Scope check: a host the chain CAN judge keeps the fail-closed boundary on that same
+  // unreadable shape, so this is a contract for surfaces with no judge, not a hole in the
+  // payload boundary every governed surface relies on.
+  const governed = chain("claude-code", { toolCall: { name: "run_command", args: { CommandLine: "ls" } } });
+  expect(governed.status).toBe(2);
+  expect(governed.stderr).toInclude("has no tool name");
+});
+
 test("cursor allow envelope: a permitted call answers, and the silent hosts stay silent", () => {
   // Cursor's project template declares `failClosed: true`, so an empty answer is read as
   // a policy error and a permitted call is refused. The allow branch therefore writes the

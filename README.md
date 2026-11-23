@@ -208,7 +208,10 @@ update` does. That template is guarded per OS: because agy denies on any non-zer
 every line first checks for `ai-eng` and, when the app the editor was launched from cannot
 resolve it, writes one line to stderr and allows the call — a hook that cannot judge must
 not lock a person out of their editor, and stdout stays empty because that is where agy
-reads its decision. The Windows form of that line is rendered but has never been run on
+reads its decision. The chain answers the same way one layer down: agy's payload names
+`toolCall.name`, no mapping of ours reads it, and a call the chain cannot read on a host it
+has no judge for is allowed with a line saying why, because agy turns one non-zero exit
+into a lockout. The Windows form of that line is rendered but has never been run on
 Windows, and which shell agy uses there is unmeasured — so nothing is claimed for it. The
 [capability matrix](docs/surface-capability-matrix.md) records why that trade is honest,
 what is unverified, and what would make the surface enforceable.

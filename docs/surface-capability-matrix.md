@@ -31,7 +31,7 @@ aligned to it; update all three together when a host changes.
 | `copilot-cli` | copilot 1.0.115-7 | sync pre-tool (`preToolUse`) in `.github/hooks/ai-eng.json` + `~/.copilot/hooks/ai-eng.json` | stdout JSON `permissionDecision: deny`, exit 0 | yes | fail **closed** on crash/non-zero exit; fail **open** on timeout and when `ai-eng` missing | `userPromptSubmitted` output ignored → advisory | **enforced** (tool calls) |
 | `copilot-vscode` | VS Code Copilot harness (shared) | same harness and hook files as the CLI | same as above | yes | same as above | same advisory prompt hook | **enforced** (tool calls) |
 | `pi` | pi 1.6.0 | in-process extension (`.pi/agent/extensions/ai-eng.ts`) | return `{ block, reason }` | yes | fail closed (block) | none | **enforced** |
-| `agy` | agy 1.5.14 | sync pre-tool (`PreToolUse`) in `~/.gemini/config/hooks.json` — **a template in the binary, not an installed hook**: nothing writes it (init and config refuse the surface), so only a hand-edited `[surfaces] enabled = ["agy"]` plus `ai-eng update` puts the file on disk | stdout JSON `decision: deny`, exit 0 (probed live; no mapping of ours judges an agy call yet) | no: the chain has nothing to judge — no tool mapping, and the payload names no repository | fail **closed** on a judged call (non-zero exit or `{}` denies), so the carrier's own guard is what keeps a missing binary from denying everything | none (`PreInvocation` can terminate, does not inspect the prompt) | **advisory** |
+| `agy` | agy 1.5.14 | sync pre-tool (`PreToolUse`) in `~/.gemini/config/hooks.json` — **a template in the binary, not an installed hook**: nothing writes it (init and config refuse the surface), so only a hand-edited `[surfaces] enabled = ["agy"]` plus `ai-eng update` puts the file on disk | stdout JSON `decision: deny`, exit 0 (probed live; no mapping of ours judges an agy call yet) | no: the chain has nothing to judge — no tool mapping, and the payload names no repository | fail **closed** on a call it judges; a call it cannot read on a host with no judge of ours is **allowed with a reason**, because agy turns one non-zero exit into a lockout (the carrier's own guard covers the missing binary the same way) | none (`PreInvocation` can terminate, does not inspect the prompt) | **advisory** |
 | `zed` | zed 1.28.1 | none (WASM extension API cannot intercept a tool call) | — | — | — | — | **advisory** (skills only) |
 
 ## Copilot, CLI and VS Code separately
@@ -121,6 +121,13 @@ when the carrier is written** — next to the launcher rewrite, never chosen at 
   cannot run judges nothing either way; the only difference between the two failure shapes
   is whether the editor still works. The surface already advertises itself as advisory, so
   failing open costs no guarantee that was ever claimed.
+- **A call the chain cannot read takes the same road.** agy's payload names
+  `toolCall.name`, and no mapping of ours reads it, so `tool_name` arrives empty — the
+  shape every governed surface denies as *no tool name*. On a surface whose `can.deny` is
+  `host-only` (nothing of ours judges it) that deny would land as exit 2 on **every** call,
+  which is the same lockout one layer deeper. So an unreadable payload there is allowed
+  with the same one-line reason on stderr, while a surface the chain CAN govern keeps the
+  fail-closed boundary unchanged: the deny means something only where a mapping exists.
 - **What would change the verdict:** a measured mapping of agy's other tool names and
   argument keys (only `run_command` / `CommandLine` were ever probed) and a payload that
   carries the repository the call belongs to. Until then the chain has nothing to judge,
