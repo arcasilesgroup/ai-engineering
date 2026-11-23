@@ -19,7 +19,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { join, posix } from "node:path";
 import { homedir, tmpdir } from "node:os";
-import { commandIndex, expandPriorAssignments, inlineShellPrograms, quotedSpanEnd, rawShellWords, shellWords } from "./shell.ts";
+import { commandIndex, expandedSegments, inlineShellPrograms, quotedSpanEnd, rawShellWords, shellWords } from "./shell.ts";
 
 /** What every install and new project gets while config.toml says nothing. System read
  *  includes the paths this file calls sensitive (~/.ssh, .env, *.pem): reading them is
@@ -456,14 +456,14 @@ function scanSegment(mask: { value: number }, written: string, cwd: string): voi
 
 function scanScript(script: string, cwd: string): number {
   const mask = { value: 0 };
-  const resolved = expandPriorAssignments(script) ?? script;
-  const joined = resolved.replace(/\\\n/g, " ");
+  const joined = script.replace(/\\\n/g, " ");
   if (joined.includes("/dev/tcp")) addMode(mask, SCOPE_NETWORK, PERM_READ | PERM_WRITE);
   // A command substitution runs a command of its own: its body is judged as one more
   // segment, while the segment around it stays whole so its writer still sees every path.
   const substitutions = [...joined.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)].map((match) => match[1] ?? match[2] ?? "");
-  const bodies = inlineShellPrograms(resolved).map((body) => expandPriorAssignments(body) ?? body);
-  const normalized = [joined, ...substitutions, ...bodies].join("\n").replaceAll("&&", "\n").replaceAll("||", "\n").replaceAll(";", "\n");
+  const expansions = expandedSegments(script);
+  const bodies = expansions.flatMap((text) => inlineShellPrograms(text));
+  const normalized = [joined, ...substitutions, ...expansions, ...bodies, ...bodies.flatMap(expandedSegments)].join("\n").replaceAll("&&", "\n").replaceAll("||", "\n").replaceAll(";", "\n");
   for (const segment of normalized.split("\n").map((s) => s.trim())) {
     if (segment.length > 0) scanSegment(mask, segment, cwd);
   }

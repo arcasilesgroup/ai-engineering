@@ -13,7 +13,6 @@ import {
   realpathSync,
   statSync,
   unlinkSync,
-  writeFileSync,
   type BigIntStats,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -21,6 +20,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { isDeepStrictEqual } from "node:util";
 import { resolveContext } from "../git/context.ts";
 import { runGit } from "../git/run.ts";
+import { readNoFollowFile, writeNoFollowFile } from "../shared-project-fs.ts";
 import { jsonToolOperands } from "./shell.ts";
 import {
   assertCheckpointTransition,
@@ -639,30 +639,6 @@ function resetStopCounter(path: string): void {
     unlinkSync(path);
   } catch {
     // No prior stop refusal needs clearing.
-  }
-}
-
-function readNoFollowFile(path: string): string | null {
-  let descriptor: number;
-  try {
-    descriptor = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw error;
-  }
-  try {
-    return readFileSync(descriptor, "utf8");
-  } finally {
-    closeSync(descriptor);
-  }
-}
-
-function writeNoFollowFile(path: string, content: string): void {
-  const descriptor = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0), 0o600);
-  try {
-    writeFileSync(descriptor, content);
-  } finally {
-    closeSync(descriptor);
   }
 }
 

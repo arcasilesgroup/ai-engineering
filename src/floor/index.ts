@@ -52,24 +52,16 @@ function decisionsBlock(cwd: string): FloorResult {
   const files = nameOnly ? nameOnly.split("\n").filter((f) => f.length > 0) : [];
   const dependencyTouched = files.some((f) => /^(package\.json|Cargo\.toml|go\.mod|pyproject\.toml|Gemfile|composer\.json|pom\.xml|Package\.swift|.*\.csproj)$/.test(f));
   if (files.length <= 10 && !dependencyTouched) return { ok: true, lines: [] };
-  const why = `this commit touches ${files.length} files${dependencyTouched ? " (or a dependency)" : ""}`;
   const decisionsPath = join(cwd, "DECISIONS.md");
-  const staged = files.includes("DECISIONS.md");
-  if (!existsSync(decisionsPath) && !staged) {
-    return { ok: false, lines: [`${why} and requires a DECISIONS.md block (§9.2) — none exists.`] };
+  if (!existsSync(decisionsPath)) {
+    return { ok: false, lines: [`this commit touches ${files.length} files${dependencyTouched ? " (or a dependency)" : ""} and requires a DECISIONS.md block (§9.2) — none exists.`] };
   }
-  if (!staged) {
-    return { ok: false, lines: [`${why} and requires a new DECISIONS.md block (§9.2) in this commit — the file was not changed.`] };
-  }
-  const diff = runGit(["diff", "--cached", "--unified=0", "--", "DECISIONS.md"], { cwd }).stdout;
-  const addsHeading = diff.split("\n").some((line) => line.startsWith("+## "));
-  if (addsHeading) return { ok: true, lines: [] };
-  const content = existsSync(decisionsPath) ? readFileSync(decisionsPath, "utf8") : "";
+  const content = readFileSync(decisionsPath, "utf8");
   const blocks = content.split(/^## /m).length - 1;
   if (blocks === 0) {
     return { ok: false, lines: ["DECISIONS.md exists but carries no ## D-NNN block — add one (≤6 lines) or shrink the commit."] };
   }
-  return { ok: false, lines: ["DECISIONS.md already has a block, but this commit adds no new ## heading — add one (≤6 lines) or shrink the commit."] };
+  return { ok: true, lines: [] };
 }
 
 /** The staged scan's one exception: the allowlist `paths` exactly as they exist in

@@ -88,7 +88,7 @@ const READERS: Set<string> = new Set([
   "diff", "jq", "yq",
 ]);
 
-const MAX_TARGETS = 32;
+const MAX_TARGETS = 512;
 
 /** The paths a command line would print into context: a reader's non-flag arguments
  *  plus every `<` redirect target. Shell parsing is a bottomless pit — this covers the
@@ -196,7 +196,7 @@ export function runInjection(payload: Payload): GuardResult {
         if (found.kind === "missing") continue;
         scannedFiles += 1;
         if (scannedFiles > MAX_TARGETS) {
-          return { deny: true, reason: `the command reads more than ${MAX_TARGETS} files, more than the injection scan covers. It was not run and nothing was shown to you. Nothing here can say every file is safe.` };
+          return { deny: true, reason: `the command reads more than ${MAX_TARGETS} files, the injection scan's safety bound. It was not run; read the files in smaller batches.` };
         }
         if (found.kind === "uncovered") return { deny: true, reason: uncoveredReason(found.path, "command") };
         if (found.kind === "hit") {

@@ -433,6 +433,21 @@ export function shellWords(text: string): ShellWord[] {
   return words;
 }
 
+/** The words an output redirect writes to as a file: not `2>&1` or `>&-`, which copy or
+ *  close a descriptor (the `&` stays on the target word), and not a `/dev/` device. */
+export function fileRedirectTargets(words: readonly ShellWord[]): ShellWord[] {
+  const targets: ShellWord[] = [];
+  for (let index = 0; index < words.length; index++) {
+    const word = words[index]!;
+    if (!word.isOperator || !word.value.includes(">") || word.value.includes("&")) continue;
+    const target = words[index + 1];
+    if (target === undefined || target.isOperator) continue;
+    if (/^\d+$/.test(target.value) || target.value === "-" || target.value.startsWith("&") || target.value.startsWith("/dev/")) continue;
+    targets.push(target);
+  }
+  return targets;
+}
+
 /** The command with quoting and escapes removed, for pattern checks that must not be
  *  defeated by `--no-ver''ify` or `\-\-no-verify`. */
 export function unquoteShell(command: string): string {
@@ -533,34 +548,59 @@ function expandDollars(text: string, variables: ReadonlyMap<string, string>): st
 
 const ASSIGNMENT_BUILTINS = new Set(["export", "declare", "typeset", "local", "readonly"]);
 
-/** Assignments that prefix this segment (`f=target rm "$f"`) or follow an assignment
- *  builtin (`export f=target`), visible to the segment itself and later segments. */
-function takeLeadingAssignments(text: string, variables: Map<string, string>): void {
-  const words = shellWords(text);
-  let index = 0;
-  while (index < words.length) {
+/** POSIX special builtins. A prefix `f=x :` outlives the command in sh and not in bash. */
+const SPECIAL_BUILTINS = new Set([":", ".", "break", "continue", "eval", "exec", "exit", "return", "set", "shift", "source", "times", "trap", "unset"]);
+
+/** `$name` and `${name}` in `value`, from the values known now; unknown names stay as written. */
+export function substituteVariables(value: string, variables: ReadonlyMap<string, string>): string {
+  return value.replace(/\$\{([A-Za-z_]\w*)\}|\$([A-Za-z_]\w*)/g, (all, braced: string | undefined, bare: string | undefined) => variables.get(braced ?? bare ?? "") ?? all);
+}
+
+function assign(variables: Map<string, string>, name: string, raw: string, requireSafe: boolean): void {
+  const value = substituteVariables(raw, variables);
+  if (/[$`]/.test(value) || (requireSafe && value.length > 0 && !isSafeExpansion(value))) variables.delete(name);
+  else variables.set(name, value);
+}
+
+/** What this segment leaves in `variables` once it has run, so it is applied after the
+ *  segment's own words are expanded. `f=x` alone and `export f=x` stay set. A prefix
+ *  `f=x cmd` is only cmd's environment: cmd's words still see the old value and the next
+ *  segment does too. Before a special builtin sh keeps the prefix and bash does not, so
+ *  that name is no longer known. With `requireSafe`, a value that could not stand in the
+ *  text as one word drops the name. */
+export function applySegmentAssignments(text: string, variables: Map<string, string>, requireSafe: boolean): void {
+  const words = shellWords(normalizeRedirects(text));
+  const prefix: Array<[string, string]> = [];
+  let commandAt = -1;
+  for (let index = 0; index < words.length; index++) {
     const word = words[index]!;
-    if (word.isOperator) return;
-    const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word.value);
-    if (!assignment) break;
-    const expanded = expandDollars(assignment[2]!, variables);
-    if (/[$`]/.test(expanded)) variables.delete(assignment[1]!);
-    else if (expanded.length === 0 || isSafeExpansion(expanded)) variables.set(assignment[1]!, expanded);
-    else variables.delete(assignment[1]!);
-    index++;
+    if (word.isOperator) {
+      index++;
+      continue;
+    }
+    const assignment = /^[A-Za-z_]\w*=/.test(word.unquoted) ? /^([A-Za-z_]\w*)=(.*)$/s.exec(word.value) : null;
+    if (assignment === null) {
+      commandAt = index;
+      break;
+    }
+    prefix.push([assignment[1]!, assignment[2]!]);
   }
-  const lead = words[index];
-  if (lead === undefined || lead.isOperator || !ASSIGNMENT_BUILTINS.has(basename(lead.value))) return;
-  for (let at = index + 1; at < words.length; at++) {
-    const word = words[at]!;
-    if (word.isOperator) break;
-    if (word.value.startsWith("-")) continue;
+  if (commandAt < 0) {
+    for (const [name, raw] of prefix) assign(variables, name, raw, requireSafe);
+    return;
+  }
+  const command = basename(words[commandAt]!.value);
+  const isAssignmentBuiltin = ASSIGNMENT_BUILTINS.has(command);
+  if (isAssignmentBuiltin || SPECIAL_BUILTINS.has(command)) for (const [name] of prefix) variables.delete(name);
+  if (!isAssignmentBuiltin) return;
+  for (let index = commandAt + 1; index < words.length; index++) {
+    const word = words[index]!;
+    if (word.isOperator) {
+      index++;
+      continue;
+    }
     const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word.value);
-    if (!assignment) continue;
-    const expanded = expandDollars(assignment[2]!, variables);
-    if (/[$`]/.test(expanded)) variables.delete(assignment[1]!);
-    else if (expanded.length === 0 || isSafeExpansion(expanded)) variables.set(assignment[1]!, expanded);
-    else variables.delete(assignment[1]!);
+    if (assignment !== null) assign(variables, assignment[1]!, assignment[2]!, requireSafe);
   }
 }
 
@@ -622,25 +662,19 @@ export function applySegmentMutations(text: string, variables: Map<string, strin
   }
 }
 
-/** The command with `$name` replaced by the assignment that was in force at that
- *  point. A later `f=safe` does not rewrite an earlier `$f`. Null when the segments
- *  cannot be placed back into the original text — the caller keeps the command. */
-export function expandPriorAssignments(command: string): string | null {
+/** Each segment's text with `$name` replaced by the value in force when that segment
+ *  runs: a later `f=safe` does not rewrite an earlier `$f`, and a prefix `f=x cmd` never
+ *  rewrites cmd's own `$f`. Empty when the command cannot be read. */
+export function expandedSegments(command: string): string[] {
   const segments = shellSegments(command);
-  if (segments === null) return null;
+  if (segments === null) return [];
   const variables = new Map<string, string>();
-  let rest = command;
-  let out = "";
-  for (const segment of segments) {
-    const index = rest.indexOf(segment.text);
-    if (index < 0) return null;
-    out += rest.slice(0, index);
-    takeLeadingAssignments(segment.text, variables);
-    out += expandDollars(segment.text, variables);
-    applySegmentMutations(segment.text, variables, true);
-    rest = rest.slice(index + segment.text.length);
-  }
-  return out + rest;
+  return segments.map(({ text }) => {
+    const expanded = expandDollars(text, variables);
+    applySegmentAssignments(text, variables, true);
+    applySegmentMutations(text, variables, true);
+    return expanded;
+  });
 }
 
 /** A segment's text with each simple echo/printf substitution replaced by what it prints. */

@@ -4,11 +4,12 @@
 // denies, because denying everything on a surface is how you disable a whole
 // product by installing it.
 
-import { closeSync, constants, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRules, home } from "../env.ts";
 import { normalise, deduplicable, fingerprint, loopExact } from "../payload.ts";
+import { readNoFollowFile, writeNoFollowFile } from "../shared-project-fs.ts";
 import type { Payload } from "../payload.ts";
 import { deny, allow, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
@@ -101,27 +102,9 @@ type Verdict = { deny: boolean; by?: string; message?: string };
 
 /** Verdict cache keyed on the fingerprint of one physical call: a second delivery of
  *  the same call gets the guard's own words instead of re-running every guard. */
-/** Read a regular file and refuse a symlink. A link planted on the cache would
- *  otherwise be followed into whatever the session points it at. */
-const NO_FOLLOW = constants.O_NOFOLLOW ?? 0;
-
-function readUnlinked(file: string): string | null {
-  let descriptor: number;
-  try {
-    descriptor = openSync(file, constants.O_RDONLY | NO_FOLLOW);
-  } catch {
-    return null;
-  }
-  try {
-    return readFileSync(descriptor, "utf8");
-  } finally {
-    closeSync(descriptor);
-  }
-}
-
 function cachedVerdict(file: string, fp: string): Verdict | null {
   try {
-    const raw = readUnlinked(file);
+    const raw = readNoFollowFile(file);
     if (raw === null) return null;
     const book = JSON.parse(raw) as Record<string, Verdict>;
     const entry = book[fp];
@@ -137,7 +120,7 @@ function rememberVerdict(file: string, fp: string, verdict: Verdict): void {
   try {
     let book: Record<string, Verdict> = {};
     try {
-      const raw = readUnlinked(file);
+      const raw = readNoFollowFile(file);
       if (raw !== null) book = JSON.parse(raw) as Record<string, Verdict>;
     } catch {
       /* first entry, or a book that is not JSON */
@@ -148,12 +131,7 @@ function rememberVerdict(file: string, fp: string, verdict: Verdict): void {
     book[fp] = verdict;
     const trimmed: Record<string, Verdict> = {};
     for (const key of Object.keys(book).slice(-500)) trimmed[key] = book[key]!;
-    const descriptor = openSync(file, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | NO_FOLLOW, 0o600);
-    try {
-      writeFileSync(descriptor, JSON.stringify(trimmed));
-    } finally {
-      closeSync(descriptor);
-    }
+    writeNoFollowFile(file, JSON.stringify(trimmed));
   } catch {
     /* state must never break the chain */
   }

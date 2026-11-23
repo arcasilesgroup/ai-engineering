@@ -17,7 +17,7 @@ import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
-import { applySegmentMutations, commandIndex, expandPriorAssignments, jsonToolOperands, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, type ShellSegment } from "./shell.ts";
+import { applySegmentAssignments, applySegmentMutations, commandIndex, jsonToolOperands, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, substituteVariables } from "./shell.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
  *  `sed` joins them only with -i. The list may over-deny: that is a person told to
@@ -404,41 +404,6 @@ function isAncestorOfProtected(paths: ProtectedPaths, candidate: string): boolea
   });
 }
 
-const ASSIGNMENT_BUILTINS = new Set(["export", "declare", "typeset", "local", "readonly"]);
-
-/** Update `variables` with the assignments in this segment, preserving execution order
- *  so a later reassignment never rewrites an earlier use. */
-function applySegmentAssignments(segment: ShellSegment, variables: Map<string, string>): void {
-  const words = shellWords(segment.text);
-  let index = 0;
-  while (index < words.length) {
-    const word = words[index]!;
-    if (word.isOperator) return;
-    const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word.value);
-    if (!assignment) break;
-    const value = substitute(assignment[2]!, variables);
-    if (/[$`]/.test(value)) variables.delete(assignment[1]!);
-    else variables.set(assignment[1]!, value);
-    index++;
-  }
-  const lead = words[index];
-  if (lead === undefined || lead.isOperator || !ASSIGNMENT_BUILTINS.has(commandName(lead.value))) return;
-  for (let at = index + 1; at < words.length; at++) {
-    const word = words[at]!;
-    if (word.isOperator) break;
-    if (word.value.startsWith("-")) continue;
-    const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word.value);
-    if (!assignment) continue;
-    const value = substitute(assignment[2]!, variables);
-    if (/[$`]/.test(value)) variables.delete(assignment[1]!);
-    else variables.set(assignment[1]!, value);
-  }
-}
-
-function substitute(value: string, variables: Map<string, string>): string {
-  return value.replace(/\$\{([A-Za-z_]\w*)\}|\$([A-Za-z_]\w*)/g, (all, braced: string | undefined, bare: string | undefined) => variables.get(braced ?? bare ?? "") ?? all);
-}
-
 // ponytail: reads the shell the way bash does, segment by segment, and refuses what it
 // cannot read (decode → shell, curl | sh, <(…), eval, a computed verb or target) or what
 // names a governed path from a verb that is not a known reader. A general-purpose
@@ -451,15 +416,13 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
   }
   if (/\b(?:pwsh|powershell)(?:\.exe)?\b/i.test(command) && POWERSHELL_ENCODED.test(command)) return "an encoded PowerShell command hides what it runs";
   const expanded = command.replace(/\$\(\s*(?:which|command\s+-v)\s+([^)\s]+)\s*\)/g, "$1");
-  // Sequential: a later assignment must not rewrite the variable an earlier segment already used.
-  const assigned = expandPriorAssignments(expanded) ?? expanded;
-  const segments = shellSegments(normalizeRedirects(assigned));
+  const segments = shellSegments(normalizeRedirects(expanded));
   if (segments === null) return "its quoting cannot be read, so neither can what it runs";
   const variables = new Map<string, string>([["HOME", machineBase()]]);
   const bases = [...context.bases];
   const parsed = segments.map((segment) => {
-    applySegmentAssignments(segment, variables);
-    const words = shellWords(resolveSubstitutions(segment)).map((word) => ({ ...word, original: word.value, value: substitute(word.value, variables) }));
+    const words = shellWords(resolveSubstitutions(segment)).map((word) => ({ ...word, original: word.value, value: substituteVariables(word.value, variables) }));
+    applySegmentAssignments(segment.text, variables, false);
     applySegmentMutations(segment.text, variables, false);
     const plain: string[] = [];
     // Whether the shell expands each plain word: a glob or brace it reads unquoted.
@@ -502,7 +465,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
     return hit ?? (isLiteral ? null : globNamesProtected(word, bases, context.paths));
   };
   const isRelative = (word: string): boolean => !isAbsolute(expandTilde(word)) && !word.startsWith("-");
-  for (const { segment, words, plain, writeTargets, inputs, verb, name, args, argIsExpanded } of parsed) {
+  for (const [position, { segment, words, plain, writeTargets, inputs, verb, name, args, argIsExpanded }] of parsed.entries()) {
     // Judged as written, before substitution: `IFS=,; c=rm,x; $c` is still a computed verb.
     const verbWord = words.find((word) => !word.isOperator && word.value === plain[verb.index]);
     const rawVerb = verbWord?.original ?? "";
@@ -560,7 +523,10 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
         const flagScript = args.some((arg) => arg === "-e" || arg === "-f" || /^-[A-Za-z]*[ef]/.test(arg));
         if (inplace || !hasScript || flagScript) return "xargs sed takes its script and -i from stdin";
       }
-      if (INTERPRETERS.has(name)) return "xargs feeds paths or code to an interpreter the guards cannot see";
+      const producer = segment.isAfterPipe ? parsed[position - 1] : undefined;
+      const producerTexts = producer === undefined ? [] : [...producer.plain, ...producer.inputs, ...producer.segment.heredocs.map(({ body }) => body)];
+      const feedsGoverned = producerTexts.map(collapseStringConcat).some((text) => [text, ...(text.match(EMBEDDED_PATH) ?? [])].some((path) => names(path) !== null));
+      if (INTERPRETERS.has(name) && (args.some((arg) => inline.test(arg)) || feedsGoverned)) return "xargs feeds paths or code to an interpreter the guards cannot see";
     }
     if (DIFF_APPLIERS.has(name) || (name === "git" && ["apply", "am"].includes(gitSubcommand(args).name))) {
       return `${name} applies edits whose target files are not on the command line; use the edit tool`;

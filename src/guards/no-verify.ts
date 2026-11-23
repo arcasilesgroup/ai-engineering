@@ -4,7 +4,7 @@
 import { basename, resolve, isAbsolute, join } from "node:path";
 import { realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
-import { COMMAND_PREFIXES, commandIndex, inlineShellPrograms, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
+import { COMMAND_PREFIXES, commandIndex, fileRedirectTargets, inlineShellPrograms, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
 
 type Skip = { pattern: RegExp; label: string };
 
@@ -281,20 +281,6 @@ export function checkBash(rawCommand: string, repoRoot: string | null, depth = 0
   return undefined;
 }
 
-/** True when a shell segment redirects output into a real file (not `2>&1`, `>&-`, or `/dev/null`). */
-function hasFileRedirect(text: string): boolean {
-  const words = shellWords(text);
-  for (let index = 0; index < words.length; index++) {
-    const word = words[index]!;
-    if (!word.isOperator || !word.value.includes(">") || word.value.includes("&")) continue;
-    const target = words[index + 1];
-    if (target === undefined || target.isOperator) continue;
-    if (/^\d+$/.test(target.value) || target.value === "-" || target.value.startsWith("&") || target.value.startsWith("/dev/")) continue;
-    return true;
-  }
-  return false;
-}
-
 /** True when this segment invokes `tee` targeting at least one real file. */
 function isTeeToFile(text: string): boolean {
   const words = argumentWords(text).map((word) => word.value);
@@ -312,7 +298,7 @@ function silenceInWrites(command: string): GuardResult {
     const segment = segments[index]!;
     const next = segments[index + 1];
     const pipesIntoTee = next !== undefined && next.isAfterPipe && isTeeToFile(next.text);
-    const writesFile = hasFileRedirect(segment.text) || isTeeToFile(segment.text) || pipesIntoTee;
+    const writesFile = fileRedirectTargets(shellWords(segment.text)).length > 0 || isTeeToFile(segment.text) || pipesIntoTee;
     if (!writesFile) continue;
     for (const heredoc of segment.heredocs) {
       const hit = checkContent(heredoc.body);

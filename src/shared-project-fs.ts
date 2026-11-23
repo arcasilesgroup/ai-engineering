@@ -309,3 +309,30 @@ export function pruneEmptyDirectoryWithin(root: string, directory: string): bool
     return false;
   }
 }
+
+/** A regular file's text, refusing a symlink: a link planted on state the guards keep
+ *  would otherwise be followed into whatever the session points it at. Null when absent. */
+export function readNoFollowFile(path: string): string | null {
+  let descriptor: number;
+  try {
+    descriptor = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+  try {
+    return readFileSync(descriptor, "utf8");
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+/** Replace a file's text, owner-only, refusing to write through a symlink. */
+export function writeNoFollowFile(path: string, content: string): void {
+  const descriptor = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0), 0o600);
+  try {
+    writeSync(descriptor, content);
+  } finally {
+    closeSync(descriptor);
+  }
+}

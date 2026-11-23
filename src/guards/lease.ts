@@ -18,7 +18,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { loadConfig } from "../env.ts";
 import type { Payload } from "../payload.ts";
 import type { GuardResult } from "./no-verify.ts";
-import { commandIndex, inlineShellPrograms, shellSegments, shellWords } from "./shell.ts";
+import { commandIndex, fileRedirectTargets, inlineShellPrograms, shellSegments, shellWords } from "./shell.ts";
 
 const MINUTE_MS = 60 * 1000;
 const FILE_WRITES = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
@@ -100,13 +100,7 @@ function gitWriteDirs(command: string, cwd: string): string[] {
     const at = commandIndex(values);
     const name = values[at];
     if (name === "cd" || name === "pushd") {
-      const target = words[at + 1];
-      // `cd` alone, `cd -`, a path with `$x`/`*`/`?` in it, or one that starts with `~`: a place
-      // this reading cannot name. A `~` later in the word is a plain letter (`RUNNER~1`, the
-      // short name Windows gives its temp folder); the shell expands only a leading one.
-      const isPlain = target !== undefined && values.length === at + 2 && !/[$*?]/.test(target.unquoted) && !target.unquoted.startsWith("~") && target.value !== "-";
-      if (isCdSure && isPlain && existsSync(resolve(dir, target.value))) dir = resolve(dir, target.value);
-      else if (isCdSure) dir = cwd;
+      dir = nextDir(dir, cwd, isCdSure, words, at);
       continue;
     }
     if (name === undefined || !/(^|[\\/])git(\.exe)?$/.test(name)) continue;
@@ -128,6 +122,9 @@ const SHELL_DEST_WRITERS = new Set(["cp", "mv"]);
 function nextDir(dir: string, cwd: string, isCdSure: boolean, words: ReturnType<typeof shellWords>, at: number): string {
   const values = words.map((word) => word.value);
   const target = words[at + 1];
+  // `cd` alone, `cd -`, a path with `$x`/`*`/`?` in it, or one that starts with `~`: a place
+  // this reading cannot name. A `~` later in the word is a plain letter (`RUNNER~1`, the
+  // short name Windows gives its temp folder); the shell expands only a leading one.
   const isPlain = target !== undefined && values.length === at + 2 && !/[$*?]/.test(target.unquoted) && !target.unquoted.startsWith("~") && target.value !== "-";
   if (isCdSure && isPlain && existsSync(resolve(dir, target.value))) return resolve(dir, target.value);
   return isCdSure ? cwd : dir;
@@ -151,15 +148,8 @@ function shellWriteDirs(command: string, cwd: string): string[] {
       dir = nextDir(dir, cwd, isCdSure, plain, at);
       continue;
     }
-    for (let index = 0; index < words.length; index++) {
-      const word = words[index]!;
-      if (!word.isOperator || !word.value.includes(">") || word.value.includes("&")) continue;
-      const target = words[index + 1];
-      if (target === undefined || target.isOperator) continue;
-      // `2>&1` and `>&-` copy or close a descriptor. The `&` stays on the target word.
-      if (/^\d+$/.test(target.value) || target.value === "-" || target.value.startsWith("&") || target.value.startsWith("/dev/")) continue;
-      if (/[$`*?[]/.test(target.unquoted)) continue;
-      dirs.push(dirname(resolve(dir, target.value)));
+    for (const target of fileRedirectTargets(words)) {
+      if (!/[$`*?[]/.test(target.unquoted)) dirs.push(dirname(resolve(dir, target.value)));
     }
     const args = plain.slice(at + 1);
     const nonFlagPaths = args.filter((word) => !word.value.startsWith("-") && !word.value.startsWith("/dev/") && !/[$`*?[]/.test(word.unquoted));
