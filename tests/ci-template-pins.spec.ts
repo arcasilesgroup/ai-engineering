@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "..");
 const TEMPLATE = resolve(ROOT, "templates/ci.yml.tpl");
@@ -30,7 +30,7 @@ function templateToolPin(tool: string, source: string = template): string {
 }
 
 function aiEngVersion(source: string): string {
-  return source.match(/^ {2}AI_ENG_VERSION: (v\d+\.\d+\.\d+)$/m)?.[1] ?? "";
+  return source.match(/^ {2}AI_ENG_VERSION: (v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/m)?.[1] ?? "";
 }
 
 function toolchainToolPin(prefix: string): string {
@@ -114,17 +114,27 @@ const templateIn = (root: string, file: string): string => readFileSync(join(roo
 const withoutPinValue = (text: string): string => text.replace(/^( *AI_ENG_VERSION: )v\S+$/m, "$1<value>");
 
 describe("the version bump rewrites the template pins", () => {
-  test("both templates follow a bumped package.json, and nothing else is touched", () => {
-    const root = scratchTree("9.9.9");
-    const before = PINNED_TEMPLATES.map((file) => templateIn(root, file));
-    const run = runSync(root);
-    expect(run.stderr).toBe("");
-    expect(run.status).toBe(0);
-    PINNED_TEMPLATES.forEach((file, index) => {
-      const after = templateIn(root, file);
-      expect(aiEngVersion(after)).toBe("v9.9.9");
-      expect(withoutPinValue(after)).toBe(withoutPinValue(before[index] ?? ""));
+  for (const version of ["9.9.9", "3.3.0-rc.1"]) {
+    test(`both templates follow a bumped package.json (${version}), and nothing else is touched`, () => {
+      const root = scratchTree(version);
+      const before = PINNED_TEMPLATES.map((file) => templateIn(root, file));
+      const run = runSync(root);
+      expect(run.stderr).toBe("");
+      expect(run.status).toBe(0);
+      PINNED_TEMPLATES.forEach((file, index) => {
+        const after = templateIn(root, file);
+        expect(aiEngVersion(after)).toBe(`v${version}`);
+        expect(withoutPinValue(after)).toBe(withoutPinValue(before[index] ?? ""));
+      });
     });
+  }
+
+  test("the pin is read whole, so a pin that names another version is still rejected", () => {
+    const pinned = (value: string): string => `env:\n  AI_ENG_VERSION: ${value}\n`;
+    expect(aiEngVersion(pinned("v3.3.0-rc.1"))).toBe("v3.3.0-rc.1");
+    expect(aiEngVersion(pinned("v3.3.0-rc.1"))).not.toBe("v3.3.0");
+    expect(aiEngVersion(pinned("v3.3.0"))).not.toBe("v3.3.0-rc.1");
+    expect(aiEngVersion(pinned("3.3.0"))).not.toBe("v3.3.0");
   });
 
   test("a second run writes nothing", () => {
@@ -146,15 +156,63 @@ describe("the version bump rewrites the template pins", () => {
     expect(run.stderr).toContain(orphan);
     expect(run.stderr).toContain("AI_ENG_VERSION");
   });
+});
 
-  // The fix is only a fix if the release runs it: the version workflow has to invoke the
-  // script that syncs, in the same command that bumps, or the pin drifts again next release.
-  test("the version workflow runs the sync in the same command that bumps the version", () => {
-    const workflow = readFileSync(resolve(ROOT, ".github/workflows/version.yml"), "utf8");
-    const { scripts } = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
-    const versionScript = workflow.match(/^\s*version-script: (.+)$/m)?.[1]?.trim() ?? "(none)";
-    const versionPackages = scripts[versionScript.replace(/^bun run /, "")] ?? "(none)";
-    expect(versionPackages).toContain("changeset version");
-    expect(versionPackages).toContain("scripts/sync-ci-template-pins.ts");
-  });
+// The fix is only a fix if the release runs it. The command comes from the changesets/action
+// step's `version-script` input (the input name is the action's published contract) and runs
+// for real in a scratch tree: one pending patch changeset, so semver says the bump lands on
+// 9.9.9 (or 9.9.9-rc.0 in `rc` pre mode), and both pins must name it afterwards.
+type WorkflowStep = { uses?: string; with?: Record<string, string> };
+type Workflow = { jobs: Record<string, { steps?: WorkflowStep[] }> };
+
+function versionCommand(): string {
+  const workflow = Bun.YAML.parse(readFileSync(resolve(WORKFLOWS, "version.yml"), "utf8")) as Workflow;
+  const steps = Object.values(workflow.jobs).flatMap((job) => job.steps ?? []);
+  const changesets = steps.find((step) => step.uses?.startsWith("changesets/action@"));
+  return changesets?.with?.["version-script"] ?? "changeset version";
+}
+
+function releaseTree(preTag?: string): string {
+  const root = mkdtempSync(join(tmpdir(), "ci-template-release-"));
+  scratchRoots.push(root);
+  const { name, scripts } = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8")) as {
+    name: string;
+    scripts: Record<string, string>;
+  };
+  writeFileSync(join(root, "package.json"), JSON.stringify({ name, version: "9.9.8", scripts }, null, 2));
+  mkdirSync(join(root, ".changeset"));
+  writeFileSync(join(root, ".changeset/config.json"), JSON.stringify({ changelog: false, commit: false, baseBranch: "main" }));
+  writeFileSync(join(root, ".changeset/bump.md"), `---\n"${name}": patch\n---\n\nbump\n`);
+  if (preTag) {
+    writeFileSync(
+      join(root, ".changeset/pre.json"),
+      JSON.stringify({ mode: "pre", tag: preTag, initialVersions: { [name]: "9.9.8" }, changesets: [] }),
+    );
+  }
+  for (const dir of ["templates", "scripts"]) mkdirSync(join(root, dir));
+  for (const file of [...PINNED_TEMPLATES, "scripts/sync-ci-template-pins.ts", "scripts/release-flags.ts"]) {
+    copyFileSync(resolve(ROOT, file), join(root, file));
+  }
+  symlinkSync(resolve(ROOT, "node_modules"), join(root, "node_modules"), "dir");
+  return root;
+}
+
+describe("the version workflow bumps the version and the pins in one command", () => {
+  for (const { preTag, expected } of [
+    { preTag: undefined, expected: "9.9.9" },
+    { preTag: "rc", expected: "9.9.9-rc.0" },
+  ]) {
+    test(`a pending patch changeset lands as ${expected} in package.json and both pins`, () => {
+      const root = releaseTree(preTag);
+      const run = spawnSync("sh", ["-c", versionCommand()], {
+        cwd: root,
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${dirname(process.execPath)}${delimiter}${process.env.PATH ?? ""}` },
+      });
+      expect(run.status).toBe(0);
+      const { version } = JSON.parse(templateIn(root, "package.json")) as { version: string };
+      expect(version).toBe(expected);
+      for (const file of PINNED_TEMPLATES) expect(aiEngVersion(templateIn(root, file))).toBe(`v${expected}`);
+    });
+  }
 });
