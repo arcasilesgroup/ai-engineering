@@ -18,7 +18,7 @@ import { SURFACES, surfaceCanGovern, machineCarrier, retireNpmPowerShellShim } f
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
 import { canonicalSurfaceId, home, isCiProvider, CI_PROVIDERS, type CiProvider } from "../env.ts";
-import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine, refuseText, AZURE_PORTAL_STEPS, CI_PICK_MESSAGE, ciOptions, isLegacyHooksPath } from "./init-shared.ts";
+import { planEntries, contractEntries, hasAdapter, advisoryRefusal, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine, refuseText, AZURE_PORTAL_STEPS, CI_PICK_MESSAGE, ciOptions, isLegacyHooksPath } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
 import { retiredPaths, sweepRetiredAssets } from "./uninstall.ts";
@@ -294,7 +294,7 @@ function validateSurfaces(picked: string[]): number | null {
       return 2;
     }
     if (!surfaceCanGovern(surface)) {
-      ui.fail(`"${id}" cannot deny tools: the guards have nowhere to run. Use a core surface.`);
+      ui.fail(advisoryRefusal(id));
       return 2;
     }
     if (!hasAdapter(id)) {

@@ -529,12 +529,32 @@ describe("installer: the files a user shares with us", () => {
     expect(stripSharedText(current)).toBe(restored);
   });
 
+  test("an agy hooks.json a user shared round-trips back to their own named hooks", () => {
+    // agy's file is a map of NAMED hooks with no top-level `hooks` key. The contract is the
+    // file the user had before init: the guarded entries go, their `herdr` hook stays, and no
+    // empty `"ai-eng-guard": {}` stub is left behind.
+    const userFile = `${JSON.stringify({
+      herdr: { PreInvocation: [{ matcher: "*", hooks: [{ type: "command", command: "herdr notify" }] }] },
+    }, null, 2)}\n`;
+    const merged = mergeSharedText(userFile, carrierFiles("agy")!.main);
+    expect("refused" in merged).toBe(false);
+    if ("refused" in merged) return;
+    // The merged line names this machine's launcher, joined to its fail-soft guard by the
+    // separator this OS's shell parses: `;` in sh, `&` in cmd.exe.
+    const guardEnd = process.platform === "win32" ? ") & " : "}; ";
+    expect(merged.text).toContain(`${guardEnd}${MACHINE_CHAIN} PreToolUse --surface agy`);
+    expect(merged.text).toContain("herdr notify");
+
+    expect(stripSharedText(merged.text)).toBe(userFile);
+  });
+
   test("recognizes every exact hook command from the embedded settings templates", () => {
     const generatedCommands = new Set<string>();
     for (const path of embeddedUnder("templates/settings.").keys()) {
       if (!path.endsWith(".json.tpl")) continue;
       const settings = JSON.parse(embeddedTemplate(path.slice("templates/".length))) as { hooks?: unknown };
-      collectTemplateCommands(settings.hooks, generatedCommands);
+      // Walk the WHOLE template: agy's hooks.json has no top-level `hooks` key.
+      collectTemplateCommands(settings, generatedCommands);
     }
 
     expect(generatedCommands.size).toBeGreaterThan(0);
@@ -1761,7 +1781,7 @@ describe("installCanon and what leaves with it", () => {
     expect(readdirSync(dotfiles)).toEqual(["mine.md"]);
   });
 
-  test("installCanon writes the canon, the three mirrors and one slash command per skill", () => {
+  test("installCanon writes the canon, the four mirrors and one slash command per skill", () => {
     const base = useHome("canon");
     // A skill of our own, whose description is folded YAML, and one with a description long
     // enough to be cut at a word boundary.
@@ -1999,10 +2019,10 @@ describe("installCanon and what leaves with it", () => {
       (entry) => entry.isDirectory() && !entry.name.startsWith("."),
     );
     const commands = readdirSync(join(base, ".config", "opencode", "commands")).length;
-    // Every skill in the canon is linked into each of the three mirrors — the real
+    // Every skill in the canon is linked into each of the four mirrors — the real
     // directory of theirs in `.claude/skills` is neither replaced nor counted — and every
     // skill also left one slash command.
-    expect(removeMachineArtifacts()).toBe(canonDirs.length * 3 + commands);
+    expect(removeMachineArtifacts()).toBe(canonDirs.length * 4 + commands);
 
     for (const target of mirrorTargets()) {
       const left = existsSync(target.dir) ? readdirSync(target.dir) : [];

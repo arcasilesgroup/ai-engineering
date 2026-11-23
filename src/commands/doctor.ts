@@ -16,7 +16,7 @@ import {
   type ReceiptSummary,
 } from "../receipts.ts";
 import { parseLock } from "../install.ts";
-import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, hookLauncher, isOnPath } from "../surfaces/adapters.ts";
+import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, hookLauncher, isOnPath, surfaceEnforcement } from "../surfaces/adapters.ts";
 import { machineStateUnavailable, readMachineState } from "../surfaces/machine-state.ts";
 import { refuseText } from "./init-shared.ts";
 import { VERSION, compareVersions } from "../version.ts";
@@ -27,6 +27,8 @@ import * as ui from "../ui.ts";
 export type CheckResult = { readonly name: string; readonly status: "ok" | "warn" | "fail"; readonly detail: string };
 
 const CEILING_MS = 50;
+const FRICTION_BUDGET_PER_1000 = 50;
+const MIN_FRICTION_SAMPLE = 10;
 
 
 function checkAgents(root: string | null): CheckResult {
@@ -256,11 +258,9 @@ function denySpike(live: ReceiptSummary | null): { last7: number; prior7: number
   return { last7, prior7, guard: top };
 }
 
-function checkReceipts(root?: string | null): CheckResult {
+function checkReceipts(dir: string | null, summary: ReceiptSummary): CheckResult {
   // 7. receipts aggregate vs budget — four numbers plus the top denier, the
   // ledger's repeats and the 7-day deviation, all on the same line.
-  const dir = receiptsDir(root);
-  const summary = summarizeReceipts(dir ?? undefined);
   let detail = `last ${RECEIPT_HEALTH_WINDOW_DAYS}d: ${summary.total} runs · ${summary.denies} denies · p50 ${summary.p50}ms · p95 ${summary.p95}ms (ceiling ${CEILING_MS})`;
   if (summary.denies > 0) {
     const topOf = (m: Record<string, number>) => Object.entries(m).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "-";
@@ -283,6 +283,18 @@ function checkReceipts(root?: string | null): CheckResult {
   const spike = denySpike(dir === null ? null : summary);
   if (spike) detail += ` · spike ${spike.last7} vs ${spike.prior7} the week before (${spike.guard})`;
   return { name: "receipts", status: summary.p95 <= CEILING_MS && spike === null ? "ok" : "warn", detail };
+}
+
+function checkFriction(summary: ReceiptSummary): CheckResult {
+  // 7b. friction rate: denies per 1000 real chain calls + false-positive count, so a
+  // 50% deny rate or labelled false positives can never pass silently under latency-only checks.
+  const overRate = summary.friction_calls >= MIN_FRICTION_SAMPLE && summary.denies_per_1000 > FRICTION_BUDGET_PER_1000;
+  const hasFalsePositives = summary.false_positives > 0;
+  let detail = `${summary.denies_per_1000} denies/1000 (${summary.friction_denies}/${summary.friction_calls} calls · ${summary.false_positives} false positives)`;
+  if (overRate || hasFalsePositives) {
+    detail += ` · over budget (${FRICTION_BUDGET_PER_1000}/1000, 0 false positives)`;
+  }
+  return { name: "friction", status: overRate || hasFalsePositives ? "warn" : "ok", detail };
 }
 
 function checkOverrides(root: string | null): CheckResult {
@@ -481,6 +493,11 @@ function checkSurfaces(root: string | null, surfaces: string[]): CheckResult[] {
     // The row's own caveat, from one place: the surface's measured `note` field,
     // not a substring guess by the row printer.
     if (surface.note !== undefined) parts.push(surface.note);
+    // The enforced / advisory split closes the row: the note is the explanation, this is
+    // the verdict, and the same column the capability matrix
+    // (docs/surface-capability-matrix.md) records. A surface that only observes — or only
+    // denies through the host's own permissions — is advisory, not enforced.
+    parts.push(surfaceEnforcement(surface) === "enforced" ? "enforced" : "advisory");
     rows.push({ name: `surface ${id}`, status, detail: parts.join(" · ") });
   }
   return rows;
@@ -548,7 +565,10 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   const allowlist = checkSecretsAllowlist(root);
   if (allowlist) results.push(allowlist);
   results.push(checkChainTest(gap));
-  results.push(checkReceipts(root));
+  const dir = receiptsDir(root);
+  const receiptSummary = summarizeReceipts(dir ?? undefined);
+  results.push(checkReceipts(dir, receiptSummary));
+  results.push(checkFriction(receiptSummary));
   results.push(checkOverrides(root));
   results.push(checkArch(root));
   results.push(checkSpecSlot(root));

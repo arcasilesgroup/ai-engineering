@@ -78,18 +78,33 @@ export function allowRewrite(command: string, dialect: Dialect = "claude", event
  *  is read as a policy error and the call is refused: a permitted call that reads as a
  *  failure, which this branch exists to prevent.
  *  Codex documents silence with exit 0 as success, and Claude, Pi and the in-process
- *  hosts never read stdout for an allow — so they get nothing there, on purpose. A review
- *  is an allow carrying a note, and a note no host renders is not a verdict: the dialect
- *  that renders one on the envelope gets it there, every other dialect gets the same line
- *  on stderr, which is where the CLI already speaks to the person. */
-export function allow(dialect: Dialect = "claude", note?: string): void {
-  const message = note === undefined ? undefined : `[ai-eng] ${note.replace(/[\r\n]/g, " ")}`;
-  if (dialect !== "cursor") {
-    if (message !== undefined) process.stderr.write(`${message}\n`);
+ *  hosts never read stdout for an allow — so they get nothing there, on purpose. The note a
+ *  review carries is not delivered here: `review` below speaks it, on stderr and on the
+ *  channel each host actually renders. */
+export function allow(dialect: Dialect = "claude"): void {
+  if (dialect !== "cursor") return;
+  process.stdout.write(`${JSON.stringify({ permission: "allow" })}\n`);
+}
+
+/** The annotated-allow envelope (review): allows the call to proceed while surfacing the
+ *  one-line annotation in both stderr and the host's own JSON context channel, so a
+ *  review verdict is never dropped into silence or misread as a Cursor refusal. */
+export function review(guard: string, message: string, dialect: Dialect = "claude", event = "PreToolUse"): void {
+  const text = `[ai-eng] ${guard}: ${message}`.replace(/[\r\n]/g, " ");
+  process.stderr.write(`${text}\n`);
+  if (dialect === "codex") {
+    process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: event, permissionDecision: "allow", additionalContext: text } })}\n`);
     return;
   }
-  const envelope = message === undefined ? { permission: "allow" } : { permission: "allow", user_message: message, agent_message: message };
-  process.stdout.write(`${JSON.stringify(envelope)}\n`);
+  if (dialect === "cursor") {
+    process.stdout.write(`${JSON.stringify({ permission: "allow", agent_message: text })}\n`);
+    return;
+  }
+  if (dialect === "copilot") {
+    process.stdout.write(`${JSON.stringify({ permissionDecision: "allow", permissionDecisionReason: text })}\n`);
+    return;
+  }
+  process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } })}\n`);
 }
 
 export type Override = { name: string; reason: string; until?: string };

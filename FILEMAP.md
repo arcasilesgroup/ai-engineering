@@ -16,6 +16,7 @@ brand/
   gallery.html.tpl             The reference page: every component live, its markup and its do and don't
 docs/
   global-carriers.md           Host carrier paths and their machine/repository scope
+  surface-capability-matrix.md What each host can enforce, measured; the table doctor and the README follow
   history/                     Records, never rewritten: the early blueprint, the recap, the learnings log
 .changeset/
   <slug>.md                    Pending package version and release summary

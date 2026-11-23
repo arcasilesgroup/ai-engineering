@@ -7,12 +7,14 @@ A carrier is the file a host reads to reach `ai-eng chain`. Machine-side carrier
 Carrier paths, scopes, kinds, evidence sources and measurement dates live in the
 [canonical surface registry](../src/surfaces/surfaces.json). Update that file when host
 evidence changes; this guide covers the installation behavior around those declarations.
+`self-protect` derives the carrier paths it defends from the same declarations, in both
+scopes, so a carrier added there is agent-unwritable without a second list to fall behind.
 
-Machine paths are relative to the base every machine-side path hangs off (`machineBase()` in `src/surfaces/adapters.ts`): the physical home by default, or the alternate base supplied by `AI_ENG_HOME`. A test install must never rewrite the real `~/.claude`, `~/.omp`, `~/.pi` or `~/.config`.
+Machine paths are relative to the base every machine-side path hangs off (`machineBase()` in `src/surfaces/adapters.ts`): the physical home by default, or the alternate base supplied by `AI_ENG_HOME`. A test install must never rewrite the real `~/.claude`, `~/.omp`, `~/.pi`, `~/.config` or `~/.gemini`.
 
 When `PI_CODING_AGENT_DIR` is set, Oh My Pi and Pi carriers are placed under that host-provided agent directory instead of the default `.omp/agent` or `.pi/agent` path.
 
-`chain` is a second file that must sit beside the entry: hosts that run the carrier in-process import the chain from it. The OMP bundle is dot-prefixed because the host's hook scanner loads every `*.ts` in that directory. `carrierFiles(id, scope)` decides whether a surface has a generator at all — no adapter, no offer — and `init` refuses a surface that cannot carry a required guard (`surfaceCanGovern`).
+`chain` is a second file that must sit beside the entry: hosts that run the carrier in-process import the chain from it. The OMP bundle is dot-prefixed because the host's hook scanner loads every `*.ts` in that directory. `carrierFiles(id, scope)` decides whether a surface has a generator at all. A generator is not an offer on its own: `surfaceOptions()` in `src/commands/init-shared.ts` lists a surface only when it also has a hook of ours that can judge the host (`surfaceCanGovern`), and `init` and `config --add` refuse the rest with `advisoryRefusal`, the one sentence both entry points share: it names a README section, because the shipped package carries no `docs/`, and it points at [the capability matrix](surface-capability-matrix.md) as the repository-side detail for the reader who has the checkout.
 
 ## How a carrier is written
 
@@ -41,6 +43,8 @@ Three questions, and they are separate on purpose.
 | `surface <id>` (check 11, row a) | the machine carrier: is it where that host actually reads, and is it the one this binary ships? | missing (fail on core, warn otherwise) · `module` bytes that do not match the shipped ones (warn) · `settings` with no ai-eng entries (warn) |
 | `surface <id>` (check 11, row b) | the repo carrier: for the hosts whose readers live in the checkout, is their carrier in the repo? | present, or missing (fail, warn for best-effort) |
 | `machine state` (check 11b) | which binary wrote the carriers, and is this one older than that record? | a downgrade warns; a changed definition warns and names the surfaces |
+
+Every `surface <id>` row ends with `enforced` or `advisory`, from `surfaceEnforcement` in `src/surfaces/adapters.ts`; [the capability matrix](surface-capability-matrix.md) records why, host by host.
 
 Existence is not enough for check 11, row a: a carrier counts only where its host reads it. Row b checks the repository declaration. A downgrade also warns because the older binary may not provide the chain the carrier calls. Codex re-asks for trust in `/hooks` after any byte change, so a changed definition is the only way to know that happened. A surface with no carrier row gets `no carrier: guard wiring is not implemented for this host`.
 
@@ -81,6 +85,6 @@ The HTML page shells (`templates/*.html.tpl`) are not carriers. Install copies e
 ## Adding a new surface
 
 1. A measured declaration in [`src/surfaces/surfaces.json`](../src/surfaces/surfaces.json). A surface with no carrier can still be valid; `init` refuses it when it cannot provide a required guard.
-2. `carrierFiles(id, scope)` in `src/surfaces/adapters.ts`: a case returning the entry template and, for an in-process host, the chain bundle. No case means no adapter, and no offer at init.
+2. `carrierFiles(id, scope)` in `src/surfaces/adapters.ts`: a case returning the entry template and, for an in-process host, the chain bundle. No case means no adapter, and no offer at init — and a case alone is not enough: the picker, `init` and `config --add` also require that a hook of ours can judge the host (`surfaceCanGovern`), so a host that only observes is declared and refused (`advisoryRefusal`) instead of offered.
 3. A template under `templates/` (`settings.<id>.json.tpl` for a settings host, `plugin.<id>.ts.tpl` for a module host). The binary carries `templates/` as it is, so the new file ships with the next build.
 4. A load proof. A path is declared when the host loads it, not when it exists: add a proof script alongside `scripts/proof-cli-ux.sh` — drive the host's own loader, assert the handler blocks, and check the receipt the chain wrote.

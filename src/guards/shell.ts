@@ -29,6 +29,7 @@ export type ShellSegment = {
   text: string;
   isAfterPipe: boolean;
   opensSubstitution: boolean;
+  isInSubstitution: boolean;
   isProcessSubstitution: boolean;
   /** Heredoc bodies this segment reads on stdin: data to `cat`, code to `bash`. A literal
    *  body (quoted delimiter) is exactly what was written; an unquoted one expands. */
@@ -190,7 +191,18 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
     const isolate = isIsolated || isAfterPipe;
     const segScope = isolate ? ++nextScope : scope;
     const segParent = isolate ? scope : (scopeParents.get(scope) ?? 0);
-    segments.push({ text: current, isAfterPipe, opensSubstitution: current.includes(SUBSTITUTION), isProcessSubstitution, heredocs, substitutions, scope: segScope, parentScope: segParent, isConditional: currentConditional() });
+    segments.push({
+      text: current,
+      isAfterPipe,
+      opensSubstitution: current.includes(SUBSTITUTION),
+      isInSubstitution: nesting.length > 0,
+      isProcessSubstitution,
+      heredocs,
+      substitutions,
+      scope: segScope,
+      parentScope: segParent,
+      isConditional: currentConditional(),
+    });
     current = "";
     isAfterPipe = nextIsAfterPipe;
     isProcessSubstitution = false;

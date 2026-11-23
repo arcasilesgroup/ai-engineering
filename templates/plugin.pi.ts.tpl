@@ -39,7 +39,11 @@ export default function (pi: ExtensionAPI): void {
       // with the reason instead of the injected text reaching the model.
       return { content: [{ type: "text", text: `[ai-eng] ${outcome.by}: ${outcome.reason}` }], isError: true };
     }
-    if (outcome.action === "review") process.stderr.write(`[ai-eng] ${outcome.by}: ${outcome.reason}\n`);
+    if (outcome.action === "review") {
+      const note = `[ai-eng] ${outcome.by}: ${outcome.reason}`;
+      process.stderr.write(`${note}\n`);
+      return { content: [{ type: "text", text: note }, ...event.content] };
+    }
     return;
   });
 }

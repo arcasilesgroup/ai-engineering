@@ -588,7 +588,8 @@ describe("init · initMain, phase 1 and phase 2", () => {
     mkdirSync(join(cwd, ".git"));
     const { result, out } = await capture(() => initMain({ yes: true, surface: ["zed"] }));
     expect(result).toBe(2);
-    expect(out).toContain('"zed" cannot deny tools');
+    expect(out).toContain('"zed" is advisory only: no hook of ours judges its calls yet');
+    expect(out).not.toContain("cannot deny tools");
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(false);
     expect(existsSync(join(cwd, ".ai-engineering", "config.toml"))).toBe(false);
   });

@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { hasAdapter } from "../src/commands/init-shared.ts";
-import { SURFACES } from "../src/surfaces/adapters.ts";
+import { SURFACES, surfaceCanGovern } from "../src/surfaces/adapters.ts";
 
 const WORKFLOW = ".github/workflows/ai-eng-check.yml";
 const PIPELINE = ".azure-pipelines/ai-eng-check.yml";
@@ -43,8 +43,10 @@ function init(surface: string, dir: string, extra: string[] = []): { status: num
   return { status: run.status, stderr: run.stderr ?? "" };
 }
 
-test("every surface with an adapter receives the workflow", () => {
-  const governing = SURFACES.filter((surface) => hasAdapter(surface.id));
+test("every surface init can enable receives the workflow", () => {
+  // Enabling a surface takes an adapter AND a hook of ours to run: `agy` ships the first and
+  // not the second, and init refuses it, so it is not one of these.
+  const governing = SURFACES.filter((surface) => hasAdapter(surface.id) && surfaceCanGovern(surface));
   expect(governing.length).toBeGreaterThan(1);
   for (const surface of governing) {
     const dir = join(sandbox, "repos", surface.id);

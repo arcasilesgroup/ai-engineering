@@ -12,11 +12,12 @@
 // and breaks the loop it governs. What stays protected is the machinery a session could
 // use to unpin, unhook or re-date itself.
 
-import { basename, isAbsolute, join, parse, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, parse, resolve, sep } from "node:path";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
+import surfacesJson from "../surfaces/surfaces.json";
 import { applySegmentAssignments, applySegmentMutations, commandIndex, createVariableScope, jsonToolOperands, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, substituteVariables, variablesForSegment } from "./shell.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
@@ -409,6 +410,31 @@ function isAncestorOfProtected(paths: ProtectedPaths, candidate: string): boolea
   });
 }
 
+/** Targets that discard or duplicate output rather than creating an executable file on disk. */
+const NON_FILE_TARGETS = new Set(["/dev/null", "/dev/stdout", "/dev/stderr", "/dev/tty", "/dev/fd/1", "/dev/fd/2"]);
+function hasRealWriteTarget(targets: readonly string[]): boolean {
+  return targets.some((target) => !NON_FILE_TARGETS.has(target));
+}
+
+/** Readers whose output carries raw file bytes (so redirecting them to a file can copy a
+ *  binary under another name). Search/metadata tools (`grep`, `ls`, `stat`, `wc`) never
+ *  emit executable binary bytes. */
+const BINARY_BYTE_READERS = new Set([
+  "cat", "dd", "head", "tail", "tee", "base64", "xxd", "od", "strings",
+  "gzip", "zcat", "bzcat", "xzcat", "tac", "nl", "fold", "fmt",
+]);
+
+function loopVariableValues(value: string, loopVariables: Map<string, string[]>): string[] {
+  const expanded: string[] = [];
+  for (const match of value.matchAll(/\$\{([A-Za-z_]\w*)\}|\$([A-Za-z_]\w*)/g)) {
+    const name = match[1] ?? match[2] ?? "";
+    const items = loopVariables.get(name);
+    if (items === undefined) continue;
+    for (const item of items) expanded.push(value.replace(match[0], item));
+  }
+  return expanded;
+}
+
 // ponytail: reads the shell the way bash does, segment by segment, and refuses what it
 // cannot read (decode → shell, curl | sh, <(…), eval, a computed verb or target) or what
 // names a governed path from a verb that is not a known reader. A general-purpose
@@ -451,6 +477,14 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
     const verb = verbOf(plain);
     return { segment, words, plain, writeTargets, inputs, verb, name: verb.name.toLowerCase(), args: plain.slice(verb.index + 1), argIsExpanded: isExpanded.slice(verb.index + 1) };
   });
+  // Track `for <var> in <items...>` headers so non-reader body commands referencing `$var`
+  // are still judged against the paths the loop iterates over.
+  const loopVariables = new Map<string, string[]>();
+  for (const { name, args } of parsed) {
+    if (name === "for" && args.length >= 2 && /^[A-Za-z_]\w*$/.test(args[0]!) && args[1] === "in") {
+      loopVariables.set(args[0]!, args.slice(2));
+    }
+  }
   // Every directory a `cd` in this command can land in is a base for the relative paths
   // after it; a directory computed at run time makes those paths unknowable.
   let hasUnknownBase = false;
@@ -471,7 +505,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
     return hit ?? (isLiteral ? null : globNamesProtected(word, bases, context.paths));
   };
   const isRelative = (word: string): boolean => !isAbsolute(expandTilde(word)) && !word.startsWith("-");
-  for (const [position, { segment, words, plain, writeTargets, inputs, verb, name, args, argIsExpanded }] of parsed.entries()) {
+  for (const [segmentIndex, { segment, words, plain, writeTargets, inputs, verb, name, args, argIsExpanded }] of parsed.entries()) {
     // Judged as written, before substitution: `IFS=,; c=rm,x; $c` is still a computed verb.
     const verbWord = words.find((word) => !word.isOperator && word.value === plain[verb.index]);
     const rawVerb = verbWord?.original ?? "";
@@ -500,7 +534,22 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       return "an encoded PowerShell command hides what it runs";
     }
     if (plain.slice(0, verb.index).some((word) => /^(?:BASH_ENV|ENV)=/.test(word))) return "BASH_ENV sources a file the guards cannot read";
-    if (name === "base64" && args.some((arg) => /^(?:-d|-D|--decode)$/.test(arg))) return "decoding base64 hides the command it carries";
+    if (name === "base64" && args.some((arg) => /^(?:-d|-D|--decode)$/.test(arg))) {
+      // Decoding to stdout (or into read-only display filters like head/jq/grep) is inspection,
+      // not execution. Piping into a shell/writer, writing to a file, or decoding inside
+      // command substitution stays denied.
+      const hasOutputOption = args.some((arg) => OUTPUT_OPTION.test(arg) || ATTACHED_OUTPUT.test(arg));
+      let downstreamIsReadOnly = true;
+      for (let next = segmentIndex + 1; next < parsed.length && parsed[next]!.segment.isAfterPipe; next++) {
+        const stage = parsed[next]!;
+        if (!isReader(stage.name, stage.args) || hasRealWriteTarget(stage.writeTargets)) {
+          downstreamIsReadOnly = false;
+          break;
+        }
+      }
+      const isDisplayOnly = !segment.isInSubstitution && !hasRealWriteTarget(writeTargets) && !hasOutputOption && downstreamIsReadOnly;
+      if (!isDisplayOnly) return "decoding base64 hides the command it carries";
+    }
     if (name === "apply_patch") {
       const isReadable = segment.heredocs.length > 0 && segment.heredocs.every(({ body, isLiteral }) => {
         try {
@@ -531,7 +580,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
         const flagScript = args.some((arg) => arg === "-e" || arg === "-f" || /^-[A-Za-z]*[ef]/.test(arg));
         if (inplace || !hasScript || flagScript) return "xargs sed takes its script and -i from stdin";
       }
-      const producer = segment.isAfterPipe ? parsed[position - 1] : undefined;
+      const producer = segment.isAfterPipe ? parsed[segmentIndex - 1] : undefined;
       const producerTexts = producer === undefined ? [] : [...producer.plain, ...producer.inputs, ...producer.segment.heredocs.map(({ body }) => body)];
       const feedsGoverned = producerTexts.map(collapseStringConcat).some((text) => [text, ...(text.match(EMBEDDED_PATH) ?? [])].some((path) => names(path) !== null));
       if (INTERPRETERS.has(name) && (args.some((arg) => inline.test(arg)) || feedsGoverned)) return "xargs feeds paths or code to an interpreter the guards cannot see";
@@ -539,23 +588,36 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
     if (DIFF_APPLIERS.has(name) || (name === "git" && ["apply", "am"].includes(gitSubcommand(args).name))) {
       return `${name} applies edits whose target files are not on the command line; use the edit tool`;
     }
-    // Any redirect counts, /dev/null included: the segment's own redirect says nothing about
-    // an enclosing `{ …; } > file`, `( … ) > file` or a `| tee file` further down the pipe.
-    const writesAFile = writeTargets.length > 0;
+    // Real file redirections (excluding /dev/null and descriptor copies), downstream pipe
+    // writers (`cat ai-eng | tee z`), or an enclosing `{ ...; } > z` redirect count as
+    // writing the binary bytes out. Search tools (`grep -l ai-eng ... 2>/dev/null`) never do.
+    let hasDownstreamWriter = false;
+    for (let next = segmentIndex + 1; next < parsed.length && parsed[next]!.segment.isAfterPipe; next++) {
+      const stage = parsed[next]!;
+      if (!isReader(stage.name, stage.args) || hasRealWriteTarget(stage.writeTargets)) {
+        hasDownstreamWriter = true;
+        break;
+      }
+    }
+    const hasEnclosingWrite = parsed.slice(segmentIndex + 1).some((later) =>
+      later.plain.length <= 1 && (later.plain[0] === "}" || later.plain[0] === undefined) && hasRealWriteTarget(later.writeTargets),
+    );
+    const copiesBytesToFile = BINARY_BYTE_READERS.has(name) && (hasRealWriteTarget(writeTargets) || hasDownstreamWriter || hasEnclosingWrite);
     // `find … -exec cp {} …` copies whatever find matched, so the package name counts there too.
     // The program -exec runs, past a wrapper such as `sudo` or `env`.
     const execProgram = (index: number): string => commandName(args.slice(index + 1).find((word) => !EXEC_WRAPPERS.has(commandName(word)) && !word.startsWith("-")) ?? "");
     const execCopies = name === "find" && args.some((arg, index) => /^-(?:exec|execdir|ok|okdir)$/.test(arg) && COPIERS.has(execProgram(index)));
     const copiesPackage = (COPIERS.has(name) || execCopies) && args.some((arg) => AI_ENG_PACKAGE.test(commandName(arg)));
     const copiesBinary = args.some((arg) => AI_ENG_COMMANDS.has(commandName(arg))) || copiesPackage;
-    if ((isWriter || writesAFile || execCopies) && copiesBinary) {
+    if ((COPIERS.has(name) || isWriter || copiesBytesToFile || execCopies) && copiesBinary) {
       return "it copies or links the ai-eng binary, which would let its verbs run under another name";
     }
     const extractTo = extractionTarget(name, args);
     if (extractTo !== null && (names(extractTo) !== null || (pathCandidates(extractTo, bases) ?? []).some((dir) => isAncestorOfProtected(context.paths, dir)))) {
       return `${name} extracts files into ${extractTo}, which holds what governs this session; extract somewhere else`;
     }
-    if (!isReader(name, args)) {
+    const isForHeader = name === "for" && args.length >= 2 && /^[A-Za-z_]\w*$/.test(args[0]!) && args[1] === "in";
+    if (!isReader(name, args) && !isForHeader) {
       const computedOutput = args.findIndex((arg, index) => (OUTPUT_OPTION.test(arg) && /[$`]/.test(args[index + 1] ?? "")) || (ATTACHED_OUTPUT.test(arg) && /[$`]/.test(arg)));
       if (computedOutput >= 0) return `${name} writes to an output path computed at run time`;
       // `git clean` empties its working directory itself: there `-C dir` is the target.
@@ -581,8 +643,9 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
         const embedded = isProse ? [] : [...scanned.matchAll(EMBEDDED_PATH)]
           .filter((match) => match[0] !== scanned && !(isLiteral && GLOB_CHARS.test(scanned[(match.index ?? 0) + match[0].length] ?? "")))
           .map((match) => match[0]);
-        for (const path of [scanned, ...embedded]) {
-          const hit = names(path, name !== "git", isLiteral);
+        const fromLoop = loopVariableValues(scanned, loopVariables);
+        for (const path of [scanned, ...embedded, ...fromLoop]) {
+          const hit = names(path, name !== "git", isLiteral && !fromLoop.includes(path));
           if (hit !== null) return `${name} names ${hit}, which governs this session, and ${name} is not a read-only command`;
         }
         if (isWriter && !workingDirs.includes(index) && (pathCandidates(arg, bases) ?? []).some((candidate) => isAncestorOfProtected(context.paths, candidate))) {
@@ -625,7 +688,11 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
 
     // ai-eng anywhere in the segment: behind nice/watch/find -exec, or fed by xargs. The
     // package name counts as the binary where it is the command (an older bin was named so).
+    // A known reader (`grep -l ai-eng /hooks/*`) only searches or prints text — it never
+    // executes a word that appears in its arguments.
+    const segmentIsReader = isReader(name, args);
     for (let index = 0; index < plain.length; index++) {
+      if (index !== verb.index && segmentIsReader) continue;
       const word = plain[index]!;
       const viaRuntime = index > 0 && isCliEntrypoint(word) && startsEntrypoint(plain.slice(0, index));
       const rest = plain.slice(index + 1).flatMap((arg) => expandBraces(arg));
@@ -712,19 +779,31 @@ function extractionTarget(name: string, args: string[]): string | null {
 }
 
 /** A glob or brace word that would expand onto a governed path (or into one), even when the
- *  file is not there yet to be found by a scan: `.git/hoo?s/pre-commit`. */
+ *  file is not there yet to be found by a scan: `.git/hoo?s/pre-commit`. Terminal roots
+ *  (`.ai-engineering`) only match at exact depth — a child glob like
+ *  `.ai-engineering/receipts/*.json` is session data, never the directory itself. */
 function globNamesProtected(word: string, bases: string[], paths: ProtectedPaths): string | null {
   if (!GLOB_CHARS.test(word) && !/\{[^}]*,/.test(word)) return null;
-  const protectedRoots = [...paths.literals, ...paths.terminal.filter((path) => isAbsolute(path))];
+  const terminalRoots = paths.terminal.filter((path) => isAbsolute(path));
   for (const pattern of expandBraces(expandTilde(word))) {
     for (const base of bases) {
       const segments = slashed(resolve(base, pattern)).toLowerCase().split("/");
-      for (const root of protectedRoots) {
+      for (const root of paths.literals) {
         const rootForm = slashed(root).toLowerCase();
         const depth = rootForm.split("/").length;
         const prefix = segments.slice(0, depth).join("/");
         try {
           if (new Bun.Glob(prefix).match(rootForm)) return root;
+        } catch {
+          return word;
+        }
+      }
+      for (const root of terminalRoots) {
+        const rootForm = slashed(root).toLowerCase();
+        const depth = rootForm.split("/").length;
+        if (segments.length !== depth) continue;
+        try {
+          if (new Bun.Glob(segments.join("/")).match(rootForm)) return root;
         } catch {
           return word;
         }
@@ -818,15 +897,48 @@ function isRestrictedCliCommand(command: string, depth = 0): boolean {
   return restrictedCommandWords(words, depth);
 }
 
+/** The carriers the registry declares for one scope, from the one table that knows where
+ *  each host reads them: a host added there is protected here, with no second list to fall
+ *  behind. Read as data so the guard never pulls the templates in. */
+function registryCarriers(scope: "repo" | "machine"): { path: string; chain?: string }[] {
+  const registry = surfacesJson as {
+    surfaces: { carriers: { scope: string; path: string; chain?: string }[] }[];
+  };
+  return registry.surfaces.flatMap((surface) => surface.carriers.filter((carrier) => carrier.scope === scope));
+}
+
+const REPO_CARRIER_PATHS: readonly string[] = registryCarriers("repo").map((carrier) => carrier.path);
+
+/** The machine carriers, entry and chain bundle alike: the bundle beside an in-process entry
+ *  is what the host loads, so a write to it ungoverns the session just as well. */
+const MACHINE_CARRIER_PATHS: readonly string[] = registryCarriers("machine")
+  .flatMap((carrier) => [carrier.path, ...(carrier.chain === undefined ? [] : [carrier.chain])]);
+
+/** The folders a host scans for its plugins: a file of ours (`ai-eng*`) sits inside one, and
+ *  the host loads every file there, so a stray file in it disables the host and the whole
+ *  folder is machinery — not just our entry. A host that files its hooks by event
+ *  (`hooks/pre`, `hooks/post`) scans the folder holding those events, so the event segment
+ *  comes off. A host's own settings file names itself and gets no folder rule. */
+const HOOK_EVENT_FOLDER = new Set(["pre", "post"]);
+
+const MACHINE_SCAN_DIRS: readonly string[] = MACHINE_CARRIER_PATHS
+  .filter((path) => basename(path).startsWith("ai-eng"))
+  .map((path) => dirname(path))
+  .map((folder) => (HOOK_EVENT_FOLDER.has(basename(folder)) ? dirname(folder) : folder));
+
+/** The settings files this install wires, per surface (derived from what install
+ *  wrote; the on-disk check keeps an uninstall from leaving ghosts). */
 function surfacesSettings(repoRoot: string): string[] {
-  // The settings files this install wires, per surface (derived from what install
-  // wrote; the on-disk check keeps an uninstall from leaving ghosts).
   const out: string[] = [];
   const candidates = [
     join(repoRoot, ".claude", "settings.json"),
     join(repoRoot, ".opencode", "plugins", "ai-eng.ts"),
     join(repoRoot, ".agents", "hooks", "ai-eng.ts"),
+    ...REPO_CARRIER_PATHS.map((path) => join(repoRoot, path)),
   ];
+  // The file only: the ancestor rule already denies deleting or renaming the folder that
+  // holds it, while a literal for that folder would deny the project's own files beside it
+  // (`.cursor/rules/x.mdc`, `.claude/agents/x.md`) that are not machinery at all.
   for (const path of candidates) if (existsSync(path)) out.push(path);
   return out;
 }
@@ -873,8 +985,9 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   literals.push(join(machineBase(), ".claude", "skills"));
   literals.push(join(machineBase(), ".agents", "skills"));
   literals.push(join(machineBase(), ".config", "opencode", "skill"));
+  literals.push(join(machineBase(), ".gemini", "config", "skills"));
   literals.push(globalHome);
-  for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".config/opencode/ai-eng", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json", ".gitconfig", ".config/git/config"]) {
+  for (const carrier of [...MACHINE_CARRIER_PATHS, ...MACHINE_SCAN_DIRS, "machine.json", ".gitconfig", ".config/git/config"]) {
     literals.push(join(machineBase(), carrier));
   }
   if (!repoRoot) return { literals: literals.filter((p) => p.length > 0), specPinned: false, terminal: [] };
@@ -969,6 +1082,12 @@ function expandTilde(path: string): string {
   return path;
 }
 
+/** One carrier path as a whole-segment file pattern: a write that names it — absolute or
+ *  relative — is a write to what governs the session, wherever the shell's cwd happens to be. */
+function carrierFilePattern(path: string): string {
+  return `(?:^|/)${path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`;
+}
+
 /** The governed file or path this text offends, or null.
  *
  *  The prose contracts the user owns (AGENTS.md, DECISIONS.md) are
@@ -982,18 +1101,19 @@ function expandTilde(path: string): string {
 /** Governance files by name, wherever they sit. The governed root is the outermost
  *  governed ancestor, so a config written above the repo (or a hook in a nested one)
  *  would otherwise move the root out from under the session. The host carriers are here
- *  too: a carrier rewritten, or a settings file with `disableAllHooks`, ungoverns the next
- *  session even when this one never wrote a governed file. */
+ *  too — every one the registry declares, from the one table — because a carrier rewritten,
+ *  or a settings file with `disableAllHooks`, ungoverns the next session even when this one
+ *  never wrote a governed file. */
 const GOVERNANCE_FILE = new RegExp([
   String.raw`(?:^|/)\.ai-engineering/(?:config\.toml|overrides\.toml|ai-eng\.lock|arch\.rules\.json)$`,
   String.raw`(?:^|/)\.gitleaks(?:rc\.toml|ignore)$`,
   String.raw`(?:^|/)\.git/(?:hooks(?:/|$)|config$)`,
   String.raw`(?:^|/)\.github/hooks(?:/|$)`,
   String.raw`(?:^|/)\.github/copilot/settings(?:\.local)?\.json$`,
-  String.raw`(?:^|/)\.claude/settings(?:\.local)?\.json$`,
-  String.raw`(?:^|/)\.cursor/hooks\.json$`,
-  String.raw`(?:^|/)\.codex/hooks\.json$`,
+  String.raw`(?:^|/)\.claude/settings\.local\.json$`,
   String.raw`(?:^|/)\.(?:opencode/plugins|agents/hooks)/ai-eng[^/]*$`,
+  ...MACHINE_CARRIER_PATHS.map(carrierFilePattern),
+  ...REPO_CARRIER_PATHS.map(carrierFilePattern),
 ].join("|"), "i");
 
 /** Case-folded on purpose: macOS and Windows filesystems ignore case, so

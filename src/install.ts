@@ -67,7 +67,10 @@ function managedCommands(): Set<string> {
   for (const path of embeddedUnder("templates/settings.").keys()) {
     if (!path.endsWith(".json.tpl")) continue;
     const settings = JSON.parse(embeddedTemplate(path.slice("templates/".length))) as { hooks?: unknown };
-    collectHookCommands(settings.hooks, commands);
+    // Walk the WHOLE template, not just a top-level `hooks` key: agy's hooks.json is a
+    // map of named hooks (no `hooks` key), so a walk from `.hooks` would never see its
+    // command and uninstall would leave the carrier behind.
+    collectHookCommands(settings, commands);
   }
   managedHookCommands = commands;
   return commands;
@@ -85,11 +88,34 @@ export const KEEP_EXIT_STATUS = "; exit $LASTEXITCODE";
 // Only right after `chain <Event>`: Copilot's own PowerShell line ends in the same words.
 const KEEP_EXIT_STATUS_TAIL = new RegExp(`( chain [A-Za-z]+)${KEEP_EXIT_STATUS.replace(/[$]/g, "\\$&")}(?=$|")`, "g");
 
-/** A hook text with this machine's launcher taken back out: the `.cmd`/`.exe` name and the
- *  exit-status tail a Windows render adds. The same line on every OS, so the same marker,
- *  and the same hash whichever shim PATH happens to put first. */
+/** Why an agy hook allowed a call it never judged. It goes to stderr: stdout is agy's
+ *  decision channel, where only silence was measured to allow. */
+const AGY_FAIL_SOFT_REASON = "ai-eng: not found in PATH, allowing this call";
+
+/** The agy fail-soft guard and the separator that joins it to the chain call, in POSIX
+ *  shell (macOS, Linux): agy denies any non-zero exit, so a line that cannot find the
+ *  binary must answer 0 instead of denying every tool call. The guard is a block, so the
+ *  call after it needs a real command separator, not a line break. */
+export const AGY_FAIL_SOFT_POSIX = `command -v ai-eng >/dev/null 2>&1 || { echo ${AGY_FAIL_SOFT_REASON} >&2; exit 0; }; `;
+
+/** The same guard in cmd.exe, which has no `command -v` and no `{ …; }` (it uses `where`
+ *  and `( … )`) and where `;` only breaks tokens, never starts the next command — so the
+ *  chain call is joined with `&`. The missing-binary arm exits 0 inside its own block, so
+ *  the call after it never runs when there is nothing to run it with. */
+export function agyFailSoftWindows(launcher: string): string {
+  return `where ${launcher} >nul 2>nul || ( echo ${AGY_FAIL_SOFT_REASON} 1>&2 & exit /b 0 ) & `;
+}
+
+const AGY_FAIL_SOFT_WINDOWS_ANY = /where ai-eng\.(?:cmd|exe) >nul 2>nul \|\| \( echo [^)]* 1>&2 & exit \/b 0 \) & /g;
+
+/** A hook text with this machine's launcher taken back out: the `.cmd`/`.exe` name, the
+ *  per-OS agy guard, and the exit-status tail a Windows render adds. The same line on every
+ *  OS, so the same marker, and the same hash whichever shim PATH happens to put first. */
 export function portableHookText(text: string): string {
-  return text.replace(/ai-eng\.(?:cmd|exe) chain /g, "ai-eng chain ").replace(KEEP_EXIT_STATUS_TAIL, "$1");
+  return text
+    .replace(AGY_FAIL_SOFT_WINDOWS_ANY, AGY_FAIL_SOFT_POSIX)
+    .replace(/ai-eng\.(?:cmd|exe) chain /g, "ai-eng chain ")
+    .replace(KEEP_EXIT_STATUS_TAIL, "$1");
 }
 
 function isOurs(value: unknown): boolean {

@@ -11,7 +11,7 @@ import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRu
 import { normalise, deduplicable, fingerprint, loopExact } from "../payload.ts";
 import { readNoFollowFile, writeNoFollowFile } from "../shared-project-fs.ts";
 import type { Payload } from "../payload.ts";
-import { deny, allow, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
+import { deny, allow, allowRewrite, review, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
 import { runNoStash } from "../guards/no-stash.ts";
 import { leaseMinutes, readLease, releaseLease, runLease } from "../guards/lease.ts";
@@ -77,6 +77,12 @@ export type ChainOptions = {
   dialect?: Dialect;
   /** In-process mode returns outcomes instead of exiting (OMP/OpenCode plugins). */
   inProcess?: boolean;
+  /** The host has no judge of ours (`can.deny` "host-only"): its payload names no tool we
+   *  mapped, and it reads a non-zero exit as a deny on EVERY call. A payload the chain
+   *  cannot read is therefore allowed with a reason instead of denied — a hook that
+   *  cannot judge must not lock a person out of their editor (README). A surface we can
+   *  govern keeps the fail-closed boundary. */
+  hasNoJudge?: boolean;
 };
 
 export type ChainOutcome =
@@ -98,7 +104,14 @@ function selected(event: string, tool: string): GuardRow[] {
   return TABLE[key]!.filter((row) => row.matcher.test(tool));
 }
 
-type Verdict = { deny: boolean; by?: string; message?: string };
+type Verdict = {
+  deny: boolean;
+  by?: string;
+  message?: string;
+  /** The guard that spoke, absent in an entry written before reviews were cached: the
+   *  replay names the chain rather than printing `undefined` as a guard. */
+  review?: { by?: string; reason: string; rule: { id: string; name: string; risk: number } };
+};
 
 /** Verdict cache keyed on the fingerprint of one physical call: a second delivery of
  *  the same call gets the guard's own words instead of re-running every guard. */
@@ -175,6 +188,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   try {
     payload = normalise(rawPayload, options.surface, event);
   } catch (error) {
+    if (options.hasNoJudge === true) return allowUnjudged(options);
     // normalise refuses on purpose (an unmeasured tool, an ambiguous patch) with a TypeError
     // that says which; anything else is a payload that could not be read at all.
     const why = error instanceof TypeError && error.message ? `BLOCKED: ${error.message} Nothing here can say whether this action is safe, so it was not run.` : UNREADABLE_PAYLOAD;
@@ -184,6 +198,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   payload._event = event;
   const tool = payload.tool_name;
   if (event === "PreToolUse" && (typeof tool !== "string" || tool.trim().length === 0)) {
+    if (options.hasNoJudge === true) return allowUnjudged(options);
     return denyOutcome(
       "chain",
       "BLOCKED: PreToolUse payload has no tool name, so it cannot be evaluated safely.",
@@ -227,6 +242,9 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
       if (verdict.deny) {
         return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started, root, tool);
       }
+      if (verdict.review !== undefined) {
+        return { action: "review", by: verdict.review.by ?? "chain", reason: verdict.review.reason, rule: verdict.review.rule, guards: [], receiptId: null };
+      }
       return { action: "allow", guards: [], receiptId: null };
     }
   }
@@ -255,7 +273,9 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     }
   }
 
-  if (dedup) rememberVerdict(cacheFile, fp, { deny: false });
+  if (dedup) {
+    rememberVerdict(cacheFile, fp, reviewResult !== undefined ? { deny: false, review: reviewResult } : { deny: false });
+  }
   const latency = Math.max(1, Date.now() - started);
   // Phase 1: if a local rule triggered review (not block), still allow the call. The
   // host's own channel carries the note (the plugin templates and the cursor envelope), so
@@ -342,7 +362,7 @@ function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): Gu
           return runPolicy(command, cwd, policyModeFor(ctx.repoRoot));
         }
         case "injection":
-          return runInjection(payload);
+          return runInjection(payload, ctx.repoRoot);
         case "spoken-secret":
           return runSpokenSecret(payload);
         case "checkpoint":
@@ -365,6 +385,17 @@ function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): Gu
       reason: `BLOCKED: the ${name} guard could not decide (internal error), so nothing here can say whether the action is safe. Fix the guard.`,
     };
   }
+}
+
+/** A call this chain cannot read on a host with no judge of ours: allowed, with the reason
+ *  on stderr so the failure is legible. Denying it would deny every tool call of a person
+ *  who enabled the surface, because the host reads a non-zero exit as a deny — and there
+ *  is no judgement being lost, because no mapping of ours reads that host's payload. */
+function allowUnjudged(options: ChainOptions): ChainOutcome {
+  if (options.inProcess !== true) {
+    process.stderr.write(`[ai-eng] chain: ${options.surface ?? "this surface"} has no tool mapping of ours, so this call was allowed rather than denied.\n`);
+  }
+  return { action: "allow", guards: [], receiptId: null };
 }
 
 function denyOutcome(
@@ -508,13 +539,19 @@ export function chainMain(event: string, raw: string, options: ChainOptions = {}
     body = JSON.parse(raw) as Record<string, unknown>;
     if (body === null || Array.isArray(body) || typeof body !== "object") throw new Error("not an object");
   } catch {
+    // Same boundary as runChain's: a host with no judge of ours is never denied a call the
+    // chain could not read, because its own contract turns one non-zero exit into a lockout.
+    if (options.hasNoJudge === true) {
+      allowUnjudged(options);
+      process.exit(0);
+    }
     deny("chain", UNREADABLE_PAYLOAD, options.dialect ?? "claude", event);
   }
   const outcome = runChain(body, event, options);
   // An allow is a verdict too, and one host reads an empty answer as a refusal. A review
-  // carries its note on the same envelope: a note no host prints is not a verdict.
-  if (outcome.action === "allow" || outcome.action === "review") {
-    allow(options.dialect ?? "claude", outcome.action === "review" ? `${outcome.by}: ${outcome.reason}` : undefined);
-  }
+  // rides the annotation channel, which names the guard that spoke instead of assuming
+  // injection: a note no host renders is not a verdict.
+  if (outcome.action === "allow") allow(options.dialect ?? "claude");
+  else if (outcome.action === "review") review(outcome.by, outcome.reason, options.dialect ?? "claude", event);
   process.exit(0);
 }

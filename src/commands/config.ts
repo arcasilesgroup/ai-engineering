@@ -11,8 +11,8 @@ import { changeCi, changeCiFromFlag, pickCi } from "./config-ci.ts";
 import { canonicalSurfaceId, repoRoot, enabledSurfaces, isGoverned } from "../env.ts";
 import { mirrorTargets, installCanon } from "../surfaces/canon-install.ts";
 import { installMachineCarriers } from "../surfaces/carriers-install.ts";
-import { SURFACES, surfaceCanGovern, repoCarrier, machineCarrier, type Surface } from "../surfaces/adapters.ts";
-import { hasAdapter, installLineRow, planEntries, refuseLine, SURFACE_PICK_MESSAGE, surfaceOptions } from "./init-shared.ts";
+import { SURFACES, surfaceCanGovern, repoCarrier, machineCarrier } from "../surfaces/adapters.ts";
+import { hasAdapter, advisoryRefusal, installLineRow, planEntries, refuseLine, SURFACE_PICK_MESSAGE, surfaceOptions } from "./init-shared.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
 import { VERSION } from "../version.ts";
@@ -39,6 +39,13 @@ async function resolveSurfaces(
     // Same rule as the picker: no adapter, no declaration.
     if (!hasAdapter(flags.add)) {
       ui.fail(`"${flags.add}" has no adapter in this release — nothing would enforce its guards.`);
+      ui.end("Nothing changed.");
+      return { kind: "exit", code: 2 };
+    }
+    // And the same gate init runs: an advisory surface is declared, never enabled.
+    const surface = SURFACES.find((candidate) => candidate.id === flags.add);
+    if (surface !== undefined && !surfaceCanGovern(surface)) {
+      ui.fail(advisoryRefusal(flags.add));
       ui.end("Nothing changed.");
       return { kind: "exit", code: 2 };
     }

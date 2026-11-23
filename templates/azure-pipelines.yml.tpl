@@ -26,7 +26,7 @@ pr:
       - "*"
 
 variables:
-  AI_ENG_VERSION: v3.2.3
+  AI_ENG_VERSION: v3.3.0
 
 jobs:
   - job: check

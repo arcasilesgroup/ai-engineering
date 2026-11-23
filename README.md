@@ -194,8 +194,21 @@ A guard bypass is a critical bug. Report it through [SECURITY.md](SECURITY.md).
 
 The guards stop an agent's mistakes. They are not a sandbox.
 
-The Copilot adapter (CLI and VS Code) fails open on purpose when `ai-eng` is not on `PATH`, so
-a machine without it is not locked out. A hook that times out also lets the call proceed.
+The Copilot adapter (CLI and VS Code) shares one harness and one hook file set for both
+hosts. Its `preToolUse` command hook **fails closed** on a crash or non-zero exit, but
+**fails open** when `ai-eng` is not on `PATH` (the template exits 0 on purpose, so a
+machine without it is not locked out) and on a timeout. The prompt hook is advisory on
+Copilot: `userPromptSubmitted` command output is ignored.
+
+The Antigravity CLI (agy) is declared and **advisory**, and it cannot be enabled:
+`ai-eng init --surface agy` and `ai-eng config --add agy` are refused, because no hook of
+ours judges an agy call yet. No command enables the surface: only a hand-edited
+`[surfaces] enabled = ["agy"]` followed by `ai-eng update` writes its hook file
+(`~/.gemini/config/hooks.json`), and that file fails soft rather than risk a lockout,
+because agy denies on any non-zero exit — a hook that cannot judge must not lock a person
+out of their editor. What is measured, what is unverified (the Windows form has never been
+run) and what would make the surface enforceable are in the
+[capability matrix](docs/surface-capability-matrix.md).
 
 Command guards read the visible command text. They do not sandbox opaque programs or scripts
 prepared in earlier calls: a script written in one call and run in a later call does
@@ -275,22 +288,25 @@ Five triggers send work to the skill that declares them. A **path** trigger read
 
 ## Surfaces
 
-A surface is an agent host: an IDE or a CLI. `ai-eng` writes one set of definitions and
-mirrors it into every surface you enable, so the same guard judges the same call whichever
-host sent it. [`src/surfaces/surfaces.json`](src/surfaces/surfaces.json) records what each
-host supports.
+A surface is an agent host: an IDE or a CLI. `ai-eng` writes one set of definitions,
+enables them per surface you choose, and mirrors the skills into every host's skill folder,
+so the same guard judges the same call whichever host sent it.
+[`src/surfaces/surfaces.json`](src/surfaces/surfaces.json) records what each host supports.
 
 | Tier | Meaning | Surfaces |
 |---|---|---|
 | core | deny, plus a rewritten command where the host allows it | `claude-code`, `oh-my-pi`, `opencode`, `cursor`, `pi` |
 | experimental | works, less proven | `codex` |
 | best-effort | the host limits the outcome | `copilot-cli` |
-| skills-only | skills, no interception | `zed` |
+| skills-only | skills, no interception | `zed`, `agy` |
 
 `ai-eng config --add <id>` and `ai-eng config --remove <id>` turn a surface on or off and
-regenerate its files. `ai-eng doctor` reports, per surface, whether its hook file is where
-that host reads it. [Global carriers](docs/global-carriers.md) explains how those files are
-installed and removed.
+regenerate its files (`agy` and `zed` are declared but refused: see the matrix). `ai-eng
+doctor` reports, per surface, whether its hook file is where that host reads it, and whether
+the surface is **enforced** (synchronous pre-tool deny) or **advisory** (observation only).
+The [capability matrix](docs/surface-capability-matrix.md) is the measured truth for what
+each host can and cannot enforce; [Global carriers](docs/global-carriers.md) explains how
+the carrier files are installed and removed.
 
 ## CLI
 

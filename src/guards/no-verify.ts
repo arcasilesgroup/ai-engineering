@@ -10,18 +10,20 @@ type Skip = { pattern: RegExp; label: string };
 
 const SKIPS: Skip[] = [
   { pattern: /\bHUSKY=0\b|\bPRE_COMMIT_ALLOW_NO_VERIFY\b|\bSKIP_HOOKS\b/, label: "an environment flag" },
-  // Config from the environment or another file can point core.hooksPath anywhere without
-  // naming it on this line.
-  { pattern: /\bGIT_CONFIG_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM)\b|\bGIT_CONFIG\b|--config-env\b/, label: "git config from the environment" },
   { pattern: /\bgit\b[^|;&]*\binclude(?:if\.[^\s=]*)?\.path\b/i, label: "a git config include" },
   { pattern: /\brm\b[^|;&]*\.git\/hooks/, label: "deleting .git/hooks" },
 ];
+
+const GIT_CONFIG_ENV_ASSIGN = /^(?:\$env:)?GIT_CONFIG(?:_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM))?=/i;
+const GIT_CONFIG_ENV_NAME = /^GIT_CONFIG(?:_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM))?$/;
 
 /** Read only when the shell grammar cannot be: the token check below is the precise one. */
 const RAW_SKIPS: Skip[] = [
   // git accepts any unique prefix of a long option: `--no-veri` is `--no-verify`.
   { pattern: /\bgit\b[^|;&]*\b(commit|push|merge|rebase|am|pull)\b[^|;&]*--no-veri/, label: "--no-verify" },
   { pattern: /\bgit\b[^|;&]*\bcommit\b[^|;&]*(?<![\w-])-[a-zA-Z]*n/, label: "git commit -n" },
+  { pattern: /(?:^|[\s;|&(])(?:export\s+|env\s+|declare\s+|typeset\s+|local\s+|\$env:)?GIT_CONFIG(?:_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM))?=/i, label: "git config from the environment" },
+  { pattern: /\bgit\b[^|;&]*--config-env\b/, label: "git config from the environment" },
 ];
 
 const HOOKED = new Set(["commit", "push", "merge", "pull", "rebase", "am", "cherry-pick", "revert"]);
@@ -95,6 +97,20 @@ function gitHookSkip(command: string, depth = 0): string | null | undefined {
   for (const segment of segments) {
     const words = argumentWords(segment.text);
     const commandAt = commandIndex(words.map((word) => word.value));
+    const cmdName = basename(words[commandAt]?.value ?? "").toLowerCase();
+    // Config from the environment can redirect core.hooksPath without naming it on the line,
+    // but only when ASSIGNED (`GIT_CONFIG_GLOBAL=x`, `export GIT_CONFIG=...`, `printf -v GIT_CONFIG ...`)
+    // or passed as `git --config-env`. Reading the environment (`env | grep '^GIT_CONFIG'`) is safe.
+    for (let i = 0; i < words.length; i++) {
+      const value = words[i]!.value;
+      if (GIT_CONFIG_ENV_ASSIGN.test(value)) return "git config from the environment";
+      if (cmdName === "printf" && value === "-v" && GIT_CONFIG_ENV_NAME.test(words[i + 1]?.value ?? "")) {
+        return "git config from the environment";
+      }
+      if (cmdName === "set-item" && /^env:GIT_CONFIG(?:_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM))?$/i.test(value)) {
+        return "git config from the environment";
+      }
+    }
     // Every `git` word is judged, not only the one in command position: a wrapper this
     // reader does not know (`chronic git commit -n`) still runs git with its flags.
     for (let gitAt = 0; gitAt < words.length; gitAt++) {
@@ -114,6 +130,7 @@ function gitInvocationSkip(segment: ShellSegment, words: ShellWord[], gitAt: num
   const globals: string[] = [];
   while (position < words.length && words[position]!.value.startsWith("-")) {
     const option = words[position]!.value;
+    if (option === "--config-env" || option.startsWith("--config-env=")) return "git config from the environment";
     const takesNext = GLOBAL_VALUE_OPTIONS.has(option);
     globals.push(takesNext ? `${option}=${words[position + 1]?.value ?? ""}` : option);
     position += takesNext ? 2 : 1;
