@@ -53,8 +53,8 @@ export function gitFacts(root: string): RepoFacts {
       const key = `${base}..${head}`;
       const cached = touchedPaths.get(key);
       if (cached !== undefined) return cached;
-      const named = gitIn(root, ["log", "--no-color", "--format=", "--name-only", key]) ?? "";
-      const paths = new Set(named.split("\n").map((path) => path.trim()).filter((path) => path !== ""));
+      const named = gitIn(root, ["log", "--no-color", "--format=", "--name-only", "-z", key]) ?? "";
+      const paths = new Set(named.split("\0").filter((path) => path !== ""));
       touchedPaths.set(key, paths);
       return paths;
     },
@@ -62,7 +62,8 @@ export function gitFacts(root: string): RepoFacts {
       const key = `${base}..${head}\0${path}`;
       const cached = addedByFile.get(key);
       if (cached !== undefined) return cached;
-      const diff = gitIn(root, ["diff", "--no-ext-diff", "--no-color", "--no-textconv", "--unified=0", `${base}..${head}`, "--", path]) ?? "";
+      const diff =
+        gitIn(root, ["--literal-pathspecs", "diff", "--no-ext-diff", "--no-color", "--no-textconv", "--unified=0", `${base}..${head}`, "--", path]) ?? "";
       const lines = parseAddedLines(diff);
       addedByFile.set(key, lines);
       return lines;

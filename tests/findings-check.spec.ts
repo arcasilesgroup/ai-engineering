@@ -589,6 +589,62 @@ describe("the git facts", () => {
       rmSync(configured, { recursive: true, force: true });
     }
   });
+
+  test("gitFacts treats bracketed route paths literally and keeps non-ASCII paths unquoted", () => {
+    const special = mkdtempSync(join(tmpdir(), "ai-eng-findings-paths-"));
+    const run = (args: string[]): string => {
+      const done = runGit(args, { cwd: special, isolated: true });
+      if (done.status !== 0) throw new Error(`${args.join(" ")}: ${done.stderr}`);
+      return done.stdout.trim();
+    };
+    const commit = (message: string, extra: string[] = []): void => {
+      run(["-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", message, ...extra]);
+    };
+    try {
+      mkdirSync(join(special, "src", "routes", "[id]"), { recursive: true });
+      mkdirSync(join(special, "src", "routes", "i"), { recursive: true });
+      mkdirSync(join(special, "src", "routes", "[unchanged]"), { recursive: true });
+      mkdirSync(join(special, "src", "routes", "u"), { recursive: true });
+      mkdirSync(join(special, "docs"), { recursive: true });
+      writeFileSync(join(special, "src", "routes", "[id]", "page.ts"), "base\n");
+      writeFileSync(join(special, "src", "routes", "i", "page.ts"), "base\n");
+      writeFileSync(join(special, "src", "routes", "[unchanged]", "page.ts"), "base\n");
+      writeFileSync(join(special, "src", "routes", "u", "page.ts"), "base\n");
+      writeFileSync(join(special, "docs", "resumen-ñ.md"), "inicio\n");
+      run(["init", "-q", "-b", "main"]);
+      run(["add", "."]);
+      commit("base");
+      const specialBase = run(["rev-parse", "HEAD"]);
+
+      writeFileSync(join(special, "src", "routes", "[id]", "page.ts"), "base\nexport const fromBracketRoute = true;\n");
+      writeFileSync(join(special, "src", "routes", "i", "page.ts"), "base\nexport const fromSibling = true;\n");
+      writeFileSync(join(special, "src", "routes", "u", "page.ts"), "base\nexport const fromOtherSibling = true;\n");
+      writeFileSync(join(special, "docs", "diseño.md"), "borrador\n");
+      writeFileSync(join(special, "docs", "resumen-ñ.md"), "inicio\nnuevo\n");
+      run(["add", "."]);
+      commit("add special paths");
+
+      commit("empty commit", ["--allow-empty"]);
+
+      rmSync(join(special, "docs", "diseño.md"));
+      run(["add", "-A"]);
+      commit("remove non-ascii path");
+      const specialHead = run(["rev-parse", "HEAD"]);
+
+      const specialFacts = gitFacts(special);
+      expect(specialFacts.addedLines(specialBase, specialHead, "src/routes/[id]/page.ts")).toEqual([
+        { line: 2, text: "export const fromBracketRoute = true;" },
+      ]);
+      expect(specialFacts.addedLines(specialBase, specialHead, "src/routes/[unchanged]/page.ts")).toEqual([]);
+      expect(specialFacts.fileAt(specialHead, "src/routes/[id]/page.ts")).toContain("fromBracketRoute");
+      expect(specialFacts.pathsTouched(specialBase, specialHead).has("src/routes/[id]/page.ts")).toBe(true);
+      expect(specialFacts.pathsTouched(specialBase, specialHead).has("docs/diseño.md")).toBe(true);
+      expect(specialFacts.addedLines(specialBase, specialHead, "docs/resumen-ñ.md")).toEqual([{ line: 2, text: "nuevo" }]);
+      expect(specialFacts.fileAt(specialHead, "docs/resumen-ñ.md")).toContain("nuevo");
+    } finally {
+      rmSync(special, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("resolveRevisions", () => {
