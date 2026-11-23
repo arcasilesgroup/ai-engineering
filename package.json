@@ -38,7 +38,8 @@
     "bench": "bun scripts/bench-chain.ts",
     "tokens": "bun scripts/tokens.ts",
     "mutation": "stryker run",
-    "changeset": "changeset"
+    "changeset": "changeset",
+    "version-packages": "changeset version && bun scripts/sync-ci-template-pins.ts"
   },
   "dependencies": {
     "@clack/prompts": "1.7.0",

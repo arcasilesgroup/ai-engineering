@@ -63,6 +63,7 @@ scripts/
   first-install-probe.ts       Init every surface, run each written hook line in the host's shells (CI job first-install)
   release-sbom.ts              Runtime-only CycloneDX SBOM for a packed tarball, named by its sha256
   release-policy.ts            Release gate: signed annotated tag on the dispatched SHA by an allowlisted key, verified NOTICE.md rights
+  sync-ci-template-pins.ts     `bun run version-packages` step: rewrite AI_ENG_VERSION in both CI templates from package.json
 skills/                        Installed skill canon
   ai-brainstorm/SKILL.md       Interview, classify and record approved feature intent
   ai-orchestrator/SKILL.md     Gated feature workflow in the selected checkout

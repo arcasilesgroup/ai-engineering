@@ -89,7 +89,11 @@ To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
 - `bun run changeset` → pick bump (patch: fixes · minor: new verbs/flags/skills ·
   major: breaking CLI surface) + one-sentence summary.
 - Merge to `main` → `.github/workflows/version.yml` opens a Version PR that bumps
-  `package.json` and `CHANGELOG.md`; it does not publish.
+  `package.json` and `CHANGELOG.md`; it does not publish. The same PR carries the
+  `AI_ENG_VERSION` pin in `templates/ci.yml.tpl` and
+  `templates/azure-pipelines.yml.tpl`: `bun run version-packages` is `changeset
+  version` followed by `scripts/sync-ci-template-pins.ts`, so the pin follows
+  `package.json` without anyone remembering a step.
 - Dispatch `.github/workflows/release.yml` with a channel: `integration` ships a
   candidate (GitHub prerelease + npm `next`), `production` ships the real one
   (GitHub release marked latest + npm `latest`). It gates the dispatched SHA (lint,

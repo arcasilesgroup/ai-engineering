@@ -1,11 +1,12 @@
-import { describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { afterAll, describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "..");
 const TEMPLATE = resolve(ROOT, "templates/ci.yml.tpl");
 const WORKFLOWS = resolve(ROOT, ".github/workflows");
-const WORKFLOW = resolve(WORKFLOWS, "check.yml");
 const TOOLCHAIN = resolve(ROOT, "scripts/toolchain.sh");
 
 const template = readFileSync(TEMPLATE, "utf8");
@@ -85,4 +86,75 @@ describe("ci template pins track their source of truth", () => {
       );
     });
   }
+});
+
+// A pin that tracks package.json is only true until the next bump, so the mechanism that
+// maintains it is covered here too: a scratch tree carrying a bumped package.json, never
+// the real templates. The sync runs as the version workflow runs it, through the script.
+const SYNC = resolve(ROOT, "scripts/sync-ci-template-pins.ts");
+const PINNED_TEMPLATES = ["templates/ci.yml.tpl", "templates/azure-pipelines.yml.tpl"];
+const scratchRoots: string[] = [];
+
+afterAll(() => {
+  for (const root of scratchRoots) rmSync(root, { recursive: true, force: true });
+});
+
+function scratchTree(version: string): string {
+  const root = mkdtempSync(join(tmpdir(), "ci-template-pins-"));
+  scratchRoots.push(root);
+  mkdirSync(join(root, "templates"), { recursive: true });
+  writeFileSync(join(root, "package.json"), JSON.stringify({ version }));
+  for (const file of PINNED_TEMPLATES) copyFileSync(resolve(ROOT, file), join(root, file));
+  return root;
+}
+
+const runSync = (root: string) => spawnSync(process.execPath, [SYNC, root], { encoding: "utf8" });
+const templateIn = (root: string, file: string): string => readFileSync(join(root, file), "utf8");
+// Blank the value so two pins compare equal only when every other byte matches too.
+const withoutPinValue = (text: string): string => text.replace(/^( *AI_ENG_VERSION: )v\S+$/m, "$1<value>");
+
+describe("the version bump rewrites the template pins", () => {
+  test("both templates follow a bumped package.json, and nothing else is touched", () => {
+    const root = scratchTree("9.9.9");
+    const before = PINNED_TEMPLATES.map((file) => templateIn(root, file));
+    const run = runSync(root);
+    expect(run.stderr).toBe("");
+    expect(run.status).toBe(0);
+    PINNED_TEMPLATES.forEach((file, index) => {
+      const after = templateIn(root, file);
+      expect(aiEngVersion(after)).toBe("v9.9.9");
+      expect(withoutPinValue(after)).toBe(withoutPinValue(before[index] ?? ""));
+    });
+  });
+
+  test("a second run writes nothing", () => {
+    const root = scratchTree("9.9.9");
+    expect(runSync(root).status).toBe(0);
+    const settled = PINNED_TEMPLATES.map((file) => templateIn(root, file));
+    const rerun = runSync(root);
+    expect(rerun.status).toBe(0);
+    expect(rerun.stdout).toContain("already pins this version");
+    expect(PINNED_TEMPLATES.map((file) => templateIn(root, file))).toEqual(settled);
+  });
+
+  test("a template that lost its pin fails loudly, naming the file and the key", () => {
+    const root = scratchTree("9.9.9");
+    const orphan = PINNED_TEMPLATES[1] ?? "";
+    writeFileSync(join(root, orphan), templateIn(root, orphan).replace(/^ *AI_ENG_VERSION: .*$/m, ""));
+    const run = runSync(root);
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain(orphan);
+    expect(run.stderr).toContain("AI_ENG_VERSION");
+  });
+
+  // The fix is only a fix if the release runs it: the version workflow has to invoke the
+  // script that syncs, in the same command that bumps, or the pin drifts again next release.
+  test("the version workflow runs the sync in the same command that bumps the version", () => {
+    const workflow = readFileSync(resolve(ROOT, ".github/workflows/version.yml"), "utf8");
+    const { scripts } = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
+    const versionScript = workflow.match(/^\s*version-script: (.+)$/m)?.[1]?.trim() ?? "(none)";
+    const versionPackages = scripts[versionScript.replace(/^bun run /, "")] ?? "(none)";
+    expect(versionPackages).toContain("changeset version");
+    expect(versionPackages).toContain("scripts/sync-ci-template-pins.ts");
+  });
 });
