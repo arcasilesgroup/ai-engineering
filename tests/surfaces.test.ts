@@ -193,13 +193,29 @@ test("machine carrier paths match each host's documented root, with source and d
   // The two repo readers keep their carriers in the checkout, and they are the only ones.
   const inRepo = SURFACES.filter((surface) => repoCarrier(surface) !== null).map((surface) => surface.id);
   expect(inRepo.sort()).toEqual(["copilot-cli", "cursor"]);
-  // agy ships no carrier at all: declared so its measured capabilities are recorded and
-  // its skills can be mirrored, and every consumer has to read it as advisory — never as a
-  // host we govern, since there is no hook of ours in its path.
+  // agy declares one machine carrier and no repo carrier, and no consumer may read it as a
+  // host we govern: nothing of ours judges its calls yet, so it is advisory everywhere.
   const agy = byId("agy")!;
-  expect(agy.carriers).toEqual([]);
+  expect(agy.carriers.map((carrier) => carrier.path)).toEqual([".gemini/config/hooks.json"]);
   expect(surfaceCanGovern(agy)).toBe(false);
   expect(surfaceEnforcement(agy)).toBe("advisory");
+});
+
+test.skipIf(process.platform === "win32")("agy's carrier allows the call with a stated reason when ai-eng cannot be resolved", () => {
+  // The host denies on any non-zero exit, so a line that cannot find the binary must answer
+  // 0 and say why: an editor nobody can judge keeps working instead of locking its user out.
+  // The emitted settings file is the generated interface; running its command is the proof.
+  const settings = JSON.parse(carrierFiles("agy")!.main) as Record<string, Record<string, { hooks: { command: string }[] }[]>>;
+  const commands = Object.values(settings["ai-eng-guard"]!).flatMap((entries) => entries.flatMap((entry) => entry.hooks.map((hook) => hook.command)));
+  expect(commands).toHaveLength(2);
+  const withoutBinary = join(sandbox, "no-ai-eng-on-path");
+  mkdirSync(withoutBinary, { recursive: true });
+  for (const command of commands) {
+    // /bin/sh by absolute path: the child's PATH is the one under test.
+    const run = spawnSync("/bin/sh", ["-c", command], { encoding: "utf8", env: { PATH: withoutBinary, HOME: home } });
+    expect(run.stdout).toContain("ai-eng is not on PATH");
+    expect(run.status).toBe(0);
+  }
 });
 
 test("cursor allow envelope: a permitted call answers, and the silent hosts stay silent", () => {

@@ -11,7 +11,7 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { doctorMain } from "../src/commands/doctor.ts";
 import { canonSkills, embeddedTemplate } from "../src/embed.ts";
 import { lockText, sha256 } from "../src/install.ts";
@@ -743,11 +743,20 @@ describe("doctor · surface carriers", () => {
     expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries · enforced");
   });
 
-  test("agy is reported advisory and never enforced: it ships no hook of ours", async () => {
+  test("agy is reported advisory, never enforced, and its row closes with the marker", async () => {
     sandbox('[surfaces]\nenabled = ["agy"]\n');
+    const placement = machineCarrier(SURFACES.find((surface) => surface.id === "agy")!)!;
+    expect(placement.path).toBe(".gemini/config/hooks.json");
+    mkdirSync(dirname(carrierPath(placement)), { recursive: true });
+    writeFileSync(carrierPath(placement), carrierFiles("agy")!.main);
+
     const run = await doctor();
     const line = detail(run, "surface agy");
-    expect(line.startsWith("no carrier: guard wiring is not implemented for this host · advisory")).toBe(true);
+    // The carrier is checked like any other, then the note explains, then the verdict: the
+    // marker is the last thing on the row, so a 900-character caveat cannot bury it.
+    expect(line.startsWith("machine carrier ~/.gemini/config/hooks.json carries the ai-eng entries")).toBe(true);
+    expect(line).toContain("declared advisory, and refused by init and config");
+    expect(line.endsWith("advisory")).toBe(true);
     expect(line).not.toContain("enforced");
   });
 

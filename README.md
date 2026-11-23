@@ -200,12 +200,14 @@ hosts. Its `preToolUse` command hook **fails closed** on a crash or non-zero exi
 machine without it is not locked out) and on a timeout. The prompt hook is advisory on
 Copilot: `userPromptSubmitted` command output is ignored.
 
-The Antigravity CLI (agy) is declared but **advisory**: `ai-eng` writes no hook for it yet.
-Its hook contract was probed and a top-level `decision: deny` does block a call, but the
-payload names no repository and, because agy denies on any non-zero exit, a carrier the
-hosting app cannot resolve would deny every tool call outright. Only its skills are
-mirrored. The [capability matrix](docs/surface-capability-matrix.md) records what a carrier
-has to satisfy before it ships.
+The Antigravity CLI (agy) is declared and **advisory**, and it cannot be enabled:
+`ai-eng init --surface agy` and `ai-eng config --add agy` are refused, because no hook of
+ours judges an agy call yet. Its carrier still ships, guarded: because agy denies on any
+non-zero exit, every line first checks for `ai-eng` and, when the app the editor was
+launched from cannot resolve it, prints one line saying so and allows the call — a hook
+that cannot judge must not lock a person out of their editor. The
+[capability matrix](docs/surface-capability-matrix.md) records why that trade is honest and
+what would make the surface enforceable.
 
 Command guards read the visible command text. They do not sandbox opaque programs or scripts
 prepared in earlier calls: a script written in one call and run in a later call does
@@ -298,7 +300,7 @@ host supports.
 | skills-only | skills, no interception | `zed`, `agy` |
 
 `ai-eng config --add <id>` and `ai-eng config --remove <id>` turn a surface on or off and
-regenerate its files. `ai-eng doctor` reports, per surface, whether its hook file is where
+regenerate its files (`agy` and `zed` are declared but refused: see the matrix). `ai-eng doctor` reports, per surface, whether its hook file is where
 that host reads it, and whether the surface is **enforced** (synchronous pre-tool deny) or
 **advisory** (observation only). The [capability matrix](docs/surface-capability-matrix.md)
 is the measured truth for what each host can and cannot enforce; [Global

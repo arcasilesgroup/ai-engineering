@@ -120,6 +120,9 @@ const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean; isExitSt
   codex: { main: "settings.codex.json.tpl", chain: false },
   cursor: { main: "settings.cursor.json.tpl", chain: false },
   copilot: { main: "settings.copilot.json.tpl", chain: false },
+  // Advisory, so init and config refuse it: the carrier ships fail-soft, ready for the day
+  // a mapping exists, and cannot be wired up by an accident of the picker.
+  agy: { main: "settings.agy.json.tpl", chain: false },
 };
 
 /** The launcher name a hook line must call on this machine. On Windows a bare `ai-eng`

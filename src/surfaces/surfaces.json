@@ -179,8 +179,16 @@
         "source": "agy-customizations skill hooks.md (2026-11-23): no prompt-submission event — PreInvocation can inject steps and terminate the turn, but it does not inspect the raw prompt before it enters the transcript",
         "measured": "2026-11-23"
       },
-      "carriers": [],
-      "note": "declared, no hook installed: advisory, skills only. A live PreToolUse probe on agy 1.5.14 recorded camelCase protojson — toolCall.name / toolCall.args.CommandLine — and a top-level {\"decision\":\"deny\",\"reason\"} that did block a run_command; silence allows, an empty {} and any non-zero exit both deny (fail closed). It also showed why nothing ships yet: the payload names no repository (the hook runs in the directory holding hooks.json, which the chain reads as an ungoverned root), no rewrite field was measured, PostToolUse carries no result content, and a bare `ai-eng` line in the carrier is denied outright by agy when the launching app cannot resolve the binary. A carrier ships again only with an absolute binary path resolved at init, a fail-open one-line fallback that says why it could not judge, and a GUI-PATH probe test; the tool and argument names beyond run_command have to be measured and mapped too"
+      "carriers": [
+        {
+          "scope": "machine",
+          "kind": "settings",
+          "path": ".gemini/config/hooks.json",
+          "source": "antigravity.google/docs/hooks + agy-customizations skill hooks.md (2026-11-23): global hooks load from ~/.gemini/config/hooks.json",
+          "measured": "2026-11-23"
+        }
+      ],
+      "note": "declared advisory, and refused by init and config: no mapping of ours judges an agy call yet, so enabling it would claim a guarantee it cannot keep. The machine carrier ships anyway, wired fail-soft: a live PreToolUse probe on agy 1.5.14 recorded camelCase protojson — toolCall.name / toolCall.args.CommandLine — and a top-level {\"decision\":\"deny\",\"reason\"} that blocked a run_command; silence allows, while an empty {} and any non-zero exit both deny (fail closed). That last fact is why every line probes for ai-eng first: when the app the editor was launched from cannot resolve the binary, the line prints one line naming that and exits 0, instead of denying every tool call of a user who never asked for a broken hook. The payload still names no repository and only run_command / CommandLine were ever measured, so nothing is judged on the chain side until that is measured and mapped"
     },
     {
       "id": "copilot-cli",

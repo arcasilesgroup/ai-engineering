@@ -7,7 +7,7 @@ import type { PlanEntry } from "../install.ts";
 import type { Row } from "../ui.ts";
 import { VERSION } from "../version.ts";
 import { embeddedTemplate } from "../embed.ts";
-import { SURFACES, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
+import { SURFACES, surfaceCanGovern, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
 import { CI_PROVIDERS, type CiProvider } from "../env.ts";
 
 export function repoTemplateRoot(): string {
@@ -197,9 +197,17 @@ export function hasAdapter(id: string): boolean {
 /** The question init and config ask. Options sit on the next lines, with no tier headers. */
 export const SURFACE_PICK_MESSAGE = "Which agent surfaces is this project governed on?";
 
-/** The flat picker options shared by init and config. */
+/** The flat picker options shared by init and config. An option nobody may choose is not an
+ *  option: a surface with no generator, or one whose host runs no judge of ours, is declared
+ *  in the registry and never offered here — the two commands would only refuse it later. */
 export function surfaceOptions(): Surface[] {
-  return SURFACES.filter((surface) => hasAdapter(surface.id));
+  return SURFACES.filter((surface) => hasAdapter(surface.id) && surfaceCanGovern(surface));
+}
+
+/** One sentence for both entry points that can enable a surface: a host that runs no judge
+ *  of ours cannot be declared, and the refusal says why instead of blaming the host. */
+export function advisoryRefusal(id: string): string {
+  return `"${id}" is advisory only: no hook of ours judges its calls yet, so enabling it would claim enforcement it cannot deliver — see docs/surface-capability-matrix.md`;
 }
 
 /** The contract files init writes ONCE (untouchable by update). The .gitignore rides

@@ -529,12 +529,29 @@ describe("installer: the files a user shares with us", () => {
     expect(stripSharedText(current)).toBe(restored);
   });
 
+  test("an agy hooks.json a user shared round-trips back to their own named hooks", () => {
+    // agy's file is a map of NAMED hooks with no top-level `hooks` key. The contract is the
+    // file the user had before init: the guarded entries go, their `herdr` hook stays, and no
+    // empty `"ai-eng-guard": {}` stub is left behind.
+    const userFile = `${JSON.stringify({
+      herdr: { PreInvocation: [{ matcher: "*", hooks: [{ type: "command", command: "herdr notify" }] }] },
+    }, null, 2)}\n`;
+    const merged = mergeSharedText(userFile, carrierFiles("agy")!.main);
+    expect("refused" in merged).toBe(false);
+    if ("refused" in merged) return;
+    expect(merged.text).toContain("ai-eng chain PreToolUse --surface agy");
+    expect(merged.text).toContain("herdr notify");
+
+    expect(stripSharedText(merged.text)).toBe(userFile);
+  });
+
   test("recognizes every exact hook command from the embedded settings templates", () => {
     const generatedCommands = new Set<string>();
     for (const path of embeddedUnder("templates/settings.").keys()) {
       if (!path.endsWith(".json.tpl")) continue;
       const settings = JSON.parse(embeddedTemplate(path.slice("templates/".length))) as { hooks?: unknown };
-      collectTemplateCommands(settings.hooks, generatedCommands);
+      // Walk the WHOLE template: agy's hooks.json has no top-level `hooks` key.
+      collectTemplateCommands(settings, generatedCommands);
     }
 
     expect(generatedCommands.size).toBeGreaterThan(0);
