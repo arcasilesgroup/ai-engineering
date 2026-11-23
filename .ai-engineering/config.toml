@@ -59,3 +59,9 @@ receipts_ttl = "30d"  # receipts: aggregate then delete
 # Uncomment to turn off the new-version notice (AI_ENG_NO_UPDATE_NOTICES=1 does the same).
 # [notices]
 # enabled = false
+
+[git]
+# The branch the git floor compares outgoing commits against. The pre-push hook
+# needs this explicit when a push runs in a clone with no local refs/remotes/origin
+# (the no-mistakes pipeline), where the default-branch fallback cannot resolve.
+base = "main"
