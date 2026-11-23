@@ -210,7 +210,7 @@ export function surfaceOptions(): Surface[] {
  *  the README section, because the README is the only doc an installed package carries; the
  *  measured detail stays in the repository's matrix, which `files` in package.json leaves out. */
 export function advisoryRefusal(id: string): string {
-  return `"${id}" is advisory only: no hook of ours judges its calls yet, so enabling it would claim enforcement it cannot deliver — see the Surfaces section of the README; the measured detail per host is in the repository's docs/surface-capability-matrix.md`;
+  return `"${id}" is advisory only: no hook of ours judges its calls yet, so enabling it would claim enforcement it cannot deliver — see "Where the agent still can" in the README; the measured detail per host is in the repository's docs/surface-capability-matrix.md`;
 }
 
 /** The contract files init writes ONCE (untouchable by update). The .gitignore rides

@@ -10,7 +10,7 @@
 # claude-code, oh-my-pi, opencode, cursor, codex, copilot-cli, pi.
 # zed and agy are declared advisory and `ai-eng config` refuses them: no hook of ours
 # judges their calls. Written here by hand, they still get skills mirrored, and agy its
-# fail-soft hook file on the next `ai-eng update` (README, Surfaces).
+# fail-soft hook file on the next `ai-eng update` (README, Where the agent still can).
 # `ai-eng config` rewrites this list and installs/removes each surface's adapter files.
 enabled = [{{surfaces}}]
 

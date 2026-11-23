@@ -195,6 +195,16 @@ describe("floor gates — whichGitleaks missing is a HARD FAIL", () => {
     expect(push.ok).toBe(false);
     expect(push.lines[0]).toBe(`gitleaks is not installed — HARD FAIL (§12.1). ${gitleaksInstallHint()}`);
   });
+
+  test("gitleaksInstallHint returns the non-admin install guidance for win32, darwin, and linux", () => {
+    const win32 = gitleaksInstallHint("win32");
+    expect(win32).toContain("winget install --id Gitleaks.Gitleaks -e");
+    expect(win32).toContain("https://github.com/arcasilesgroup/ai-engineering/blob/main/docs/install.md");
+    expect(win32).toContain("Without administrator rights");
+    expect(gitleaksInstallHint("darwin")).toBe("brew install gitleaks");
+    expect(gitleaksInstallHint("linux")).toContain("~/.local/bin");
+    expect(gitleaksInstallHint()).toBe(gitleaksInstallHint(process.platform));
+  });
 });
 
 describe("floor gates — the DECISIONS.md threshold and the dependency regex", () => {

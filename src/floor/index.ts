@@ -15,11 +15,11 @@ type FloorResult = { ok: boolean; lines: string[] };
 /** The install line both gitleaks hints print: pre-commit and pre-push must never drift
  *  apart, and the specs read this same source. Each one works without administrator
  *  rights first, because a managed PC may allow nothing above the user's own folders. */
-export function gitleaksInstallHint(): string {
-  if (process.platform === "win32") {
-    return "winget install --id Gitleaks.Gitleaks -e, or where winget is blocked, fetch gitleaks.exe with the curl and tar built into Windows into a folder on your user PATH (README: Without administrator rights)";
+export function gitleaksInstallHint(platform: NodeJS.Platform = process.platform): string {
+  if (platform === "win32") {
+    return "winget install --id Gitleaks.Gitleaks -e, or where winget is blocked, fetch gitleaks.exe with the curl and tar built into Windows into a folder on your user PATH (https://github.com/arcasilesgroup/ai-engineering/blob/main/docs/install.md, section Without administrator rights)";
   }
-  if (process.platform === "darwin") return "brew install gitleaks";
+  if (platform === "darwin") return "brew install gitleaks";
   return "download the binary from the gitleaks releases page into ~/.local/bin (or, with sudo, apt install gitleaks)";
 }
 

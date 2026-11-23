@@ -424,7 +424,7 @@ export function checkContent(content: string): GuardResult {
       return {
         deny: true,
         reason:
-          "this silences a check (eslint-disable / @ts-ignore / noqa / nosec / NOLINT / allow-list). Silencing a check is skipping a hook. If the skip is legitimate, .ai-engineering/overrides.toml with a reason — it lands in the receipt and the commit.",
+          "this silences a check (eslint-disable / @ts-ignore / noqa / nosec / NOLINT / allow-list). Silencing a check is skipping a hook. No override covers this guard: fix what it flags, or ask a person to change the rule in a reviewed diff.",
       };
     }
   }
