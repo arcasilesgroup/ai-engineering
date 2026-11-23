@@ -99,7 +99,7 @@ describe("README repeats the assets' words", () => {
 
   test("the README's figures are numbered in the order a reader meets them", () => {
     const seen = [...README.matchAll(/<sub><b>Figure (\d)\.<\/b>/g)].map((match) => Number(match[1]));
-    expect(seen).toEqual(FIGURES.map((figure) => figure.n).sort());
+    expect(seen).toEqual(FIGURES.map((figure) => figure.n).sort((left, right) => left - right));
   });
 });
 
