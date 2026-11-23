@@ -19,7 +19,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { join, posix } from "node:path";
 import { homedir, tmpdir } from "node:os";
-import { commandIndex, expandedSegments, inlineShellPrograms, quotedSpanEnd, rawShellWords, shellWords } from "./shell.ts";
+import { commandIndex, expandedSegments, inlineShellPrograms, normalizeRedirects, quotedSpanEnd, rawShellWords, shellWords, stripRedirectWords } from "./shell.ts";
 
 /** What every install and new project gets while config.toml says nothing. System read
  *  includes the paths this file calls sensitive (~/.ssh, .env, *.pem): reading them is
@@ -316,7 +316,7 @@ function bareOperatorIndex(text: string, operators: string): number {
   return -1;
 }
 
-const ASSIGNMENT = /^[a-z_]\w*=/;
+const ASSIGNMENT = /^[a-z_]\w*\+?=/;
 
 /** The quoted spans of `text` that carry plain data — no `$`, no backtick, no way
  *  to expand into an argument — become one space: the shapes read the shell the
@@ -340,10 +340,14 @@ function blankDataQuotedSpans(text: string): string {
 }
 
 function commandLead(written: string): string {
-  const words = shellWords(written).filter((word) => !word.isOperator).map((word) => word.value);
-  const at = commandIndex(words);
-  const names = words.slice(0, at).map((word) => word.split("/").pop() ?? word);
-  const rest = words.slice(at).join(" ");
+  const words = stripRedirectWords(shellWords(normalizeRedirects(written)));
+  const values = words.map((word) => word.value);
+  const at = commandIndex(values);
+  const names = values.slice(0, at).map((word) => word.split("/").pop() ?? word);
+  const rest = words
+    .slice(at)
+    .map((word, index) => (index > 0 && word.isQuoted && !/[$`]/.test(word.value) ? " " : word.value))
+    .join(" ");
   // A privilege wrapper is a prefix to commandIndex, and it is the thing this guard has to see.
   if (names.some((name) => name === "sudo" || name === "doas" || name === "su")) return `sudo ${rest}`.trim();
   return rest;
@@ -355,7 +359,7 @@ function scanSegment(mask: { value: number }, written: string, cwd: string): voi
   const verbAt = words.findIndex((word) => !ASSIGNMENT.test(word));
   // The shapes read `git push` however it is spelled: `/usr/bin/git push` and
   // `TMPDIR=x git push` run the same program (policy.rs reads neither as git push).
-  const segment = written.replace(/^(?:[a-z_]\w*=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
+  const segment = written.replace(/^(?:[a-z_]\w*\+?=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
   // The shapes judge the shell the command runs; quoted data (a `-m` message) is
   // not shell. Path tokens below keep their raw words: `rm "~/.ssh/id"` stays a
   // sensitive write.
@@ -379,7 +383,7 @@ function scanSegment(mask: { value: number }, written: string, cwd: string): voi
   // (`then /bin/rm …`), an env prefix or an absolute path.
   const writerShape = text
     .replace(/^(?:(?:then|do|else|elif|if|while|until|time|!|\{|\()\s+)+/, "")
-    .replace(/^(?:[a-z_]\w*=\S*\s+)*/, "")
+    .replace(/^(?:[a-z_]\w*\+?=\S*\s+)*/, "")
     .replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
   if (WRITES(writerShape) || WRITES(lead)) {
     pathPermissions = PERM_READ | PERM_WRITE;

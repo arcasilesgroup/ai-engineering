@@ -17,7 +17,7 @@ import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
-import { applySegmentAssignments, applySegmentMutations, commandIndex, jsonToolOperands, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, substituteVariables } from "./shell.ts";
+import { applySegmentAssignments, applySegmentMutations, commandIndex, createVariableScope, jsonToolOperands, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, substituteVariables, variablesForSegment } from "./shell.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
  *  `sed` joins them only with -i. The list may over-deny: that is a person told to
@@ -120,7 +120,7 @@ function commandStart(words: string[]): number {
   let index = 0;
   while (index < words.length) {
     const word = words[index]!;
-    if (SHELL_KEYWORDS.has(word) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) {
+    if (SHELL_KEYWORDS.has(word) || /^[A-Za-z_][A-Za-z0-9_]*\+?=/.test(word)) {
       index++;
       continue;
     }
@@ -134,6 +134,11 @@ function commandStart(words: string[]): number {
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "mksh", "ash", "fish", "csh", "tcsh", "pwsh", "powershell"]);
 const INTERPRETERS = new Set([...SHELLS, "python", "python3", "node", "perl", "ruby", "bun", "deno", "php"]);
 const STDIN_FILES = new Set(["-", "/dev/stdin", "/dev/fd/0", "/proc/self/fd/0"]);
+const NON_SHELL_INLINE = /^(?:-[A-Za-z]*[ceEp][A-Za-z]*|--(?:eval|print|command)(?:=.*)?)$/;
+
+function inlineCodeFlag(name: string): RegExp {
+  return SHELLS.has(name) ? /^-[A-Za-z]*c[A-Za-z]*$/ : NON_SHELL_INLINE;
+}
 
 /** The verb a segment runs, past redirections and run-it-for-me prefixes (`command rm`). */
 function verbOf(words: string[]): { index: number; name: string } {
@@ -144,9 +149,9 @@ function verbOf(words: string[]): { index: number; name: string } {
 const INFO_FLAGS = /^(?:--version|--help|-V|-v|-h)$/;
 
 /** True when an interpreter would read its program from stdin: no script and no inline
- *  program (`-c` in any short-option cluster for a shell, `-c`/`-e` for the others). */
+ *  program (`-c` in any short-option cluster for a shell, `-c`/`-e`/`-p`/`--eval` for the others). */
 function readsProgramFromStdin(name: string, args: string[]): boolean {
-  const inline = SHELLS.has(name) ? /^-[A-Za-z]*c[A-Za-z]*$/ : /^-[A-Za-z]*[ceE][A-Za-z]*$/;
+  const inline = inlineCodeFlag(name);
   if (args.some((arg) => INFO_FLAGS.test(arg) || inline.test(arg))) return false;
   return !args.some((arg) => !arg.startsWith("-"));
 }
@@ -418,9 +423,10 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
   const expanded = command.replace(/\$\(\s*(?:which|command\s+-v)\s+([^)\s]+)\s*\)/g, "$1");
   const segments = shellSegments(normalizeRedirects(expanded));
   if (segments === null) return "its quoting cannot be read, so neither can what it runs";
-  const variables = new Map<string, string>([["HOME", machineBase()]]);
+  const scopes = createVariableScope([["HOME", machineBase()]]);
   const bases = [...context.bases];
   const parsed = segments.map((segment) => {
+    const variables = variablesForSegment(scopes, segment);
     const words = shellWords(resolveSubstitutions(segment)).map((word) => ({ ...word, original: word.value, value: substituteVariables(word.value, variables) }));
     applySegmentAssignments(segment.text, variables, false);
     applySegmentMutations(segment.text, variables, false);
@@ -482,9 +488,11 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
     if (INTERPRETERS.has(name) && segment.heredocs.length === 0 && inputs.length === 0 && readsProgramFromStdin(name, args)) {
       return "an interpreter reading its program from stdin runs code the guards cannot read";
     }
-    const inline = SHELLS.has(name) ? /^-[A-Za-z]*c[A-Za-z]*$/ : /^-[A-Za-z]*[ceE][A-Za-z]*$/;
-    const program = args[args.findIndex((arg) => inline.test(arg)) + 1];
-    if (INTERPRETERS.has(name) && ((program !== undefined && /[$`]/.test(program) && args.some((arg) => inline.test(arg))) || inputs.some((input) => /[$`]/.test(input)))) {
+    const inline = inlineCodeFlag(name);
+    const inlineIndex = args.findIndex((arg) => inline.test(arg));
+    const inlineArg = inlineIndex >= 0 ? args[inlineIndex]! : undefined;
+    const program = inlineArg === undefined ? undefined : inlineArg.includes("=") ? inlineArg.slice(inlineArg.indexOf("=") + 1) : args[inlineIndex + 1];
+    if (INTERPRETERS.has(name) && ((program !== undefined && /[$`]/.test(program)) || inputs.some((input) => /[$`]/.test(input)))) {
       return "an interpreter fed generated text runs code the guards cannot read";
     }
     const isPowerShellHost = name === "pwsh" || name === "powershell";
@@ -645,12 +653,12 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       nested.push(...segment.heredocs.map(({ body }) => body), ...inputs);
     }
     // env -S hides the command in an option value commandIndex skips, so the
-    // prefix is gone by the time `name` is known. Read it off the raw words.
-    const envAt = plain.findIndex((word) => commandName(word) === "env");
+    // prefix is gone by the time `name` is known. Read it off the prefix words only.
+    const envAt = plain.slice(0, verb.index + 1).findIndex((word) => commandName(word) === "env");
     if (envAt >= 0) {
-      const envArgs = plain.slice(envAt + 1);
+      const envArgs = plain.slice(envAt + 1, verb.index);
       envArgs.forEach((arg, index) => {
-        if ((arg === "-S" || arg === "--split-string") && envArgs[index + 1] !== undefined) nested.push(envArgs[index + 1]!);
+        if ((/^-[A-Za-z]*S$/.test(arg) || arg === "--split-string") && envArgs[index + 1] !== undefined) nested.push(envArgs[index + 1]!);
         else if (arg.startsWith("--split-string=")) nested.push(arg.slice("--split-string=".length));
         else if (/^-[A-Za-z]*S.+/.test(arg)) nested.push(arg.replace(/^-[A-Za-z]*S/, ""));
       });

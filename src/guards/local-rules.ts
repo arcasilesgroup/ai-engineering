@@ -35,8 +35,8 @@ export interface LocalRuleResult {
 
 const MAX_TRAVERSED_VALUES = 50_000;
 
-/** Collect all string values from a nested object/ array (depth-first, capped). */
-function collectStrings(value: unknown, output: string[]): void {
+/** Collect all string values from a nested object/array (depth-first, capped). */
+export function collectStrings(value: unknown, output: string[]): void {
   const pending = [value];
   const seen = new WeakSet<object>();
   let traversed = 0;
@@ -127,7 +127,7 @@ export function evaluateLocalRules(payload: Payload, rules: LocalRule[]): LocalR
   const allText: string[] = [];
   const toolNames: string[] = [];
   collectStrings(payload.tool_input, allText);
-  if (typeof payload.tool_response === "string") allText.push(payload.tool_response);
+  collectStrings(payload.tool_response, allText);
   collectToolNames(payload.tool_input, toolNames);
   // Also include the payload's top-level tool_name for tool_name scope matching.
   if (typeof payload.tool_name === "string" && payload.tool_name.length > 0) {

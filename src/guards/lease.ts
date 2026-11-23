@@ -18,7 +18,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { loadConfig } from "../env.ts";
 import type { Payload } from "../payload.ts";
 import type { GuardResult } from "./no-verify.ts";
-import { commandIndex, fileRedirectTargets, inlineShellPrograms, shellSegments, shellWords } from "./shell.ts";
+import { commandIndex, fileRedirectTargets, inlineShellPrograms, normalizeRedirects, shellSegments, shellWords, stripRedirectWords, type ShellWord } from "./shell.ts";
 
 const MINUTE_MS = 60 * 1000;
 const FILE_WRITES = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
@@ -89,13 +89,14 @@ const UNSURE_CD = /[|()`]|\$\(/;
 /** The folders the git writes in this command act in: the folder `-C` names (each `-C` adds to
  *  the last), else the folder a plain `cd <dir>` before it leads to, else `cwd`. */
 function gitWriteDirs(command: string, cwd: string): string[] {
-  const segments = shellSegments(command);
+  const normalized = normalizeRedirects(command);
+  const segments = shellSegments(normalized);
   if (segments === null) return [];
-  const isCdSure = !UNSURE_CD.test(command);
+  const isCdSure = !UNSURE_CD.test(normalized);
   let dir = cwd;
   const dirs: string[] = [];
   for (const segment of segments) {
-    const words = shellWords(segment.text).filter((word) => !word.isOperator);
+    const words = stripRedirectWords(shellWords(segment.text));
     const values = words.map((word) => word.value);
     const at = commandIndex(values);
     const name = values[at];
@@ -130,17 +131,61 @@ function nextDir(dir: string, cwd: string, isCdSure: boolean, words: ReturnType<
   return isCdSure ? cwd : dir;
 }
 
+function sedInPlaceTargets(args: readonly ShellWord[]): ShellWord[] {
+  let isInPlace = false;
+  let hasScriptFlag = false;
+  let separateInPlaceExt: string | undefined;
+  const positionals: ShellWord[] = [];
+  for (let index = 0; index < args.length; index++) {
+    const word = args[index]!;
+    const value = word.value;
+    if (value === "--") {
+      positionals.push(...args.slice(index + 1));
+      break;
+    }
+    if (/^-[A-Za-z]*i/.test(value) || value.startsWith("--in-place")) {
+      isInPlace = true;
+      if (/^-[A-Za-z]*i$/.test(value)) {
+        const next = args[index + 1];
+        if (next !== undefined && !next.value.startsWith("-")) separateInPlaceExt = next.value;
+      }
+      continue;
+    }
+    if (value === "-e" || value === "-f" || value === "--expression" || value === "--file") {
+      hasScriptFlag = true;
+      index++;
+      continue;
+    }
+    if (/^-[A-Za-z]*[ef]/.test(value) || value.startsWith("--expression=") || value.startsWith("--file=")) {
+      hasScriptFlag = true;
+      continue;
+    }
+    if (value.startsWith("-")) continue;
+    positionals.push(word);
+  }
+  if (!isInPlace) return [];
+  const skipBackupExt = separateInPlaceExt !== undefined && (
+    separateInPlaceExt === "" ||
+    (positionals.length >= (hasScriptFlag ? 2 : 3) && !/[/;\s]/.test(separateInPlaceExt))
+  );
+  const skipCount = (skipBackupExt ? 1 : 0) + (hasScriptFlag ? 0 : 1);
+  return positionals
+    .slice(skipCount)
+    .filter((word) => !word.value.startsWith("/dev/") && !/[$`*?[]/.test(word.unquoted));
+}
+
 /** Directories a shell command writes into via redirects (`>`, `>>`) or common file-writing verbs.
  *  `2>&1`, `>&-`, `/dev/*`, and read commands return nothing. */
 function shellWriteDirs(command: string, cwd: string): string[] {
-  const segments = shellSegments(command);
+  const normalized = normalizeRedirects(command);
+  const segments = shellSegments(normalized);
   if (segments === null) return [];
-  const isCdSure = !UNSURE_CD.test(command);
+  const isCdSure = !UNSURE_CD.test(normalized);
   let dir = cwd;
   const dirs: string[] = [];
   for (const segment of segments) {
     const words = shellWords(segment.text);
-    const plain = words.filter((word) => !word.isOperator);
+    const plain = stripRedirectWords(words);
     const values = plain.map((word) => word.value);
     const at = commandIndex(values);
     const verb = basename(values[at] ?? "");
@@ -158,8 +203,8 @@ function shellWriteDirs(command: string, cwd: string): string[] {
     } else if (SHELL_DEST_WRITERS.has(verb) && nonFlagPaths.length >= 2) {
       const dest = nonFlagPaths.at(-1)!;
       dirs.push(dirname(resolve(dir, dest.value)));
-    } else if (verb === "sed" && args.some((word) => /^-[A-Za-z]*i/.test(word.value))) {
-      for (const target of nonFlagPaths.slice(1)) dirs.push(dirname(resolve(dir, target.value)));
+    } else if (verb === "sed") {
+      for (const target of sedInPlaceTargets(args)) dirs.push(dirname(resolve(dir, target.value)));
     }
   }
   return dirs;

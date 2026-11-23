@@ -2,11 +2,8 @@
 
 import { createHash } from "node:crypto";
 import {
-  closeSync,
-  constants,
   lstatSync,
   mkdirSync,
-  openSync,
   readFileSync,
   readdirSync,
   readlinkSync,
@@ -310,18 +307,16 @@ function checkFirstPlan(root: string, checkpoint: Checkpoint): CheckpointGuardRe
   ) {
     return deny(`Checkpoint ${checkpoint.slug}`, "plan approval", "a first plan must start approved for implementation with no app review", "approve the matching brainstorm, then write the implementation plan");
   }
-  let html: string;
+  let html: string | null;
   try {
     // A symlink is not the file the person approved. Following it would let a
     // session point the approval check at a file they wrote somewhere else.
-    const descriptor = openSync(join(root, ".ai-engineering", "brainstorm.html"), constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-    try {
-      html = readFileSync(descriptor, "utf8");
-    } finally {
-      closeSync(descriptor);
-    }
+    html = readNoFollowFile(join(root, ".ai-engineering", "brainstorm.html"));
   } catch (error) {
     return deny(`Checkpoint ${checkpoint.slug}`, "plan approval", `cannot read the matching brainstorm (${error instanceof Error ? error.message : String(error)})`, "restore the approved brainstorm and retry the plan write");
+  }
+  if (html === null) {
+    return deny(`Checkpoint ${checkpoint.slug}`, "plan approval", "cannot read the matching brainstorm (ENOENT: brainstorm.html is missing)", "restore the approved brainstorm and retry the plan write");
   }
   const problem = brainstormApprovalProblem(html, checkpoint.slug, new Date());
   if (problem !== null) {

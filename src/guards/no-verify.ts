@@ -4,7 +4,7 @@
 import { basename, resolve, isAbsolute, join } from "node:path";
 import { realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
-import { COMMAND_PREFIXES, commandIndex, fileRedirectTargets, inlineShellPrograms, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
+import { argumentWords, COMMAND_PREFIXES, commandIndex, fileRedirectTargets, inlineShellPrograms, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
 
 type Skip = { pattern: RegExp; label: string };
 
@@ -29,22 +29,6 @@ const HOOKED = new Set(["commit", "push", "merge", "pull", "rebase", "am", "cher
 const VALUE_OPTIONS = new Set(["-m", "--message", "-F", "--file", "-t", "--template", "--author", "--date", "--trailer", "--cleanup", "-C", "--reuse-message", "-c", "--reedit-message", "--fixup", "--squash"]);
 const GLOBAL_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--super-prefix", "--attr-source"]);
 
-/** The words git receives: the shell strips every redirection (`2>/dev/null`, `>log`,
- *  `<in`, `&>out`, `2>&1`) wherever it stands, so the operator and its target are not
- *  arguments and must never be read as the subcommand or an option's value. */
-function argumentWords(text: string): ShellWord[] {
-  const words = shellWords(text);
-  const kept: ShellWord[] = [];
-  for (let at = 0; at < words.length; at++) {
-    if (words[at]!.isOperator) {
-      at++;
-      continue;
-    }
-    kept.push(words[at]!);
-  }
-  return kept;
-}
-
 const XARGS_STDIN = "xargs completing git arguments from stdin";
 
 /** Same option-value spellings commandIndex consumes. A drift here would read a
@@ -53,7 +37,7 @@ function prefixTakesValue(prefix: string, option: string): boolean {
   if (prefix === "xargs") return /^-[0-9A-Za-z]*[aIiLlnsPEed]$/.test(option);
   if (prefix === "sudo") return /^-[A-Za-z]*[ugCDhpRrT]$/.test(option);
   if (prefix === "doas") return /^-[A-Za-z]*[uC]$/.test(option);
-  if (prefix === "env") return /^-[A-Za-z]*[uCS]$/.test(option);
+  if (prefix === "env") return /^(?:-[A-Za-z]*[uCS]|--(?:split-string|unset|chdir))$/.test(option);
   if (prefix === "nice") return option === "-n";
   if (prefix === "timeout") return /^-[sk]$/.test(option);
   if (prefix === "stdbuf") return /^-[ioe]$/.test(option);
@@ -70,7 +54,7 @@ function xargsFeed(words: ShellWord[], gitAt: number): { invokes: boolean; place
   while (index < words.length) {
     const value = words[index]!.value;
     const name = basename(value);
-    if (RESERVED_WORDS.has(value) || /^[A-Za-z_]\w*=/.test(value)) {
+    if (RESERVED_WORDS.has(value) || /^[A-Za-z_]\w*\+?=/.test(value)) {
       index++;
       continue;
     }
@@ -292,7 +276,7 @@ function isTeeToFile(text: string): boolean {
 /** A redirect or tee into a file carries the bytes a shell write puts on disk.
  *  Stderr redirects (`2>&1`, `2>/dev/null`) and commit-message heredocs are not file writes. */
 function silenceInWrites(command: string): GuardResult {
-  const segments = shellSegments(command);
+  const segments = shellSegments(normalizeRedirects(command));
   if (segments === null) return undefined;
   for (let index = 0; index < segments.length; index++) {
     const segment = segments[index]!;

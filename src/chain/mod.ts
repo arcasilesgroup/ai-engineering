@@ -512,6 +512,6 @@ export function chainMain(event: string, raw: string, options: ChainOptions = {}
   }
   const outcome = runChain(body, event, options);
   // An allow is a verdict too, and one host reads an empty answer as a refusal.
-  if (outcome.action === "allow") allow(options.dialect ?? "claude");
+  if (outcome.action === "allow" || outcome.action === "review") allow(options.dialect ?? "claude");
   process.exit(0);
 }

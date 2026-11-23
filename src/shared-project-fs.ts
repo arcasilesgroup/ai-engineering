@@ -331,7 +331,7 @@ export function readNoFollowFile(path: string): string | null {
 export function writeNoFollowFile(path: string, content: string): void {
   const descriptor = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0), 0o600);
   try {
-    writeSync(descriptor, content);
+    writeAll(descriptor, Buffer.from(content, "utf8"));
   } finally {
     closeSync(descriptor);
   }

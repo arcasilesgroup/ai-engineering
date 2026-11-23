@@ -35,6 +35,9 @@ export type ShellSegment = {
   heredocs: Array<{ body: string; isLiteral: boolean }>;
   /** The first command inside each SUBSTITUTION this segment holds, in order. */
   substitutions: string[];
+  /** Variable-tracking scope id (0 = top-level shell) and the scope it inherits from. */
+  scope: number;
+  parentScope: number;
 };
 
 /** The heredoc operator starting at `at` and its delimiter, read as the one shell word bash
@@ -141,9 +144,22 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
   let normalized = "";
   let copiedUpTo = 0;
   type Heredoc = { body: string; isLiteral: boolean };
-  type Frame = { quote: string | null; closer: string; parent: string; parentIsAfterPipe: boolean; parentSubstitutions: string[]; parentHeredocs: Heredoc[]; innerStart: number };
+  type Frame = {
+    kind: "substitution" | "subshell";
+    quote: string | null;
+    closer: string;
+    parent: string;
+    parentIsAfterPipe: boolean;
+    parentSubstitutions: string[];
+    parentHeredocs: Heredoc[];
+    parentScope: number;
+    innerStart: number;
+  };
   const nesting: Frame[] = [];
   const pending: Array<{ delimiter: string; isLiteral: boolean; stripsTabs: boolean; owner: Heredoc[] }> = [];
+  const scopeParents = new Map<number, number>([[0, 0]]);
+  let scope = 0;
+  let nextScope = 0;
   let current = "";
   let quote: string | null = null;
   let isAfterPipe = false;
@@ -151,8 +167,11 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
   let substitutions: string[] = [];
   // The heredocs of the command being read: filled in after the line that declares them.
   let heredocs: Heredoc[] = [];
-  const cut = (nextIsAfterPipe = false): void => {
-    segments.push({ text: current, isAfterPipe, opensSubstitution: current.includes(SUBSTITUTION), isProcessSubstitution, heredocs, substitutions });
+  const cut = (nextIsAfterPipe = false, isIsolated = false): void => {
+    const isolate = isIsolated || isAfterPipe;
+    const segScope = isolate ? ++nextScope : scope;
+    const segParent = isolate ? scope : (scopeParents.get(scope) ?? 0);
+    segments.push({ text: current, isAfterPipe, opensSubstitution: current.includes(SUBSTITUTION), isProcessSubstitution, heredocs, substitutions, scope: segScope, parentScope: segParent });
     current = "";
     isAfterPipe = nextIsAfterPipe;
     isProcessSubstitution = false;
@@ -160,16 +179,28 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
     heredocs = [];
   };
   const open = (closer: string): void => {
-    nesting.push({ quote, closer, parent: current, parentIsAfterPipe: isAfterPipe, parentSubstitutions: substitutions, parentHeredocs: heredocs, innerStart: segments.length });
+    const childScope = ++nextScope;
+    scopeParents.set(childScope, scope);
+    nesting.push({ kind: "substitution", quote, closer, parent: current, parentIsAfterPipe: isAfterPipe, parentSubstitutions: substitutions, parentHeredocs: heredocs, parentScope: scope, innerStart: segments.length });
+    scope = childScope;
     quote = null;
     current = "";
     isAfterPipe = false;
     substitutions = [];
     heredocs = [];
   };
+  const openSubshell = (): void => {
+    cut();
+    const childScope = ++nextScope;
+    scopeParents.set(childScope, scope);
+    nesting.push({ kind: "subshell", quote: null, closer: ")", parent: "", parentIsAfterPipe: false, parentSubstitutions: [], parentHeredocs: [], parentScope: scope, innerStart: segments.length });
+    scope = childScope;
+  };
   const close = (): void => {
     cut();
     const frame = nesting.pop()!;
+    scope = frame.parentScope;
+    if (frame.kind === "subshell") return;
     quote = frame.quote;
     current = frame.parent + SUBSTITUTION;
     isAfterPipe = frame.parentIsAfterPipe;
@@ -273,19 +304,35 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
         if (!heredoc.isLiteral && /\$\(|`/.test(body)) {
           const expanded = shellSegments(body.replace(/['"]/g, " "));
           if (expanded === null) return UNREADABLE;
-          segments.push(...expanded);
+          const base = ++nextScope;
+          let maxInner = 0;
+          for (const inner of expanded) {
+            if (inner.scope > maxInner) maxInner = inner.scope;
+            segments.push({
+              ...inner,
+              scope: base + inner.scope,
+              parentScope: inner.scope === 0 ? scope : base + inner.parentScope,
+            });
+          }
+          nextScope += maxInner;
         }
       }
     } else if (char === "|") {
       const isOr = next === "|";
       if (isOr || next === "&") index++;
-      cut(!isOr);
+      cut(!isOr, !isOr);
+      isWordStart = true;
+    } else if (char === "(") {
+      openSubshell();
       isWordStart = true;
     } else if (char === ")" && nesting.at(-1)?.closer === ")") {
+      const wasSubshell = nesting.at(-1)!.kind === "subshell";
       close();
-    } else if (";&\n()".includes(char)) {
+      if (wasSubshell) isWordStart = true;
+    } else if (";&\n)".includes(char)) {
+      const isBackground = char === "&" && next !== "&";
       if (char === "&" && next === "&") index++;
-      cut();
+      cut(false, isBackground);
       isWordStart = true;
     } else {
       current += char;
@@ -311,7 +358,7 @@ const PREFIX_VALUE_OPTIONS: Record<string, RegExp> = {
   xargs: /^-[0-9A-Za-z]*[aIiLlnsPEed]$/,
   sudo: /^-[A-Za-z]*[ugCDhpRrT]$/,
   doas: /^-[A-Za-z]*[uC]$/,
-  env: /^-[A-Za-z]*[uCS]$/,
+  env: /^(?:-[A-Za-z]*[uCS]|--(?:split-string|unset|chdir))$/,
   nice: /^-n$/,
   timeout: /^-[sk]$/,
   stdbuf: /^-[ioe]$/,
@@ -325,7 +372,7 @@ export function commandIndex(words: readonly string[], nameOf: (word: string) =>
   let index = start;
   while (index < words.length) {
     const word = words[index]!;
-    if (RESERVED_WORDS.has(word) || /^[A-Za-z_]\w*=/.test(word)) {
+    if (RESERVED_WORDS.has(word) || /^[A-Za-z_]\w*\+?=/.test(word)) {
       index++;
       continue;
     }
@@ -433,6 +480,24 @@ export function shellWords(text: string): ShellWord[] {
   return words;
 }
 
+/** Words with every redirection operator and its target dropped, as the shell hands them to a program. */
+export function stripRedirectWords(words: readonly ShellWord[]): ShellWord[] {
+  const kept: ShellWord[] = [];
+  for (let at = 0; at < words.length; at++) {
+    if (words[at]!.isOperator) {
+      at++;
+      continue;
+    }
+    kept.push(words[at]!);
+  }
+  return kept;
+}
+
+/** The argument words of one normalized segment, with redirections and their targets stripped. */
+export function argumentWords(text: string): ShellWord[] {
+  return stripRedirectWords(shellWords(text));
+}
+
 /** The words an output redirect writes to as a file: not `2>&1` or `>&-`, which copy or
  *  close a descriptor (the `&` stays on the target word), and not a `/dev/` device. */
 export function fileRedirectTargets(words: readonly ShellWord[]): ShellWord[] {
@@ -508,7 +573,7 @@ function isSafeExpansion(value: string): boolean {
 }
 
 /** `$name` and `${name}` outside single quotes, using `variables` as they stand now. */
-function expandDollars(text: string, variables: ReadonlyMap<string, string>): string {
+function expandDollars(text: string, variables: ReadonlyMap<string, string | null>): string {
   let out = "";
   let quote: "'" | '"' | null = null;
   for (let index = 0; index < text.length; index++) {
@@ -536,7 +601,7 @@ function expandDollars(text: string, variables: ReadonlyMap<string, string>): st
     const match = char === "$" ? /^\$\{([A-Za-z_]\w*)\}|^\$([A-Za-z_]\w*)/.exec(text.slice(index)) : null;
     const name = match?.[1] ?? match?.[2];
     const value = name === undefined ? undefined : variables.get(name);
-    if (match !== null && value !== undefined && isSafeExpansion(value)) {
+    if (match !== null && typeof value === "string" && isSafeExpansion(value)) {
       out += value;
       index += match[0].length - 1;
       continue;
@@ -551,14 +616,37 @@ const ASSIGNMENT_BUILTINS = new Set(["export", "declare", "typeset", "local", "r
 /** POSIX special builtins. A prefix `f=x :` outlives the command in sh and not in bash. */
 const SPECIAL_BUILTINS = new Set([":", ".", "break", "continue", "eval", "exec", "exit", "return", "set", "shift", "source", "times", "trap", "unset"]);
 
-/** `$name` and `${name}` in `value`, from the values known now; unknown names stay as written. */
-export function substituteVariables(value: string, variables: ReadonlyMap<string, string>): string {
-  return value.replace(/\$\{([A-Za-z_]\w*)\}|\$([A-Za-z_]\w*)/g, (all, braced: string | undefined, bare: string | undefined) => variables.get(braced ?? bare ?? "") ?? all);
+export type VariableMap = Map<string, string | null>;
+export type VariableScope = Map<number, VariableMap>;
+
+export function createVariableScope(initial?: Iterable<[string, string]>): VariableScope {
+  return new Map([[0, new Map<string, string | null>(initial)]]);
 }
 
-function assign(variables: Map<string, string>, name: string, raw: string, requireSafe: boolean): void {
-  const value = substituteVariables(raw, variables);
-  if (/[$`]/.test(value) || (requireSafe && value.length > 0 && !isSafeExpansion(value))) variables.delete(name);
+export function variablesForSegment(scopes: VariableScope, segment: ShellSegment): VariableMap {
+  let table = scopes.get(segment.scope);
+  if (table === undefined) {
+    const parent = scopes.get(segment.parentScope) ?? scopes.get(0)!;
+    table = new Map(parent);
+    scopes.set(segment.scope, table);
+  }
+  return table;
+}
+
+/** `$name` and `${name}` in `value`, from the values known now; unknown names stay as written. */
+export function substituteVariables(value: string, variables: ReadonlyMap<string, string | null>): string {
+  return value.replace(/\$\{([A-Za-z_]\w*)\}|\$([A-Za-z_]\w*)/g, (all, braced: string | undefined, bare: string | undefined) => {
+    const found = variables.get(braced ?? bare ?? "");
+    return typeof found === "string" ? found : all;
+  });
+}
+
+function assign(variables: VariableMap, name: string, raw: string, isAppend: boolean, requireSafe: boolean): void {
+  const rhs = substituteVariables(raw, variables);
+  const prior = variables.get(name);
+  if (isAppend && prior === null) return;
+  const value = isAppend ? `${prior ?? ""}${rhs}` : rhs;
+  if (/[$`]/.test(value) || (requireSafe && value.length > 0 && !isSafeExpansion(value))) variables.set(name, null);
   else variables.set(name, value);
 }
 
@@ -568,9 +656,9 @@ function assign(variables: Map<string, string>, name: string, raw: string, requi
  *  segment does too. Before a special builtin sh keeps the prefix and bash does not, so
  *  that name is no longer known. With `requireSafe`, a value that could not stand in the
  *  text as one word drops the name. */
-export function applySegmentAssignments(text: string, variables: Map<string, string>, requireSafe: boolean): void {
+export function applySegmentAssignments(text: string, variables: VariableMap, requireSafe: boolean): void {
   const words = shellWords(normalizeRedirects(text));
-  const prefix: Array<[string, string]> = [];
+  const prefix: Array<[string, string, boolean]> = [];
   let commandAt = -1;
   for (let index = 0; index < words.length; index++) {
     const word = words[index]!;
@@ -578,20 +666,21 @@ export function applySegmentAssignments(text: string, variables: Map<string, str
       index++;
       continue;
     }
-    const assignment = /^[A-Za-z_]\w*=/.test(word.unquoted) ? /^([A-Za-z_]\w*)=(.*)$/s.exec(word.value) : null;
+    if (prefix.length === 0 && !word.isQuoted && RESERVED_WORDS.has(word.value)) continue;
+    const assignment = /^[A-Za-z_]\w*\+?=/.test(word.unquoted) ? /^([A-Za-z_]\w*)(\+?)=(.*)$/s.exec(word.value) : null;
     if (assignment === null) {
       commandAt = index;
       break;
     }
-    prefix.push([assignment[1]!, assignment[2]!]);
+    prefix.push([assignment[1]!, assignment[3]!, assignment[2] === "+"]);
   }
   if (commandAt < 0) {
-    for (const [name, raw] of prefix) assign(variables, name, raw, requireSafe);
+    for (const [name, raw, isAppend] of prefix) assign(variables, name, raw, isAppend, requireSafe);
     return;
   }
   const command = basename(words[commandAt]!.value);
   const isAssignmentBuiltin = ASSIGNMENT_BUILTINS.has(command);
-  if (isAssignmentBuiltin || SPECIAL_BUILTINS.has(command)) for (const [name] of prefix) variables.delete(name);
+  if (isAssignmentBuiltin || SPECIAL_BUILTINS.has(command)) for (const [name] of prefix) variables.set(name, null);
   if (!isAssignmentBuiltin) return;
   for (let index = commandAt + 1; index < words.length; index++) {
     const word = words[index]!;
@@ -599,8 +688,8 @@ export function applySegmentAssignments(text: string, variables: Map<string, str
       index++;
       continue;
     }
-    const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word.value);
-    if (assignment !== null) assign(variables, assignment[1]!, assignment[2]!, requireSafe);
+    const assignment = /^([A-Za-z_]\w*)(\+?)=(.*)$/s.exec(word.value);
+    if (assignment !== null) assign(variables, assignment[1]!, assignment[3]!, assignment[2] === "+", requireSafe);
   }
 }
 
@@ -626,8 +715,8 @@ export function staticPrintfValue(args: readonly string[]): string | null {
 
 /** `printf -v` and `read` mutate variables for the next segment. A value this reader cannot
  *  evaluate drops the name, so a later `$name` stays unresolved instead of a stale safe path. */
-export function applySegmentMutations(text: string, variables: Map<string, string>, requireSafe: boolean): void {
-  const words = shellWords(text).filter((word) => !word.isOperator).map((word) => word.value);
+export function applySegmentMutations(text: string, variables: VariableMap, requireSafe: boolean): void {
+  const words = argumentWords(normalizeRedirects(text)).map((word) => word.value);
   const at = commandIndex(words);
   const verb = basename(words[at] ?? "");
   const args = words.slice(at + 1);
@@ -644,7 +733,7 @@ export function applySegmentMutations(text: string, variables: Map<string, strin
     }
     if (name === undefined || !/^[A-Za-z_]\w*$/.test(name)) return;
     const value = staticPrintfValue(rest);
-    if (value === null || (requireSafe && !isSafeExpansion(value))) variables.delete(name);
+    if (value === null || (requireSafe && !isSafeExpansion(value))) variables.set(name, null);
     else variables.set(name, value);
     return;
   }
@@ -657,7 +746,7 @@ export function applySegmentMutations(text: string, variables: Map<string, strin
         continue;
       }
       if (arg.startsWith("-")) continue;
-      if (/^[A-Za-z_]\w*$/.test(arg)) variables.delete(arg);
+      if (/^[A-Za-z_]\w*$/.test(arg)) variables.set(arg, null);
     }
   }
 }
@@ -668,11 +757,12 @@ export function applySegmentMutations(text: string, variables: Map<string, strin
 export function expandedSegments(command: string): string[] {
   const segments = shellSegments(command);
   if (segments === null) return [];
-  const variables = new Map<string, string>();
-  return segments.map(({ text }) => {
-    const expanded = expandDollars(text, variables);
-    applySegmentAssignments(text, variables, true);
-    applySegmentMutations(text, variables, true);
+  const scopes = createVariableScope();
+  return segments.map((segment) => {
+    const variables = variablesForSegment(scopes, segment);
+    const expanded = expandDollars(segment.text, variables);
+    applySegmentAssignments(segment.text, variables, true);
+    applySegmentMutations(segment.text, variables, true);
     return expanded;
   });
 }
