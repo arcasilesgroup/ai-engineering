@@ -334,6 +334,10 @@ describe("checkContent", () => {
     expect(checkContent(content)).toMatchObject({ deny: true, reason: expect.stringContaining(silenceReason) });
   });
 
+  test("offers no override, because only the loop guard reads that file", () => {
+    expect(checkContent(LINE_DISABLE)?.reason).not.toContain("overrides.toml");
+  });
+
   test("allows the prettier carve-out", () => {
     expect(checkContent("// eslint-disable-next-line prettier/prettier")).toBeUndefined();
   });

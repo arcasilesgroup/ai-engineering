@@ -35,8 +35,8 @@ The agent can't edit its own rules, and every refusal it gets is saved as a file
 </p>
 
 <p align="center">
-  <a href="src/guards/no-verify.ts"><img src=".github/assets/readme/deny-silence.webp" alt="A terminal. The payload of an edit that adds an eslint-disable comment goes into ai-eng chain PreToolUse. The answer: this silences a check, and silencing a check is skipping a hook, so the edit is refused. Exit 2." width="880"></a>
-  <br/><sub>The agent tried to silence a linter in an edit. Refused: only the loop guard takes an override, so the way out here is to fix the code or ask a person to change the rule in a reviewed diff.</sub>
+  <a href="src/guards/no-verify.ts"><img src=".github/assets/readme/deny-silence.webp" alt="A terminal. The payload of an edit that adds an eslint-disable comment goes into ai-eng chain PreToolUse. The answer: this silences a check, and silencing a check is skipping a hook. No override covers this guard, so the edit is refused. Exit 2." width="880"></a>
+  <br/><sub>The agent tried to silence a linter in an edit. Refused: only the loop guard takes an override, so the fix here is in the code, or in a rule a person changes in a reviewed diff.</sub>
 </p>
 
 <p align="center">
@@ -66,7 +66,7 @@ The agent can't edit its own rules, and every refusal it gets is saved as a file
 
 <table align="center">
   <tr>
-    <td><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/card-blocks-dark.webp"><img src=".github/assets/readme/card-blocks-light.webp" alt="Blocks. Refused before the call runs: --no-verify, git commit -n and HUSKY=0; a comment that silences a linter; an edit to AGENTS.md, the hooks or .ai-engineering/. On the 7 hosts enforced and verified." width="420"></picture></td>
+    <td><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/card-blocks-dark.webp"><img src=".github/assets/readme/card-blocks-light.webp" alt="Blocks. Refused before the call runs: --no-verify, git commit -n and HUSKY=0; a comment that silences a linter; an edit to the hooks or .ai-engineering/. On the 7 hosts enforced and verified." width="420"></picture></td>
     <td><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/card-informs-dark.webp"><img src=".github/assets/readme/card-informs-light.webp" alt="Informs. Told, not stopped: zed and agy get skills and advice, no refusal; a review verdict lets the call go ahead with a note; ai-eng doctor warns about drift and false alarms. Nothing here stops the agent." width="420"></picture></td>
   </tr>
 </table>
@@ -194,7 +194,7 @@ The exceptions are real. The Copilot adapter (CLI and VS Code) fails open on a t
 <a name="your-repo"></a>
 <h2 align="center"><a href="#your-repo"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-your-repo-dark.webp"><img src=".github/assets/readme/heading-your-repo-light.webp" alt="The rules live in your repo" width="600"></picture></a></h2>
 
-<p align="center">They are files in git, reviewed like code. The agent's edits to them are refused, and turning the loop guard off takes a dated entry that expires.</p>
+<p align="center">They are files in git, reviewed like code. The agent can edit <code>AGENTS.md</code> and <code>DECISIONS.md</code> and cannot edit the machinery that governs it; turning the loop guard off takes a dated entry that expires.</p>
 
 - **Versioned files.** `AGENTS.md`, `DECISIONS.md`, `.ai-engineering/config.toml` and the git hooks sit in your repository, plus `~/.ai-engineering/` on your machine.
 - **Self-protected.** `self-protect` is the first guard in the order. The agent cannot write to the files that govern it; a person changes them in a reviewed diff.

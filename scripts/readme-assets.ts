@@ -74,7 +74,7 @@ export const CARDS: readonly Card[] = [
     kind: "bad",
     chip: "blocks",
     title: "Refused before the call runs",
-    bullets: ["`--no-verify`, `git commit -n` and `HUSKY=0`", "a comment that silences a linter", "an edit to `AGENTS.md`, the hooks or `.ai-engineering/`"],
+    bullets: ["`--no-verify`, `git commit -n` and `HUSKY=0`", "a comment that silences a linter", "an edit to the hooks or `.ai-engineering/`"],
     closing: "On the 7 hosts enforced and verified.",
   },
   {
