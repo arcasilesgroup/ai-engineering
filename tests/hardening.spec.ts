@@ -424,7 +424,7 @@ describe("spoken-secret and floor close raw tokens, my- placeholders, orphan Rec
       const files = readdirSync(receiptsDir).filter((name) => name.endsWith(".json"));
       expect(files).toHaveLength(1);
       const stored = JSON.parse(readFileSync(join(receiptsDir, files[0]!), "utf8")) as Receipt;
-      expect(receiptId(stored)).toBe(trailer);
+      expect(receiptId(stored)).toBe(trailer!);
     } finally {
       process.chdir(prevCwd);
     }
