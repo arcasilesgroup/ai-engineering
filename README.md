@@ -339,11 +339,11 @@ ai-eng findings check <rounds.json|->       # annotate the review findings a pro
 
 `ai-eng findings check` reads one run's review rounds (`no-mistakes axi rounds --step review --json`,
 or a `{findings: […]}` file with `--base` and `--head`) and prints one line: how many findings the
-round produced, how many carry a signal, how many are protected, how many are clean, and — of the
-annotated ones — how many a later round selected for fixing. An annotation means the evidence for
-that signal was found and is printed under the finding; it is a note attached to a finding, not a
-verdict about it, and it never removes one. It does not mean the finding is wrong — no signal here
-is provably false on its own, and real findings trip all of them — it does not mean the reviewer was
+round produced, how many carry a signal, how many are clean, and — of the annotated ones — how many
+were selected for fixing in that round or a later one. An annotation means the evidence for that
+signal was found and is printed under the finding; it is a note attached to a finding, not a verdict
+about it, and it never removes one. It does not mean the finding is wrong — no signal here is
+provably false on its own, and real findings trip all of them — it does not mean the reviewer was
 careless, and it is not a gate, because the verb exits 0 with a hit. Read it as "the code this claims
 is absent, and here is where I looked", then judge the finding exactly as you would without it.
 

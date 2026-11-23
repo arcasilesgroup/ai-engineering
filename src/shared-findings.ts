@@ -12,9 +12,8 @@
 // The absence check is a mechanism adapted from karajan-code's `absence-claims`; no code
 // was taken (AGPL-3.0).
 
-/** One finding as the review step records it. `severity` stays a string on purpose: the
- *  pipeline writes `error`, `warning` and `info`, and protection keys on `error` alone,
- *  so an unknown value must not be normalised into one of the three by accident. */
+/** One finding as the review step records it. `severity` stays a string on purpose so
+ *  an unknown value is preserved rather than normalised by accident. */
 export type Finding = {
   id: string;
   severity: string;
@@ -49,34 +48,28 @@ export type RepoFacts = {
 export type Verdict = {
   finding: Finding;
   hits: Hit[];
-  /** An `error`, or wording a security person must see: recorded, never treated as droppable. */
-  isProtected: boolean;
-  /** A later round selected this id for fixing — the measured outcome, not an assumption. */
+  /** Selected for fixing in this round or a later one — the measured outcome, not an assumption. */
   isFixedLater: boolean;
 };
 
-/** Per signal: how many findings carried it, and how many of those a later round fixed. */
+/** Per signal: how many findings carried it, and how many of those were selected for fixing. */
 export type SignalTally = { annotated: number; fixedLater: number };
 
 export type Counts = {
   findings: number;
-  /** Findings with at least one hit and no protection. */
+  /** Findings with at least one hit. */
   annotated: number;
-  protected: number;
-  /** Findings with no hit and no protection: the review's ordinary output. */
+  /** Findings with no hit: the review's ordinary output. */
   clean: number;
-  /** Annotated findings a later round selected for fixing, counted once per finding.
-   *  `annotated` minus this is the number of hits that stood: the precision a drop switch
-   *  would have to earn. */
+  /** Annotated findings selected for fixing in this round or a later one, counted once per
+   *  finding. `annotated` minus this is the number of hits that stood: the precision a drop
+   *  switch would have to earn. */
   fixedLater: number;
   /** A finding can carry two signals, so these can sum above `annotated`. */
   signals: Record<Signal, SignalTally>;
 };
 
 export type CheckReport = { verdicts: Verdict[]; counts: Counts };
-
-/** Security wording is never a candidate for hiding, whatever a check says. */
-const PROTECTED = /secur|bypass|inject|secret|credential|privilege|escalat|tamper/i;
 
 /** `does not import `, `doesn't include `, `never calls `: the reviewer's own wording, and
  *  the claim's code names follow the verb. Free-form absence ("does not handle", "is
@@ -98,7 +91,7 @@ function tokenRun(text: string, start: number): string[] {
     if (token === null) return tokens;
     tokens.push((token[1] ?? "").trim());
     at += token[0].length;
-    const joiner = /^\s*(?:,\s*|or\s+|and\s+)/.exec(text.slice(at));
+    const joiner = /^\s*(?:,\s*(?:(?:or|and)\s+)?|(?:or|and)\s+)/i.exec(text.slice(at));
     if (joiner === null) return tokens;
     at += joiner[0].length;
   }
@@ -124,14 +117,14 @@ export function absenceTokens(description: string): string[] {
       }
     }
   }
-  return found
-    .filter((entry) => entry.token.length > 0)
-    .sort((left, right) => left.at - right.at)
-    .map((entry) => entry.token);
-}
-
-function isProtected(finding: Finding): boolean {
-  return finding.severity === "error" || PROTECTED.test(finding.id) || PROTECTED.test(finding.description);
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const entry of found.filter((item) => item.token.length > 0).sort((left, right) => left.at - right.at)) {
+    if (seen.has(entry.token)) continue;
+    seen.add(entry.token);
+    unique.push(entry.token);
+  }
+  return unique;
 }
 
 /** Lines in a file's text, counting a final newline as the end of the last line, not a new one. */
@@ -205,7 +198,7 @@ export type CheckInput = {
   head: string;
   /** Ids an earlier round's user selection declined. */
   declined: ReadonlySet<string>;
-  /** Ids a later round selected for fixing: the outcome half of the counter. */
+  /** Ids selected for fixing in this round or a later one: the outcome half of the counter. */
   fixedLater?: ReadonlySet<string>;
 };
 
@@ -219,7 +212,7 @@ export function checkFindings(input: CheckInput, facts: RepoFacts): CheckReport 
       absenceContradicted(finding, input.base, input.head, facts),
       alreadyDecided(finding, input.declined),
     ].filter((hit): hit is Hit => hit !== null);
-    return { finding, hits, isProtected: isProtected(finding), isFixedLater: fixedLater.has(finding.id) };
+    return { finding, hits, isFixedLater: fixedLater.has(finding.id) };
   });
   return { verdicts, counts: tally(verdicts) };
 }
@@ -229,12 +222,8 @@ function emptyTally(): Record<Signal, SignalTally> {
 }
 
 function tally(verdicts: readonly Verdict[]): Counts {
-  const counts: Counts = { findings: verdicts.length, annotated: 0, protected: 0, clean: 0, fixedLater: 0, signals: emptyTally() };
+  const counts: Counts = { findings: verdicts.length, annotated: 0, clean: 0, fixedLater: 0, signals: emptyTally() };
   for (const verdict of verdicts) {
-    if (verdict.isProtected) {
-      counts.protected += 1;
-      continue;
-    }
     if (verdict.hits.length === 0) {
       counts.clean += 1;
       continue;
@@ -252,16 +241,15 @@ function tally(verdicts: readonly Verdict[]): Counts {
 
 /** The count line, and the whole vocabulary of the run summary: `findings` is what the
  *  round produced, `annotated` is how many carry a signal (they are still in the output),
- *  `protected` are the ones a check may never touch, `clean` are the ordinary ones, and
- *  `fixed later` is the outcome — of the annotated findings, how many a later round
- *  selected for fixing. One line, so a status line can carry it. */
+ *  `clean` are the ordinary ones, and `fixed later` is the outcome — of the annotated
+ *  findings, how many were selected for fixing in this round or a later one. One line, so
+ *  a status line can carry it. */
 export function formatCountLine(counts: Counts): string {
   const perSignal = (read: (tally: SignalTally) => number): string =>
     SIGNALS.map((signal) => `${signal} ${read(counts.signals[signal])}`).join(", ");
   return [
     `findings ${counts.findings}`,
     `annotated ${counts.annotated} (${perSignal((tally) => tally.annotated)})`,
-    `protected ${counts.protected}`,
     `clean ${counts.clean}`,
     `fixed later ${counts.fixedLater} of ${counts.annotated} (${perSignal((tally) => tally.fixedLater)})`,
   ].join(" · ");
@@ -272,11 +260,16 @@ export function formatCountLine(counts: Counts): string {
 export function renderAnnotations(report: CheckReport): string[] {
   const blocks: string[][] = [];
   for (const verdict of report.verdicts) {
-    if (verdict.isProtected || verdict.hits.length === 0) continue;
+    if (verdict.hits.length === 0) continue;
     const { finding } = verdict;
-    const where = finding.line === undefined ? finding.file : `${finding.file}:${finding.line}`;
+    const path = citedPath(finding);
+    const where = path === null ? null : finding.line === undefined ? path : `${path}:${finding.line}`;
     for (const hit of verdict.hits) {
-      blocks.push([`${hit.signal}  ${where}  ${finding.id} (${finding.severity})`, `  ${hit.evidence}`]);
+      const header =
+        where === null
+          ? `${hit.signal}  ${finding.id} (${finding.severity})`
+          : `${hit.signal}  ${where}  ${finding.id} (${finding.severity})`;
+      blocks.push([header, `  ${hit.evidence}`]);
     }
   }
   return blocks.flatMap((block, index) => (index === 0 ? block : ["", ...block]));
@@ -311,9 +304,9 @@ function parseFinding(value: unknown): Finding | null {
   const record = asRecord(value);
   if (record === null) return null;
   const id = asString(record.id);
-  const file = asString(record.file);
   const description = asString(record.description);
-  if (id === null || file === null || description === null) return null;
+  if (id === null || description === null) return null;
+  const file = asString(record.file) ?? "";
   const line = typeof record.line === "number" && Number.isFinite(record.line) ? record.line : undefined;
   const finding: Finding = { id, severity: asString(record.severity) ?? "unknown", file, description };
   return line === undefined ? finding : { ...finding, line };
@@ -402,8 +395,9 @@ function sortRounds(rounds: ReviewRound[]): ReviewRound[] {
 }
 
 /** What one round is annotated with: its own findings, the ids earlier rounds declined,
- *  and the ids later rounds fixed. `requestedRound` picks a round from a finished run, so
- *  the same document can answer "what would this have said then, and was it right". */
+ *  and the ids this round or a later one selected for fixing. `requestedRound` picks a
+ *  round from a finished run, so the same document can answer "what would this have said
+ *  then, and was it right". */
 export type RoundSelection = {
   number: number;
   findings: Finding[];
@@ -433,7 +427,7 @@ export function selectRound(document: RoundDocument, requestedRound?: number): R
       // re-raised is an incomplete fix, not a decided theme, and must stay clean.
       for (const id of round.selected) declined.delete(id);
     }
-    if (round.number > number) for (const id of round.selected) fixedLater.add(id);
+    if (round.number >= number) for (const id of round.selected) fixedLater.add(id);
   }
   return { number, findings: reviewed.findings, declined, fixedLater, head: reviewed.head, base: document.base };
 }

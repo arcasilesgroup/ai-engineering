@@ -5,6 +5,7 @@
 
 import { readFileSync } from "node:fs";
 import { repoRoot } from "../env.ts";
+import { namedBaseTrackingRef } from "../git/context.ts";
 import { runGit } from "../git/run.ts";
 import {
   checkFindings,
@@ -24,7 +25,7 @@ const USAGE =
 export type FindingsFlags = { json?: boolean; round?: string; base?: string; head?: string };
 
 function gitIn(root: string, args: string[]): string | null {
-  const done = runGit(args, { cwd: root });
+  const done = runGit(args, { cwd: root, isolated: true });
   return done.status === 0 ? done.stdout : null;
 }
 
@@ -52,7 +53,7 @@ export function gitFacts(root: string): RepoFacts {
       const key = `${base}..${head}`;
       const cached = touchedPaths.get(key);
       if (cached !== undefined) return cached;
-      const named = gitIn(root, ["log", "--format=", "--name-only", key]) ?? "";
+      const named = gitIn(root, ["log", "--no-color", "--format=", "--name-only", key]) ?? "";
       const paths = new Set(named.split("\n").map((path) => path.trim()).filter((path) => path !== ""));
       touchedPaths.set(key, paths);
       return paths;
@@ -61,7 +62,7 @@ export function gitFacts(root: string): RepoFacts {
       const key = `${base}..${head}\0${path}`;
       const cached = addedByFile.get(key);
       if (cached !== undefined) return cached;
-      const diff = gitIn(root, ["diff", "--unified=0", `${base}..${head}`, "--", path]) ?? "";
+      const diff = gitIn(root, ["diff", "--no-ext-diff", "--no-color", "--no-textconv", "--unified=0", `${base}..${head}`, "--", path]) ?? "";
       const lines = parseAddedLines(diff);
       addedByFile.set(key, lines);
       return lines;
@@ -70,24 +71,31 @@ export function gitFacts(root: string): RepoFacts {
 }
 
 /** The new side's line numbers for every `+` line of a zero-context diff. A hunk header
- *  sets the counter, `-` lines leave it alone, and the `+++ b/…` header is not a change. */
+ *  sets the counter and remaining new-side lines, `-` lines leave them alone, and file
+ *  headers outside a hunk are ignored. */
 export function parseAddedLines(diff: string): AddedLine[] {
   const added: AddedLine[] = [];
   let nextLine = 0;
+  let remainingNew = 0;
   for (const line of diff.split("\n")) {
-    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
     if (hunk !== null) {
       nextLine = Number(hunk[1]);
+      remainingNew = hunk[2] === undefined ? 1 : Number(hunk[2]);
       continue;
     }
-    if (line.startsWith("+++ ")) continue;
+    if (remainingNew === 0) continue;
     if (line.startsWith("+")) {
       added.push({ line: nextLine, text: line.slice(1) });
       nextLine += 1;
+      remainingNew -= 1;
       continue;
     }
-    // Context and removed lines never advance the new side; a `\ No newline` marker is not a line.
-    if (line.startsWith(" ")) nextLine += 1;
+    // Context lines advance the new side; removed lines and `\ No newline` markers do not.
+    if (line.startsWith(" ")) {
+      nextLine += 1;
+      remainingNew -= 1;
+    }
   }
   return added;
 }
@@ -105,11 +113,20 @@ function readSource(source: string): string {
  *  flags override it, and the checkout answers last, so a live run needs no arguments.
  *  Every revision is resolved to its commit first: a name like `HEAD~1` is not evidence,
  *  and an unresolvable one would read as "the file is not there" and annotate wrongly. */
-function resolveRevisions(root: string, document: RoundDocument, selection: RoundSelection, flags: FindingsFlags): { base: string; head: string } | string {
+export function resolveRevisions(root: string, document: RoundDocument, selection: RoundSelection, flags: FindingsFlags): { base: string; head: string } | string {
   const wanted = flags.head ?? selection.head ?? document.head ?? "HEAD";
   const head = gitIn(root, ["rev-parse", "--verify", "--quiet", `${wanted}^{commit}`])?.trim();
   if (head === undefined || head === "") return `cannot resolve the reviewed revision ${wanted}: pass --head <rev>`;
-  const baseWanted = flags.base ?? selection.base ?? trunkMergeBase(root, head);
+  let baseWanted: string | null;
+  if (flags.base !== undefined) baseWanted = flags.base;
+  else if (selection.base !== null) baseWanted = selection.base;
+  else {
+    try {
+      baseWanted = trunkMergeBase(root, head);
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+  }
   const base = baseWanted === null ? null : gitIn(root, ["rev-parse", "--verify", "--quiet", `${baseWanted}^{commit}`])?.trim();
   if (base === undefined || base === null || base === "") {
     return baseWanted === null ? "the run base is unknown: pass --base <rev>" : `cannot resolve the base revision ${baseWanted}: pass --base <rev>`;
@@ -118,22 +135,12 @@ function resolveRevisions(root: string, document: RoundDocument, selection: Roun
 }
 
 function trunkMergeBase(root: string, head: string): string | null {
-  for (const ref of trunkRefs(root)) {
-    const mergeBase = gitIn(root, ["merge-base", head, ref]);
-    if (mergeBase !== null) return mergeBase.trim();
-  }
-  return null;
-}
-
-/** The trunk as the repository itself names it: the remote's own HEAD, then this branch's
- *  upstream. A checkout with neither gets no guess, and the run has to say `--base`. */
-function trunkRefs(root: string): string[] {
-  const refs: string[] = [];
-  const remoteHead = gitIn(root, ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"])?.trim();
-  if (remoteHead !== undefined && remoteHead !== "") refs.push(remoteHead);
-  const upstream = gitIn(root, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"])?.trim();
-  if (upstream !== undefined && upstream !== "") refs.push(upstream);
-  return refs;
+  const tracking = namedBaseTrackingRef(root);
+  if (tracking === null) return null;
+  const baseTip = tracking.commit ?? gitIn(root, ["rev-parse", "--verify", "--quiet", `refs/heads/${tracking.base}^{commit}`])?.trim() ?? null;
+  if (baseTip === null || baseTip === "") return null;
+  const mergeBase = gitIn(root, ["merge-base", head, baseTip]);
+  return mergeBase === null ? null : mergeBase.trim();
 }
 
 function requestedRound(flags: FindingsFlags): number | undefined | string {
