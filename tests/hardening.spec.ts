@@ -1,11 +1,14 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runChain } from "../src/chain/mod.ts";
 import { loadLocalRules } from "../src/env.ts";
+import { floor } from "../src/floor/entry.ts";
+import { preCommit } from "../src/floor/index.ts";
 import { fingerprint, normalise } from "../src/payload.ts";
+import { receiptId, type Receipt } from "../src/receipts.ts";
 import { runSelfProtect } from "../src/guards/self-protect.ts";
 import { evaluate } from "../src/guards/policy.ts";
 import { runNoStash } from "../src/guards/no-stash.ts";
@@ -15,6 +18,7 @@ import { evaluateLocalRules, type LocalRule } from "../src/guards/local-rules.ts
 import { runLoopGuard } from "../src/guards/loop.ts";
 import { runCheckpointGuard } from "../src/guards/checkpoint.ts";
 import { runLease } from "../src/guards/lease.ts";
+import { candidates, judge, runSpokenSecret } from "../src/guards/spoken-secret.ts";
 
 const tempDirs: string[] = [];
 
@@ -355,5 +359,73 @@ describe("verdict cache, checkpoint-stop counter, and brainstorm symlink protect
     });
     const planPath = join(dir, ".ai-engineering", "workflow", "checkpoints", "demo.json");
     expect(runCheckpointGuard({ tool_name: "Write", tool_input: { file_path: planPath, content: plan } }, dir)?.deny).toBe(true);
+  });
+});
+
+describe("spoken-secret and floor close raw tokens, my- placeholders, orphan Receipt-Id, and one-time DECISIONS.md", () => {
+  test("my-password is a placeholder; my-prod-pass-9876 and raw tokens are caught without double counting", () => {
+    expect(judge("ADMIN_PASSWORD", "my-password").decide).toBe(false);
+    expect(judge("ADMIN_PASSWORD", "my-prod-pass-9876").decide).toBe(true);
+    const ghp = "ghp_" + "abcdefghijklmnopqrstuvwxyz0123456789";
+    const skProj = "sk-proj-" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ012345";
+    const placeholder = "ghp_" + "xxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+    expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "use " + ghp + " for the deploy" })?.deny).toBe(true);
+    expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "paste " + skProj + " into env" })?.deny).toBe(true);
+    expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "example " + placeholder })).toBeUndefined();
+    expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "describe the prefix only" })).toBeUndefined();
+    // An assigned raw token is reported once, never double-counted.
+    expect(candidates("GITHUB_TOKEN=" + ghp).auto).toHaveLength(1);
+  });
+
+  test("commit-msg Receipt-Id correlates to a real receipt on disk, and DECISIONS.md requires a new heading per wide commit", async () => {
+    const dir = repo();
+    const git = (...args: string[]) => Bun.spawnSync(["git", ...args], { cwd: dir });
+    git("init", "-q", "--template=", "-b", "main");
+    git("config", "user.email", "hardening@example.com");
+    git("config", "user.name", "hardening");
+    git("config", "commit.gpgsign", "false");
+
+    // Seed DECISIONS.md with an existing heading in HEAD.
+    writeFileSync(join(dir, "DECISIONS.md"), "# Decisions\n\n## D-001 initial decision\n");
+    git("add", "DECISIONS.md");
+    git("commit", "-q", "-m", "docs: seed decisions");
+
+    // Attack: >10 staged files without touching DECISIONS.md must fail preCommit even though D-001 exists.
+    for (let i = 1; i <= 11; i += 1) writeFileSync(join(dir, `f${i}.txt`), `v${i}\n`);
+    git("add", ...Array.from({ length: 11 }, (_, idx) => `f${idx + 1}.txt`));
+    const withoutNewHeading = preCommit(dir);
+    expect(withoutNewHeading.ok).toBe(false);
+
+    // Benign: adding a new ## heading in DECISIONS.md passes preCommit.
+    writeFileSync(join(dir, "DECISIONS.md"), "# Decisions\n\n## D-001 initial decision\n\n## D-002 wide batch\n");
+    git("add", "DECISIONS.md");
+    expect(preCommit(dir).ok).toBe(true);
+
+    // commit-msg mints a Receipt-Id matching an on-disk receipt in .ai-engineering/receipts/.
+    const prevCwd = process.cwd();
+    const msgFile = join(dir, "COMMIT_EDITMSG");
+    writeFileSync(msgFile, "feat(core): add hardening proof\n");
+    try {
+      process.chdir(dir);
+      const badMsg = join(dir, "BAD_EDITMSG");
+      writeFileSync(badMsg, "not conventional\n");
+      expect(await floor("commit-msg", badMsg)).toBe(1);
+      const receiptsDir = join(dir, ".ai-engineering", "receipts");
+      const beforeFiles = (() => {
+        try { return readdirSync(receiptsDir); } catch { return []; }
+      })();
+      expect(beforeFiles).toHaveLength(0);
+
+      expect(await floor("commit-msg", msgFile)).toBe(0);
+      const stamped = readFileSync(msgFile, "utf8");
+      const trailer = /Receipt-Id:\s*([0-9a-f]{8})/.exec(stamped)?.[1];
+      expect(trailer).toBeDefined();
+      const files = readdirSync(receiptsDir).filter((name) => name.endsWith(".json"));
+      expect(files).toHaveLength(1);
+      const stored = JSON.parse(readFileSync(join(receiptsDir, files[0]!), "utf8")) as Receipt;
+      expect(receiptId(stored)).toBe(trailer);
+    } finally {
+      process.chdir(prevCwd);
+    }
   });
 });

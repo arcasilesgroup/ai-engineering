@@ -36,7 +36,7 @@ const PUBLIC_KEY = /(public|publishable|anon[_-]?key|_pub$|client[_-]?id)/i;
 const URL_CREDS = /^[a-z][a-z0-9+.-]*:\/\/(?<user>[^:/?#\s]+):(?<pw>[^@/?#\s]+)@/i;
 
 const PLACEHOLDER =
-  /^(your[_-]|my[_-]|some[_-]|the[_-])|^(changeme|change[_-]me|replace|placeholder|example|dummy|sample|todo|tbd|none|null|nil|n\/?a|xxx+|\.\.\.|\*+)$|^[<${].*[>}]$|(here|goes[_-]here|_here)$/i;
+  /^(?:your|my|some|the)[_-](?:password|secret|token|key|api[_-]?key|value|here)$|^(changeme|change[_-]me|replace|placeholder|example|dummy|sample|todo|tbd|none|null|nil|n\/?a|xxx+|\.\.\.|\*+)$|^[<${].*[>}]$|(here|goes[_-]here|_here)$/i;
 
 const BARE_PATH = /^(\/|~\/|\.\/|[a-z]:\\)/i;
 
@@ -139,6 +139,22 @@ export type Candidates = {
 
 /** Scan a prompt for spoken secrets. Values are returned to the caller for
  *  handling, never printed or logged by this module. */
+
+const RAW_TOKEN = /\b(?:gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}|sk-(?:proj-)?[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,})\b/g;
+
+/** A pasted credential with no "password is" around it. Placeholder bodies (xxxx, example) stay. */
+function hasRawToken(prompt: string, seen: ReadonlySet<string>): boolean {
+  for (const match of prompt.matchAll(RAW_TOKEN)) {
+    const token = match[0];
+    if (seen.has(token)) continue;
+    const body = token.replace(/^(?:gh[pousr]_|github_pat_|sk-proj-|sk-|AKIA|xox[baprs]-)/, "");
+    if (/^(?:x+|example|placeholder|redacted|your)/i.test(body)) continue;
+    if (new Set(body.replace(/[^A-Za-z0-9]/g, "")).size < 4) continue;
+    return true;
+  }
+  return false;
+}
+
 export function candidates(prompt: string): Candidates {
   const auto: Candidates["auto"] = [];
   const manual: string[] = [];
@@ -167,6 +183,7 @@ export function candidates(prompt: string): Candidates {
     const clause = (trimmed + (groups.rest ?? "")).trim();
     if (clause.includes(" ") && new TextEncoder().encode(clause).length >= MIN_BYTES) manual.push(key);
   }
+  if (hasRawToken(prompt, seen)) auto.push({ value: "raw-token", label: "raw token" });
   return { auto, manual };
 }
 

@@ -52,16 +52,24 @@ function decisionsBlock(cwd: string): FloorResult {
   const files = nameOnly ? nameOnly.split("\n").filter((f) => f.length > 0) : [];
   const dependencyTouched = files.some((f) => /^(package\.json|Cargo\.toml|go\.mod|pyproject\.toml|Gemfile|composer\.json|pom\.xml|Package\.swift|.*\.csproj)$/.test(f));
   if (files.length <= 10 && !dependencyTouched) return { ok: true, lines: [] };
+  const why = `this commit touches ${files.length} files${dependencyTouched ? " (or a dependency)" : ""}`;
   const decisionsPath = join(cwd, "DECISIONS.md");
-  if (!existsSync(decisionsPath)) {
-    return { ok: false, lines: [`this commit touches ${files.length} files${dependencyTouched ? " (or a dependency)" : ""} and requires a DECISIONS.md block (§9.2) — none exists.`] };
+  const staged = files.includes("DECISIONS.md");
+  if (!existsSync(decisionsPath) && !staged) {
+    return { ok: false, lines: [`${why} and requires a DECISIONS.md block (§9.2) — none exists.`] };
   }
-  const content = readFileSync(decisionsPath, "utf8");
+  if (!staged) {
+    return { ok: false, lines: [`${why} and requires a new DECISIONS.md block (§9.2) in this commit — the file was not changed.`] };
+  }
+  const diff = runGit(["diff", "--cached", "--unified=0", "--", "DECISIONS.md"], { cwd }).stdout;
+  const addsHeading = diff.split("\n").some((line) => line.startsWith("+## "));
+  if (addsHeading) return { ok: true, lines: [] };
+  const content = existsSync(decisionsPath) ? readFileSync(decisionsPath, "utf8") : "";
   const blocks = content.split(/^## /m).length - 1;
   if (blocks === 0) {
     return { ok: false, lines: ["DECISIONS.md exists but carries no ## D-NNN block — add one (≤6 lines) or shrink the commit."] };
   }
-  return { ok: true, lines: [] };
+  return { ok: false, lines: ["DECISIONS.md already has a block, but this commit adds no new ## heading — add one (≤6 lines) or shrink the commit."] };
 }
 
 /** The staged scan's one exception: the allowlist `paths` exactly as they exist in
@@ -161,7 +169,7 @@ function stageSecrets(cwd: string): FloorResult {
 }
 /** commit-msg: convention + Receipt-Id trailer. No Override-Reason: the floor has no
  *  guard an override can excuse, so any stamped reason would be false history (T19). */
-export function commitMsg(msgFile: string, receiptId: string): FloorResult {
+export function commitMsg(msgFile: string, receiptId: string | (() => string)): FloorResult {
   const lines: string[] = [];
   let content: string;
   try {
@@ -179,7 +187,10 @@ export function commitMsg(msgFile: string, receiptId: string): FloorResult {
   // The Receipt-Id trailer is idempotent: an amend (or the hook firing twice) finds it
   // already there and leaves the message untouched.
   let next = content;
-  if (!next.includes("Receipt-Id:")) next = `${next.trimEnd()}\n\nReceipt-Id: ${receiptId}\n`;
+  if (!next.includes("Receipt-Id:")) {
+    const id = typeof receiptId === "function" ? receiptId() : receiptId;
+    next = `${next.trimEnd()}\n\nReceipt-Id: ${id}\n`;
+  }
   if (next !== content) writeFileSync(msgFile, next);
   return { ok: true, lines };
 }
