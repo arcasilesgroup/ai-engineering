@@ -29,6 +29,7 @@ export type ShellSegment = {
   text: string;
   isAfterPipe: boolean;
   opensSubstitution: boolean;
+  isInSubstitution: boolean;
   isProcessSubstitution: boolean;
   /** Heredoc bodies this segment reads on stdin: data to `cat`, code to `bash`. A literal
    *  body (quoted delimiter) is exactly what was written; an unquoted one expands. */
@@ -152,7 +153,15 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
   // The heredocs of the command being read: filled in after the line that declares them.
   let heredocs: Heredoc[] = [];
   const cut = (nextIsAfterPipe = false): void => {
-    segments.push({ text: current, isAfterPipe, opensSubstitution: current.includes(SUBSTITUTION), isProcessSubstitution, heredocs, substitutions });
+    segments.push({
+      text: current,
+      isAfterPipe,
+      opensSubstitution: current.includes(SUBSTITUTION),
+      isInSubstitution: nesting.length > 0,
+      isProcessSubstitution,
+      heredocs,
+      substitutions,
+    });
     current = "";
     isAfterPipe = nextIsAfterPipe;
     isProcessSubstitution = false;

@@ -1,7 +1,7 @@
 // --no-verify, and everything else that skips .git/hooks — plus every linter silence
 // too, because silencing a check is the same act as skipping a hook.
 
-import { basename, resolve, isAbsolute, join } from "node:path";
+import { basename, resolve, isAbsolute, join, sep } from "node:path";
 import { realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { COMMAND_PREFIXES, commandIndex, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
@@ -10,18 +10,20 @@ type Skip = { pattern: RegExp; label: string };
 
 const SKIPS: Skip[] = [
   { pattern: /\bHUSKY=0\b|\bPRE_COMMIT_ALLOW_NO_VERIFY\b|\bSKIP_HOOKS\b/, label: "an environment flag" },
-  // Config from the environment or another file can point core.hooksPath anywhere without
-  // naming it on this line.
-  { pattern: /\bGIT_CONFIG_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM)\b|\bGIT_CONFIG\b|--config-env\b/, label: "git config from the environment" },
   { pattern: /\bgit\b[^|;&]*\binclude(?:if\.[^\s=]*)?\.path\b/i, label: "a git config include" },
   { pattern: /\brm\b[^|;&]*\.git\/hooks/, label: "deleting .git/hooks" },
 ];
+
+const GIT_CONFIG_ENV_ASSIGN = /^(?:\$env:)?GIT_CONFIG(?:_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM))?=/i;
+const GIT_CONFIG_ENV_NAME = /^GIT_CONFIG(?:_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM))?$/;
 
 /** Read only when the shell grammar cannot be: the token check below is the precise one. */
 const RAW_SKIPS: Skip[] = [
   // git accepts any unique prefix of a long option: `--no-veri` is `--no-verify`.
   { pattern: /\bgit\b[^|;&]*\b(commit|push|merge|rebase|am|pull)\b[^|;&]*--no-veri/, label: "--no-verify" },
   { pattern: /\bgit\b[^|;&]*\bcommit\b[^|;&]*(?<![\w-])-[a-zA-Z]*n/, label: "git commit -n" },
+  { pattern: /(?:^|[\s;|&(])(?:export\s+|env\s+|declare\s+|typeset\s+|local\s+|\$env:)?GIT_CONFIG(?:_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM))?=/i, label: "git config from the environment" },
+  { pattern: /\bgit\b[^|;&]*--config-env\b/, label: "git config from the environment" },
 ];
 
 const HOOKED = new Set(["commit", "push", "merge", "pull", "rebase", "am", "cherry-pick", "revert"]);
@@ -111,6 +113,20 @@ function gitHookSkip(command: string, depth = 0): string | null | undefined {
   for (const segment of segments) {
     const words = argumentWords(segment.text);
     const commandAt = commandIndex(words.map((word) => word.value));
+    const cmdName = basename(words[commandAt]?.value ?? "").toLowerCase();
+    // Config from the environment can redirect core.hooksPath without naming it on the line,
+    // but only when ASSIGNED (`GIT_CONFIG_GLOBAL=x`, `export GIT_CONFIG=...`, `printf -v GIT_CONFIG ...`)
+    // or passed as `git --config-env`. Reading the environment (`env | grep '^GIT_CONFIG'`) is safe.
+    for (let i = 0; i < words.length; i++) {
+      const value = words[i]!.value;
+      if (GIT_CONFIG_ENV_ASSIGN.test(value)) return "git config from the environment";
+      if (cmdName === "printf" && value === "-v" && GIT_CONFIG_ENV_NAME.test(words[i + 1]?.value ?? "")) {
+        return "git config from the environment";
+      }
+      if (cmdName === "set-item" && /^env:GIT_CONFIG(?:_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM))?$/i.test(value)) {
+        return "git config from the environment";
+      }
+    }
     // Every `git` word is judged, not only the one in command position: a wrapper this
     // reader does not know (`chronic git commit -n`) still runs git with its flags.
     for (let gitAt = 0; gitAt < words.length; gitAt++) {
@@ -130,6 +146,7 @@ function gitInvocationSkip(segment: ShellSegment, words: ShellWord[], gitAt: num
   const globals: string[] = [];
   while (position < words.length && words[position]!.value.startsWith("-")) {
     const option = words[position]!.value;
+    if (option === "--config-env" || option.startsWith("--config-env=")) return "git config from the environment";
     const takesNext = GLOBAL_VALUE_OPTIONS.has(option);
     globals.push(takesNext ? `${option}=${words[position + 1]?.value ?? ""}` : option);
     position += takesNext ? 2 : 1;
@@ -202,23 +219,26 @@ const SILENCES: RegExp[] = [
 // which git reads as the boolean `true` — a relative directory with no hooks in it.
 const INLINE = /-c\s*core\.hookspath(?:=(\S*))?(?=\s|$)/gi;
 
-/** Every value this command would leave core.hooksPath at, as written. Unsetting is
- *  deliberately absent: no core.hooksPath at all is git's default .git/hooks — the
- *  floor's own location, since init wires no redirect there — so `--unset` is the safe
- *  direction (it restores the hooks, it does not stop them) and the set-or-change
- *  direction is the one this list exists to deny. */
+/** Every value this command would leave core.hooksPath at, as written. Evaluated per
+ *  segment so a read (`git config --get core.hooksPath`) in one segment never hides a
+ *  write (`git config core.hooksPath /tmp/evil`) in another. Unsetting is deliberately
+ *  absent: restoring git's default .git/hooks is the safe direction. */
 export function hooksPathTargets(command: string): string[] {
-  const words = command.split(/\s+/);
   const found: string[] = [];
   for (const match of command.matchAll(INLINE)) found.push((match[1] ?? "true").replace(/^["']|["']$/g, ""));
-  if (words.some((w) => w === "config") && words.some((w) => w.toLowerCase() === "core.hookspath")) {
-    if (!words.some((w) => ["--get", "--get-all", "--list"].includes(w))) {
-      const index = words.findIndex((w) => w.toLowerCase() === "core.hookspath");
-      const after = words.slice(index + 1).filter((w) => !w.startsWith("-"));
-      // A bare `--unset` leaves nothing after the key: no target, allowed. Anything
-      // trailing still reads as a value — git itself would refuse it, but refusing a
-      // half-readable config edit is the cheap side to err on.
-      if (after.length > 0) found.push(after[0]!.replace(/^["']|["']$/g, ""));
+  const parsedSegments = shellSegments(normalizeRedirects(command));
+  const texts = parsedSegments !== null ? parsedSegments.map((s) => s.text) : [command];
+  for (const text of texts) {
+    const words = text.trim().split(/\s+/).filter((w) => w.length > 0);
+    if (words.some((w) => w === "config") && words.some((w) => w.toLowerCase() === "core.hookspath")) {
+      if (!words.some((w) => ["--get", "--get-all", "--list"].includes(w))) {
+        const index = words.findIndex((w) => w.toLowerCase() === "core.hookspath");
+        const after = words.slice(index + 1).filter((w) => !w.startsWith("-"));
+        // A bare `--unset` leaves nothing after the key: no target, allowed. Anything
+        // trailing still reads as a value — git itself would refuse it, but refusing a
+        // half-readable config edit is the cheap side to err on.
+        if (after.length > 0) found.push(after[0]!.replace(/^["']|["']$/g, ""));
+      }
     }
   }
   return found;
@@ -251,6 +271,82 @@ function skipDenial(label: string): GuardResult {
   };
 }
 
+/** Read-only query/search commands that may mention a silence token as a search pattern
+ *  while redirecting their search results to a report file (`git log -S "@ts-ignore" > ...`,
+ *  `rg NOLINTNEXTLINE src/ > ...`). Mentioning a token is never writing a silence directive. */
+const QUERY_COMMANDS = new Set(["rg", "grep", "egrep", "fgrep", "ag", "ack", "git", "ls", "find", "head", "tail", "diff"]);
+const NON_FILE_REDIRECTS = new Set(["/dev/null", "/dev/stdout", "/dev/stderr", "/dev/tty", "/dev/fd/1", "/dev/fd/2"]);
+
+function isTargetInsideRepo(target: string, repoRoot: string | null): boolean {
+  if (!target || NON_FILE_REDIRECTS.has(target)) return false;
+  if (repoRoot === null) return !isAbsolute(target);
+  const root = (() => {
+    try { return realpathSync(repoRoot); } catch { return resolve(repoRoot); }
+  })();
+  const candidate = isAbsolute(target) ? resolve(target) : resolve(root, target);
+  const resolved = (() => {
+    try { return realpathSync(candidate); } catch { return candidate; }
+  })();
+  return resolved === root || resolved.startsWith(`${root}${sep}`);
+}
+
+/** Detect Bash commands that actually WRITE a linter silence token into a governed
+ *  repository file (e.g. `echo "// eslint-disable" >> src/a.ts`, `cat <<EOF > src/a.ts`,
+ *  `sed -i ... src/a.ts`), while allowing commands that merely mention a token while
+ *  searching or writing outside the repo (`git log -S "@ts-ignore" > /tmp/hist.txt`,
+ *  `rg NOLINTNEXTLINE src/ > /tmp/list.txt`). */
+function checkBashSilences(rawCommand: string, repoRoot: string | null): GuardResult {
+  const segments = shellSegments(normalizeRedirects(rawCommand));
+  if (segments === null) return undefined;
+  let priorPipePayload = "";
+  for (const segment of segments) {
+    const words = shellWords(segment.text);
+    const plain: string[] = [];
+    const writeTargets: string[] = [];
+    const hereStrings: string[] = [];
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i]!;
+      if (!word.isOperator) {
+        plain.push(word.value);
+        continue;
+      }
+      const next = words[i + 1];
+      if (word.value.includes(">") && next !== undefined) writeTargets.push(next.value);
+      if (word.value === "<<<" && next !== undefined) hereStrings.push(next.value);
+      i++;
+    }
+    const cmdAt = commandIndex(plain);
+    const cmd = basename(plain[cmdAt] ?? "").toLowerCase();
+    const args = plain.slice(cmdAt + 1);
+    const bodyText = [
+      ...segment.heredocs.map((h) => h.body),
+      ...hereStrings,
+      ...(segment.isAfterPipe ? [priorPipePayload] : []),
+    ].join("\n");
+    const isInPlaceEdit = (cmd === "sed" || cmd === "perl") && args.some((a) => /^-[A-Za-z]*i/.test(a));
+    const isTee = cmd === "tee";
+    const targets = [
+      ...writeTargets,
+      ...(isTee ? args.filter((a) => !a.startsWith("-")) : []),
+      ...(isInPlaceEdit ? args.filter((a) => !a.startsWith("-")).slice(1) : []),
+    ];
+    const writesIntoRepo = targets.some((target) => isTargetInsideRepo(target, repoRoot));
+    const isQueryOnly = QUERY_COMMANDS.has(cmd) && segment.heredocs.length === 0 && hereStrings.length === 0;
+    if (writesIntoRepo && !isQueryOnly) {
+      const candidateText = cmd === "cat" ? bodyText : `${args.join(" ")}\n${bodyText}`;
+      const silenced = checkContent(candidateText);
+      if (silenced) return silenced;
+    }
+    // Carry piped content from content-emitting commands (`echo`/`printf`/`cat` heredoc) to `| tee`.
+    priorPipePayload = (cmd === "echo" || cmd === "printf")
+      ? args.join(" ")
+      : cmd === "cat" && (segment.heredocs.length > 0 || hereStrings.length > 0)
+        ? bodyText
+        : "";
+  }
+  return undefined;
+}
+
 export function checkBash(rawCommand: string, repoRoot: string | null): GuardResult {
   const tokenSkip = gitHookSkip(rawCommand);
   if (tokenSkip) return skipDenial(tokenSkip);
@@ -260,6 +356,8 @@ export function checkBash(rawCommand: string, repoRoot: string | null): GuardRes
     const denied = checkBashForm(command, repoRoot, skips);
     if (denied) return denied;
   }
+  const silenceDenied = checkBashSilences(rawCommand, repoRoot);
+  if (silenceDenied) return silenceDenied;
   // The raw patterns name what they recognise; a git command they miss is still unread.
   if (tokenSkip === undefined && /\bgit\b/.test(rawCommand)) return skipDenial("a git command whose quoting or expansion cannot be read");
   return undefined;
