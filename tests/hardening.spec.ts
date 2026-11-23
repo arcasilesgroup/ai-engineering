@@ -19,6 +19,7 @@ import { runLoopGuard } from "../src/guards/loop.ts";
 import { runCheckpointGuard } from "../src/guards/checkpoint.ts";
 import { runLease } from "../src/guards/lease.ts";
 import { candidates, judge, runSpokenSecret } from "../src/guards/spoken-secret.ts";
+import { compileGitleaksShim, useGitleaksShim } from "./fixtures/gitleaks-shim.ts";
 
 const tempDirs: string[] = [];
 
@@ -35,6 +36,23 @@ afterAll(() => {
 });
 
 const bash = (command: string) => ({ tool_name: "Bash", tool_input: { command } });
+
+/** The floor hard-fails without gitleaks (§12.1) and CI's check job has none, so a test that
+ *  commits through it runs on the shared stand-in instead of whatever this machine has. */
+async function withGitleaksShim<T>(run: () => Promise<T>): Promise<T> {
+  const pathBefore = process.env.PATH ?? "";
+  const shimDir = compileGitleaksShim();
+  useGitleaksShim(shimDir, { mode: "grep" }, pathBefore);
+  try {
+    return await run();
+  } finally {
+    process.env.PATH = pathBefore;
+    rmSync(shimDir, { recursive: true, force: true });
+  }
+}
+
+// `result?.reason` cannot narrow the union on its own: only a deny carries a reason to read.
+const denyReason = (result: ReturnType<typeof runInjection>) => (result && result.deny ? result.reason : "");
 
 describe("self-protect closes the traced bypasses and still allows ordinary commands", () => {
   const root = repo();
@@ -294,12 +312,12 @@ describe("injection closes the traced bypasses and still allows normal reads", (
     expect(scan(`cat ${names.slice(0, 40).join(" ")}`)).toBeUndefined();
     const fortieth = scan(`cat ${[...names.slice(0, 39), "evil.txt"].join(" ")}`);
     expect(fortieth?.deny).toBe(true);
-    expect(fortieth?.reason).toContain("evil.txt");
+    expect(denyReason(fortieth)).toContain("evil.txt");
     expect(scan(`head -n 1 ${names.slice(0, 512).join(" ")}`)).toBeUndefined();
     const bounded = scan(`head -n 1 ${names.join(" ")}`);
     expect(bounded?.deny).toBe(true);
-    expect(bounded?.reason).toContain("512 files");
-    expect(bounded?.reason).not.toContain("\n");
+    expect(denyReason(bounded)).toContain("512 files");
+    expect(denyReason(bounded)).not.toContain("\n");
   });
 
   test("a review local rule never masks an IOC, and case_sensitive from config.toml is honored", () => {
@@ -715,7 +733,7 @@ describe("spoken-secret and floor close raw tokens, my- placeholders, and orphan
     expect(candidates("GITHUB_TOKEN=" + ghp).auto).toHaveLength(1);
   });
 
-  test("commit-msg Receipt-Id correlates to a real receipt on disk, and an existing DECISIONS.md block covers a wide commit", async () => {
+  test("commit-msg Receipt-Id correlates to a real receipt on disk, and an existing DECISIONS.md block covers a wide commit", () => withGitleaksShim(async () => {
     const dir = repo();
     const git = (...args: string[]) => Bun.spawnSync(["git", ...args], { cwd: dir });
     git("init", "-q", "--template=", "-b", "main");
@@ -761,5 +779,5 @@ describe("spoken-secret and floor close raw tokens, my- placeholders, and orphan
     } finally {
       process.chdir(prevCwd);
     }
-  });
+  }));
 });

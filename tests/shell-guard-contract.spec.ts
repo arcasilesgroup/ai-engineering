@@ -15,6 +15,12 @@ import {
   type ShellSegment,
 } from "../src/guards/shell.ts";
 
+/**
+ * `scope` is the id of the subshell a guard must treat as isolated: every element of a
+ * pipeline, `$( )`, `<$( )>` and a backtick each run in their own, so a variable set
+ * there never leaks. `parentScope` is the scope it inherits from; 0 is the top-level
+ * shell, and ids are allocated in reading order.
+ */
 const segment = (text: string, extra: Partial<ShellSegment> = {}): ShellSegment => ({
   text,
   isAfterPipe: false,
@@ -22,6 +28,8 @@ const segment = (text: string, extra: Partial<ShellSegment> = {}): ShellSegment 
   isProcessSubstitution: false,
   heredocs: [],
   substitutions: [],
+  scope: 0,
+  parentScope: 0,
   ...extra,
 });
 const word = (value: string, isQuoted = false, unquoted = isQuoted ? "" : value) => ({ value, isQuoted, isOperator: false, unquoted });
@@ -37,20 +45,20 @@ describe("normalizeRedirects", () => {
 describe("shellSegments: separators", () => {
   test("a pipe marks the next command as reading a pipe; `||` and `&&` do not, and leave no empty command", () => {
     expect(shellSegments("a | b || c && d")).toEqual([
-      segment("a "),
-      segment(" b ", { isAfterPipe: true }),
+      segment("a ", { scope: 1 }),
+      segment(" b ", { isAfterPipe: true, scope: 2 }),
       segment(" c "),
       segment(" d"),
     ]);
   });
 
   test("`|&` pipes stderr too: one cut, the next command reads the pipe", () => {
-    expect(shellSegments("a |& b")).toEqual([segment("a "), segment(" b", { isAfterPipe: true })]);
+    expect(shellSegments("a |& b")).toEqual([segment("a ", { scope: 1 }), segment(" b", { isAfterPipe: true, scope: 2 })]);
   });
 
   test("a lone `&` and the case fall-through `;&` each end a command once", () => {
-    expect(shellSegments("a & b")).toEqual([segment("a "), segment(" b")]);
-    expect(shellSegments("x;&y")).toEqual([segment("x"), segment(""), segment("y")]);
+    expect(shellSegments("a & b")).toEqual([segment("a ", { scope: 1 }), segment(" b")]);
+    expect(shellSegments("x;&y")).toEqual([segment("x"), segment("", { scope: 1 }), segment("y")]);
   });
 
   test("an escaped separator is part of the word, and a trailing backslash adds nothing", () => {
@@ -84,16 +92,16 @@ describe("shellSegments: comments", () => {
 describe("shellSegments: substitutions", () => {
   test("`$( )` is its own command and leaves a computed word in the outer one", () => {
     expect(shellSegments("a | echo $( id ) z")).toEqual([
-      segment("a "),
-      segment(" id "),
-      segment(` echo ${SUBSTITUTION} z`, { isAfterPipe: true, substitutions: ["id"] }),
+      segment("a ", { scope: 1 }),
+      segment(" id ", { scope: 2 }),
+      segment(` echo ${SUBSTITUTION} z`, { isAfterPipe: true, substitutions: ["id"], scope: 3 }),
     ]);
   });
 
   test("a pipeline inside a substitution records no first command", () => {
     expect(shellSegments("echo $(a; b)")).toEqual([
-      segment("a"),
-      segment(" b"),
+      segment("a", { scope: 1 }),
+      segment(" b", { scope: 1 }),
       segment(`echo ${SUBSTITUTION}`, { substitutions: [""] }),
     ]);
   });
@@ -101,33 +109,33 @@ describe("shellSegments: substitutions", () => {
   test("a one-command substitution after an earlier command is still recorded", () => {
     expect(shellSegments("x; echo $(a)")).toEqual([
       segment("x"),
-      segment("a"),
+      segment("a", { scope: 1 }),
       segment(` echo ${SUBSTITUTION}`, { substitutions: ["a"] }),
     ]);
   });
 
   test("backticks open and close a substitution, also inside double quotes", () => {
     expect(shellSegments('echo "`whoami` x"')).toEqual([
-      segment("whoami"),
+      segment("whoami", { scope: 1 }),
       segment(`echo "${SUBSTITUTION} x"`, { substitutions: ["whoami"] }),
     ]);
   });
 
   test("a backtick inside double quotes inside backticks opens a nested substitution", () => {
     expect(shellSegments('echo `echo "`date`"`')).toEqual([
-      segment("date"),
-      segment(`echo "${SUBSTITUTION}"`, { substitutions: ["date"] }),
+      segment("date", { scope: 2, parentScope: 1 }),
+      segment(`echo "${SUBSTITUTION}"`, { substitutions: ["date"], scope: 1 }),
       segment(`echo ${SUBSTITUTION}`, { substitutions: [""] }),
     ]);
   });
 
   test("process substitution is code and is marked as such, also after a `<` redirect", () => {
     expect(shellSegments("cat < <(ls)")).toEqual([
-      segment("ls", { isProcessSubstitution: true }),
+      segment("ls", { isProcessSubstitution: true, scope: 1 }),
       segment(`cat < ${SUBSTITUTION}`, { substitutions: ["ls"] }),
     ]);
     expect(shellSegments("diff <(ls) f")).toEqual([
-      segment("ls", { isProcessSubstitution: true }),
+      segment("ls", { isProcessSubstitution: true, scope: 1 }),
       segment(`diff ${SUBSTITUTION} f`, { substitutions: ["ls"] }),
     ]);
   });
@@ -173,9 +181,9 @@ describe("shellSegments: here-strings and heredocs", () => {
   test("an unquoted body that holds code is read as code, quotes blanked", () => {
     expect(shellSegments('cat <<EOF\n$(echo "a")\nEOF')).toEqual([
       segment("cat <<EOF", { heredocs: [{ body: '$(echo "a")\n', isLiteral: false }] }),
-      segment("echo  a "),
-      segment(SUBSTITUTION, { substitutions: ["echo  a"] }),
-      segment(""),
+      segment("echo  a ", { scope: 2, parentScope: 1 }),
+      segment(SUBSTITUTION, { substitutions: ["echo  a"], scope: 1 }),
+      segment("", { scope: 1 }),
       segment(""),
     ]);
   });

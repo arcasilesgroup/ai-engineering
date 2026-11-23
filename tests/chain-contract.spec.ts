@@ -155,7 +155,16 @@ describe("unreadable payloads deny by chain, with no guard run and an unknown-to
 
   test("a guard that throws denies by its own name and stops the chain there", () => {
     const root = governedRepo();
-    const outcome = run({ tool_name: "WebFetch", tool_input: {}, tool_response: { size: 1n }, cwd: root, session_id: session() }, "PostToolUse");
+    // A read the guard cannot complete, one level below the payload the chain parses: the
+    // property is ENUMERABLE so it is reached while the guard reads the response.
+    const unreadable: Record<string, unknown> = {};
+    Object.defineProperty(unreadable, "text", {
+      enumerable: true,
+      get() {
+        throw new Error("simulated crash");
+      },
+    });
+    const outcome = run({ tool_name: "WebFetch", tool_input: {}, tool_response: unreadable, cwd: root, session_id: session() }, "PostToolUse");
     expect(outcome).toEqual({
       action: "deny",
       by: "injection",
@@ -163,6 +172,9 @@ describe("unreadable payloads deny by chain, with no guard run and an unknown-to
       guards: ["injection"],
       receiptId: expect.any(String),
     });
+    // The control: a response it can read but cannot stringify (a BigInt) is scanned and
+    // allowed, so an odd shape in a tool's own payload is not turned into a false deny.
+    expect(run({ tool_name: "WebFetch", tool_input: {}, tool_response: { size: 1n }, cwd: root, session_id: session() }, "PostToolUse").action).not.toBe("deny");
   });
 });
 
@@ -374,7 +386,11 @@ describe("chainMain — the stdio entry", () => {
     const call = (command: string) => JSON.stringify({ ...bash(root, command), cwd: root });
     expect(host(root, call("git status"), cursor)).toEqual({ stdout: '{"permission":"allow"}\n', code: 0 });
     expect(host(root, call("git status -s"), { surface: "claude-code" })).toEqual({ stdout: "", code: 0 });
-    expect(host(root, call(`echo ${REVIEW_MARKER}`), cursor)).toEqual({ stdout: "", code: 0 });
+    // A review is an allow carrying a note: the call proceeds, so Cursor's failClosed template
+    // must read it as a permission rather than as an empty answer it refuses. Hosts that never
+    // read stdout for an allow stay silent.
+    expect(host(root, call(`echo ${REVIEW_MARKER}`), cursor)).toEqual({ stdout: '{"permission":"allow"}\n', code: 0 });
+    expect(host(root, call(`echo ${REVIEW_MARKER}`), { surface: "claude-code" })).toEqual({ stdout: "", code: 0 });
     expect(host(root, call("bun test"), cursor)).toEqual({
       stdout: `${JSON.stringify({ permission: "allow", updated_input: { command: "ai-eng wrap test --base64 YnVuIHRlc3Q" } })}\n`,
       code: 0,
