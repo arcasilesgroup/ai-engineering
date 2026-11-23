@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.4.0
+
+### Minor Changes
+
+- [#823](https://github.com/arcasilesgroup/ai-engineering/pull/823) [`ffda41a`](https://github.com/arcasilesgroup/ai-engineering/commit/ffda41adf29d3b1ec783d6237c16d919f41dcd3d) Thanks [@soydachi](https://github.com/soydachi)! - New `ai-eng findings check <rounds.json|->`: it annotates the review findings a program can disprove — a path no revision has, an absence a diff contradicts, an id a user selection already declined — and prints one count line with the outcome of each signal. It never removes a finding.
+
 ## 3.3.1
 
 ### Patch Changes
