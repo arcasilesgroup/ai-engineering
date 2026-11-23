@@ -80,7 +80,7 @@ export type ChainOptions = {
   /** The host has no judge of ours (`can.deny` "host-only"): its payload names no tool we
    *  mapped, and it reads a non-zero exit as a deny on EVERY call. A payload the chain
    *  cannot read is therefore allowed with a reason instead of denied — a hook that
-   *  cannot judge must not lock a person out of their editor (README). A surface we can
+   *  cannot judge must not lock a person out of their editor (docs/surface-capability-matrix.md). A surface we can
    *  govern keeps the fail-closed boundary. */
   hasNoJudge?: boolean;
 };

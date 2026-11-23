@@ -246,8 +246,8 @@ export function surfaceCanGovern(surface: Surface): boolean {
  *  the host denies through its own permissions and the payload names no tool of ours. A
  *  payload the chain cannot read there must be ALLOWED, not denied, because the host
  *  denies on any non-zero exit: one unreadable payload would otherwise deny every tool
- *  call of a person who enabled the surface (README, "a hook that cannot judge must not
- *  lock a person out of their editor"). */
+ *  call of a person who enabled the surface (see "Where the agent still can" in README.md
+ *  and docs/surface-capability-matrix.md). */
 export function surfaceHasNoJudge(id: string | undefined): boolean {
   const surface = SURFACES.find((candidate) => candidate.id === id);
   return surface !== undefined && !surfaceCanGovern(surface);

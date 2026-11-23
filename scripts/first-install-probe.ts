@@ -206,7 +206,7 @@ for (const surface of SURFACES) {
   }
 }
 
-// The README's fix for a .ps1 npm wrote back on a reinstall: `ai-eng.cmd update`, with the
+// The docs/troubleshooting.md fix for a .ps1 npm wrote back on a reinstall: `ai-eng.cmd update`, with the
 // canon already healthy. Planted back, it must be gone again after that one command.
 if (npmShim !== undefined && npmShimText !== null) {
   const initRemoved = !existsSync(npmShim);

@@ -5,8 +5,8 @@ default. You edit it by hand; the chain reads it and never writes it.
 
 | Table | What it sets |
 |---|---|
-| `[surfaces]` | the agents this repository is governed on (`ai-eng config` rewrites only this key) |
-| `[ci]` | the CI provider |
+| `[surfaces]` | the agents this repository is governed on (`ai-eng config` rewrites `[surfaces].enabled` in place) |
+| `[ci]` | the CI provider (`ai-eng config --ci` rewrites `[ci].provider` in place) |
 | `[guards]` | the loop thresholds, the command-scope policy and your own injection rules |
 | `[gc]` | what `ai-eng doctor --gc` keeps, and how long receipts live |
 | `[git]`, `[work]`, `[notices]` | commented out: worktree folder, lane limits, update notice |

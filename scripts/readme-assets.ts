@@ -29,7 +29,7 @@ export const MODES: readonly Mode[] = ["dark", "light"];
 /** One section heading. `accent` is the one word that takes the green, `label` the eyebrow. */
 export type Heading = { slug: string; label: string; text: string; accent: string };
 
-// The copy deck (data/aie-readme-copy/copy.md, section 3) is the source of these twelve lines.
+// The twelve section headings rendered for README.md; tests/readme-assets.spec.ts checks the alt text matches.
 export const HEADINGS: readonly Heading[] = [
   { slug: "guards", label: "Guards", text: "Refused before it runs", accent: "Refused" },
   { slug: "receipts", label: "Receipts", text: "Every refusal on file", accent: "on file" },

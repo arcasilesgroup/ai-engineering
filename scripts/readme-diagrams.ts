@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
-// scripts/readme-diagrams.ts — renders the README's two diagrams from the repo.
+// scripts/readme-diagrams.ts — renders the skill-chain and older guard-flow SVGs from the repo.
+// README.md still embeds skill-chain; guard-flow is superseded by figure-1-tool-call (scripts/readme-figures.ts).
 //
 // The hand-written skill SVG this replaces named `ai-plan`, `ai-goal` and
 // `ai-proof`: three skills that no longer exist, in the README's biggest picture.
