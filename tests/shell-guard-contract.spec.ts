@@ -30,6 +30,7 @@ const segment = (text: string, extra: Partial<ShellSegment> = {}): ShellSegment 
   substitutions: [],
   scope: 0,
   parentScope: 0,
+  isConditional: false,
   ...extra,
 });
 const word = (value: string, isQuoted = false, unquoted = isQuoted ? "" : value) => ({ value, isQuoted, isOperator: false, unquoted });
@@ -47,8 +48,8 @@ describe("shellSegments: separators", () => {
     expect(shellSegments("a | b || c && d")).toEqual([
       segment("a ", { scope: 1 }),
       segment(" b ", { isAfterPipe: true, scope: 2 }),
-      segment(" c "),
-      segment(" d"),
+      segment(" c ", { isConditional: true }),
+      segment(" d", { isConditional: true }),
     ]);
   });
 

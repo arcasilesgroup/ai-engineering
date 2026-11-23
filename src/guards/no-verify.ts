@@ -4,7 +4,7 @@
 import { basename, resolve, isAbsolute, join, relative } from "node:path";
 import { realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
-import { argumentWords, COMMAND_PREFIXES, commandIndex, fileRedirectTargets, inlineShellPrograms, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
+import { argumentWords, COMMAND_PREFIXES, commandIndex, fileRedirectTargets, inlineShellPrograms, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, staticPrintfValue, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
 
 type Skip = { pattern: RegExp; label: string };
 
@@ -279,8 +279,51 @@ function printedTexts(text: string): string[] {
   const words = argumentWords(text).map((word) => word.value);
   const at = commandIndex(words);
   const verb = basename(words[at] ?? "");
-  if (verb === "echo") return [words.slice(at + 1).join(" ")];
-  return verb === "printf" ? words.slice(at + 1) : [];
+  const values = words.slice(at + 1);
+  if (verb === "echo") return [values.join(" ")];
+  if (verb !== "printf") return [];
+  // The format fills its conversions with the values, so `%s%s` and its two words are one text.
+  const printed = staticPrintfValue(values);
+  return printed === null ? values : [...values, printed];
+}
+
+/** The body of every `<<<` word in this segment: data the command reads and may write out. */
+function hereStringTexts(text: string): string[] {
+  const words = shellWords(text);
+  const texts: string[] = [];
+  for (let index = 0; index < words.length; index++) {
+    const word = words[index]!;
+    const body = words[index + 1];
+    if (word.isOperator && word.value === "<<<" && body !== undefined && !body.isOperator) texts.push(body.value);
+    if (word.isOperator) index++;
+  }
+  return texts;
+}
+
+/** The program and the files of an in-place edit (`sed -i`, `perl -i`, `awk -i inplace`):
+ *  the program is the text that lands in the files listed after it. */
+function inPlaceEdit(text: string): { files: string[]; program: string[] } | null {
+  const words = argumentWords(text).map((word) => word.value);
+  const at = commandIndex(words);
+  const verb = basename(words[at] ?? "");
+  const args = words.slice(at + 1);
+  const isInPlace =
+    verb === "awk"
+      ? args.some((arg, index) => arg === "-iinplace" || (arg === "-i" && args[index + 1] === "inplace"))
+      : (verb === "sed" || verb === "perl") && args.some((arg) => /^-[A-Za-z]*i/.test(arg) || arg === "--in-place" || arg.startsWith("--in-place="));
+  if (!isInPlace) return null;
+  const operands: string[] = [];
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]!;
+    // `awk -i inplace`: the mode is the flag's value, not the program or a file.
+    if (verb === "awk" && arg === "-i") {
+      index++;
+      continue;
+    }
+    if (arg.startsWith("-") || arg.length === 0) continue;
+    operands.push(arg);
+  }
+  return { files: operands.slice(1), program: operands.slice(0, 1) };
 }
 
 /** Whether the file a write lands in is one this repository governs. With no repository to
@@ -301,18 +344,20 @@ function silenceInWrites(command: string, repoRoot: string | null): GuardResult 
   for (let index = 0; index < segments.length; index++) {
     const segment = segments[index]!;
     const next = segments[index + 1];
+    const edit = inPlaceEdit(segment.text);
     const targets = [
       ...fileRedirectTargets(shellWords(segment.text)).map((word) => word.value),
       ...teeTargets(segment.text),
       ...(next !== undefined && next.isAfterPipe ? teeTargets(next.text) : []),
+      ...(edit?.files ?? []),
     ];
     if (!targets.some((target) => isGovernedTarget(target, repoRoot))) continue;
     for (const heredoc of segment.heredocs) {
       const hit = checkContent(heredoc.body);
       if (hit) return hit;
     }
-    for (const printed of printedTexts(segment.text)) {
-      const hit = checkContent(printed);
+    for (const payload of [...hereStringTexts(segment.text), ...printedTexts(segment.text), ...(edit?.program ?? [])]) {
+      const hit = checkContent(payload);
       if (hit) return hit;
     }
   }

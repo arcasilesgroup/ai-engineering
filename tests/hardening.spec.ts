@@ -118,6 +118,11 @@ describe("self-protect closes the traced bypasses and still allows ordinary comm
       ["f=.ai-engineering/config.toml; coproc { f=safe.txt; }; rm \"$f\"", true],
       ["f=.ai-engineering/config.toml; coproc mycop { f=safe.txt; }; rm \"$f\"", true],
       ["f=safe.txt; time { f=.ai-engineering/config.toml; }; rm \"$f\"", true],
+      ["f=safe.txt; if true; then f=.ai-engineering/config.toml; else f=x; fi; rm \"$f\"", true],
+      ["f=safe.txt; case a in a) f=.ai-engineering/config.toml;; b) f=x;; esac; rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; false && f=safe.txt; rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; true || f=safe.txt; rm \"$f\"", true],
+      ["f=.ai-engineering/config.toml; if false; then f=safe.txt; fi; rm \"$f\"", true],
       ["f=safe.txt; time -p { f=.ai-engineering/config.toml; }; rm \"$f\"", true],
       ["f=safe.txt; time f=.ai-engineering/config.toml; rm \"$f\"", true],
       ["f=safe.txt; ! time { f=.ai-engineering/config.toml; }; rm \"$f\"", true],
@@ -255,6 +260,11 @@ describe("policy closes the traced bypasses and still allows ordinary commands",
       ["f=/etc/hosts; true |\n{ f=notes.txt; }; echo x > \"$f\"", false],
       ["f=/etc/hosts; coproc { f=notes.txt; }; echo x > \"$f\"", false],
       ["f=notes.txt; time -p { f=/etc/hosts; }; echo x > \"$f\"", false],
+      ["f=notes.txt; if true; then f=/etc/hosts; else f=x; fi; echo x > \"$f\"", false],
+      ["f=notes.txt; case a in a) f=/etc/hosts;; b) f=x;; esac; echo x > \"$f\"", false],
+      ["f=/etc/hosts; false && f=notes.txt; echo x > \"$f\"", false],
+      ["f=/etc/hosts; true || f=notes.txt; echo x > \"$f\"", false],
+      ["echo x > $OUT", false],
       ["f=notes.txt; time f=/etc/hosts; echo x > \"$f\"", false],
       ["f=safe.txt; printf -v f '%b' '\\57etc\\57hosts'; echo x > \"$f\"", false],
       ["f=/etc/hosts; f=notes.txt :; echo x > \"$f\"", false],
@@ -262,6 +272,8 @@ describe("policy closes the traced bypasses and still allows ordinary commands",
       ["f=safe.txt; printf -v f %s /etc /hosts; echo x > \"$f\"", false],
       ["f=/etc/hosts; { f=notes.txt; }; echo x > \"$f\"", true],
       ["f=/etc/hosts; time { f=notes.txt; }; echo x > \"$f\"", true],
+      ["f=notes.txt; if true; then echo ok; fi; echo x > \"$f\"", true],
+      ["X=notes.txt; echo ng > $X", true],
       ["f=/etc/hosts; { f=notes.txt; } >/dev/null; echo x > \"$f\"", true],
       ["f=notes; f+=.txt; echo x > \"$f\"", true],
       ["f=notes.txt; printf -v f %b safe.txt; echo x > \"$f\"", true],
@@ -765,6 +777,12 @@ describe("spoken-secret and floor close raw tokens, my- placeholders, and orphan
     const ghp = "ghp_" + "abcdefghijklmnopqrstuvwxyz0123456789";
     const skProj = "sk-proj-" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ012345";
     const placeholder = "ghp_" + "xxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+    // AWS's published sample key is documentation, not a leaked credential.
+    const sampleKey = "AKIA" + "IOSFODNN7EXAMPLE";
+    const awsKey = "AKIA" + "IOSFODNN7QZ3MPLU";
+    expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "explain why the AWS docs use " + sampleKey + " as the sample key" })).toBeUndefined();
+    expect(candidates("the docs show " + sampleKey).auto).toHaveLength(0);
+    expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "use " + awsKey + " for the bucket" })?.deny).toBe(true);
     expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "use " + ghp + " for the deploy" })?.deny).toBe(true);
     expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "paste " + skProj + " into env" })?.deny).toBe(true);
     expect(runSpokenSecret({ tool_name: "", tool_input: {}, prompt: "example " + placeholder })).toBeUndefined();

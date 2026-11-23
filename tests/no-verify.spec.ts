@@ -176,10 +176,26 @@ describe("checkBash", () => {
     for (const command of [
       `echo '// ${NOLINT}' > src/a.ts`,
       `printf '%s\\n' '// ${TS_IGNORE}' >> src/a.ts`,
+      `printf '%s%s\\n' '@ts-' 'ignore' > src/a.ts`,
+      `printf '%s-%s\\n' '@ts' 'ignore' > src/a.ts`,
+      `cat <<< '// ${TS_IGNORE}' > src/a.ts`,
+      `tee src/a.ts <<< '// ${TS_IGNORE}'`,
+      `sed -i 's/x/${TS_IGNORE}/' src/a.ts`,
+      `sed -i.bak 's/x/${TS_IGNORE}/' src/a.ts`,
+      `perl -pi -e 's/x/${TS_IGNORE}/' src/a.ts`,
+      `awk -i inplace '{print "// ${TS_IGNORE}"}' src/a.ts`,
       `echo '// ${TS_IGNORE}' | tee src/a.ts`,
       `echo '// ${TS_IGNORE}' > a.ts`,
     ]) {
       expect(checkBash(command, root)?.deny, command).toBe(true);
+    }
+    // A rewrite that puts nothing new in the file, or writes elsewhere, still passes.
+    for (const command of [
+      `sed -i 's/x/y/' src/a.ts`,
+      `sed -i 's/x/${TS_IGNORE}/' ${scratch}`,
+      `cat <<< '// ${TS_IGNORE}' > ${scratch}`,
+    ]) {
+      expect(checkBash(command, root), command).toBeUndefined();
     }
   });
 

@@ -428,8 +428,8 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
   const parsed = segments.map((segment) => {
     const variables = variablesForSegment(scopes, segment);
     const words = shellWords(resolveSubstitutions(segment)).map((word) => ({ ...word, original: word.value, value: substituteVariables(word.value, variables) }));
-    applySegmentAssignments(segment.text, variables, false);
-    applySegmentMutations(segment.text, variables, false);
+    applySegmentAssignments(segment.text, variables, false, segment.isConditional);
+    applySegmentMutations(segment.text, variables, false, segment.isConditional);
     const plain: string[] = [];
     // Whether the shell expands each plain word: a glob or brace it reads unquoted.
     const isExpanded: boolean[] = [];

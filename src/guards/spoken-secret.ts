@@ -148,7 +148,7 @@ function hasRawToken(prompt: string, seen: ReadonlySet<string>): boolean {
     const token = match[0];
     if (seen.has(token)) continue;
     const body = token.replace(/^(?:gh[pousr]_|github_pat_|sk-proj-|sk-|AKIA|xox[baprs]-)/, "");
-    if (/^(?:x+|example|placeholder|redacted|your)/i.test(body)) continue;
+    if (/^x+$/i.test(body) || /example|placeholder|redacted|your/i.test(body)) continue;
     if (new Set(body.replace(/[^A-Za-z0-9]/g, "")).size < 4) continue;
     return true;
   }

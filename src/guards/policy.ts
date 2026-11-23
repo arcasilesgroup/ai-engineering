@@ -353,7 +353,7 @@ function commandLead(written: string): string {
   return rest;
 }
 
-function scanSegment(mask: { value: number }, written: string, cwd: string): void {
+function scanSegment(mask: { value: number }, written: string, cwd: string, isExpanded = false): void {
   const lead = commandLead(written);
   const words = rawShellWords(written);
   const verbAt = words.findIndex((word) => !ASSIGNMENT.test(word));
@@ -399,6 +399,13 @@ function scanSegment(mask: { value: number }, written: string, cwd: string): voi
   const judgeRedirect = (target: string, permissions: number, isDuplicate: boolean): void => {
     // `2>&1`, `<&0` and `>&-` copy or close a descriptor: they name no file.
     if (isDuplicate && /^(\d+|-)$/.test(target)) return;
+    // A target the expansion could not resolve is not a known path: the name could have been
+    // set in a branch the guards cannot read, so it is judged where it could land.
+    if (isExpanded && /[$`]/.test(target)) {
+      addMode(mask, SCOPE_SYSTEM, permissions);
+      flags = 3;
+      return;
+    }
     addPath(mask, target, permissions, cwd);
     flags = 3;
   };
@@ -467,9 +474,16 @@ function scanScript(script: string, cwd: string): number {
   const substitutions = [...joined.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)].map((match) => match[1] ?? match[2] ?? "");
   const expansions = expandedSegments(script);
   const bodies = expansions.flatMap((text) => inlineShellPrograms(text));
-  const normalized = [joined, ...substitutions, ...expansions, ...bodies, ...bodies.flatMap(expandedSegments)].join("\n").replaceAll("&&", "\n").replaceAll("||", "\n").replaceAll(";", "\n");
-  for (const segment of normalized.split("\n").map((s) => s.trim())) {
-    if (segment.length > 0) scanSegment(mask, segment, cwd);
+  const written = [joined, ...substitutions];
+  const resolved = [...expansions, ...bodies, ...bodies.flatMap(expandedSegments)];
+  const pieces = (texts: string[], isExpanded: boolean): Array<{ text: string; isExpanded: boolean }> =>
+    texts
+      .flatMap((text) => text.replaceAll("&&", "\n").replaceAll("||", "\n").replaceAll(";", "\n").split("\n"))
+      .map((text) => ({ text: text.trim(), isExpanded }));
+  // Only the expanded pass knows which names the reader could not resolve; the text as
+  // written still carries every `$name` the shell may fill in.
+  for (const piece of [...pieces(written, false), ...pieces(resolved, true)]) {
+    if (piece.text.length > 0) scanSegment(mask, piece.text, cwd, piece.isExpanded);
   }
   return mask.value;
 }

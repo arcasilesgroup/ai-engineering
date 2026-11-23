@@ -38,6 +38,9 @@ export type ShellSegment = {
   /** Variable-tracking scope id (0 = top-level shell) and the scope it inherits from. */
   scope: number;
   parentScope: number;
+  /** Whether this segment stands inside a branch, loop body or `&&`/`||` list, so the
+   *  shell may never run it and its assignments decide nothing. */
+  isConditional: boolean;
 };
 
 /** The heredoc operator starting at `at` and its delimiter, read as the one shell word bash
@@ -158,6 +161,9 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
     frameScope: number;
     /** A compound that is the right member of a pipeline already runs in its own subshell. */
     isIsolated: boolean;
+    /** Whether a branch of this frame is already running, and whether it may never run. */
+    isConditionalBase: boolean;
+    isConditionalBody: boolean;
   };
   const nesting: Frame[] = [];
   // A compound command runs in the current shell unless a `|` or a `&` follows its closing
@@ -171,15 +177,20 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
   let current = "";
   let quote: string | null = null;
   let isAfterPipe = false;
+  let isAfterCondition = false;
   let isProcessSubstitution = false;
   let substitutions: string[] = [];
   // The heredocs of the command being read: filled in after the line that declares them.
   let heredocs: Heredoc[] = [];
+  const currentConditional = (): boolean => {
+    const frame = nesting.at(-1);
+    return isAfterCondition || (frame !== undefined && (frame.isConditionalBase || frame.isConditionalBody));
+  };
   const cut = (nextIsAfterPipe = false, isIsolated = false): void => {
     const isolate = isIsolated || isAfterPipe;
     const segScope = isolate ? ++nextScope : scope;
     const segParent = isolate ? scope : (scopeParents.get(scope) ?? 0);
-    segments.push({ text: current, isAfterPipe, opensSubstitution: current.includes(SUBSTITUTION), isProcessSubstitution, heredocs, substitutions, scope: segScope, parentScope: segParent });
+    segments.push({ text: current, isAfterPipe, opensSubstitution: current.includes(SUBSTITUTION), isProcessSubstitution, heredocs, substitutions, scope: segScope, parentScope: segParent, isConditional: currentConditional() });
     current = "";
     isAfterPipe = nextIsAfterPipe;
     isProcessSubstitution = false;
@@ -189,7 +200,7 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
   const open = (closer: string): void => {
     const childScope = ++nextScope;
     scopeParents.set(childScope, scope);
-    nesting.push({ kind: "substitution", quote, closer, parent: current, parentIsAfterPipe: isAfterPipe, parentSubstitutions: substitutions, parentHeredocs: heredocs, parentScope: scope, innerStart: segments.length, frameScope: childScope, isIsolated: false });
+    nesting.push({ kind: "substitution", quote, closer, parent: current, parentIsAfterPipe: isAfterPipe, parentSubstitutions: substitutions, parentHeredocs: heredocs, parentScope: scope, innerStart: segments.length, frameScope: childScope, isIsolated: false, isConditionalBase: currentConditional(), isConditionalBody: false });
     scope = childScope;
     quote = null;
     current = "";
@@ -201,17 +212,20 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
     cut();
     const childScope = ++nextScope;
     scopeParents.set(childScope, scope);
-    nesting.push({ kind: "subshell", quote: null, closer: ")", parent: "", parentIsAfterPipe: false, parentSubstitutions: [], parentHeredocs: [], parentScope: scope, innerStart: segments.length, frameScope: childScope, isIsolated: false });
+    nesting.push({ kind: "subshell", quote: null, closer: ")", parent: "", parentIsAfterPipe: false, parentSubstitutions: [], parentHeredocs: [], parentScope: scope, innerStart: segments.length, frameScope: childScope, isIsolated: false, isConditionalBase: currentConditional(), isConditionalBody: false });
     scope = childScope;
+    isAfterCondition = false;
   };
   const openCompound = (closer: string): void => {
     // Read before the cut, which starts the next segment with no pipe behind it.
     const isIsolated = isAfterPipe || isCoprocPrefix(current);
+    const isConditionalBase = currentConditional();
     cut();
     const frameScope = ++nextScope;
     scopeParents.set(frameScope, scope);
-    nesting.push({ kind: "compound", quote: null, closer, parent: "", parentIsAfterPipe: false, parentSubstitutions: [], parentHeredocs: [], parentScope: scope, innerStart: segments.length, frameScope, isIsolated });
+    nesting.push({ kind: "compound", quote: null, closer, parent: "", parentIsAfterPipe: false, parentSubstitutions: [], parentHeredocs: [], parentScope: scope, innerStart: segments.length, frameScope, isIsolated, isConditionalBase, isConditionalBody: closer === "esac" });
     scope = frameScope;
+    isAfterCondition = false;
   };
   const closeCompound = (): void => {
     cut();
@@ -353,7 +367,10 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
     } else if (wasWordStart && isCommandStart() && compoundTokenAt(source, index) !== null) {
       const token = compoundTokenAt(source, index)!;
       const closer = COMPOUND_CLOSERS[token];
-      if (closer === undefined) {
+      if (BODY_WORDS.has(token)) {
+        const body = nesting.at(-1);
+        if (body !== undefined && body.kind === "compound") body.isConditionalBody = true;
+      } else if (closer === undefined) {
         if (nesting.at(-1)?.closer === token) {
           resolveCompounds(false);
           closeCompound();
@@ -369,6 +386,7 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
       if (isOr || next === "&") index++;
       resolveCompounds(!isOr);
       cut(!isOr, !isOr);
+      if (isOr) isAfterCondition = true;
       isWordStart = true;
     } else if (char === "(") {
       resolveCompounds(false);
@@ -381,11 +399,13 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
       if (wasSubshell) isWordStart = true;
     } else if (";&\n)".includes(char)) {
       const isBackground = char === "&" && next !== "&";
-      if (char === "&" && next === "&") index++;
+      const isAndOr = char === "&" && next === "&";
+      if (isAndOr) index++;
       // `;&` and `;;` fall through a case, they do not put the command behind them in the background.
       resolveCompounds(isBackground && source[index - 1] !== ";");
       // A line that ends on `|` continues the pipeline: the next command is still after a pipe.
       cut(char === "\n" && isAfterPipe, isBackground);
+      isAfterCondition = isAndOr;
       isWordStart = true;
     } else {
       current += char;
@@ -422,11 +442,15 @@ const COMPOUND_CLOSERS: Record<string, string> = { "{": "}", if: "fi", while: "d
 /** Every word that opens or ends a compound command. */
 const COMPOUND_WORDS = new Set([...Object.keys(COMPOUND_CLOSERS), ...Object.values(COMPOUND_CLOSERS)]);
 
+/** Words that open a branch a compound may never run: `then`, an `elif`/`else` alternative
+ *  and a `do` loop body. */
+const BODY_WORDS = new Set(["then", "elif", "else", "do"]);
+
 /** The compound keyword or brace starting at `at` of `source`, as the shell words it: the
  *  longest run of letters that ends the word, so `iffy` is a name and `if` is grammar. */
 function compoundTokenAt(source: string, at: number): string | null {
   const token = /^[a-z]{1,6}|^[{}]/.exec(source.slice(at, at + 7))?.[0];
-  if (token === undefined || !COMPOUND_WORDS.has(token)) return null;
+  if (token === undefined || !(COMPOUND_WORDS.has(token) || BODY_WORDS.has(token))) return null;
   const after = source[at + token.length];
   return after === undefined || /[\s;&|()<>]/.test(after) ? token : null;
 }
@@ -739,12 +763,12 @@ export function substituteVariables(value: string, variables: ReadonlyMap<string
   });
 }
 
-function assign(variables: VariableMap, name: string, raw: string, isAppend: boolean, requireSafe: boolean): void {
+function assign(variables: VariableMap, name: string, raw: string, isAppend: boolean, requireSafe: boolean, isConditional: boolean): void {
   const rhs = substituteVariables(raw, variables);
   const prior = variables.get(name);
   if (isAppend && prior === null) return;
   const value = isAppend ? `${prior ?? ""}${rhs}` : rhs;
-  if (/[$`]/.test(value) || (requireSafe && value.length > 0 && !isSafeExpansion(value))) variables.set(name, null);
+  if (isConditional || /[$`]/.test(value) || (requireSafe && value.length > 0 && !isSafeExpansion(value))) variables.set(name, null);
   else variables.set(name, value);
 }
 
@@ -753,8 +777,9 @@ function assign(variables: VariableMap, name: string, raw: string, isAppend: boo
  *  `f=x cmd` is only cmd's environment: cmd's words still see the old value and the next
  *  segment does too, whatever cmd is (`f=x :` and `f=x export` keep the earlier value in
  *  bash and zsh, the shells the floor runs). With `requireSafe`, a value that could not
- *  stand in the text as one word drops the name. */
-export function applySegmentAssignments(text: string, variables: VariableMap, requireSafe: boolean): void {
+ *  stand in the text as one word drops the name. A segment that only runs when a condition
+ *  holds cannot decide a name the rest of the command reads, so its names stay unknown. */
+export function applySegmentAssignments(text: string, variables: VariableMap, requireSafe: boolean, isConditional = false): void {
   const words = shellWords(normalizeRedirects(text));
   const prefix: Array<[string, string, boolean]> = [];
   let commandAt = -1;
@@ -773,7 +798,7 @@ export function applySegmentAssignments(text: string, variables: VariableMap, re
     prefix.push([assignment[1]!, assignment[3]!, assignment[2] === "+"]);
   }
   if (commandAt < 0) {
-    for (const [name, raw, isAppend] of prefix) assign(variables, name, raw, isAppend, requireSafe);
+    for (const [name, raw, isAppend] of prefix) assign(variables, name, raw, isAppend, requireSafe, isConditional);
     return;
   }
   const command = basename(words[commandAt]!.value);
@@ -785,7 +810,7 @@ export function applySegmentAssignments(text: string, variables: VariableMap, re
       continue;
     }
     const assignment = /^([A-Za-z_]\w*)(\+?)=(.*)$/s.exec(word.value);
-    if (assignment !== null) assign(variables, assignment[1]!, assignment[3]!, assignment[2] === "+", requireSafe);
+    if (assignment !== null) assign(variables, assignment[1]!, assignment[3]!, assignment[2] === "+", requireSafe, isConditional);
   }
 }
 
@@ -858,7 +883,7 @@ export function staticPrintfValue(args: readonly string[]): string | null {
 
 /** `printf -v` and `read` mutate variables for the next segment. A value this reader cannot
  *  evaluate drops the name, so a later `$name` stays unresolved instead of a stale safe path. */
-export function applySegmentMutations(text: string, variables: VariableMap, requireSafe: boolean): void {
+export function applySegmentMutations(text: string, variables: VariableMap, requireSafe: boolean, isConditional = false): void {
   const words = argumentWords(normalizeRedirects(text)).map((word) => word.value);
   const at = commandIndex(words);
   const verb = basename(words[at] ?? "");
@@ -876,7 +901,7 @@ export function applySegmentMutations(text: string, variables: VariableMap, requ
     }
     if (name === undefined || !/^[A-Za-z_]\w*$/.test(name)) return;
     const value = staticPrintfValue(rest);
-    if (value === null || (requireSafe && !isSafeExpansion(value))) variables.set(name, null);
+    if (value === null || isConditional || (requireSafe && !isSafeExpansion(value))) variables.set(name, null);
     else variables.set(name, value);
     return;
   }
@@ -904,8 +929,8 @@ export function expandedSegments(command: string): string[] {
   return segments.map((segment) => {
     const variables = variablesForSegment(scopes, segment);
     const expanded = expandDollars(segment.text, variables);
-    applySegmentAssignments(segment.text, variables, true);
-    applySegmentMutations(segment.text, variables, true);
+    applySegmentAssignments(segment.text, variables, true, segment.isConditional);
+    applySegmentMutations(segment.text, variables, true, segment.isConditional);
     return expanded;
   });
 }
