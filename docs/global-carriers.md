@@ -14,7 +14,7 @@ Machine paths are relative to the base every machine-side path hangs off (`machi
 
 When `PI_CODING_AGENT_DIR` is set, Oh My Pi and Pi carriers are placed under that host-provided agent directory instead of the default `.omp/agent` or `.pi/agent` path.
 
-`chain` is a second file that must sit beside the entry: hosts that run the carrier in-process import the chain from it. The OMP bundle is dot-prefixed because the host's hook scanner loads every `*.ts` in that directory. `carrierFiles(id, scope)` decides whether a surface has a generator at all. A generator is not an offer on its own: `surfaceOptions()` in `src/commands/init-shared.ts` lists a surface only when it also has a hook of ours that can judge the host (`surfaceCanGovern`), and `init` and `config --add` refuse the rest with `advisoryRefusal`, the one sentence that points at [the capability matrix](surface-capability-matrix.md).
+`chain` is a second file that must sit beside the entry: hosts that run the carrier in-process import the chain from it. The OMP bundle is dot-prefixed because the host's hook scanner loads every `*.ts` in that directory. `carrierFiles(id, scope)` decides whether a surface has a generator at all. A generator is not an offer on its own: `surfaceOptions()` in `src/commands/init-shared.ts` lists a surface only when it also has a hook of ours that can judge the host (`surfaceCanGovern`), and `init` and `config --add` refuse the rest with `advisoryRefusal`, the one sentence both entry points share: it names a README section, because the shipped package carries no `docs/`, and it points at [the capability matrix](surface-capability-matrix.md) as the repository-side detail for the reader who has the checkout.
 
 ## How a carrier is written
 

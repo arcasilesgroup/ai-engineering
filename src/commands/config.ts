@@ -11,7 +11,7 @@ import { changeCi, changeCiFromFlag, pickCi } from "./config-ci.ts";
 import { canonicalSurfaceId, repoRoot, enabledSurfaces, isGoverned } from "../env.ts";
 import { mirrorTargets, installCanon } from "../surfaces/canon-install.ts";
 import { installMachineCarriers } from "../surfaces/carriers-install.ts";
-import { SURFACES, surfaceCanGovern, repoCarrier, machineCarrier, type Surface } from "../surfaces/adapters.ts";
+import { SURFACES, surfaceCanGovern, repoCarrier, machineCarrier } from "../surfaces/adapters.ts";
 import { hasAdapter, advisoryRefusal, installLineRow, planEntries, refuseLine, SURFACE_PICK_MESSAGE, surfaceOptions } from "./init-shared.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
