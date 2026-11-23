@@ -185,6 +185,9 @@ describe("checkBash", () => {
       `perl -pi -e 's/x/${TS_IGNORE}/' src/a.ts`,
       `awk -i inplace '{print "// ${TS_IGNORE}"}' src/a.ts`,
       `echo '// ${TS_IGNORE}' | tee src/a.ts`,
+      `echo '// ${TS_IGNORE}' | cat > src/a.ts`,
+      `printf '%s\\n' '// ${TS_IGNORE}' | sed s/x/y/ > src/a.ts`,
+      `echo '// ${TS_IGNORE}' | tee /tmp/noverify-tee.txt > src/a.ts`,
       `echo '// ${TS_IGNORE}' > a.ts`,
     ]) {
       expect(checkBash(command, root)?.deny, command).toBe(true);
@@ -194,6 +197,9 @@ describe("checkBash", () => {
       `sed -i 's/x/y/' src/a.ts`,
       `sed -i 's/x/${TS_IGNORE}/' ${scratch}`,
       `cat <<< '// ${TS_IGNORE}' > ${scratch}`,
+      `echo '// ${TS_IGNORE}' | cat`,
+      `echo '// ${TS_IGNORE}' | cat > ${scratch}`,
+      `echo '// ${TS_IGNORE}'; cat > src/a.ts`,
     ]) {
       expect(checkBash(command, root), command).toBeUndefined();
     }

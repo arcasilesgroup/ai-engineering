@@ -335,6 +335,11 @@ function isGovernedTarget(target: string, repoRoot: string | null): boolean {
   return inside === "" || (!inside.startsWith("..") && !isAbsolute(inside));
 }
 
+/** The files a segment's own output lands in: its redirects and the files a `tee` it runs names. */
+function outputTargets(segment: ShellSegment): string[] {
+  return [...fileRedirectTargets(shellWords(segment.text)).map((word) => word.value), ...teeTargets(segment.text)];
+}
+
 /** A redirect or tee into a file carries the bytes a shell write puts on disk.
  *  Stderr redirects (`2>&1`, `2>/dev/null`) and commit-message heredocs are not file writes,
  *  and a token that only names a silence in the command's own arguments is never written. */
@@ -343,20 +348,15 @@ function silenceInWrites(command: string, repoRoot: string | null): GuardResult 
   if (segments === null) return undefined;
   for (let index = 0; index < segments.length; index++) {
     const segment = segments[index]!;
-    const next = segments[index + 1];
     const edit = inPlaceEdit(segment.text);
-    const targets = [
-      ...fileRedirectTargets(shellWords(segment.text)).map((word) => word.value),
-      ...teeTargets(segment.text),
-      ...(next !== undefined && next.isAfterPipe ? teeTargets(next.text) : []),
-      ...(edit?.files ?? []),
-    ];
+    const payloads = [...segment.heredocs.map((heredoc) => heredoc.body), ...hereStringTexts(segment.text), ...printedTexts(segment.text), ...(edit?.program ?? [])];
+    if (payloads.length === 0) continue;
+    // What a pipeline prints reaches the file its own stage, or any later stage of that same
+    // pipeline, redirects: `echo … | cat > f` writes the echo's bytes, not the cat's.
+    const targets = [...outputTargets(segment), ...(edit?.files ?? [])];
+    for (let later = index + 1; later < segments.length && segments[later]!.isAfterPipe; later++) targets.push(...outputTargets(segments[later]!));
     if (!targets.some((target) => isGovernedTarget(target, repoRoot))) continue;
-    for (const heredoc of segment.heredocs) {
-      const hit = checkContent(heredoc.body);
-      if (hit) return hit;
-    }
-    for (const payload of [...hereStringTexts(segment.text), ...printedTexts(segment.text), ...(edit?.program ?? [])]) {
+    for (const payload of payloads) {
       const hit = checkContent(payload);
       if (hit) return hit;
     }

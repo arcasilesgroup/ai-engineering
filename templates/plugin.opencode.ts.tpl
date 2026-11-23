@@ -68,7 +68,11 @@ export default {
             try {
               result = await execute(input, call);
             } catch (error) {
-              chain("PostToolUse", { ...judgement, tool_response: { text: error instanceof Error ? error.message : String(error), isError: true } }, { surface: "opencode" });
+              const errorVerdict = chain("PostToolUse", { ...judgement, tool_response: { text: error instanceof Error ? error.message : String(error), isError: true } }, { surface: "opencode" });
+              // The same verdicts the success path reads: an error message can carry the
+              // fetched body, so containment replaces it instead of letting it through.
+              if (errorVerdict.action === "deny") throw new Error(`[ai-eng] ${errorVerdict.by}: ${errorVerdict.reason}`);
+              if (errorVerdict.action === "review") process.stderr.write(`[ai-eng] ${errorVerdict.by}: ${errorVerdict.reason}\n`);
               throw error;
             }
             const failed = result !== null && typeof result === "object" && ((result as { isError?: boolean; is_error?: boolean }).isError === true || (result as { isError?: boolean; is_error?: boolean }).is_error === true);

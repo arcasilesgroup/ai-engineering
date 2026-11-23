@@ -76,14 +76,18 @@ export function allowRewrite(command: string, dialect: Dialect = "claude", event
 /** The allowed-call envelope — silence, except where the host's own contract says
  *  otherwise. Cursor's project template declares `failClosed: true`, so an EMPTY stdout
  *  is read as a policy error and the call is refused: a permitted call that reads as a
- *  failure, which this branch exists to prevent. A review is an allow carrying a note, and
- *  cursor is the one dialect here that renders one: every other host gets the note from its
- *  own plugin template, or not at all.
+ *  failure, which this branch exists to prevent.
  *  Codex documents silence with exit 0 as success, and Claude, Pi and the in-process
- *  hosts never read stdout for an allow — so they get nothing, on purpose. */
+ *  hosts never read stdout for an allow — so they get nothing there, on purpose. A review
+ *  is an allow carrying a note, and a note no host renders is not a verdict: the dialect
+ *  that renders one on the envelope gets it there, every other dialect gets the same line
+ *  on stderr, which is where the CLI already speaks to the person. */
 export function allow(dialect: Dialect = "claude", note?: string): void {
-  if (dialect !== "cursor") return;
   const message = note === undefined ? undefined : `[ai-eng] ${note.replace(/[\r\n]/g, " ")}`;
+  if (dialect !== "cursor") {
+    if (message !== undefined) process.stderr.write(`${message}\n`);
+    return;
+  }
   const envelope = message === undefined ? { permission: "allow" } : { permission: "allow", user_message: message, agent_message: message };
   process.stdout.write(`${JSON.stringify(envelope)}\n`);
 }

@@ -365,6 +365,34 @@ function host(root: string, raw: string, options: ChainOptions): { stdout: strin
   throw new Error("chainMain returned without exiting");
 }
 
+/** chainMain as a host sees it, keeping this run's stderr: a review note is delivered there. */
+function hostStderr(root: string, raw: string, options: ChainOptions): { stdout: string; stderr: string; code: number } {
+  const out: string[] = [];
+  const err: string[] = [];
+  const outSpy = spyOn(process.stdout, "write").mockImplementation(((chunk: string) => {
+    out.push(String(chunk));
+    return true;
+  }) as never);
+  const errSpy = spyOn(process.stderr, "write").mockImplementation(((chunk: string) => {
+    err.push(String(chunk));
+    return true;
+  }) as never);
+  const exitSpy = spyOn(process, "exit").mockImplementation(((code?: number) => {
+    throw new ExitSignal(code ?? 0);
+  }) as never);
+  try {
+    inside(root, () => chainMain("PreToolUse", raw, options));
+  } catch (error) {
+    if (error instanceof ExitSignal) return { stdout: out.join(""), stderr: err.join(""), code: error.code };
+    throw error;
+  } finally {
+    outSpy.mockRestore();
+    errSpy.mockRestore();
+    exitSpy.mockRestore();
+  }
+  throw new Error("chainMain returned without exiting");
+}
+
 describe("chainMain — the stdio entry", () => {
   const cursor: ChainOptions = { surface: "cursor", dialect: "cursor" };
   const cursorDeny = (text: string) => `${JSON.stringify({ permission: "deny", user_message: text, agent_message: text })}\n`;
@@ -380,6 +408,20 @@ describe("chainMain — the stdio entry", () => {
     for (const raw of ["{not json", "null", "[1]", "5", '"text"']) {
       expect(host(root, raw, cursor)).toEqual({ stdout: cursorDeny(`[ai-eng] chain: ${UNREADABLE}`), code: 0 });
     }
+  });
+
+  test("a review note reaches the person on every dialect: cursor on its envelope, the rest on stderr", () => {
+    const root = governedRepo(GOVERNED_CONFIG + LOCAL_RULES);
+    const call = (command: string) => JSON.stringify({ ...bash(root, command), cwd: root });
+    // Claude Code (and every stdio host that renders no allow) still gets the line.
+    const reviewed = hostStderr(root, call(`echo ${REVIEW_MARKER}`), { surface: "claude-code" });
+    expect(reviewed.stdout).toBe("");
+    expect(reviewed.stderr).toContain('[ai-eng] injection: REVIEW: local rule "Review marker"');
+    for (const dialect of ["codex", "copilot"] as const) {
+      expect(hostStderr(root, call(`echo ${REVIEW_MARKER}`), { surface: "codex", dialect }).stderr, dialect).toContain("[ai-eng] injection: ");
+    }
+    // A plain allow stays silent on both channels.
+    expect(hostStderr(root, call("git status"), { surface: "claude-code" })).toEqual({ stdout: "", stderr: "", code: 0 });
   });
 
   test("allow, deny, rewrite and review each answer in the host's dialect", () => {

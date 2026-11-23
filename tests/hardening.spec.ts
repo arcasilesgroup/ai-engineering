@@ -580,7 +580,7 @@ describe("loop counts failures from OpenCode, OMP, and Pi without firing on non-
   // guard. The failure field is each host's own: OMP and pi flag `isError` on tool_result,
   // OpenCode throws from `execute`.
   type Handler = (event: never, ctx: never) => unknown;
-  type Host = { name: string; responses: unknown[]; run: (command: string, isError: boolean) => Promise<void>; call: (command: string) => Promise<boolean> };
+  type Host = { name: string; responses: unknown[]; run: (command: string, isError: boolean) => Promise<void>; call: (command: string) => Promise<boolean>; reject?: (command: string) => Promise<string> };
 
   async function loadTemplate<Plugin>(template: string, chainPath: string, pluginPath: string): Promise<{ plugin: Plugin; responses: unknown[] }> {
     const dir = mkdtempSync(join(tmpdir(), "ai-eng-plugin-"));
@@ -597,6 +597,10 @@ export function chain(event: string, payload: Record<string, unknown>) {
   const input = payload["tool_input"] as Record<string, unknown> | undefined;
   if (typeof input?.["command"] === "string" && input["command"].includes("review-note-marker")) {
     return { action: "review", by: "injection", reason: "REVIEW: notes.txt quotes a shell pipe" };
+  }
+  const response = payload["tool_response"] as { text?: string } | undefined;
+  if (event === "PostToolUse" && typeof response?.text === "string" && response.text.includes("leak-marker")) {
+    return { action: "deny", by: "injection", reason: "the tool returned content carrying instructions addressed to you" };
   }
   const verdict = runLoopGuard({ _event: event, ...payload } as never, false);
   return verdict?.deny ? { action: "deny", by: "loop", reason: verdict.reason } : { action: "allow" };
@@ -634,6 +638,9 @@ export function chain(event: string, payload: Record<string, unknown>) {
       name: "Bash",
       execute: async (input) => {
         if (input["fail"] === true) throw new Error("exit 1");
+        const command = typeof input["command"] === "string" ? input["command"] : "";
+        if (command.includes("leak-marker")) throw new Error(`fetch failed: ${command}`);
+        if (command.includes("review-note-marker-error")) throw new Error("the tool blew up");
         return { output: "0 error(s)" };
       },
     };
@@ -652,8 +659,29 @@ export function chain(event: string, payload: Record<string, unknown>) {
         await execute(command, isError).catch(() => undefined);
       },
       call: async (command) => execute(command, false).then(() => false, (error: Error) => error.message.includes("[ai-eng] loop")),
+      reject: async (command) => execute(command, false).then(() => "", (error: Error) => error.message),
     };
   }
+
+  test("an opencode tool error keeps the containment verdict and the review note", async () => {
+    const host = await opencodeHost();
+    // The rejection message carries the fetched body; the chain's deny must replace it.
+    expect(await host.reject!("leak-marker build")).toContain("[ai-eng] injection: the tool returned content carrying instructions");
+    const written: string[] = [];
+    const errSpy = spyOn(process.stderr, "write").mockImplementation(((chunk: string) => {
+      written.push(String(chunk));
+      return true;
+    }) as never);
+    let rejected = "";
+    try {
+      rejected = await host.reject!("review-note-marker-error build");
+    } finally {
+      errSpy.mockRestore();
+    }
+    // A review on the error path still prints, and the tool's own error is re-thrown.
+    expect(written.join("")).toContain("injection: REVIEW: notes.txt quotes a shell pipe");
+    expect(rejected).toBe("the tool blew up");
+  });
 
   test("each plugin template prints a review note, so a verdict the host cannot render still reaches the user", async () => {
     const hosts = [await eventHost("omp", "plugin.omp.ts.tpl"), await eventHost("pi", "plugin.pi.ts.tpl"), await opencodeHost()];
