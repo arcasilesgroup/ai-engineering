@@ -190,6 +190,7 @@ describe("doctor · a repo where everything is green", () => {
     expect(detail(run, "git floor")).toBe("marker hooks in .git/hooks/ · gitleaks present");
     expect(detail(run, "chain test")).toMatch(/^adversarial payload \(git commit -n\) → DENY in \d+ms$/);
     expect(detail(run, "receipts")).toMatch(/^last 14d: \d+ runs · \d+ denies · p50 \d+ms · p95 \d+ms \(ceiling 50\)( · top [^ ]+)?$/);
+    expect(detail(run, "friction")).toBe("0 denies/1000 (0/0 calls · 0 false positives)");
     expect(detail(run, "overrides")).toBe("none active");
     expect(detail(run, "arch")).toBe("layer rules in .dependency-cruiser.cjs");
     expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries");
@@ -629,6 +630,41 @@ describe("doctor · receipts and overrides", () => {
     const run = await doctor();
     expect(row(run, "receipts")).toContain("✓");
     expect(detail(run, "receipts")).not.toContain("spike");
+  });
+
+  test("friction: reports denies per 1000 and false positives, and warns when a 50% deny rate or any false positive appears", async () => {
+    const { root } = sandbox();
+    const receipts = join(root, ".ai-engineering", "receipts");
+    mkdirSync(receipts, { recursive: true });
+    // 20 calls, 0 denies -> 0/1000 ok.
+    for (let i = 0; i < 20; i++) writeFileSync(join(receipts, `a${i}.json`), allowReceipt());
+    let run = await doctor();
+    expect(row(run, "friction")).toContain("✓");
+    expect(detail(run, "friction")).toBe("0 denies/1000 (0/20 calls · 0 false positives)");
+
+    // Add 20 denies -> 20/40 = 500/1000 (50% deny rate) -> WARN, never passes silently.
+    for (let i = 0; i < 20; i++) writeFileSync(join(receipts, `d${i}.json`), denyReceipt("injection"));
+    run = await doctor();
+    expect(row(run, "friction")).toContain("▲");
+    expect(detail(run, "friction")).toBe("500 denies/1000 (20/40 calls · 0 false positives) · over budget (50/1000, 0 false positives)");
+
+    // Reset to low deny rate (1/21 = 48/1000) BUT marked as false_positive -> still WARN.
+    for (let i = 0; i < 20; i++) rmSync(join(receipts, `d${i}.json`), { force: true });
+    writeFileSync(join(receipts, "fp0.json"), JSON.stringify({
+      schema: "urn:ai-eng:receipt:2",
+      operation_id: "fp000001",
+      event: "PreToolUse",
+      surface: "claude-code",
+      tool: "Read",
+      guards: { ran: ["injection"], denied_by: "injection" },
+      latency_ms: 2,
+      outcome: "deny",
+      false_positive: true,
+      ts: new Date().toISOString(),
+    }));
+    run = await doctor();
+    expect(row(run, "friction")).toContain("▲");
+    expect(detail(run, "friction")).toBe("48 denies/1000 (1/21 calls · 1 false positives) · over budget (50/1000, 0 false positives)");
   });
   function denyReceipt(by: string, ts = new Date().toISOString()): string {
     return JSON.stringify({

@@ -24,6 +24,7 @@ export default function (pi: ExtensionAPI): void {
     if (outcome.action === "deny") return { block: true, reason: `[ai-eng] ${outcome.by}: ${outcome.reason}` };
     // pi applies input mutations to the real tool call — that is the rewrite arm.
     if (outcome.action === "rewrite") event.input["command"] = outcome.command;
+    if (outcome.action === "review") process.stderr.write(`[ai-eng] injection: ${outcome.reason}\n`);
     return;
   });
 
@@ -37,6 +38,11 @@ export default function (pi: ExtensionAPI): void {
       // Containment, not prevention: the tool already ran, so the payload is replaced
       // with the reason instead of the injected text reaching the model.
       return { content: [{ type: "text", text: `[ai-eng] ${outcome.by}: ${outcome.reason}` }], isError: true };
+    }
+    if (outcome.action === "review") {
+      const note = `[ai-eng] injection: ${outcome.reason}`;
+      process.stderr.write(`${note}\n`);
+      return { content: [{ type: "text", text: note }, ...event.content] };
     }
     return;
   });

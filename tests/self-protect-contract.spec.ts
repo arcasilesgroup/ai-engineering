@@ -166,7 +166,11 @@ describe("the shell reader: each unreadable shape names itself", () => {
       ["printf id | ksh", UNREADABLE("piping text into a shell runs code the guards cannot read")],
       ["BASH_ENV=x ls", UNREADABLE("BASH_ENV sources a file the guards cannot read")],
       ["MYENV=1 ls", null],
-      ["base64 -d notes.b64", UNREADABLE("decoding base64 hides the command it carries")],
+      ["base64 -d notes.b64", null],
+      ["base64 -d notes.b64 | head -5", null],
+      ["base64 -d notes.b64 > out.sh", UNREADABLE("decoding base64 hides the command it carries")],
+      ["base64 -d notes.b64 | sh", UNREADABLE("decoding base64 hides the command it carries")],
+      ["echo $(base64 -d notes.b64)", UNREADABLE("decoding base64 hides the command it carries")],
       ["base64 x-d", null],
     ]);
   });

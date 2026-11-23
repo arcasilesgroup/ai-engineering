@@ -19,6 +19,7 @@ const segment = (text: string, extra: Partial<ShellSegment> = {}): ShellSegment 
   text,
   isAfterPipe: false,
   opensSubstitution: text.includes(SUBSTITUTION),
+  isInSubstitution: false,
   isProcessSubstitution: false,
   heredocs: [],
   substitutions: [],
@@ -85,15 +86,15 @@ describe("shellSegments: substitutions", () => {
   test("`$( )` is its own command and leaves a computed word in the outer one", () => {
     expect(shellSegments("a | echo $( id ) z")).toEqual([
       segment("a "),
-      segment(" id "),
+      segment(" id ", { isInSubstitution: true }),
       segment(` echo ${SUBSTITUTION} z`, { isAfterPipe: true, substitutions: ["id"] }),
     ]);
   });
 
   test("a pipeline inside a substitution records no first command", () => {
     expect(shellSegments("echo $(a; b)")).toEqual([
-      segment("a"),
-      segment(" b"),
+      segment("a", { isInSubstitution: true }),
+      segment(" b", { isInSubstitution: true }),
       segment(`echo ${SUBSTITUTION}`, { substitutions: [""] }),
     ]);
   });
@@ -101,33 +102,33 @@ describe("shellSegments: substitutions", () => {
   test("a one-command substitution after an earlier command is still recorded", () => {
     expect(shellSegments("x; echo $(a)")).toEqual([
       segment("x"),
-      segment("a"),
+      segment("a", { isInSubstitution: true }),
       segment(` echo ${SUBSTITUTION}`, { substitutions: ["a"] }),
     ]);
   });
 
   test("backticks open and close a substitution, also inside double quotes", () => {
     expect(shellSegments('echo "`whoami` x"')).toEqual([
-      segment("whoami"),
+      segment("whoami", { isInSubstitution: true }),
       segment(`echo "${SUBSTITUTION} x"`, { substitutions: ["whoami"] }),
     ]);
   });
 
   test("a backtick inside double quotes inside backticks opens a nested substitution", () => {
     expect(shellSegments('echo `echo "`date`"`')).toEqual([
-      segment("date"),
-      segment(`echo "${SUBSTITUTION}"`, { substitutions: ["date"] }),
+      segment("date", { isInSubstitution: true }),
+      segment(`echo "${SUBSTITUTION}"`, { isInSubstitution: true, substitutions: ["date"] }),
       segment(`echo ${SUBSTITUTION}`, { substitutions: [""] }),
     ]);
   });
 
   test("process substitution is code and is marked as such, also after a `<` redirect", () => {
     expect(shellSegments("cat < <(ls)")).toEqual([
-      segment("ls", { isProcessSubstitution: true }),
+      segment("ls", { isInSubstitution: true, isProcessSubstitution: true }),
       segment(`cat < ${SUBSTITUTION}`, { substitutions: ["ls"] }),
     ]);
     expect(shellSegments("diff <(ls) f")).toEqual([
-      segment("ls", { isProcessSubstitution: true }),
+      segment("ls", { isInSubstitution: true, isProcessSubstitution: true }),
       segment(`diff ${SUBSTITUTION} f`, { substitutions: ["ls"] }),
     ]);
   });
@@ -173,7 +174,7 @@ describe("shellSegments: here-strings and heredocs", () => {
   test("an unquoted body that holds code is read as code, quotes blanked", () => {
     expect(shellSegments('cat <<EOF\n$(echo "a")\nEOF')).toEqual([
       segment("cat <<EOF", { heredocs: [{ body: '$(echo "a")\n', isLiteral: false }] }),
-      segment("echo  a "),
+      segment("echo  a ", { isInSubstitution: true }),
       segment(SUBSTITUTION, { substitutions: ["echo  a"] }),
       segment(""),
       segment(""),

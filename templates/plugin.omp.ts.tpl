@@ -29,6 +29,7 @@ export default function (pi: { on: (event: string, handler: (event: never, ctx: 
     );
     if (outcome.action === "deny") return { block: true, reason: `[ai-eng] ${outcome.by}: ${outcome.reason}` };
     if (outcome.action === "rewrite") return { input: { ...call.input, command: outcome.command } };
+    if (outcome.action === "review") process.stderr.write(`[ai-eng] injection: ${outcome.reason}\n`);
     return undefined;
   });
 
@@ -44,6 +45,11 @@ export default function (pi: { on: (event: string, handler: (event: never, ctx: 
       // Containment, not prevention: the tool already ran, so the payload is replaced
       // with the reason instead of the injected text reaching the model.
       return { content: [{ type: "text", text: `[ai-eng] ${outcome.by}: ${outcome.reason}` }], isError: true };
+    }
+    if (outcome.action === "review") {
+      const note = `[ai-eng] injection: ${outcome.reason}`;
+      process.stderr.write(`${note}\n`);
+      return { content: [{ type: "text", text: note }, ...(call.content ?? [])] };
     }
     return undefined;
   });

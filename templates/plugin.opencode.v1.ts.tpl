@@ -35,6 +35,7 @@ export async function AiEng(host: { directory?: string } = {}) {
       );
       if (outcome.action === "deny") throw new Error(`[ai-eng] ${outcome.by}: ${outcome.reason}`);
       if (outcome.action === "rewrite" && typeof callArgs.args["command"] === "string") callArgs.args["command"] = outcome.command;
+      if (outcome.action === "review") process.stderr.write(`[ai-eng] injection: ${outcome.reason}\n`);
     },
 
     "tool.execute.after": async (call: AfterCall, result: CallResult): Promise<void> => {
@@ -51,6 +52,7 @@ export async function AiEng(host: { directory?: string } = {}) {
         { surface: "opencode" },
       );
       if (outcome.action === "deny") throw new Error(`[ai-eng] ${outcome.by}: ${outcome.reason}`);
+      if (outcome.action === "review") process.stderr.write(`[ai-eng] injection: ${outcome.reason}\n`);
     },
   };
 }

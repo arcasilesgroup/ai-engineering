@@ -25,7 +25,15 @@ type LoopState = {
   denials: Record<string, number>;
   /** When each call was last counted, and the denial it got, so a re-delivery replays it. */
   delivered: Record<string, { at: number; reason?: string }>;
+  /** Last observed result digest per exact call: a repeated read whose output changed is
+   *  progress (e.g. an orchestrator polling status), never a stuck loop. */
+  results: Record<string, string>;
 };
+
+function resultDigest(response: unknown): string {
+  const text = typeof response === "string" ? response : JSON.stringify(response ?? "");
+  return createHash("sha256").update(text).digest("hex").slice(0, 16);
+}
 
 function stateFile(): string {
   // The session id is host-supplied (or the AI_ENG_SESSION environment), so the filename
@@ -43,9 +51,10 @@ function loadState(): LoopState {
       failures: parsed.failures ?? {},
       denials: parsed.denials ?? {},
       delivered: parsed.delivered ?? {},
+      results: parsed.results ?? {},
     };
   } catch {
-    return { recent: [], failures: {}, denials: {}, delivered: {} };
+    return { recent: [], failures: {}, denials: {}, delivered: {}, results: {} };
   }
 }
 
@@ -100,6 +109,33 @@ export function runLoopGuard(payload: Payload, overridesActiveLoop: boolean): Gu
       state.failures = Object.fromEntries(entries.slice(-SIGNATURES_KEPT));
     } else {
       delete state.failures[sig];
+    }
+    if (payload.tool_response !== undefined) {
+      const call = loopExact(payload);
+      const digest = resultDigest(payload.tool_response);
+      const previous = state.results[call];
+      if (previous !== undefined && previous !== digest) {
+        // Observed state progressed: forgive earlier repeats of this exact call while
+        // keeping the latest occurrence so a newly stalled loop is still caught.
+        let keptLatest = false;
+        const pruned: string[] = [];
+        for (let i = state.recent.length - 1; i >= 0; i--) {
+          const entry = state.recent[i]!;
+          if (entry === call) {
+            if (!keptLatest) {
+              pruned.push(entry);
+              keptLatest = true;
+            }
+          } else {
+            pruned.push(entry);
+          }
+        }
+        state.recent = pruned.reverse();
+        delete state.denials[call];
+      }
+      delete state.results[call];
+      state.results[call] = digest;
+      state.results = Object.fromEntries(Object.entries(state.results).slice(-SIGNATURES_KEPT));
     }
     saveState(state);
     return undefined;
