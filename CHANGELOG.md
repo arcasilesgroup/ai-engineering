@@ -5,16 +5,16 @@
 ### Minor Changes
 
 - [#819](https://github.com/arcasilesgroup/ai-engineering/pull/819) [`8c52e93`](https://github.com/arcasilesgroup/ai-engineering/commit/8c52e9357909bd1fad3c5c366f4d0c387c482e4b) Thanks [@soydachi](https://github.com/soydachi)! - Copilot, and every other IDE, in one measured capability matrix.
-  
-  `docs/surface-capability-matrix.md` records, per host, what `ai-eng` enforces and what it
+
+  `docs/surface-capability-matrix.md` records, per host, what `ai-eng` enforces and what i
   cannot: the hook event and where it lives, the denial envelope, whether a denied call is
   really denied, how the host treats a broken guard, and whether the prompt hook blocks.
   `ai-eng doctor` closes every `surface <id>` row with `enforced` or `advisory`, the same
   split this table records, and the README's tier table points at it.
-  
+
   `agy` (Antigravity CLI) is declared there as **advisory**, and `init --surface agy` and
   `config --add agy` refuse it: no mapping of ours judges an agy call yet. Its contract was
-  probed on 1.5.14 — a top-level `decision: deny` blocks a call, `{}` and any non-zero exit
+  probed on 1.5.14 — a top-level `decision: deny` blocks a call, `{}` and any non-zero exi
   deny, silence allows — but the payload names no repository, only `run_command` /
   `CommandLine` are known, and no rewrite field was measured. Its hook file
   (`~/.gemini/config/hooks.json`) ships as a guarded template only: no command installs it —
@@ -33,7 +33,7 @@
 ### Patch Changes
 
 - [#812](https://github.com/arcasilesgroup/ai-engineering/pull/812) [`2bd6853`](https://github.com/arcasilesgroup/ai-engineering/commit/2bd68532f5d7aebabc73d33486529bd251df2369) Thanks [@soydachi](https://github.com/soydachi)! - One design system for every HTML artifact, with the gates that keep it honest.
-  
+
   `brand/components.css` and `brand/components.js` now carry the component layer —
   diagrams, tabs, copy blocks, filters, steps, checklists, callouts, category chips,
   verdict and terminal cards — beside `brand/tokens.json`. `bun scripts/brand.ts gen`
@@ -42,17 +42,17 @@
   fails on a hand edit. Every colour pair a component uses is declared in
   `tokens.json` and measured by `brand.ts contrast`; prose is left-aligned, and code
   wells moved onto `--surface` where a comment clears 4.5:1.
-  
+
   Two gates protect the result. `tests/artifact-a11y.spec.ts` runs a static
   accessibility gate inside `bun test` — language, one rendered `h1`, heading order,
   table captions and header scope, SVG names, resolvable and unique ids, no external
-  request, no inline handler, zoom, and the forced-colours, reduced-motion and print
+  request, no inline handler, zoom, and the forced-colours, reduced-motion and prin
   layers — with one failing fixture per rule. `bun run a11y` opens all nine pages in
   the system Chrome at 320, 390, 768 and 1440px and under forced colours, runs
   axe-core's WCAG 2.0, 2.1 and 2.2 A and AA rules, walks every tab set with the
   keyboard, and proves 320px reflow and the no-script reading. It runs as its own CI
   job so the unit suite still passes without Chrome.
-  
+
   The templates also ship ready slots — a diagram with a text version, decisions with
   expand all, a stats row and options in tabs — and the page templates now install
   beside the skills.
@@ -123,19 +123,19 @@
 - [#780](https://github.com/arcasilesgroup/ai-engineering/pull/780) [`ee5d69b`](https://github.com/arcasilesgroup/ai-engineering/commit/ee5d69bbf909b853d3c89d2fdaec31a3236c3b70) Thanks [@soydachi](https://github.com/soydachi)! - `ai-eng init` now asks where the project's CI runs: GitHub Actions, Azure Pipelines, or none. The origin remote preselects the answer, and `--ci github-actions|azure-pipelines|none` skips the question. Azure Pipelines projects receive `.azure-pipelines/ai-eng-check.yml`, which verifies the governor's provenance without a GitHub token, and init names the two portal steps (create the pipeline, add the Build validation branch policy). The choice is stored as `[ci].provider` in `.ai-engineering/config.toml`. `ai-eng config` now changes it too: run it with no flags and pick "CI provider", or pass `--ci <provider>`; it rewrites only that key, writes the new gate and removes the old one. Repositories governed before this release have no `[ci]` block and keep their GitHub workflow.
 
 - [#780](https://github.com/arcasilesgroup/ai-engineering/pull/780) [`ee5d69b`](https://github.com/arcasilesgroup/ai-engineering/commit/ee5d69bbf909b853d3c89d2fdaec31a3236c3b70) Thanks [@soydachi](https://github.com/soydachi)! - New `ai-eng work`: one board for every lane in the repo — each branch with its folder and PR, every stash, and every worktree whose folder is gone — computed from git and the forge each time, never stored. A lane leaves by one of three doors: `ai-eng work tidy` removes what provably landed (the forge merged that exact tip, or the base holds it and its remote branch is gone), `ai-eng work park <branch> "<reason>" [--until YYYY-MM-DD]` records why it waits, and `ai-eng work drop <branch>` keeps the tip in `refs/archive/` before the branch goes. A session start in Claude Code or Codex now adds one line about the lanes that need a decision.
-  
+
   `ai-eng worktree new` refuses a fourth active lane (`[work] max_active`, default 3), a new `no-stash` guard denies creating a stash (reading and restoring one still work), `/ai-pr` closes the lane once the PR is merged, and `AGENTS.md`'s "Where to work" is now seven numbered rules. The `ai-git-cleanup` skill is removed: its merged-branch test missed squash and rebase merges, and `ai-eng work tidy` replaces it.
 
 - [#780](https://github.com/arcasilesgroup/ai-engineering/pull/780) [`ee5d69b`](https://github.com/arcasilesgroup/ai-engineering/commit/ee5d69bbf909b853d3c89d2fdaec31a3236c3b70) Thanks [@soydachi](https://github.com/soydachi)! - New `lease` guard: one folder, one writer. The first session that writes in a folder (a file edit, or a git command that writes the index, a ref or the tree) holds it; another session's write there is denied and sent to a worktree. The hold lives in the folder's git directory, lapses after 15 minutes without a write (`[work] lease_minutes`), ends at once with Claude Code's `SessionEnd`, and `ai-eng work release` frees it by hand. Reading, testing and building are never held, and a host that sends no session id is never judged.
 
 - [#780](https://github.com/arcasilesgroup/ai-engineering/pull/780) [`ee5d69b`](https://github.com/arcasilesgroup/ai-engineering/commit/ee5d69bbf909b853d3c89d2fdaec31a3236c3b70) Thanks [@soydachi](https://github.com/soydachi)! - `ai-eng update` now brings you up to date in one command. It reads the registry once (3 s); when a newer ai-eng exists it shows the version and the release notes, asks, installs it with the package manager that installed ai-eng (`bun add -g` or `npm install -g`), checks that the `ai-eng` on PATH is the new one, and runs it to sync the machine and the repo. With no terminal and no `--yes` it installs nothing and prints the command. Offline, it syncs exactly as before. Outside a repo it updates the machine side only.
-  
+
   Every human command now ends with up to two lines: a newer ai-eng on the registry, and a repo installed by an older ai-eng than the one running. The registry is read at most once a day, and a failed read is remembered too, so a bad network costs one 3 s wait a day instead of up to 30 s on every command. Claude Code and Codex get the same two lines at session start through a new `SessionStart` hook, read from the cache with no network. `AI_ENG_NO_UPDATE_NOTICES=1` or `[notices] enabled = false` still turns all of it off.
 
 ### Patch Changes
 
 - [#782](https://github.com/arcasilesgroup/ai-engineering/pull/782) [`2b6f946`](https://github.com/arcasilesgroup/ai-engineering/commit/2b6f946dcb283e76f4807cfbf4ea8005efeb8b13) Thanks [@soydachi](https://github.com/soydachi)! - An agent can now finish an `ai-eng update` on its own: the self-protect guard lets it `git add` and `git commit` the files ai-eng wrote (the lock, the carriers), while every command that changes their bytes — an edit, a redirect, `git checkout` or `git restore` over them — stays denied. Before, naming the lock in `git add` was refused even though `git add -A` staged it anyway, so updating every project agentically needed a person for each commit.
-  
+
   The one-writer lease now holds only writes into the leased folder: a second session writing a temp file or a file in another checkout is no longer stopped. Failed or killed mutation runs no longer leave `.stryker-tmp` behind, and the CLI proof hands hooks a native path on Windows.
 
 - [#780](https://github.com/arcasilesgroup/ai-engineering/pull/780) [`ee5d69b`](https://github.com/arcasilesgroup/ai-engineering/commit/ee5d69bbf909b853d3c89d2fdaec31a3236c3b70) Thanks [@soydachi](https://github.com/soydachi)! - The generated CI workflow no longer fails while installing ai-eng: it verified the release's provenance against the tag, but releases are built from main, so the check never passed.
@@ -173,7 +173,7 @@
 ### Patch Changes
 
 - [#766](https://github.com/arcasilesgroup/ai-engineering/pull/766) [`f447189`](https://github.com/arcasilesgroup/ai-engineering/commit/f4471894d592ef63601bc229036fd592904b6bfd) Thanks [@soydachi](https://github.com/soydachi)! - Every ai-eng question now shows only the titles of its options, without a description beside them:
-  
+
   - **Surface picker (`init` and `config`):** only the surface names (Claude Code, Cursor, GitHub Copilot (CLI + VS Code)…). The capability notes, which ran to six lines for Copilot, are gone. `ai-eng doctor` still shows them, and `init` still warns after the pick when a surface cannot block tool calls.
   - **Re-running `init` on a governed repo:** the choices read "Update ai-eng's files", "Change agent surfaces" and "Exit".
   - **`uninstall`:** the choices read "This project", "Everything" and "Cancel". The block above the question still explains what each scope removes.
@@ -189,24 +189,24 @@
 ### Patch Changes
 
 - [#761](https://github.com/arcasilesgroup/ai-engineering/pull/761) [`c5c7825`](https://github.com/arcasilesgroup/ai-engineering/commit/c5c7825eba0a4556c028b8aa85d06dd930fd3695) Thanks [@soydachi](https://github.com/soydachi)! - The guards stop blocking everyday agent commands for reasons that were not true.
-  
+
   - The word `ai-engineering` (the repo slug, a checkout folder, the npm package) no longer counts as the `ai-eng` binary. It still counts when it is the command itself, or when a runner such as `npx`, `bunx` or `bun` starts it.
   - `2>&1` is no longer read as a write to a file.
   - `git -C <repo>` is a working folder, like `cd`.
   - The text of `gh pr`, `gh issue` and `gh release` (titles, bodies, comments) is prose, not code.
   - The command-scope policy no longer reads `/usr/bin/git` or a `NAME=value` prefix as a system write.
-  
+
   What the guards protected before is still protected, and some gaps are closed too:
-  
+
   - `npx ai-engineering@<version> uninstall` is blocked.
   - So is the package fed to a runner through `xargs`.
   - So is a command stored in `gh config set editor|pager|browser` or in `GH_BROWSER`, `GH_EDITOR` or `GH_PAGER`.
   - So is a write hidden after a `$(…)`, a shell keyword or a redirect glued to `2>&1`.
-  
+
   A heredoc's lines are still judged as commands, whoever reads them. To pass a commit message or a PR body that names system paths, write it to a file first (`git commit -F <file>`, `gh pr create --body-file <file>`).
 
 - [#758](https://github.com/arcasilesgroup/ai-engineering/pull/758) [`43db82c`](https://github.com/arcasilesgroup/ai-engineering/commit/43db82c1d564304f610e41c4f5cbc0229affad71) Thanks [@soydachi](https://github.com/soydachi)! - `ai-eng update`'s plan now reads the way it acts:
-  
+
   - A shared settings file, such as `.cursor/hooks.json`, says "ai-eng's entries refreshed, your keys kept". It no longer says "overwritten", because it is merged by marker and your keys stay.
   - Each `↳` list of paths now sits under its own heading ("already current", "yours"). Before, it sat under the row above, so the current files seemed to be the ones updated.
 
@@ -215,7 +215,7 @@
 ### Patch Changes
 
 - [#755](https://github.com/arcasilesgroup/ai-engineering/pull/755) [`49a3236`](https://github.com/arcasilesgroup/ai-engineering/commit/49a3236de69caa8069e464c88db8d4bc455f0087) Thanks [@soydachi](https://github.com/soydachi)! - What ai-eng wrote is ai-eng's, and `init`, `update`, `config` and `uninstall` now treat it that way every time — no more half-updated installs.
-  
+
   - A skill folder ai-eng ships is ai-eng's whole. An edited page in it is rewritten to the installed version, and any file it does not ship is removed (names starting with a dot, such as `.DS_Store`, are left alone) — including the pages older releases left behind that 3.0.1 reported as "cannot prove it wrote" and never deleted. Keep your own skills in a folder with a name of your own: those are never touched.
   - A skill, agent or script ai-eng stops shipping is removed on the next `init` or `update`, with its mirror links in `~/.claude/skills`, `~/.agents/skills` and `~/.config/opencode/skill` and its OpenCode slash command.
   - The slash command of an ai-eng skill, an ai-eng agent copied into `~/.claude/agents`, and a machine carrier module (OpenCode, OMP, Pi) always hold ai-eng's bytes, even after an edit. A link of yours at those names is still never written through.
@@ -228,7 +228,7 @@
 ### Patch Changes
 
 - [#752](https://github.com/arcasilesgroup/ai-engineering/pull/752) [`4ba4aa5`](https://github.com/arcasilesgroup/ai-engineering/commit/4ba4aa50ebfa3ebeb034a15f7f143bbecec53e8c) Thanks [@soydachi](https://github.com/soydachi)! - First install works on Windows, and for anyone who already had a settings file.
-  
+
   - `ai-eng init` now merges its hooks into an existing `~/.claude/settings.json`, `~/.codex/hooks.json` or `~/.copilot/hooks/ai-eng.json`. 3.0.0 refused to touch any existing settings file, so every person who already used the host got no hooks at all, and `uninstall` could not take them back out.
   - A denial on Claude Code no longer ends the whole turn. The deny carried `continue: false`, which Claude Code reads even on exit 2 and which stops the agent entirely; it now exits 2 with the reason on stderr, so the agent reads why and goes on. On `Stop` this also makes the checkpoint gate keep the turn going instead of ending it.
   - On Windows, hook lines call `ai-eng.cmd` (npm) or `ai-eng.exe` (bun) instead of a bare `ai-eng`, which PowerShell resolves to `ai-eng.ps1` and the default Restricted execution policy refuses to run. Claude's lines also carry the exit status through PowerShell, which otherwise turned a denial into an allow.
@@ -246,7 +246,7 @@
 ### Minor Changes
 
 - [#749](https://github.com/arcasilesgroup/ai-engineering/pull/749) [`9932b24`](https://github.com/arcasilesgroup/ai-engineering/commit/9932b2494b62c6ccb6be47a7686cedf17cbc23c0) Thanks [@soydachi](https://github.com/soydachi)! - Add the human-reviewed `ai-eng worktree merge <slug>` command for managed feature worktrees.
-  
+
   Add the local workspace hub with governed project discovery, evidence-backed worktree filters and history, and persisted search-root settings with native folder selection.
 
 - [#749](https://github.com/arcasilesgroup/ai-engineering/pull/749) [`9932b24`](https://github.com/arcasilesgroup/ai-engineering/commit/9932b2494b62c6ccb6be47a7686cedf17cbc23c0) Thanks [@soydachi](https://github.com/soydachi)! - Add local worktree lifecycle tracking and remove the checkpoint-plan approval stop.
@@ -254,10 +254,10 @@
 - [#749](https://github.com/arcasilesgroup/ai-engineering/pull/749) [`9932b24`](https://github.com/arcasilesgroup/ai-engineering/commit/9932b2494b62c6ccb6be47a7686cedf17cbc23c0) Thanks [@soydachi](https://github.com/soydachi)! - Production readiness: the installed command starts with Bun (no Node needed) and a smoke test installs the real packed tarball; the full test suite runs on Linux, macOS and Windows; a release verifies the exact dispatched commit, packs once, publishes that same tarball and ships a runtime-only CycloneDX SBOM; publication requires an annotated tag signed by an allowlisted key and verified redistribution rights. Windows fixes close fail-open paths in the hook chain and self-protect, and the guards now deny shell text they cannot read.
 - Floating core keeps the guard floor and orchestration ceremony in core, using the
   user's existing Git, host, and forge for the rest of the workflow.
-- The command-scope policy now defaults to `4667` for every install and new project
+- The command-scope policy now defaults to `4667` for every install and new projec
   (was `0467`): system read and external write are allowed; system write and execute
   stay denied. Set `guards.policy_mode` in `.ai-engineering/config.toml` to narrow it.
-- `ai-eng init` installs every skill and its resources by default, with no pack prompt
+- `ai-eng init` installs every skill and its resources by default, with no pack promp
   or selection; a fresh init writes no `[canon].packs`, and a legacy value is ignored
   with its config bytes preserved.
 - `ai-eng init` and `update` create the machine-level Claude, Codex and Copilot carriers when
@@ -300,7 +300,7 @@
   its output, and a `constructor` slug no longer blocks later worktree creation.
 - Azure triage now validates source-linked claims and explains Recommendation and
   Why now alongside dates, discussion, parent/sprint context and evidence coverage.
-  Current commitments and blockers can change recommendation order without
+  Current commitments and blockers can change recommendation order withou
   changing native Priority/Severity; critical risk stays first. Partial chronology
   cannot establish current work. Existing inventory-only and GitHub behavior stays
   intact, and invalid evidence preserves the previous report.
@@ -346,7 +346,7 @@ migrated installation with `ai-eng doctor`.
   carries one CSS block instead of two drifted copies, the skills say to copy the
   whole block verbatim (copying only the tokens left each writer inventing layout),
   and a new layout gate (tests/artifact-layout.spec.ts) rejects centered or 68ch-capped
-  body text, missing `.container` wrappers, and unaligned notes — the defect that
+  body text, missing `.container` wrappers, and unaligned notes — the defect tha
   shipped research 007-014 and the audit page. The gate also caught two template
   defects: `--radius-lg` was used 12× but never declared (border-radius computed
   to 0px — square corners — in every verbatim copier) and the shipped carriers
@@ -446,23 +446,23 @@ in the migration guide above.
 ### Fixed
 
 - [#724](https://github.com/arcasilesgroup/ai-engineering/pull/724) [`a045fa9`](https://github.com/arcasilesgroup/ai-engineering/commit/a045fa9cf172b3edc05d54ca70ad60cd7ea05f16) Thanks [@soydachi](https://github.com/soydachi)! - `ai-security` findings now say where they stand, not only that they were real. A confirmed finding carried `verdict: "confirmed"` and nothing else, so one fixed in the same session kept reading as a live vulnerability: the next audit re-derived it, `REPORT.md` was the only artifact that said "fixed", and the milestone CHECK "zero open HIGH findings" had nothing in the machine-readable half to evaluate.
-  
+
   Every confirmed finding now carries a `disposition` — `{"status": "open"}` while the vulnerability is in the tree, or `{"status": "fixed", "landed_in": "<sha>"}` once the fix has landed. The schema refuses `fixed` without the commit that carries it, so no report can claim a fix nobody can resolve. Phase 5 requires the field, and the prior-run ledger reads it: a `fixed` finding is closed ground, an `open` one is where the next run digs.
-  
+
   A `findings.json` written before this change is refused by `validate-findings.cjs` until it is stamped, which is the point — the two runs this repository keeps were stamped with the commits that carry their fixes.
 
 - [#724](https://github.com/arcasilesgroup/ai-engineering/pull/724) [`a045fa9`](https://github.com/arcasilesgroup/ai-engineering/commit/a045fa9cf172b3edc05d54ca70ad60cd7ea05f16) Thanks [@soydachi](https://github.com/soydachi)! - The session can write its own artifacts again: `self-protect` was denying the session everything under `.ai-engineering/`.
-  
+
   That protection was a plain directory literal, so it covered every child of the directory — the four milestone slots (`spec.html`, `plan.html`, `brainstorm.md`, `recap.html`), the receipts, the cache, and the artifacts the canon's own nodes promise in their `Writes:`: `ai-research` writes `research/NNN-{name}.html`, `ai-security` writes `security/run-N/findings.json` and `REPORT.md`, `ai-design` writes `design/direction.html`. Nothing else writes those files, so the guard denied the only writer there is — a `brainstorm.md` came back as "this file governs you", and a research or security node could not leave the artifact its own contract requires. It also shadowed the pin check: an approved contract is frozen by the sha256 in the lock, and that check was never reached while the directory literal answered first.
-  
+
   The fence is now the machinery and only the machinery: the four files the chain itself reads (`config.toml`, `overrides.toml`, `ai-eng.lock`, `arch.rules.json`), the git floor, the machine-side canon and carriers, and `spec.html` once its sha256 is in the lock. Everything else under the directory is the session's own material. The directory itself is matched as a terminal segment, never a prefix — `rm -rf .ai-engineering` names the machinery in one word and stays denied, while `.ai-engineering/research/002.html` is not the directory and is a write like any other.
-  
+
   The four slot names still live in one place, `src/shared-slots.ts`, because `spec` sweeps them at `spec close`; the guard no longer needs the list, since it no longer carves an exemption out of a directory literal.
 
 - [#724](https://github.com/arcasilesgroup/ai-engineering/pull/724) [`a045fa9`](https://github.com/arcasilesgroup/ai-engineering/commit/a045fa9cf172b3edc05d54ca70ad60cd7ea05f16) Thanks [@soydachi](https://github.com/soydachi)! - `ai-eng update` reports both halves it owns, and a no-op is no longer printed as a write. The machine half was visible only when something was wrong: a healthy canon, an unchanged git floor and a carrier already at the binary's bytes printed nothing, so a run that verified everything looked exactly like a run that never looked — and the module carriers were rewritten and counted every time, which is how "all 7 assets current — nothing to sync" arrived with a line claiming the machine side was the work.
-  
+
   The repo and the machine now each report as one block, every part named with its outcome: `Repo assets` lists the files it holds when there is nothing to write, `Machine side` names the canon, each declared surface's carrier, the git floor and the machine ledger, and the closing line says whether anything was written at all. Identical bytes are skipped rather than rewritten, so `written` means a change.
-  
+
   What an existing install will notice: the second `ai-eng update` in a row now ends in "Nothing written — the repo and the machine already match ai-eng <version>" instead of the counts of a run that looked like it had done something.
 
 ## [2.2.0]
@@ -470,15 +470,15 @@ in the migration guide above.
 ### Changed
 
 - [#720](https://github.com/arcasilesgroup/ai-engineering/pull/720) [`793714f`](https://github.com/arcasilesgroup/ai-engineering/commit/793714fba0956ea0bdba29dba746e721b3c6c88a) Thanks [@soydachi](https://github.com/soydachi)! - A gate whose check prints nothing is no longer ticked: `test -f X` and `ls X >/dev/null` exit 0 while saying nothing, so the box rested on an exit code and the ledger carried the silence as evidence. The executor now leaves such a gate UNMET and writes the remedy into its `EVIDENCE` line, and `templates/spec.html.tpl` + the ai-proof canon teach the alternative in place of the existence probe they used to show.
-  
+
   What an existing install will notice: a milestone that already had gates of this shape reports them UNMET on the next `ai-eng spec run`. The fix is one line per gate — make the check print what it found (`test -f X && echo "X $(wc -c < X) bytes"`), or assert its output with `EXPECT: <text|/regex/>`. Nothing is unticked by the tool: the box stays as its author set it and the evidence is what stops counting, which is the same rule the executor already applied to a check that fails.
 
 - [#720](https://github.com/arcasilesgroup/ai-engineering/pull/720) [`793714f`](https://github.com/arcasilesgroup/ai-engineering/commit/793714fba0956ea0bdba29dba746e721b3c6c88a) Thanks [@soydachi](https://github.com/soydachi)! - The carrier moves to where each host reads it, and the repo declares itself: `.ai-engineering/config.toml` existing, parsing and naming its surfaces is the single gate every verb asks. A governed repo keeps two carriers — Cursor's and Copilot's, whose cloud readers only see the checkout — while Claude Code, Oh My Pi, OpenCode, Codex and Pi are written once per machine, at the path that host actually loads (the OMP carrier lived in `.agents/hooks/`, which no OMP code path reads, and doctor called it green).
-  
+
   Files the user also owns are merged by marker and never written whole; a settings file this installer would have to reformat is refused and named instead of rewritten. `init.templateDir` makes every new clone be born with the git floor, the shim asks the same gate, a foreign `templateDir` keeps its own hooks, and `uninstall` restores what was there. `doctor` separates the machine carrier, the repo declaration and the version state, and names a downgrade and Codex's `/hooks` re-approval instead of assuming green.
-  
+
   What an existing install will notice: `ai-eng update` moves the carriers out of the repo, sweeps the ones that used to live there, writes the machine side, and records which version wrote what in `~/.ai-engineering/machine.json`.
-  
+
   `AI_ENG_HOME` also redirects the one setting the floor writes outside a home: with it set, the global `init.templateDir` lives inside the override instead of the developer's git config, unless the caller already chose a `GIT_CONFIG_GLOBAL` of its own.
 
 ### Fixed
@@ -492,7 +492,7 @@ in the migration guide above.
 - [#720](https://github.com/arcasilesgroup/ai-engineering/pull/720) [`793714f`](https://github.com/arcasilesgroup/ai-engineering/commit/793714fba0956ea0bdba29dba746e721b3c6c88a) Thanks [@soydachi](https://github.com/soydachi)! - The surface picker stops promising what the measurements contradict: its group headers stated a capability that neither row under them had ("experimental — rewrite may be partial" for a Cursor with no output rewrite and a Codex that replaces the whole input), and the row that matters carries its own measured degradation, with the source. The registry gains the state it was missing — `deny: "host-only"` — for a host like Zed, which denies through its own `agent.tool_permissions` and its `always_deny` regexes while offering no hook for the chain to run in; the picker used to print "can't block tool calls" about a host that can, and now says which of the two facts it means. `doctor` prints that caveat from the one place it is written instead of guessing it from a substring.
 
 - [#720](https://github.com/arcasilesgroup/ai-engineering/pull/720) [`793714f`](https://github.com/arcasilesgroup/ai-engineering/commit/793714fba0956ea0bdba29dba746e721b3c6c88a) Thanks [@soydachi](https://github.com/soydachi)! - `update` now reaches the machine half even when the repo is already current. A repo whose assets all match the binary returned from the sync plan before the declared surfaces' carriers and the git template dir were touched — so a machine that had lost its carrier, which is exactly the state `doctor` answers with "→ ai-eng update", could not be repaired by the verb it named: the remedy ran, printed "all N assets current — nothing to sync", and changed nothing. The machine-side work moved into its own step, and both paths run it.
-  
+
   What an existing install will notice: on a machine that lost a carrier (a wiped home, or `uninstall` at machine scope), `ai-eng update` now rewrites it and says which file it wrote, instead of reporting that nothing needed doing.
 
 ## [2.1.0]
@@ -510,23 +510,23 @@ in the migration guide above.
 ### Fixed
 
 - [`1f862ef`](https://github.com/arcasilesgroup/ai-engineering/commit/1f862ef3c43cb5d5d65e0c88bbf6ac13167cfb29) Thanks [@soydachi](https://github.com/soydachi)! - fix(chain): overrides.toml now loads — the only guard-off switch had never worked
-  
+
   `readOverrides` looked up the literal TOML key `guard.off`, but `[[guard.off]]`
   parses as `{ guard: { off: [...] } }`: a dotted key nests, and the literal never
   exists. Every file returned an empty list, so §09.1's sole mechanism for turning a
   guard off was inert — a written exception with a reason and an end date changed
   nothing, and the guard kept denying.
-  
+
   Doctor now also dates what it reads: an override renders as `expires in 3d`, an
   entry with no `until` is named as never-expiring, and an entry whose date has
   passed is reported with the removal it needs, so dead config stops hiding behind
   `none active`.
-  
+
   `doctor` now answers the question existence cannot: for every surface that runs the
-  guard in-process, the planted `ai-eng-chain.ts` is compared byte for byte against
+  guard in-process, the planted `ai-eng-chain.ts` is compared byte for byte agains
   the chain this binary ships. A stale or hand-patched bundle reports `is NOT the
   chain this binary ships → ai-eng update` instead of passing as present.
-  
+
   `ai-eng <typo>` no longer answers with a bare `unknown verb`: the nearest verb is
   named, or the help line that follows it (§14.5b).
 

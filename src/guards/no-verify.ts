@@ -1,10 +1,10 @@
 // --no-verify, and everything else that skips .git/hooks — plus every linter silence
 // too, because silencing a check is the same act as skipping a hook.
 
-import { basename, resolve, isAbsolute, join, sep } from "node:path";
+import { basename, resolve, isAbsolute, join, relative, win32 } from "node:path";
 import { realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
-import { COMMAND_PREFIXES, commandIndex, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
+import { argumentWords, COMMAND_PREFIXES, commandIndex, fileRedirectTargets, inlineShellPrograms, normalizeRedirects, RESERVED_WORDS, shellSegments, shellWords, staticPrintfValue, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
 
 type Skip = { pattern: RegExp; label: string };
 
@@ -31,22 +31,6 @@ const HOOKED = new Set(["commit", "push", "merge", "pull", "rebase", "am", "cher
 const VALUE_OPTIONS = new Set(["-m", "--message", "-F", "--file", "-t", "--template", "--author", "--date", "--trailer", "--cleanup", "-C", "--reuse-message", "-c", "--reedit-message", "--fixup", "--squash"]);
 const GLOBAL_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--super-prefix", "--attr-source"]);
 
-/** The words git receives: the shell strips every redirection (`2>/dev/null`, `>log`,
- *  `<in`, `&>out`, `2>&1`) wherever it stands, so the operator and its target are not
- *  arguments and must never be read as the subcommand or an option's value. */
-function argumentWords(text: string): ShellWord[] {
-  const words = shellWords(text);
-  const kept: ShellWord[] = [];
-  for (let at = 0; at < words.length; at++) {
-    if (words[at]!.isOperator) {
-      at++;
-      continue;
-    }
-    kept.push(words[at]!);
-  }
-  return kept;
-}
-
 const XARGS_STDIN = "xargs completing git arguments from stdin";
 
 /** Same option-value spellings commandIndex consumes. A drift here would read a
@@ -55,7 +39,7 @@ function prefixTakesValue(prefix: string, option: string): boolean {
   if (prefix === "xargs") return /^-[0-9A-Za-z]*[aIiLlnsPEed]$/.test(option);
   if (prefix === "sudo") return /^-[A-Za-z]*[ugCDhpRrT]$/.test(option);
   if (prefix === "doas") return /^-[A-Za-z]*[uC]$/.test(option);
-  if (prefix === "env") return /^-[A-Za-z]*[uCS]$/.test(option);
+  if (prefix === "env") return /^(?:-[A-Za-z]*[uCS]|--(?:split-string|unset|chdir))$/.test(option);
   if (prefix === "nice") return option === "-n";
   if (prefix === "timeout") return /^-[sk]$/.test(option);
   if (prefix === "stdbuf") return /^-[ioe]$/.test(option);
@@ -72,7 +56,7 @@ function xargsFeed(words: ShellWord[], gitAt: number): { invokes: boolean; place
   while (index < words.length) {
     const value = words[index]!.value;
     const name = basename(value);
-    if (RESERVED_WORDS.has(value) || /^[A-Za-z_]\w*=/.test(value)) {
+    if (RESERVED_WORDS.has(value) || /^[A-Za-z_]\w*\+?=/.test(value)) {
       index++;
       continue;
     }
@@ -211,6 +195,11 @@ const SILENCES: RegExp[] = [
   /\/\*\s*eslint-disable(?!-next-line\s+prettier)/,
   /@ts-(ignore|expect-error|nocheck)/,
   /#\s*(noqa|nosec)\b/,
+  /\/\/\s*oxlint-disable\b/,
+  /\/\*\s*oxlint-disable\b/,
+  /\/\/\s*biome-ignore\b/,
+  /\/\*\s*biome-ignore\b/,
+  /#\s*type:\s*ignore\b/,
   /\bNOLINTNEXTLINE\b/,
   /"\$allow-list"\s*:/,
 ];
@@ -219,34 +208,33 @@ const SILENCES: RegExp[] = [
 // which git reads as the boolean `true` — a relative directory with no hooks in it.
 const INLINE = /-c\s*core\.hookspath(?:=(\S*))?(?=\s|$)/gi;
 
-/** Every value this command would leave core.hooksPath at, as written. Evaluated per
- *  segment so a read (`git config --get core.hooksPath`) in one segment never hides a
- *  write (`git config core.hooksPath /tmp/evil`) in another. Unsetting is deliberately
- *  absent: restoring git's default .git/hooks is the safe direction. */
-export function hooksPathTargets(command: string): string[] {
+/** Every value this command would leave core.hooksPath at, as written. Unsetting is
+ *  deliberately absent: no core.hooksPath at all is git's default .git/hooks — the
+ *  floor's own location, since init wires no redirect there — so `--unset` is the safe
+ *  direction (it restores the hooks, it does not stop them) and the set-or-change
+ *  direction is the one this list exists to deny. */
+function hooksPathTargetsIn(command: string): string[] {
+  const words = command.split(/\s+/);
   const found: string[] = [];
   for (const match of command.matchAll(INLINE)) found.push((match[1] ?? "true").replace(/^["']|["']$/g, ""));
-  const parsedSegments = shellSegments(normalizeRedirects(command));
-  const texts = parsedSegments !== null ? parsedSegments.map((s) => s.text) : [command];
-  for (const text of texts) {
-    const words = text.trim().split(/\s+/).filter((w) => w.length > 0);
-    if (words.some((w) => w === "config") && words.some((w) => w.toLowerCase() === "core.hookspath")) {
-      if (!words.some((w) => ["--get", "--get-all", "--list"].includes(w))) {
-        const index = words.findIndex((w) => w.toLowerCase() === "core.hookspath");
-        const after = words.slice(index + 1).filter((w) => !w.startsWith("-"));
-        // A bare `--unset` leaves nothing after the key: no target, allowed. Anything
-        // trailing still reads as a value — git itself would refuse it, but refusing a
-        // half-readable config edit is the cheap side to err on.
-        if (after.length > 0) found.push(after[0]!.replace(/^["']|["']$/g, ""));
-      }
+  if (words.some((w) => w === "config") && words.some((w) => w.toLowerCase() === "core.hookspath")) {
+    // A read flag only covers the segment it stands in. The next segment can still set the key.
+    if (!words.some((w) => ["--get", "--get-all", "--list"].includes(w))) {
+      const index = words.findIndex((w) => w.toLowerCase() === "core.hookspath");
+      const after = words.slice(index + 1).filter((w) => !w.startsWith("-"));
+      if (after.length > 0) found.push(after[0]!.replace(/^["']|["']$/g, ""));
     }
   }
   return found;
 }
 
-/** Decided on the value, never on the verb: core.hooksPath may only name this repo's own
- *  .git/hooks. Resolved against the repo root first: a relative spelling of that
- *  directory is the same directory, and a string comparison would deny it. */
+/** Every value this command would leave core.hooksPath at, one shell segment at a time. */
+export function hooksPathTargets(command: string): string[] {
+  const segments = shellSegments(normalizeRedirects(command));
+  const pieces = segments === null ? [command] : segments.map((segment) => segment.text);
+  return pieces.flatMap(hooksPathTargetsIn);
+}
+
 export function hooksPathElsewhere(value: string, repoRoot: string | null): boolean {
   if (!value) return true;
   const root = repoRoot ?? process.cwd();
@@ -271,83 +259,8 @@ function skipDenial(label: string): GuardResult {
   };
 }
 
-/** Read-only query/search commands that may mention a silence token as a search pattern
- *  while redirecting their search results to a report file (`git log -S "@ts-ignore" > ...`,
- *  `rg NOLINTNEXTLINE src/ > ...`). Mentioning a token is never writing a silence directive. */
-const QUERY_COMMANDS = new Set(["rg", "grep", "egrep", "fgrep", "ag", "ack", "git", "ls", "find", "head", "tail", "diff"]);
-const NON_FILE_REDIRECTS = new Set(["/dev/null", "/dev/stdout", "/dev/stderr", "/dev/tty", "/dev/fd/1", "/dev/fd/2"]);
-
-function isTargetInsideRepo(target: string, repoRoot: string | null): boolean {
-  if (!target || NON_FILE_REDIRECTS.has(target)) return false;
-  if (repoRoot === null) return !isAbsolute(target);
-  const root = (() => {
-    try { return realpathSync(repoRoot); } catch { return resolve(repoRoot); }
-  })();
-  const candidate = isAbsolute(target) ? resolve(target) : resolve(root, target);
-  const resolved = (() => {
-    try { return realpathSync(candidate); } catch { return candidate; }
-  })();
-  return resolved === root || resolved.startsWith(`${root}${sep}`);
-}
-
-/** Detect Bash commands that actually WRITE a linter silence token into a governed
- *  repository file (e.g. `echo "// eslint-disable" >> src/a.ts`, `cat <<EOF > src/a.ts`,
- *  `sed -i ... src/a.ts`), while allowing commands that merely mention a token while
- *  searching or writing outside the repo (`git log -S "@ts-ignore" > /tmp/hist.txt`,
- *  `rg NOLINTNEXTLINE src/ > /tmp/list.txt`). */
-function checkBashSilences(rawCommand: string, repoRoot: string | null): GuardResult {
-  const segments = shellSegments(normalizeRedirects(rawCommand));
-  if (segments === null) return undefined;
-  let priorPipePayload = "";
-  for (const segment of segments) {
-    const words = shellWords(segment.text);
-    const plain: string[] = [];
-    const writeTargets: string[] = [];
-    const hereStrings: string[] = [];
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i]!;
-      if (!word.isOperator) {
-        plain.push(word.value);
-        continue;
-      }
-      const next = words[i + 1];
-      if (word.value.includes(">") && next !== undefined) writeTargets.push(next.value);
-      if (word.value === "<<<" && next !== undefined) hereStrings.push(next.value);
-      i++;
-    }
-    const cmdAt = commandIndex(plain);
-    const cmd = basename(plain[cmdAt] ?? "").toLowerCase();
-    const args = plain.slice(cmdAt + 1);
-    const bodyText = [
-      ...segment.heredocs.map((h) => h.body),
-      ...hereStrings,
-      ...(segment.isAfterPipe ? [priorPipePayload] : []),
-    ].join("\n");
-    const isInPlaceEdit = (cmd === "sed" || cmd === "perl") && args.some((a) => /^-[A-Za-z]*i/.test(a));
-    const isTee = cmd === "tee";
-    const targets = [
-      ...writeTargets,
-      ...(isTee ? args.filter((a) => !a.startsWith("-")) : []),
-      ...(isInPlaceEdit ? args.filter((a) => !a.startsWith("-")).slice(1) : []),
-    ];
-    const writesIntoRepo = targets.some((target) => isTargetInsideRepo(target, repoRoot));
-    const isQueryOnly = QUERY_COMMANDS.has(cmd) && segment.heredocs.length === 0 && hereStrings.length === 0;
-    if (writesIntoRepo && !isQueryOnly) {
-      const candidateText = cmd === "cat" ? bodyText : `${args.join(" ")}\n${bodyText}`;
-      const silenced = checkContent(candidateText);
-      if (silenced) return silenced;
-    }
-    // Carry piped content from content-emitting commands (`echo`/`printf`/`cat` heredoc) to `| tee`.
-    priorPipePayload = (cmd === "echo" || cmd === "printf")
-      ? args.join(" ")
-      : cmd === "cat" && (segment.heredocs.length > 0 || hereStrings.length > 0)
-        ? bodyText
-        : "";
-  }
-  return undefined;
-}
-
-export function checkBash(rawCommand: string, repoRoot: string | null): GuardResult {
+export function checkBash(rawCommand: string, repoRoot: string | null, depth = 0): GuardResult {
+  if (depth > 3) return skipDenial("a shell command nested too deep to read");
   const tokenSkip = gitHookSkip(rawCommand);
   if (tokenSkip) return skipDenial(tokenSkip);
   // `--no-ver''ify` and `\-\-no-verify` are `--no-verify` to the shell; judge both forms.
@@ -356,10 +269,138 @@ export function checkBash(rawCommand: string, repoRoot: string | null): GuardRes
     const denied = checkBashForm(command, repoRoot, skips);
     if (denied) return denied;
   }
-  const silenceDenied = checkBashSilences(rawCommand, repoRoot);
-  if (silenceDenied) return silenceDenied;
   // The raw patterns name what they recognise; a git command they miss is still unread.
   if (tokenSkip === undefined && /\bgit\b/.test(rawCommand)) return skipDenial("a git command whose quoting or expansion cannot be read");
+  const written = silenceInWrites(rawCommand, repoRoot);
+  if (written) return written;
+  if (depth === 0) {
+    for (const inner of inlineShellPrograms(rawCommand)) {
+      const nested = checkBash(inner, repoRoot, depth + 1);
+      if (nested) return nested;
+    }
+  }
+  return undefined;
+}
+
+/** The files a `tee` in this segment writes, ignoring options and devices. */
+function teeTargets(text: string): string[] {
+  const words = argumentWords(text).map((word) => word.value);
+  const at = commandIndex(words);
+  if (basename(words[at] ?? "") !== "tee") return [];
+  return words.slice(at + 1).filter((arg) => !arg.startsWith("-") && !arg.startsWith("/dev/"));
+}
+
+/** The text an `echo` or `printf` copies to its output, which this command's redirect or a
+ *  downstream `tee` then puts in the file. Every other program writes its own output. */
+function printedTexts(text: string): string[] {
+  const words = argumentWords(text).map((word) => word.value);
+  const at = commandIndex(words);
+  const verb = basename(words[at] ?? "");
+  const values = words.slice(at + 1);
+  if (verb === "echo") return [values.join(" ")];
+  if (verb !== "printf") return [];
+  // The format fills its conversions with the values, so `%s%s` and its two words are one text.
+  const printed = staticPrintfValue(values);
+  return printed === null ? values : [...values, printed];
+}
+
+/** The body of every `<<<` word in this segment: data the command reads and may write out. */
+function hereStringTexts(text: string): string[] {
+  const words = shellWords(text);
+  const texts: string[] = [];
+  for (let index = 0; index < words.length; index++) {
+    const word = words[index]!;
+    const body = words[index + 1];
+    if (word.isOperator && word.value === "<<<" && body !== undefined && !body.isOperator) texts.push(body.value);
+    if (word.isOperator) index++;
+  }
+  return texts;
+}
+
+/** The program and the files of an in-place edit (`sed -i`, `perl -i`, `awk -i inplace`):
+ *  the program is the text that lands in the files listed after it. */
+function inPlaceEdit(text: string): { files: string[]; program: string[] } | null {
+  const words = argumentWords(text).map((word) => word.value);
+  const at = commandIndex(words);
+  const verb = basename(words[at] ?? "");
+  const args = words.slice(at + 1);
+  const isInPlace =
+    verb === "awk"
+      ? args.some((arg, index) => arg === "-iinplace" || (arg === "-i" && args[index + 1] === "inplace"))
+      : (verb === "sed" || verb === "perl") && args.some((arg) => /^-[A-Za-z]*i/.test(arg) || arg === "--in-place" || arg.startsWith("--in-place="));
+  if (!isInPlace) return null;
+  const operands: string[] = [];
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]!;
+    // `awk -i inplace`: the mode is the flag's value, not the program or a file.
+    if (verb === "awk" && arg === "-i") {
+      index++;
+      continue;
+    }
+    if (arg.startsWith("-") || arg.length === 0) continue;
+    operands.push(arg);
+  }
+  return { files: operands.slice(1), program: operands.slice(0, 1) };
+}
+
+/** A repository root that lives on a Windows filesystem: a drive letter or a UNC share. */
+const WINDOWS_PATH = /^(?:[A-Za-z]:[\\/]|\\\\)/;
+
+/** Both spellings of a Windows path, the one the guard can compare on. The shell's POSIX
+ *  escaping eats the separators of an unquoted word — the real `C:\dir\file` arrives here as
+ *  `C:dirfile` — while a quoted word keeps them. Dropping the separators from both sides is the
+ *  only reading that survives both, and it is conservative: a word that spells the repository
+ *  with anything after it stays governed. */
+function windowsSpelling(text: string): string {
+  return text.toLowerCase().replace(/[\\/]/g, "");
+}
+
+/** Whether a write target on a Windows root belongs to this repository. A word carrying a drive
+ *  letter is judged by its spelling against the root's, never joined onto the root: joining
+ *  `C:dirfile` to the repository is what made a write to the temp folder look governed. A word
+ *  with no drive letter is still relative, so it keeps the platform's own resolution. */
+function isGovernedWindowsTarget(target: string, repoRoot: string): boolean {
+  if (/^[A-Za-z]:/.test(target)) return windowsSpelling(target).startsWith(windowsSpelling(repoRoot));
+  const inside = win32.relative(repoRoot, win32.resolve(repoRoot, target));
+  return inside === "" || (!inside.startsWith("..") && !win32.isAbsolute(inside));
+}
+
+/** Whether the file a write lands in is one this repository governs. With no repository to
+ *  compare against, the write stays governed: this guard does not fall open. */
+function isGovernedTarget(target: string, repoRoot: string | null): boolean {
+  if (repoRoot === null) return true;
+  if (WINDOWS_PATH.test(repoRoot)) return isGovernedWindowsTarget(target, repoRoot);
+  const root = resolve(repoRoot);
+  const inside = relative(root, resolve(root, target));
+  return inside === "" || (!inside.startsWith("..") && !isAbsolute(inside));
+}
+
+/** The files a segment's own output lands in: its redirects and the files a `tee` it runs names. */
+function outputTargets(segment: ShellSegment): string[] {
+  return [...fileRedirectTargets(shellWords(segment.text)).map((word) => word.value), ...teeTargets(segment.text)];
+}
+
+/** A redirect or tee into a file carries the bytes a shell write puts on disk.
+ *  Stderr redirects (`2>&1`, `2>/dev/null`) and commit-message heredocs are not file writes,
+ *  and a token that only names a silence in the command's own arguments is never written. */
+function silenceInWrites(command: string, repoRoot: string | null): GuardResult {
+  const segments = shellSegments(normalizeRedirects(command));
+  if (segments === null) return undefined;
+  for (let index = 0; index < segments.length; index++) {
+    const segment = segments[index]!;
+    const edit = inPlaceEdit(segment.text);
+    const payloads = [...segment.heredocs.map((heredoc) => heredoc.body), ...hereStringTexts(segment.text), ...printedTexts(segment.text), ...(edit?.program ?? [])];
+    if (payloads.length === 0) continue;
+    // What a pipeline prints reaches the file its own stage, or any later stage of that same
+    // pipeline, redirects: `echo … | cat > f` writes the echo's bytes, not the cat's.
+    const targets = [...outputTargets(segment), ...(edit?.files ?? [])];
+    for (let later = index + 1; later < segments.length && segments[later]!.isAfterPipe; later++) targets.push(...outputTargets(segments[later]!));
+    if (!targets.some((target) => isGovernedTarget(target, repoRoot))) continue;
+    for (const payload of payloads) {
+      const hit = checkContent(payload);
+      if (hit) return hit;
+    }
+  }
   return undefined;
 }
 
@@ -390,14 +431,33 @@ export function checkContent(content: string): GuardResult {
   return undefined;
 }
 
+function writtenChunks(input: Record<string, unknown>): string[] {
+  const chunks: string[] = [];
+  // An empty new_string is the edit. content beside it is not a second write.
+  const primary = typeof input["new_string"] === "string" ? input["new_string"] : input["content"];
+  if (typeof primary === "string" && primary.length > 0) chunks.push(primary);
+  const source = input["new_source"];
+  if (typeof source === "string" && source.length > 0) chunks.push(source);
+  const edits = input["edits"];
+  if (!Array.isArray(edits)) return chunks;
+  for (const edit of edits) {
+    if (edit === null || typeof edit !== "object" || Array.isArray(edit)) continue;
+    const next = (edit as Record<string, unknown>)["new_string"];
+    if (typeof next === "string" && next.length > 0) chunks.push(next);
+  }
+  return chunks;
+}
+
 export function runNoVerify(payload: Payload, repoRoot: string | null): GuardResult {
-  if (payload.tool_name === "Bash" || payload.tool_name === "PowerShell") {
+  const shells = new Set(["Bash", "PowerShell", "shell", "command"]);
+  if (shells.has(payload.tool_name)) {
     const command = payload.tool_input["command"];
     if (typeof command === "string" && command.length > 0) return checkBash(command, repoRoot);
     return undefined;
   }
-  // Edit|Write|MultiEdit|NotebookEdit judge the content being written.
-  const newString = payload.tool_input["new_string"] ?? payload.tool_input["content"] ?? "";
-  if (typeof newString === "string" && newString.length > 0) return checkContent(newString);
+  for (const chunk of writtenChunks(payload.tool_input)) {
+    const hit = checkContent(chunk);
+    if (hit) return hit;
+  }
   return undefined;
 }

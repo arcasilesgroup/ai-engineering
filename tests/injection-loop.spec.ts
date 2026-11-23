@@ -126,7 +126,7 @@ describe("injection · readTargets — what a command line would print", () => {
 
   test("targets are capped at five, deduplicated", () => {
     const six = readTargets("cat a b c d e f");
-    expect(six.length).toBe(5);
+    expect(six).toEqual(["a", "b", "c", "d", "e", "f"]);
     expect(readTargets("cat a a a a a a")).toEqual(["a"]);
   });
 

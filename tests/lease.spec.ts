@@ -292,6 +292,11 @@ describe("sessionStart and sessionEnd in process", () => {
 
   test("SessionStart answers with additionalContext in a governed repo, and nothing elsewhere", () => {
     const dir = repo();
+    // A session that names no repo resolves it from the cwd, so the cwd is pinned outside any
+    // repo: otherwise this case would read the lanes of whatever checkout the suite runs in.
+    const outside = mkdtempSync(join(tmpdir(), "ai-eng-lease-outside-"));
+    roots.push(outside);
+    const cwdBefore = process.cwd();
     writeFileSync(join(dir, "README.md"), "changed\n");
     git(dir, ["stash", "push", "-q"]);
     const chunks: string[] = [];
@@ -303,9 +308,11 @@ describe("sessionStart and sessionEnd in process", () => {
     process.env["AI_ENG_NO_UPDATE_NOTICES"] = "1";
     try {
       sessionStart(JSON.stringify({ cwd: dir }));
+      process.chdir(outside);
       sessionStart("not json");
       sessionStart(JSON.stringify({ cwd: tmpdir() }));
     } finally {
+      process.chdir(cwdBefore);
       spy.mockRestore();
       if (optOut === undefined) delete process.env["AI_ENG_NO_UPDATE_NOTICES"];
       else process.env["AI_ENG_NO_UPDATE_NOTICES"] = optOut;

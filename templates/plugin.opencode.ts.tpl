@@ -62,17 +62,28 @@ export default {
             const judgement = { tool_name: name, tool_input: input, session_id: call?.sessionID, tool_use_id: call?.id, cwd };
             const before = chain("PreToolUse", judgement, { surface: "opencode" });
             if (before.action === "deny") throw new Error(`[ai-eng] ${before.by}: ${before.reason}`);
+            if (before.action === "review") process.stderr.write(`[ai-eng] ${before.by}: ${before.reason}\n`);
             if (before.action === "rewrite" && typeof input["command"] === "string") input["command"] = before.command;
-            if (before.action === "review") process.stderr.write(`[ai-eng] injection: ${before.reason}\n`);
-            const result = await execute(input, call);
-            const after = chain("PostToolUse", { ...judgement, tool_response: textOf(result) }, { surface: "opencode" });
+            let result: unknown;
+            try {
+              result = await execute(input, call);
+            } catch (error) {
+              const errorVerdict = chain("PostToolUse", { ...judgement, tool_response: { text: error instanceof Error ? error.message : String(error), isError: true } }, { surface: "opencode" });
+              // The same verdicts the success path reads: an error message can carry the
+              // fetched body, so containment replaces it instead of letting it through.
+              if (errorVerdict.action === "deny") throw new Error(`[ai-eng] ${errorVerdict.by}: ${errorVerdict.reason}`);
+              if (errorVerdict.action === "review") process.stderr.write(`[ai-eng] ${errorVerdict.by}: ${errorVerdict.reason}\n`);
+              throw error;
+            }
+            const failed = result !== null && typeof result === "object" && ((result as { isError?: boolean; is_error?: boolean }).isError === true || (result as { isError?: boolean; is_error?: boolean }).is_error === true);
+            const after = chain("PostToolUse", { ...judgement, tool_response: { text: textOf(result), isError: failed } }, { surface: "opencode" });
             if (after.action === "deny") {
               // Containment, not prevention: the tool already ran, so the whole result is
               // rejected — no result field reaches the model or the host's consumers. The
               // verdict itself names the guard and quotes a short excerpt, by design.
               throw new Error(`[ai-eng] ${after.by}: ${after.reason}`);
             }
-            if (after.action === "review") process.stderr.write(`[ai-eng] injection: ${after.reason}\n`);
+            if (after.action === "review") process.stderr.write(`[ai-eng] ${after.by}: ${after.reason}\n`);
             return result;
           };
         });

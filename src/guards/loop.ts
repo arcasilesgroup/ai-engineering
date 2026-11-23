@@ -31,7 +31,10 @@ type LoopState = {
 };
 
 function resultDigest(response: unknown): string {
-  const text = typeof response === "string" ? response : JSON.stringify(response ?? "");
+  // A tool's own payload can hold a BigInt, which JSON.stringify refuses. The digest is a
+  // loop-detection detail: an odd shape in a response must not become a false deny, so the
+  // number is written as its digits instead of throwing the guard up past the chain.
+  const text = typeof response === "string" ? response : JSON.stringify(response ?? "", (_key, value: unknown) => (typeof value === "bigint" ? value.toString() : value));
   return createHash("sha256").update(text).digest("hex").slice(0, 16);
 }
 
@@ -80,7 +83,15 @@ function saveState(state: LoopState): void {
 /** Authoritative failure fields only. Scanning output for the word "error" makes a
  *  guard fire on a passing test suite that prints one. */
 function failed(payload: Payload): boolean {
-  const response = payload.tool_response;
+  let response = payload.tool_response;
+  if (typeof response === "string") {
+    try {
+      const parsed = JSON.parse(response) as unknown;
+      if (parsed !== null && typeof parsed === "object") response = parsed;
+    } catch {
+      return false;
+    }
+  }
   if (response !== null && typeof response === "object") {
     const record = response as Record<string, unknown>;
     return Boolean(record["is_error"] || record["isError"]);

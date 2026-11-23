@@ -4,7 +4,7 @@
 import { repoRoot, isGoverned } from "../env.ts";
 import { preCommit, commitMsg, prePush } from "./index.ts";
 import { createHash } from "node:crypto";
-import { writeReceipt } from "../receipts.ts";
+import { receiptId, writeReceipt } from "../receipts.ts";
 
 function writeHookOutput(result: { ok: boolean; lines: string[] }): void {
   if (result.ok || result.lines.length === 0) return;
@@ -50,8 +50,23 @@ export async function floor(hook: string, msgFile?: string): Promise<number> {
     }
     // No override lookup here: the floor has no guard an override can excuse, so
     // stamping a reason would write false exceptions into git history (T19).
-    const id = createHash("sha256").update(`${new Date().toISOString()}:floor`).digest("hex").slice(0, 8);
-    const result = commitMsg(msgFile, id);
+    const started = Date.now();
+    // Write the receipt only once the message passes validation, so the trailer names
+    // a real on-disk receipt and rejected commit messages never log a false allow.
+    const mintReceiptId = (): string => {
+      const receipt = writeReceipt({
+        event: "git-commit-msg",
+        surface: "git",
+        tool: "commit-msg",
+        guards: { ran: ["floor"], denied_by: null },
+        latency_ms: Math.max(1, Date.now() - started),
+        outcome: "allow",
+      }, root);
+      return receipt === null
+        ? createHash("sha256").update(`${new Date().toISOString()}:floor`).digest("hex").slice(0, 8)
+        : receiptId(receipt);
+    };
+    const result = commitMsg(msgFile, mintReceiptId);
     writeHookOutput(result);
     return result.ok ? 0 : 1;
   }

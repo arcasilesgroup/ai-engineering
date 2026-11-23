@@ -10,7 +10,6 @@ import {
   realpathSync,
   statSync,
   unlinkSync,
-  writeFileSync,
   type BigIntStats,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -18,6 +17,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { isDeepStrictEqual } from "node:util";
 import { resolveContext } from "../git/context.ts";
 import { runGit } from "../git/run.ts";
+import { readNoFollowFile, writeNoFollowFile } from "../shared-project-fs.ts";
 import { jsonToolOperands } from "./shell.ts";
 import {
   assertCheckpointTransition,
@@ -307,11 +307,16 @@ function checkFirstPlan(root: string, checkpoint: Checkpoint): CheckpointGuardRe
   ) {
     return deny(`Checkpoint ${checkpoint.slug}`, "plan approval", "a first plan must start approved for implementation with no app review", "approve the matching brainstorm, then write the implementation plan");
   }
-  let html: string;
+  let html: string | null;
   try {
-    html = readFileSync(join(root, ".ai-engineering", "brainstorm.html"), "utf8");
+    // A symlink is not the file the person approved. Following it would let a
+    // session point the approval check at a file they wrote somewhere else.
+    html = readNoFollowFile(join(root, ".ai-engineering", "brainstorm.html"));
   } catch (error) {
     return deny(`Checkpoint ${checkpoint.slug}`, "plan approval", `cannot read the matching brainstorm (${error instanceof Error ? error.message : String(error)})`, "restore the approved brainstorm and retry the plan write");
+  }
+  if (html === null) {
+    return deny(`Checkpoint ${checkpoint.slug}`, "plan approval", "cannot read the matching brainstorm (ENOENT: brainstorm.html is missing)", "restore the approved brainstorm and retry the plan write");
   }
   const problem = brainstormApprovalProblem(html, checkpoint.slug, new Date());
   if (problem !== null) {
@@ -343,12 +348,20 @@ function repairProblem(context: CheckpointContext, previousText: string, nextTex
   return null;
 }
 
+function writtenPath(input: Record<string, unknown>): unknown {
+  return input.file_path ?? input.notebook_path ?? input.path;
+}
+
 function checkPlanWrite(payload: Payload, repoRoot: string): CheckpointGuardResult {
-  const target = checkpointTarget(repoRoot, payload.tool_input.file_path);
+  const filePath = writtenPath(payload.tool_input);
+  const target = checkpointTarget(repoRoot, filePath);
   if (target === null) {
-    const alias = aliasedCheckpoint(repoRoot, payload.tool_input.file_path);
+    const alias = aliasedCheckpoint(repoRoot, filePath);
     if (alias === null) return undefined;
-    return deny(`Checkpoint ${alias}`, "write gate", `does not allow writing ${CHECKPOINTS_DIR}/${alias}.json through another path (${String(payload.tool_input.file_path)})`, `edit ${CHECKPOINTS_DIR}/${alias}.json by that path so checkpoint gates are validated`);
+    return deny(`Checkpoint ${alias}`, "write gate", `does not allow writing ${CHECKPOINTS_DIR}/${alias}.json through another path (${String(filePath)})`, `edit ${CHECKPOINTS_DIR}/${alias}.json by that path so checkpoint gates are validated`);
+  }
+  if (payload.tool_name === "NotebookEdit") {
+    return deny(`Checkpoint ${target.slug}`, "write gate", "does not accept NotebookEdit of a checkpoint", "use Edit or Write so checkpoint gates are validated");
   }
   let context: CheckpointContext;
   try {
@@ -632,7 +645,7 @@ function bumpStopCounter(path: string, root: string, reason: string): number {
   try {
     const stat = lstatSync(path);
     if (stat.isSymbolicLink() || !stat.isFile()) throw new Error(`${path} is not a regular file`);
-    const stored = readFileSync(path, "utf8");
+    const stored = readNoFollowFile(path) ?? "";
     const newline = stored.indexOf("\n");
     const previous = Number(stored.slice(0, newline));
     if (newline > 0 && stored.slice(newline + 1) === reason && Number.isSafeInteger(previous) && previous > 0) count = previous;
@@ -640,7 +653,7 @@ function bumpStopCounter(path: string, root: string, reason: string): number {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
   const next = count + 1;
-  writeFileSync(path, `${next}\n${reason}`, { mode: 0o600 });
+  writeNoFollowFile(path, `${next}\n${reason}`);
   return next;
 }
 
@@ -653,12 +666,12 @@ function warnOnce(root: string, sessionId: unknown, line: string): void {
     let seen = "";
     try {
       if (!lstatSync(path).isFile()) throw new Error(`${path} is not a regular file`);
-      seen = readFileSync(path, "utf8");
+      seen = readNoFollowFile(path) ?? "";
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
     if (seen.split("\n").includes(line)) return;
-    writeFileSync(path, `${seen}${line}\n`, { mode: 0o600 });
+    writeNoFollowFile(path, `${seen}${line}\n`);
   } catch {
     /* said below, unremembered */
   }
@@ -768,11 +781,11 @@ export function runCheckpointGuard(payload: Payload, repoRoot: string | null): C
     if (payload._event === "Stop" || payload.hook_event_name === "Stop") {
       return checkStop(payload, repoRoot);
     }
-    if (payload.tool_name === "Bash") return checkBash(payload, repoRoot);
+    if (payload.tool_name === "Bash" || payload.tool_name === "PowerShell" || payload.tool_name === "shell" || payload.tool_name === "command") return checkBash(payload, repoRoot);
     if (payload.tool_name === "Task" || payload.tool_name === "Agent") {
       return checkMarker(payload, repoRoot);
     }
-    if (payload.tool_name === "Write" || payload.tool_name === "Edit" || payload.tool_name === "MultiEdit") {
+    if (payload.tool_name === "Write" || payload.tool_name === "Edit" || payload.tool_name === "MultiEdit" || payload.tool_name === "NotebookEdit") {
       // A patch is a diff, not the file's next contents: the gates cannot be checked on it.
       const patched = payload.tool_input.file_paths;
       if (Array.isArray(patched)) {

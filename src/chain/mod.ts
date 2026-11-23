@@ -4,11 +4,12 @@
 // denies, because denying everything on a surface is how you disable a whole
 // product by installing it.
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRules, home } from "../env.ts";
 import { normalise, deduplicable, fingerprint, loopExact } from "../payload.ts";
+import { readNoFollowFile, writeNoFollowFile } from "../shared-project-fs.ts";
 import type { Payload } from "../payload.ts";
 import { deny, allow, allowRewrite, review, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
@@ -46,7 +47,7 @@ export const TABLE: Record<string, GuardRow[]> = {
     { name: "policy", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ },
-    { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|Task|Agent|Bash)$/ },
+    { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|NotebookEdit|Task|Agent|Bash|PowerShell|shell|command)$/ },
     { name: "lease", matcher: /^(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|shell|command)$/ },
     { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
   ],
@@ -88,7 +89,7 @@ export type ChainOutcome =
   | { action: "allow"; guards: string[]; receiptId: string | null }
   | { action: "deny"; by: string; reason: string; guards: string[]; receiptId: string | null }
   | { action: "rewrite"; command: string; guards: string[]; receiptId: string | null }
-  | { action: "review"; reason: string; rule: { id: string; name: string; risk: number }; guards: string[]; receiptId: string | null };
+  | { action: "review"; by: string; reason: string; rule: { id: string; name: string; risk: number }; guards: string[]; receiptId: string | null };
 
 type EventName = keyof typeof TABLE;
 
@@ -107,14 +108,18 @@ type Verdict = {
   deny: boolean;
   by?: string;
   message?: string;
-  review?: { reason: string; rule: { id: string; name: string; risk: number } };
+  /** The guard that spoke, absent in an entry written before reviews were cached: the
+   *  replay names the chain rather than printing `undefined` as a guard. */
+  review?: { by?: string; reason: string; rule: { id: string; name: string; risk: number } };
 };
 
 /** Verdict cache keyed on the fingerprint of one physical call: a second delivery of
  *  the same call gets the guard's own words instead of re-running every guard. */
 function cachedVerdict(file: string, fp: string): Verdict | null {
   try {
-    const book = JSON.parse(readFileSync(file, "utf8")) as Record<string, Verdict>;
+    const raw = readNoFollowFile(file);
+    if (raw === null) return null;
+    const book = JSON.parse(raw) as Record<string, Verdict>;
     const entry = book[fp];
     if (!entry || typeof entry.deny !== "boolean") return null;
     if (entry.deny && !(typeof entry.by === "string" && typeof entry.message === "string")) return null;
@@ -128,9 +133,10 @@ function rememberVerdict(file: string, fp: string, verdict: Verdict): void {
   try {
     let book: Record<string, Verdict> = {};
     try {
-      book = JSON.parse(readFileSync(file, "utf8")) as Record<string, Verdict>;
+      const raw = readNoFollowFile(file);
+      if (raw !== null) book = JSON.parse(raw) as Record<string, Verdict>;
     } catch {
-      /* first entry */
+      /* first entry, or a book that is not JSON */
     }
     // The directory does not exist until the first verdict lands: without this the write
     // threw ENOENT into the catch below and the cache silently never worked at all.
@@ -138,7 +144,7 @@ function rememberVerdict(file: string, fp: string, verdict: Verdict): void {
     book[fp] = verdict;
     const trimmed: Record<string, Verdict> = {};
     for (const key of Object.keys(book).slice(-500)) trimmed[key] = book[key]!;
-    writeFileSync(file, JSON.stringify(trimmed));
+    writeNoFollowFile(file, JSON.stringify(trimmed));
   } catch {
     /* state must never break the chain */
   }
@@ -237,14 +243,14 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
         return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started, root, tool);
       }
       if (verdict.review !== undefined) {
-        return { action: "review", reason: verdict.review.reason, rule: verdict.review.rule, guards: [], receiptId: null };
+        return { action: "review", by: verdict.review.by ?? "chain", reason: verdict.review.reason, rule: verdict.review.rule, guards: [], receiptId: null };
       }
       return { action: "allow", guards: [], receiptId: null };
     }
   }
 
   const ran: string[] = [];
-  let reviewResult: { reason: string; rule: { id: string; name: string; risk: number } } | undefined;
+  let reviewResult: { by: string; reason: string; rule: { id: string; name: string; risk: number } } | undefined;
   for (const row of selected(event, tool)) {
     ran.push(row.name);
     const outcome = dispatchGuard(row.name, payload, ctx);
@@ -263,7 +269,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     // match (highest risk, block-priority sorted) is recorded; subsequent
     // reviews within the same chain run are still collected but not surfaced.
     if (outcome !== undefined && outcome.deny === false && "review" in outcome && reviewResult === undefined) {
-      reviewResult = { reason: outcome.reason, rule: outcome.rule };
+      reviewResult = { by: row.name, reason: outcome.reason, rule: outcome.rule };
     }
   }
 
@@ -271,9 +277,9 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     rememberVerdict(cacheFile, fp, reviewResult !== undefined ? { deny: false, review: reviewResult } : { deny: false });
   }
   const latency = Math.max(1, Date.now() - started);
-  // Phase 1: if a local rule triggered review (not block), record it in the
-  // receipt but still allow the call. The receipt carries the review metadata
-  // for later analysis; the call itself proceeds.
+  // Phase 1: if a local rule triggered review (not block), still allow the call. The
+  // host's own channel carries the note (the plugin templates and the cursor envelope), so
+  // the verdict names the guard and the rule it came from; the call itself proceeds.
   if (reviewResult !== undefined) {
     const receipt = recordReceipt({
       event,
@@ -284,7 +290,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
       outcome: "allow",
       session_id: sessionId(),
     }, root);
-    return { action: "review", reason: reviewResult.reason, rule: reviewResult.rule, guards: ran, receiptId: receipt?.operation_id ?? null };
+    return { action: "review", by: reviewResult.by, reason: reviewResult.reason, rule: reviewResult.rule, guards: ran, receiptId: receipt?.operation_id ?? null };
   }
   const receipt = recordReceipt({
     event,
@@ -542,8 +548,10 @@ export function chainMain(event: string, raw: string, options: ChainOptions = {}
     deny("chain", UNREADABLE_PAYLOAD, options.dialect ?? "claude", event);
   }
   const outcome = runChain(body, event, options);
-  // An allow is a verdict too, and a review verdict must actually print its annotation.
+  // An allow is a verdict too, and one host reads an empty answer as a refusal. A review
+  // rides the annotation channel, which names the guard that spoke instead of assuming
+  // injection: a note no host renders is not a verdict.
   if (outcome.action === "allow") allow(options.dialect ?? "claude");
-  else if (outcome.action === "review") review("injection", outcome.reason, options.dialect ?? "claude", event);
+  else if (outcome.action === "review") review(outcome.by, outcome.reason, options.dialect ?? "claude", event);
   process.exit(0);
 }

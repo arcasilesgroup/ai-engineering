@@ -26,7 +26,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|Edit|Write|MultiEdit|WebFetch|WebSearch",
+        "matcher": "Bash|Edit|Write|MultiEdit|WebFetch|WebSearch|mcp__.*",
         "hooks": [
           {
             "type": "command",

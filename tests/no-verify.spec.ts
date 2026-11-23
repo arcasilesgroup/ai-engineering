@@ -160,6 +160,75 @@ describe("checkBash", () => {
     expect(checkBash("git config core.hooksPath .git/hooks", root)).toBeUndefined();
   });
 
+  test("a silence is denied only when a write puts it in a file this repository governs", () => {
+    const scratch = join(tmpdir(), "noverify-report.txt");
+    // The bytes a redirect or tee lands are the command's output; naming a token is not writing it.
+    for (const command of [
+      `git log --oneline -S "${TS_IGNORE}" > ${scratch}`,
+      `rg ${NOLINT} src/ > ${scratch}`,
+      `gh pr create --body "explains ${TS_IGNORE}" > ${scratch}`,
+      `git commit -m "docs: explain ${TS_IGNORE}" 2>&1 | tee commit.log`,
+      `rg '${TS_IGNORE}' src/ > notes.txt`,
+    ]) {
+      expect(checkBash(command, root), command).toBeUndefined();
+    }
+    // Writing the token itself into a source file is still the silenced check.
+    for (const command of [
+      `echo '// ${NOLINT}' > src/a.ts`,
+      `printf '%s\\n' '// ${TS_IGNORE}' >> src/a.ts`,
+      `printf '%s%s\\n' '@ts-' 'ignore' > src/a.ts`,
+      `printf '%s-%s\\n' '@ts' 'ignore' > src/a.ts`,
+      `cat <<< '// ${TS_IGNORE}' > src/a.ts`,
+      `tee src/a.ts <<< '// ${TS_IGNORE}'`,
+      `sed -i 's/x/${TS_IGNORE}/' src/a.ts`,
+      `sed -i.bak 's/x/${TS_IGNORE}/' src/a.ts`,
+      `perl -pi -e 's/x/${TS_IGNORE}/' src/a.ts`,
+      `awk -i inplace '{print "// ${TS_IGNORE}"}' src/a.ts`,
+      `echo '// ${TS_IGNORE}' | tee src/a.ts`,
+      `echo '// ${TS_IGNORE}' | cat > src/a.ts`,
+      `printf '%s\\n' '// ${TS_IGNORE}' | sed s/x/y/ > src/a.ts`,
+      `echo '// ${TS_IGNORE}' | tee /tmp/noverify-tee.txt > src/a.ts`,
+      `echo '// ${TS_IGNORE}' > a.ts`,
+    ]) {
+      expect(checkBash(command, root)?.deny, command).toBe(true);
+    }
+    // A rewrite that puts nothing new in the file, or writes elsewhere, still passes.
+    for (const command of [
+      `sed -i 's/x/y/' src/a.ts`,
+      `sed -i 's/x/${TS_IGNORE}/' ${scratch}`,
+      `cat <<< '// ${TS_IGNORE}' > ${scratch}`,
+      `echo '// ${TS_IGNORE}' | cat`,
+      `echo '// ${TS_IGNORE}' | cat > ${scratch}`,
+      `echo '// ${TS_IGNORE}'; cat > src/a.ts`,
+    ]) {
+      expect(checkBash(command, root), command).toBeUndefined();
+    }
+  });
+
+  // The same rule, spelled for Windows, where the shell's own escaping eats the separators of
+  // `C:\dir\file` and a drive letter joined onto the repository makes a temp write look
+  // governed. Both sides: the silence inside this repository is still denied.
+  test("a Windows root is judged by its drive, not by joining the target onto it", () => {
+    const winRoot = "C:\\Users\\runner\\AppData\\Local\\Temp\\noverify-win";
+    const winScratch = "C:\\Users\\runner\\AppData\\Local\\Temp\\noverify-report.txt";
+    for (const target of [
+      "src/a.ts",
+      "src\\a.ts",
+      `${winRoot}\\src\\a.ts`,
+      `"${winRoot}\\src\\a.ts"`,
+    ]) {
+      expect(checkBash(`sed -i 's/x/${TS_IGNORE}/' ${target}`, winRoot)?.deny, target).toBe(true);
+    }
+    for (const target of [
+      winScratch,
+      `"${winScratch}"`,
+      "C:\\Users\\runner\\source\\repos\\other\\src\\a.ts",
+      "D:\\other\\repo\\src\\a.ts",
+    ]) {
+      expect(checkBash(`sed -i 's/x/${TS_IGNORE}/' ${target}`, winRoot), target).toBeUndefined();
+    }
+  });
+
   test.each([
     ["--no-verify commit", "git commit --no-verify -m x", "--no-verify"],
     ["--no-verify push", "git push --no-verify", "--no-verify"],

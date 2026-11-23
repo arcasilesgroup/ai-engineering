@@ -36,6 +36,12 @@ export type ShellSegment = {
   heredocs: Array<{ body: string; isLiteral: boolean }>;
   /** The first command inside each SUBSTITUTION this segment holds, in order. */
   substitutions: string[];
+  /** Variable-tracking scope id (0 = top-level shell) and the scope it inherits from. */
+  scope: number;
+  parentScope: number;
+  /** Whether this segment stands inside a branch, loop body or `&&`/`||` list, so the
+   *  shell may never run it and its assignments decide nothing. */
+  isConditional: boolean;
 };
 
 /** The heredoc operator starting at `at` and its delimiter, read as the one shell word bash
@@ -142,17 +148,49 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
   let normalized = "";
   let copiedUpTo = 0;
   type Heredoc = { body: string; isLiteral: boolean };
-  type Frame = { quote: string | null; closer: string; parent: string; parentIsAfterPipe: boolean; parentSubstitutions: string[]; parentHeredocs: Heredoc[]; innerStart: number };
+  type Frame = {
+    kind: "substitution" | "subshell" | "compound";
+    quote: string | null;
+    closer: string;
+    parent: string;
+    parentIsAfterPipe: boolean;
+    parentSubstitutions: string[];
+    parentHeredocs: Heredoc[];
+    parentScope: number;
+    innerStart: number;
+    /** The scope this frame opened; a compound keeps it only if it runs in a subshell. */
+    frameScope: number;
+    /** A compound that is the right member of a pipeline already runs in its own subshell. */
+    isIsolated: boolean;
+    /** Whether a branch of this frame is already running, and whether it may never run. */
+    isConditionalBase: boolean;
+    isConditionalBody: boolean;
+  };
   const nesting: Frame[] = [];
+  // A compound command runs in the current shell unless a `|` or a `&` follows its closing
+  // word, which is known only after the word itself, so it resolves at the next separator.
+  const closedCompounds: Frame[] = [];
+  const currentShellCompounds = new Map<number, number>();
   const pending: Array<{ delimiter: string; isLiteral: boolean; stripsTabs: boolean; owner: Heredoc[] }> = [];
+  const scopeParents = new Map<number, number>([[0, 0]]);
+  let scope = 0;
+  let nextScope = 0;
   let current = "";
   let quote: string | null = null;
   let isAfterPipe = false;
+  let isAfterCondition = false;
   let isProcessSubstitution = false;
   let substitutions: string[] = [];
   // The heredocs of the command being read: filled in after the line that declares them.
   let heredocs: Heredoc[] = [];
-  const cut = (nextIsAfterPipe = false): void => {
+  const currentConditional = (): boolean => {
+    const frame = nesting.at(-1);
+    return isAfterCondition || (frame !== undefined && (frame.isConditionalBase || frame.isConditionalBody));
+  };
+  const cut = (nextIsAfterPipe = false, isIsolated = false): void => {
+    const isolate = isIsolated || isAfterPipe;
+    const segScope = isolate ? ++nextScope : scope;
+    const segParent = isolate ? scope : (scopeParents.get(scope) ?? 0);
     segments.push({
       text: current,
       isAfterPipe,
@@ -161,6 +199,9 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
       isProcessSubstitution,
       heredocs,
       substitutions,
+      scope: segScope,
+      parentScope: segParent,
+      isConditional: currentConditional(),
     });
     current = "";
     isAfterPipe = nextIsAfterPipe;
@@ -169,16 +210,54 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
     heredocs = [];
   };
   const open = (closer: string): void => {
-    nesting.push({ quote, closer, parent: current, parentIsAfterPipe: isAfterPipe, parentSubstitutions: substitutions, parentHeredocs: heredocs, innerStart: segments.length });
+    const childScope = ++nextScope;
+    scopeParents.set(childScope, scope);
+    nesting.push({ kind: "substitution", quote, closer, parent: current, parentIsAfterPipe: isAfterPipe, parentSubstitutions: substitutions, parentHeredocs: heredocs, parentScope: scope, innerStart: segments.length, frameScope: childScope, isIsolated: false, isConditionalBase: currentConditional(), isConditionalBody: false });
+    scope = childScope;
     quote = null;
     current = "";
     isAfterPipe = false;
     substitutions = [];
     heredocs = [];
   };
+  const openSubshell = (): void => {
+    cut();
+    const childScope = ++nextScope;
+    scopeParents.set(childScope, scope);
+    nesting.push({ kind: "subshell", quote: null, closer: ")", parent: "", parentIsAfterPipe: false, parentSubstitutions: [], parentHeredocs: [], parentScope: scope, innerStart: segments.length, frameScope: childScope, isIsolated: false, isConditionalBase: currentConditional(), isConditionalBody: false });
+    scope = childScope;
+    isAfterCondition = false;
+  };
+  const openCompound = (closer: string): void => {
+    // Read before the cut, which starts the next segment with no pipe behind it.
+    const isIsolated = isAfterPipe || isCoprocPrefix(current);
+    const isConditionalBase = currentConditional();
+    cut();
+    const frameScope = ++nextScope;
+    scopeParents.set(frameScope, scope);
+    nesting.push({ kind: "compound", quote: null, closer, parent: "", parentIsAfterPipe: false, parentSubstitutions: [], parentHeredocs: [], parentScope: scope, innerStart: segments.length, frameScope, isIsolated, isConditionalBase, isConditionalBody: closer === "esac" });
+    scope = frameScope;
+    isAfterCondition = false;
+  };
+  const closeCompound = (): void => {
+    cut();
+    const frame = nesting.pop()!;
+    scope = frame.parentScope;
+    closedCompounds.push(frame);
+  };
+  /** What the words already read say about the compounds that just closed: a `|` or a
+   *  background `&` puts them in a subshell, and anything else leaves them in this shell. */
+  const resolveCompounds = (isIsolated: boolean): void => {
+    for (const frame of closedCompounds.splice(0)) {
+      if (isIsolated || frame.isIsolated) continue;
+      currentShellCompounds.set(frame.frameScope, frame.parentScope);
+    }
+  };
   const close = (): void => {
     cut();
     const frame = nesting.pop()!;
+    scope = frame.parentScope;
+    if (frame.kind === "subshell") return;
     quote = frame.quote;
     current = frame.parent + SUBSTITUTION;
     isAfterPipe = frame.parentIsAfterPipe;
@@ -191,6 +270,8 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
   // Whether the next character begins a word: only there does `#` open a comment, so the
   // `#` of `a\ #` (an escaped space, still inside the word) is a character, as in bash.
   let isWordStart = true;
+  // Grammar stands where a command starts, never as an argument: in `echo if` the `if` is data.
+  const isCommandStart = (): boolean => isCoprocPrefix(current) || isGrammarPrefix(shellWords(current));
   for (let index = 0; index < source.length; index++) {
     const char = source[index]!;
     const next = source[index + 1];
@@ -257,7 +338,7 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
       isWordStart = true;
       index += operator.length - 1;
     } else if (char === "\n" && pending.length > 0) {
-      cut();
+      cut(isAfterPipe);
       isWordStart = true;
       for (const heredoc of pending.splice(0)) {
         const bodyStart = index + 1;
@@ -282,27 +363,81 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
         if (!heredoc.isLiteral && /\$\(|`/.test(body)) {
           const expanded = shellSegments(body.replace(/['"]/g, " "));
           if (expanded === null) return UNREADABLE;
-          segments.push(...expanded);
+          const base = ++nextScope;
+          let maxInner = 0;
+          for (const inner of expanded) {
+            if (inner.scope > maxInner) maxInner = inner.scope;
+            segments.push({
+              ...inner,
+              scope: base + inner.scope,
+              parentScope: inner.scope === 0 ? scope : base + inner.parentScope,
+            });
+          }
+          nextScope += maxInner;
         }
       }
+    } else if (wasWordStart && isCommandStart() && compoundTokenAt(source, index) !== null) {
+      const token = compoundTokenAt(source, index)!;
+      const closer = COMPOUND_CLOSERS[token];
+      if (BODY_WORDS.has(token)) {
+        const body = nesting.at(-1);
+        if (body !== undefined && body.kind === "compound") body.isConditionalBody = true;
+      } else if (closer === undefined) {
+        if (nesting.at(-1)?.closer === token) {
+          resolveCompounds(false);
+          closeCompound();
+        }
+      } else {
+        resolveCompounds(false);
+        openCompound(closer);
+      }
+      current += token;
+      index += token.length - 1;
     } else if (char === "|") {
       const isOr = next === "|";
       if (isOr || next === "&") index++;
-      cut(!isOr);
+      resolveCompounds(!isOr);
+      cut(!isOr, !isOr);
+      if (isOr) isAfterCondition = true;
+      isWordStart = true;
+    } else if (char === "(") {
+      resolveCompounds(false);
+      openSubshell();
       isWordStart = true;
     } else if (char === ")" && nesting.at(-1)?.closer === ")") {
+      const wasSubshell = nesting.at(-1)!.kind === "subshell";
+      resolveCompounds(false);
       close();
-    } else if (";&\n()".includes(char)) {
-      if (char === "&" && next === "&") index++;
-      cut();
+      if (wasSubshell) isWordStart = true;
+    } else if (";&\n)".includes(char)) {
+      const isBackground = char === "&" && next !== "&";
+      const isAndOr = char === "&" && next === "&";
+      if (isAndOr) index++;
+      // `;&` and `;;` fall through a case, they do not put the command behind them in the background.
+      resolveCompounds(isBackground && source[index - 1] !== ";");
+      // A line that ends on `|` continues the pipeline: the next command is still after a pipe.
+      cut(char === "\n" && isAfterPipe, isBackground);
+      isAfterCondition = isAndOr;
       isWordStart = true;
     } else {
       current += char;
       isWordStart = /\s/.test(char);
     }
   }
+  resolveCompounds(false);
   cut();
-  if (quote !== null || nesting.length > 0) return UNREADABLE;
+  // A compound left open is a syntax error, so bash never runs it: read it as this shell's.
+  for (const frame of nesting) if (frame.kind === "compound") currentShellCompounds.set(frame.frameScope, frame.parentScope);
+  if (quote !== null || nesting.some((frame) => frame.kind !== "compound")) return UNREADABLE;
+  const homeScope = (id: number): number => {
+    let scopeId = id;
+    while (currentShellCompounds.has(scopeId)) scopeId = currentShellCompounds.get(scopeId)!;
+    return scopeId;
+  };
+  for (const segment of segments) {
+    segment.scope = homeScope(segment.scope);
+    segment.parentScope = homeScope(segment.parentScope);
+  }
   return { segments, normalized: normalized + source.slice(copiedUpTo) };
 }
 const UNREADABLE = { segments: null, normalized: null };
@@ -312,6 +447,46 @@ const UNREADABLE = { segments: null, normalized: null };
  *  after them are a name and a list, never a command, so they stand as the name. */
 export const RESERVED_WORDS = new Set(["!", "{", "}", "if", "then", "elif", "else", "fi", "do", "done", "while", "until", "esac", "coproc"]);
 
+/** The word that closes each compound command. Bash runs the compound in the current shell
+ *  unless a `|` or a background `&` puts it in a subshell, so where its assignments land
+ *  depends on the operator after its closing word, not on the compound itself. */
+const COMPOUND_CLOSERS: Record<string, string> = { "{": "}", if: "fi", while: "done", until: "done", for: "done", select: "done", case: "esac" };
+/** Every word that opens or ends a compound command. */
+const COMPOUND_WORDS = new Set([...Object.keys(COMPOUND_CLOSERS), ...Object.values(COMPOUND_CLOSERS)]);
+
+/** Words that open a branch a compound may never run: `then`, an `elif`/`else` alternative
+ *  and a `do` loop body. */
+const BODY_WORDS = new Set(["then", "elif", "else", "do"]);
+
+/** The compound keyword or brace starting at `at` of `source`, as the shell words it: the
+ *  longest run of letters that ends the word, so `iffy` is a name and `if` is grammar. */
+function compoundTokenAt(source: string, at: number): string | null {
+  const token = /^[a-z]{1,6}|^[{}]/.exec(source.slice(at, at + 7))?.[0];
+  if (token === undefined || !(COMPOUND_WORDS.has(token) || BODY_WORDS.has(token))) return null;
+  const after = source[at + token.length];
+  return after === undefined || /[\s;&|()<>]/.test(after) ? token : null;
+}
+
+/** `coproc { …; }` and `coproc name { …; }` run the compound in a subshell, as `&` would. */
+function isCoprocPrefix(text: string): boolean {
+  return /^\s*coproc(?:\s+[A-Za-z_]\w*)?\s*$/.test(text);
+}
+
+/** Grammar standing where a command starts rather than being it: a reserved word, bash's
+ *  `time` keyword, and the `-p` that may follow it. Each runs the words after it in this shell. */
+function isGrammarAt(words: readonly ShellWord[], at: number): boolean {
+  const word = words[at]!;
+  if (word.isQuoted || word.isOperator) return false;
+  if (RESERVED_WORDS.has(word.value) || word.value === "time") return true;
+  const before = words[at - 1];
+  return word.value === "-p" && before !== undefined && !before.isQuoted && before.value === "time";
+}
+
+/** Whether every word of `words` is grammar in front of a command, so a keyword after it starts one. */
+function isGrammarPrefix(words: readonly ShellWord[]): boolean {
+  return words.every((_word, at) => isGrammarAt(words, at));
+}
+
 /** Commands that run the command after them (`nice -n 5 git …`, `sudo -u x rm …`). */
 export const COMMAND_PREFIXES = new Set(["sudo", "doas", "command", "builtin", "exec", "env", "nohup", "time", "nice", "xargs", "timeout", "stdbuf", "busybox"]);
 
@@ -320,7 +495,7 @@ const PREFIX_VALUE_OPTIONS: Record<string, RegExp> = {
   xargs: /^-[0-9A-Za-z]*[aIiLlnsPEed]$/,
   sudo: /^-[A-Za-z]*[ugCDhpRrT]$/,
   doas: /^-[A-Za-z]*[uC]$/,
-  env: /^-[A-Za-z]*[uCS]$/,
+  env: /^(?:-[A-Za-z]*[uCS]|--(?:split-string|unset|chdir))$/,
   nice: /^-n$/,
   timeout: /^-[sk]$/,
   stdbuf: /^-[ioe]$/,
@@ -334,7 +509,7 @@ export function commandIndex(words: readonly string[], nameOf: (word: string) =>
   let index = start;
   while (index < words.length) {
     const word = words[index]!;
-    if (RESERVED_WORDS.has(word) || /^[A-Za-z_]\w*=/.test(word)) {
+    if (RESERVED_WORDS.has(word) || /^[A-Za-z_]\w*\+?=/.test(word)) {
       index++;
       continue;
     }
@@ -442,6 +617,39 @@ export function shellWords(text: string): ShellWord[] {
   return words;
 }
 
+/** Words with every redirection operator and its target dropped, as the shell hands them to a program. */
+export function stripRedirectWords(words: readonly ShellWord[]): ShellWord[] {
+  const kept: ShellWord[] = [];
+  for (let at = 0; at < words.length; at++) {
+    if (words[at]!.isOperator) {
+      at++;
+      continue;
+    }
+    kept.push(words[at]!);
+  }
+  return kept;
+}
+
+/** The argument words of one normalized segment, with redirections and their targets stripped. */
+export function argumentWords(text: string): ShellWord[] {
+  return stripRedirectWords(shellWords(text));
+}
+
+/** The words an output redirect writes to as a file: not `2>&1` or `>&-`, which copy or
+ *  close a descriptor (the `&` stays on the target word), and not a `/dev/` device. */
+export function fileRedirectTargets(words: readonly ShellWord[]): ShellWord[] {
+  const targets: ShellWord[] = [];
+  for (let index = 0; index < words.length; index++) {
+    const word = words[index]!;
+    if (!word.isOperator || !word.value.includes(">") || word.value.includes("&")) continue;
+    const target = words[index + 1];
+    if (target === undefined || target.isOperator) continue;
+    if (/^\d+$/.test(target.value) || target.value === "-" || target.value.startsWith("&") || target.value.startsWith("/dev/")) continue;
+    targets.push(target);
+  }
+  return targets;
+}
+
 /** The command with quoting and escapes removed, for pattern checks that must not be
  *  defeated by `--no-ver''ify` or `\-\-no-verify`. */
 export function unquoteShell(command: string): string {
@@ -466,6 +674,277 @@ function staticOutput(inner: string): string | null {
     return null;
   }
   return /["'\\$`\n]/.test(output) ? null : output;
+}
+
+const INLINE_SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "mksh", "ash", "fish"]);
+
+/** Every `sh -c` / `bash -c` program in `command`, including ones nested inside those
+ *  programs. The words come from the same reader the guards already share, so a quoted
+ *  program is one word and not a second grammar. Empty when the line cannot be read. */
+export function inlineShellPrograms(command: string): string[] {
+  const found: string[] = [];
+  const visit = (text: string, depth: number): void => {
+    if (depth > 3) return;
+    const segments = shellSegments(text);
+    if (segments === null) return;
+    for (const segment of segments) {
+      const words = shellWords(segment.text).filter((word) => !word.isOperator).map((word) => word.value);
+      const at = commandIndex(words);
+      const name = basename(words[at] ?? "");
+      if (!INLINE_SHELLS.has(name)) continue;
+      const flag = words.findIndex((word, index) => index > at && /^-[A-Za-z]*c[A-Za-z]*$/.test(word));
+      const next = flag >= 0 ? words[flag + 1] : undefined;
+      const body = next === "--" ? words[flag + 2] : next;
+      if (body === undefined || body.length === 0) continue;
+      found.push(body);
+      visit(body, depth + 1);
+    }
+  };
+  visit(command, 0);
+  return found;
+}
+
+/** A value that can replace `$name` without becoming a new command. */
+function isSafeExpansion(value: string): boolean {
+  return value.length > 0 && !/[\s;&|`$<>\\'",(){}]/.test(value);
+}
+
+/** `$name` and `${name}` outside single quotes, using `variables` as they stand now. */
+function expandDollars(text: string, variables: ReadonlyMap<string, string | null>): string {
+  let out = "";
+  let quote: "'" | '"' | null = null;
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index]!;
+    if (quote === "'") {
+      out += char;
+      if (char === "'") quote = null;
+      continue;
+    }
+    if (char === "\\" && quote === null) {
+      out += char + (text[index + 1] ?? "");
+      index++;
+      continue;
+    }
+    if (char === "'") {
+      quote = "'";
+      out += char;
+      continue;
+    }
+    if (char === '"') {
+      quote = quote === '"' ? null : '"';
+      out += char;
+      continue;
+    }
+    const match = char === "$" ? /^\$\{([A-Za-z_]\w*)\}|^\$([A-Za-z_]\w*)/.exec(text.slice(index)) : null;
+    const name = match?.[1] ?? match?.[2];
+    const value = name === undefined ? undefined : variables.get(name);
+    if (match !== null && typeof value === "string" && isSafeExpansion(value)) {
+      out += value;
+      index += match[0].length - 1;
+      continue;
+    }
+    out += char;
+  }
+  return out;
+}
+
+const ASSIGNMENT_BUILTINS = new Set(["export", "declare", "typeset", "local", "readonly"]);
+
+export type VariableMap = Map<string, string | null>;
+export type VariableScope = Map<number, VariableMap>;
+
+export function createVariableScope(initial?: Iterable<[string, string]>): VariableScope {
+  return new Map([[0, new Map<string, string | null>(initial)]]);
+}
+
+export function variablesForSegment(scopes: VariableScope, segment: ShellSegment): VariableMap {
+  let table = scopes.get(segment.scope);
+  if (table === undefined) {
+    const parent = scopes.get(segment.parentScope) ?? scopes.get(0)!;
+    table = new Map(parent);
+    scopes.set(segment.scope, table);
+  }
+  return table;
+}
+
+/** `$name` and `${name}` in `value`, from the values known now; unknown names stay as written. */
+export function substituteVariables(value: string, variables: ReadonlyMap<string, string | null>): string {
+  return value.replace(/\$\{([A-Za-z_]\w*)\}|\$([A-Za-z_]\w*)/g, (all, braced: string | undefined, bare: string | undefined) => {
+    const found = variables.get(braced ?? bare ?? "");
+    return typeof found === "string" ? found : all;
+  });
+}
+
+function assign(variables: VariableMap, name: string, raw: string, isAppend: boolean, requireSafe: boolean, isConditional: boolean): void {
+  const rhs = substituteVariables(raw, variables);
+  const prior = variables.get(name);
+  if (isAppend && prior === null) return;
+  const value = isAppend ? `${prior ?? ""}${rhs}` : rhs;
+  if (isConditional || /[$`]/.test(value) || (requireSafe && value.length > 0 && !isSafeExpansion(value))) variables.set(name, null);
+  else variables.set(name, value);
+}
+
+/** What this segment leaves in `variables` once it has run, so it is applied after the
+ *  segment's own words are expanded. `f=x` alone and `export f=x` stay set. A prefix
+ *  `f=x cmd` is only cmd's environment: cmd's words still see the old value and the next
+ *  segment does too, whatever cmd is (`f=x :` and `f=x export` keep the earlier value in
+ *  bash and zsh, the shells the floor runs). With `requireSafe`, a value that could not
+ *  stand in the text as one word drops the name. A segment that only runs when a condition
+ *  holds cannot decide a name the rest of the command reads, so its names stay unknown. */
+export function applySegmentAssignments(text: string, variables: VariableMap, requireSafe: boolean, isConditional = false): void {
+  const words = shellWords(normalizeRedirects(text));
+  const prefix: Array<[string, string, boolean]> = [];
+  let commandAt = -1;
+  for (let index = 0; index < words.length; index++) {
+    const word = words[index]!;
+    if (word.isOperator) {
+      index++;
+      continue;
+    }
+    if (prefix.length === 0 && isGrammarAt(words, index)) continue;
+    const assignment = /^[A-Za-z_]\w*\+?=/.test(word.unquoted) ? /^([A-Za-z_]\w*)(\+?)=(.*)$/s.exec(word.value) : null;
+    if (assignment === null) {
+      commandAt = index;
+      break;
+    }
+    prefix.push([assignment[1]!, assignment[3]!, assignment[2] === "+"]);
+  }
+  if (commandAt < 0) {
+    for (const [name, raw, isAppend] of prefix) assign(variables, name, raw, isAppend, requireSafe, isConditional);
+    return;
+  }
+  const command = basename(words[commandAt]!.value);
+  if (!ASSIGNMENT_BUILTINS.has(command)) return;
+  for (let index = commandAt + 1; index < words.length; index++) {
+    const word = words[index]!;
+    if (word.isOperator) {
+      index++;
+      continue;
+    }
+    const assignment = /^([A-Za-z_]\w*)(\+?)=(.*)$/s.exec(word.value);
+    if (assignment !== null) assign(variables, assignment[1]!, assignment[3]!, assignment[2] === "+", requireSafe, isConditional);
+  }
+}
+
+const OCTAL_DIGITS = /^[0-7]{1,3}/;
+
+/** The text `printf` prints for the `\` escapes in one of its words, or null for an escape
+ *  whose output this reader cannot compute (`\c` stops the output, `\u`/`\U` name a code
+ *  point). One to three octal digits are one character, and in a `%b` argument a leading
+ *  zero is a prefix for three more. An escape it does not know stands as written. */
+function printfEscapes(text: string, isArgument = false): string | null {
+  let out = "";
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index]!;
+    if (char !== "\\") {
+      out += char;
+      continue;
+    }
+    const next = text[index + 1] ?? "";
+    index++;
+    if (next === "c" || next === "u" || next === "U") return null;
+    const prefixed = isArgument && next === "0" ? OCTAL_DIGITS.exec(text.slice(index + 1))?.[0] : undefined;
+    const hex = next === "x" ? /^[0-9a-fA-F]{1,2}/.exec(text.slice(index + 1))?.[0] : undefined;
+    const octal = OCTAL_DIGITS.exec(text.slice(index))?.[0];
+    if (prefixed !== undefined) {
+      out += String.fromCharCode(parseInt(prefixed, 8));
+      index += prefixed.length;
+    } else if (hex !== undefined) {
+      out += String.fromCharCode(parseInt(hex, 16));
+      index += hex.length;
+    } else if (octal !== undefined) {
+      out += String.fromCharCode(parseInt(octal, 8));
+      index += octal.length - 1;
+    } else {
+      out += PRINTF_ESCAPES[next] ?? `\\${next}`;
+    }
+  }
+  return out;
+}
+
+const PRINTF_ESCAPES: Record<string, string> = { a: "\x07", b: "\b", e: "\x1b", E: "\x1b", f: "\f", n: "\n", r: "\r", t: "\t", v: "\v", "\\": "\\", '"': '"' };
+
+/** What `printf -v name format args` stores. The format is read the way bash reads it: its
+ *  escapes expand, `%s` takes the argument as written, `%b` expands the argument's escapes,
+ *  and the format repeats while arguments are left over. Null when that cannot be known. */
+export function staticPrintfValue(args: readonly string[]): string | null {
+  if (args.length === 0 || args.some((arg) => /[$`]/.test(arg))) return null;
+  const format = printfEscapes(args[0]!);
+  if (format === null || /%(?![%sb])/.test(format)) return null;
+  const values = args.slice(1);
+  let isUnknown = false;
+  let out = "";
+  let index = 0;
+  let isFirstPass = true;
+  while (isFirstPass || index < values.length) {
+    isFirstPass = false;
+    const firstValue = index;
+    out += format.replace(/%(?:%|s|b)/g, (token) => {
+      if (token === "%%") return "%";
+      const next = values[index++] ?? "";
+      if (token === "%s") return next;
+      const expanded = printfEscapes(next, true);
+      if (expanded === null) isUnknown = true;
+      return expanded ?? "";
+    });
+    // A format with nothing to fill runs once, and one short of arguments still runs once.
+    if (index === firstValue || index >= values.length) break;
+  }
+  return isUnknown ? null : out;
+}
+
+/** `printf -v` and `read` mutate variables for the next segment. A value this reader cannot
+ *  evaluate drops the name, so a later `$name` stays unresolved instead of a stale safe path. */
+export function applySegmentMutations(text: string, variables: VariableMap, requireSafe: boolean, isConditional = false): void {
+  const words = argumentWords(normalizeRedirects(text)).map((word) => word.value);
+  const at = commandIndex(words);
+  const verb = basename(words[at] ?? "");
+  const args = words.slice(at + 1);
+  if (verb === "printf") {
+    const attached = /^-[A-Za-z]*v(.*)$/.exec(args[0] ?? "");
+    let name: string | undefined;
+    let rest: string[] = [];
+    if (args[0] === "-v") {
+      name = args[1];
+      rest = args.slice(2);
+    } else if (attached !== null && attached[1] !== undefined && attached[1].length > 0) {
+      name = attached[1];
+      rest = args.slice(1);
+    }
+    if (name === undefined || !/^[A-Za-z_]\w*$/.test(name)) return;
+    const value = staticPrintfValue(rest);
+    if (value === null || isConditional || (requireSafe && !isSafeExpansion(value))) variables.set(name, null);
+    else variables.set(name, value);
+    return;
+  }
+  if (verb === "read") {
+    for (let index = 0; index < args.length; index++) {
+      const arg = args[index]!;
+      if (arg === "--") continue;
+      if (/^-[A-Za-z]*[dnNpauit]$/.test(arg)) {
+        index++;
+        continue;
+      }
+      if (arg.startsWith("-")) continue;
+      if (/^[A-Za-z_]\w*$/.test(arg)) variables.set(arg, null);
+    }
+  }
+}
+
+/** Each segment's text with `$name` replaced by the value in force when that segment
+ *  runs: a later `f=safe` does not rewrite an earlier `$f`, and a prefix `f=x cmd` never
+ *  rewrites cmd's own `$f`. Empty when the command cannot be read. */
+export function expandedSegments(command: string): string[] {
+  const segments = shellSegments(command);
+  if (segments === null) return [];
+  const scopes = createVariableScope();
+  return segments.map((segment) => {
+    const variables = variablesForSegment(scopes, segment);
+    const expanded = expandDollars(segment.text, variables);
+    applySegmentAssignments(segment.text, variables, true, segment.isConditional);
+    applySegmentMutations(segment.text, variables, true, segment.isConditional);
+    return expanded;
+  });
 }
 
 /** A segment's text with each simple echo/printf substitution replaced by what it prints. */

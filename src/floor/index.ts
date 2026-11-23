@@ -161,7 +161,7 @@ function stageSecrets(cwd: string): FloorResult {
 }
 /** commit-msg: convention + Receipt-Id trailer. No Override-Reason: the floor has no
  *  guard an override can excuse, so any stamped reason would be false history (T19). */
-export function commitMsg(msgFile: string, receiptId: string): FloorResult {
+export function commitMsg(msgFile: string, receiptId: string | (() => string)): FloorResult {
   const lines: string[] = [];
   let content: string;
   try {
@@ -179,7 +179,10 @@ export function commitMsg(msgFile: string, receiptId: string): FloorResult {
   // The Receipt-Id trailer is idempotent: an amend (or the hook firing twice) finds it
   // already there and leaves the message untouched.
   let next = content;
-  if (!next.includes("Receipt-Id:")) next = `${next.trimEnd()}\n\nReceipt-Id: ${receiptId}\n`;
+  if (!next.includes("Receipt-Id:")) {
+    const id = typeof receiptId === "function" ? receiptId() : receiptId;
+    next = `${next.trimEnd()}\n\nReceipt-Id: ${id}\n`;
+  }
   if (next !== content) writeFileSync(msgFile, next);
   return { ok: true, lines };
 }

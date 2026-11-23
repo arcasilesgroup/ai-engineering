@@ -309,3 +309,57 @@ export function pruneEmptyDirectoryWithin(root: string, directory: string): bool
     return false;
   }
 }
+
+/** Whether the open below refuses a link on its own. libuv defines O_NOFOLLOW for POSIX only:
+ *  on Windows the constant is absent (and reads as 0), so the flag disappears from the OR and
+ *  the open follows the link quietly instead of failing. */
+const hasOpenNoFollow = (constants.O_NOFOLLOW ?? 0) !== 0;
+
+function refusesLinkAtOpen(platform: NodeJS.Platform): boolean {
+  return hasOpenNoFollow && platform !== "win32";
+}
+
+/** Refuse a link on the platforms whose open cannot: lstat is Windows' own link test. Throws
+ *  the ELOOP an O_NOFOLLOW open throws on POSIX, so one attack has one answer for every caller.
+ *  `platform` is a seam: it lets the Windows shape be tested from any host. */
+function refuseSymlink(path: string, platform: NodeJS.Platform): void {
+  if (refusesLinkAtOpen(platform)) return;
+  let isLink = false;
+  try {
+    isLink = lstatSync(path).isSymbolicLink();
+  } catch (error) {
+    // Absent: the open below decides, exactly as it does when the flag is present.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+  if (isLink) throw Object.assign(new Error(`ELOOP: too many levels of symbolic links, openSync '${path}'`), { code: "ELOOP", path });
+}
+
+/** A regular file's text, refusing a symlink: a link planted on state the guards keep
+ *  would otherwise be followed into whatever the session points it at. Null when absent. */
+export function readNoFollowFile(path: string, platform: NodeJS.Platform = process.platform): string | null {
+  let descriptor: number;
+  try {
+    refuseSymlink(path, platform);
+    descriptor = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+  try {
+    return readFileSync(descriptor, "utf8");
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+/** Replace a file's text, owner-only, refusing to write through a symlink. */
+export function writeNoFollowFile(path: string, content: string, platform: NodeJS.Platform = process.platform): void {
+  refuseSymlink(path, platform);
+  const descriptor = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0), 0o600);
+  try {
+    writeAll(descriptor, Buffer.from(content, "utf8"));
+  } finally {
+    closeSync(descriptor);
+  }
+}

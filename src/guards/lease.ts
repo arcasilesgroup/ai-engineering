@@ -14,11 +14,11 @@
 // without an id, every call would look like a new session.
 
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { loadConfig } from "../env.ts";
 import type { Payload } from "../payload.ts";
 import type { GuardResult } from "./no-verify.ts";
-import { commandIndex, shellSegments, shellWords } from "./shell.ts";
+import { commandIndex, fileRedirectTargets, inlineShellPrograms, normalizeRedirects, shellSegments, shellWords, stripRedirectWords, type ShellWord } from "./shell.ts";
 
 const MINUTE_MS = 60 * 1000;
 const FILE_WRITES = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
@@ -89,24 +89,19 @@ const UNSURE_CD = /[|()`]|\$\(/;
 /** The folders the git writes in this command act in: the folder `-C` names (each `-C` adds to
  *  the last), else the folder a plain `cd <dir>` before it leads to, else `cwd`. */
 function gitWriteDirs(command: string, cwd: string): string[] {
-  const segments = shellSegments(command);
+  const normalized = normalizeRedirects(command);
+  const segments = shellSegments(normalized);
   if (segments === null) return [];
-  const isCdSure = !UNSURE_CD.test(command);
+  const isCdSure = !UNSURE_CD.test(normalized);
   let dir = cwd;
   const dirs: string[] = [];
   for (const segment of segments) {
-    const words = shellWords(segment.text).filter((word) => !word.isOperator);
+    const words = stripRedirectWords(shellWords(segment.text));
     const values = words.map((word) => word.value);
     const at = commandIndex(values);
     const name = values[at];
     if (name === "cd" || name === "pushd") {
-      const target = words[at + 1];
-      // `cd` alone, `cd -`, a path with `$x`/`*`/`?` in it, or one that starts with `~`: a place
-      // this reading cannot name. A `~` later in the word is a plain letter (`RUNNER~1`, the
-      // short name Windows gives its temp folder); the shell expands only a leading one.
-      const isPlain = target !== undefined && values.length === at + 2 && !/[$*?]/.test(target.unquoted) && !target.unquoted.startsWith("~") && target.value !== "-";
-      if (isCdSure && isPlain && existsSync(resolve(dir, target.value))) dir = resolve(dir, target.value);
-      else if (isCdSure) dir = cwd;
+      dir = nextDir(dir, cwd, isCdSure, words, at);
       continue;
     }
     if (name === undefined || !/(^|[\\/])git(\.exe)?$/.test(name)) continue;
@@ -117,6 +112,143 @@ function gitWriteDirs(command: string, cwd: string): string[] {
       index += GIT_VALUE_OPTIONS.has(values[index]!) ? 2 : 1;
     }
     if (GIT_WRITES.has(values[index] ?? "")) dirs.push(gitDir);
+  }
+  return dirs;
+}
+
+const SHELL_FILE_WRITERS = new Set(["rm", "touch", "mkdir", "truncate", "tee"]);
+const SHELL_DEST_WRITERS = new Set(["cp", "mv"]);
+
+/** Advance `dir` when a segment is a plain `cd`/`pushd` in an unambiguous command. */
+function nextDir(dir: string, cwd: string, isCdSure: boolean, words: ReturnType<typeof shellWords>, at: number): string {
+  const values = words.map((word) => word.value);
+  const target = words[at + 1];
+  // `cd` alone, `cd -`, a path with `$x`/`*`/`?` in it, or one that starts with `~`: a place
+  // this reading cannot name. A `~` later in the word is a plain letter (`RUNNER~1`, the
+  // short name Windows gives its temp folder); the shell expands only a leading one.
+  const isPlain = target !== undefined && values.length === at + 2 && !/[$*?]/.test(target.unquoted) && !target.unquoted.startsWith("~") && target.value !== "-";
+  if (isCdSure && isPlain && existsSync(resolve(dir, target.value))) return resolve(dir, target.value);
+  return isCdSure ? cwd : dir;
+}
+
+function sedInPlaceTargets(args: readonly ShellWord[]): ShellWord[] {
+  let isInPlace = false;
+  let hasScriptFlag = false;
+  let separateInPlaceExt: string | undefined;
+  const positionals: ShellWord[] = [];
+  for (let index = 0; index < args.length; index++) {
+    const word = args[index]!;
+    const value = word.value;
+    if (value === "--") {
+      positionals.push(...args.slice(index + 1));
+      break;
+    }
+    if (/^-[A-Za-z]*i/.test(value) || value.startsWith("--in-place")) {
+      isInPlace = true;
+      if (/^-[A-Za-z]*i$/.test(value)) {
+        const next = args[index + 1];
+        if (next !== undefined && !next.value.startsWith("-")) separateInPlaceExt = next.value;
+      }
+      continue;
+    }
+    if (value === "-e" || value === "-f" || value === "--expression" || value === "--file") {
+      hasScriptFlag = true;
+      index++;
+      continue;
+    }
+    if (/^-[A-Za-z]*[ef]/.test(value) || value.startsWith("--expression=") || value.startsWith("--file=")) {
+      hasScriptFlag = true;
+      continue;
+    }
+    if (value.startsWith("-")) continue;
+    positionals.push(word);
+  }
+  if (!isInPlace) return [];
+  const skipBackupExt = separateInPlaceExt !== undefined && (
+    separateInPlaceExt === "" ||
+    (positionals.length >= (hasScriptFlag ? 2 : 3) && !/[/;\s]/.test(separateInPlaceExt))
+  );
+  const skipCount = (skipBackupExt ? 1 : 0) + (hasScriptFlag ? 0 : 1);
+  return positionals
+    .slice(skipCount)
+    .filter((word) => !word.value.startsWith("/dev/") && !/[$`*?[]/.test(word.unquoted));
+}
+
+/** Options whose next word is a value, never a path (`truncate -s 0 file`, `touch -t <stamp> file`). */
+const WRITER_VALUE_OPTIONS: Record<string, RegExp> = {
+  touch: /^(?:-[A-Za-z]*[trd]|--(?:date|reference|time))$/,
+  mkdir: /^(?:-[A-Za-z]*m|--(?:mode|context))$/,
+  truncate: /^(?:-[A-Za-z]*[sr]|--(?:size|reference))$/,
+  cp: /^(?:-[A-Za-z]*[tS]|--(?:target-directory|suffix|backup|sparse|reflink))$/,
+  mv: /^(?:-[A-Za-z]*[tS]|--(?:target-directory|suffix|backup))$/,
+};
+
+/** The paths a writer verb acts on, once its options and their values are out of the way. */
+function writerPaths(verb: string, args: readonly ShellWord[]): string[] {
+  const takesValue = WRITER_VALUE_OPTIONS[verb];
+  const paths: string[] = [];
+  const add = (word: ShellWord): void => {
+    if (!word.value.startsWith("/dev/") && !/[$`*?[]/.test(word.unquoted)) paths.push(word.value);
+  };
+  for (let index = 0; index < args.length; index++) {
+    const word = args[index]!;
+    if (word.value === "--") {
+      for (const after of args.slice(index + 1)) add(after);
+      break;
+    }
+    if (word.value.startsWith("-")) {
+      if (takesValue?.test(word.value) === true) index++;
+      continue;
+    }
+    add(word);
+  }
+  return paths;
+}
+
+/** The folder a `cp`/`mv` writes into: the `-t`/`--target-directory` folder itself, else the
+ *  folder the last operand names. */
+function copyWriteDir(verb: string, args: readonly ShellWord[]): string | null {
+  for (let index = 0; index < args.length; index++) {
+    const value = args[index]!.value;
+    const kept = value.startsWith("--target-directory=") ? value.slice("--target-directory=".length) : value === "-t" || value === "--target-directory" ? args[index + 1]?.value : undefined;
+    if (kept === undefined) continue;
+    return kept.length > 0 && !kept.startsWith("/dev/") && !/[$`*?[]/.test(kept) ? kept : null;
+  }
+  const last = writerPaths(verb, args).at(-1);
+  return last === undefined ? null : dirname(last);
+}
+
+/** Directories a shell command writes into via redirects (`>`, `>>`) or common file-writing verbs.
+ *  `2>&1`, `>&-`, `/dev/*`, and read commands return nothing. */
+function shellWriteDirs(command: string, cwd: string): string[] {
+  const normalized = normalizeRedirects(command);
+  const segments = shellSegments(normalized);
+  if (segments === null) return [];
+  const isCdSure = !UNSURE_CD.test(normalized);
+  let dir = cwd;
+  const dirs: string[] = [];
+  for (const segment of segments) {
+    const words = shellWords(segment.text);
+    const plain = stripRedirectWords(words);
+    const values = plain.map((word) => word.value);
+    const at = commandIndex(values);
+    const verb = basename(values[at] ?? "");
+    if (verb === "cd" || verb === "pushd") {
+      dir = nextDir(dir, cwd, isCdSure, plain, at);
+      continue;
+    }
+    for (const target of fileRedirectTargets(words)) {
+      if (!/[$`*?[]/.test(target.unquoted)) dirs.push(dirname(resolve(dir, target.value)));
+    }
+    const args = plain.slice(at + 1);
+    if (SHELL_FILE_WRITERS.has(verb)) {
+      for (const target of writerPaths(verb, args)) dirs.push(dirname(resolve(dir, target)));
+    } else if (SHELL_DEST_WRITERS.has(verb)) {
+      const destination = copyWriteDir(verb, args);
+      if (destination !== null) dirs.push(resolve(dir, destination));
+    } else if (verb === "sed") {
+      for (const target of sedInPlaceTargets(args)) dirs.push(dirname(resolve(dir, target.value)));
+    }
   }
   return dirs;
 }
@@ -171,9 +303,13 @@ function writtenCheckouts(payload: Payload, root: string): string[] {
   if (FILE_WRITES.has(payload.tool_name)) {
     const target = targetPath(payload);
     dirs = [target === null ? cwd : dirname(resolve(cwd, target))];
-  } else if (payload.tool_name === "Bash" || payload.tool_name === "PowerShell") {
+  } else if (payload.tool_name === "Bash" || payload.tool_name === "PowerShell" || payload.tool_name === "shell" || payload.tool_name === "command") {
     const command = payload.tool_input["command"];
-    dirs = typeof command === "string" ? gitWriteDirs(command, cwd) : [];
+    if (typeof command !== "string") dirs = [];
+    else {
+      const programs = [command, ...inlineShellPrograms(command)];
+      dirs = programs.flatMap((program) => [...gitWriteDirs(program, cwd), ...shellWriteDirs(program, cwd)]);
+    }
   } else {
     return [];
   }

@@ -19,7 +19,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { join, posix } from "node:path";
 import { homedir, tmpdir } from "node:os";
-import { quotedSpanEnd, rawShellWords } from "./shell.ts";
+import { commandIndex, expandedSegments, inlineShellPrograms, normalizeRedirects, quotedSpanEnd, rawShellWords, shellWords, stripRedirectWords } from "./shell.ts";
 
 /** What every install and new project gets while config.toml says nothing. System read
  *  includes the paths this file calls sensitive (~/.ssh, .env, *.pem): reading them is
@@ -193,8 +193,7 @@ const NETWORK_WRITE = (segment: string): boolean =>
 
 /** curl | bash — the network-execute form. */
 const NETWORK_EXECUTE = (segment: string): boolean =>
-  (segment.includes("| bash") ||
-    segment.includes("| sh") ||
+  (/\|[ \t]*(bash|sh|zsh)\b/.test(segment) ||
     segment.includes("eval ") ||
     segment.includes("source <(") ||
     segment.includes("bash -c $(") ||
@@ -317,7 +316,7 @@ function bareOperatorIndex(text: string, operators: string): number {
   return -1;
 }
 
-const ASSIGNMENT = /^[a-z_]\w*=/;
+const ASSIGNMENT = /^[a-z_]\w*\+?=/;
 
 /** The quoted spans of `text` that carry plain data — no `$`, no backtick, no way
  *  to expand into an argument — become one space: the shapes read the shell the
@@ -340,27 +339,39 @@ function blankDataQuotedSpans(text: string): string {
   return out;
 }
 
-function scanSegment(mask: { value: number }, written: string, cwd: string): void {
+function commandLead(written: string): string {
+  const words = stripRedirectWords(shellWords(normalizeRedirects(written)));
+  const values = words.map((word) => word.value);
+  const at = commandIndex(values);
+  const names = values.slice(0, at).map((word) => word.split("/").pop() ?? word);
+  const rest = words
+    .slice(at)
+    .map((word, index) => (index > 0 && word.isQuoted && !/[$`]/.test(word.value) ? " " : word.value))
+    .join(" ");
+  // A privilege wrapper is a prefix to commandIndex, and it is the thing this guard has to see.
+  if (names.some((name) => name === "sudo" || name === "doas" || name === "su")) return `sudo ${rest}`.trim();
+  return rest;
+}
+
+function scanSegment(mask: { value: number }, written: string, cwd: string, isExpanded = false): void {
+  const lead = commandLead(written);
   const words = rawShellWords(written);
   const verbAt = words.findIndex((word) => !ASSIGNMENT.test(word));
   // The shapes read `git push` however it is spelled: `/usr/bin/git push` and
   // `TMPDIR=x git push` run the same program (policy.rs reads neither as git push).
-  const segment = written.replace(/^(?:[a-z_]\w*=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
+  const segment = written.replace(/^(?:[a-z_]\w*\+?=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
   // The shapes judge the shell the command runs; quoted data (a `-m` message) is
   // not shell. Path tokens below keep their raw words: `rm "~/.ssh/id"` stays a
   // sensitive write.
   const text = blankDataQuotedSpans(segment);
-  if (SYSTEM_EXECUTE(text)) addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
-  if (SYSTEM_WRITE(text)) addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
+  if (SYSTEM_EXECUTE(text) || SYSTEM_EXECUTE(lead)) addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
+  if (SYSTEM_WRITE(text) || SYSTEM_WRITE(lead)) addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
   // The network shapes look for a URL anywhere, so they also read the prefix the
   // stripping drops: `X=https://… fetch $X | bash` keeps its URL there.
   const either = (shape: (segment: string) => boolean): boolean => shape(blankDataQuotedSpans(written)) || shape(text);
   if (either(NETWORK_READ)) addMode(mask, SCOPE_NETWORK, PERM_READ);
-  if (either(NETWORK_WRITE)) {
-    addMode(mask, SCOPE_NETWORK, PERM_WRITE);
-  } else if (either(NETWORK_EXECUTE)) {
-    addMode(mask, SCOPE_NETWORK, PERM_EXECUTE);
-  }
+  if (either(NETWORK_WRITE)) addMode(mask, SCOPE_NETWORK, PERM_WRITE);
+  if (either(NETWORK_EXECUTE)) addMode(mask, SCOPE_NETWORK, PERM_EXECUTE);
   if (RE_ROOT_DELETE.test(text) || RE_DEVICE_WRITE.test(text)) {
     addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
   }
@@ -372,9 +383,9 @@ function scanSegment(mask: { value: number }, written: string, cwd: string): voi
   // (`then /bin/rm …`), an env prefix or an absolute path.
   const writerShape = text
     .replace(/^(?:(?:then|do|else|elif|if|while|until|time|!|\{|\()\s+)+/, "")
-    .replace(/^(?:[a-z_]\w*=\S*\s+)*/, "")
+    .replace(/^(?:[a-z_]\w*\+?=\S*\s+)*/, "")
     .replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
-  if (WRITES(writerShape)) {
+  if (WRITES(writerShape) || WRITES(lead)) {
     pathPermissions = PERM_READ | PERM_WRITE;
     flags = 1;
   } else if (WRITES_MESSAGE_VERBS(writerShape)) {
@@ -388,6 +399,13 @@ function scanSegment(mask: { value: number }, written: string, cwd: string): voi
   const judgeRedirect = (target: string, permissions: number, isDuplicate: boolean): void => {
     // `2>&1`, `<&0` and `>&-` copy or close a descriptor: they name no file.
     if (isDuplicate && /^(\d+|-)$/.test(target)) return;
+    // A target the expansion could not resolve is not a known path: the name could have been
+    // set in a branch the guards cannot read, so it is judged where it could land.
+    if (isExpanded && /[$`]/.test(target)) {
+      addMode(mask, SCOPE_SYSTEM, permissions);
+      flags = 3;
+      return;
+    }
     addPath(mask, target, permissions, cwd);
     flags = 3;
   };
@@ -454,9 +472,18 @@ function scanScript(script: string, cwd: string): number {
   // A command substitution runs a command of its own: its body is judged as one more
   // segment, while the segment around it stays whole so its writer still sees every path.
   const substitutions = [...joined.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)].map((match) => match[1] ?? match[2] ?? "");
-  const normalized = [joined, ...substitutions].join("\n").replaceAll("&&", "\n").replaceAll("||", "\n").replaceAll(";", "\n");
-  for (const segment of normalized.split("\n").map((s) => s.trim())) {
-    if (segment.length > 0) scanSegment(mask, segment, cwd);
+  const expansions = expandedSegments(script);
+  const bodies = expansions.flatMap((text) => inlineShellPrograms(text));
+  const written = [joined, ...substitutions];
+  const resolved = [...expansions, ...bodies, ...bodies.flatMap(expandedSegments)];
+  const pieces = (texts: string[], isExpanded: boolean): Array<{ text: string; isExpanded: boolean }> =>
+    texts
+      .flatMap((text) => text.replaceAll("&&", "\n").replaceAll("||", "\n").replaceAll(";", "\n").split("\n"))
+      .map((text) => ({ text: text.trim(), isExpanded }));
+  // Only the expanded pass knows which names the reader could not resolve; the text as
+  // written still carries every `$name` the shell may fill in.
+  for (const piece of [...pieces(written, false), ...pieces(resolved, true)]) {
+    if (piece.text.length > 0) scanSegment(mask, piece.text, cwd, piece.isExpanded);
   }
   return mask.value;
 }

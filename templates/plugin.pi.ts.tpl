@@ -22,16 +22,16 @@ export default function (pi: ExtensionAPI): void {
       { surface: "pi" },
     );
     if (outcome.action === "deny") return { block: true, reason: `[ai-eng] ${outcome.by}: ${outcome.reason}` };
+    if (outcome.action === "review") process.stderr.write(`[ai-eng] ${outcome.by}: ${outcome.reason}\n`);
     // pi applies input mutations to the real tool call — that is the rewrite arm.
     if (outcome.action === "rewrite") event.input["command"] = outcome.command;
-    if (outcome.action === "review") process.stderr.write(`[ai-eng] injection: ${outcome.reason}\n`);
     return;
   });
 
   pi.on("tool_result", (event, ctx) => {
     const outcome = chain(
       "PostToolUse",
-      { tool_name: event.toolName, tool_input: event.input, tool_response: textOf(event.content), tool_use_id: event.toolCallId, cwd: ctx.cwd },
+      { tool_name: event.toolName, tool_input: event.input, tool_response: { text: textOf(event.content), isError: (event as { isError?: boolean }).isError === true }, tool_use_id: event.toolCallId, cwd: ctx.cwd },
       { surface: "pi" },
     );
     if (outcome.action === "deny") {
@@ -40,7 +40,7 @@ export default function (pi: ExtensionAPI): void {
       return { content: [{ type: "text", text: `[ai-eng] ${outcome.by}: ${outcome.reason}` }], isError: true };
     }
     if (outcome.action === "review") {
-      const note = `[ai-eng] injection: ${outcome.reason}`;
+      const note = `[ai-eng] ${outcome.by}: ${outcome.reason}`;
       process.stderr.write(`${note}\n`);
       return { content: [{ type: "text", text: note }, ...event.content] };
     }

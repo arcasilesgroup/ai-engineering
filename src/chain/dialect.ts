@@ -78,7 +78,9 @@ export function allowRewrite(command: string, dialect: Dialect = "claude", event
  *  is read as a policy error and the call is refused: a permitted call that reads as a
  *  failure, which this branch exists to prevent.
  *  Codex documents silence with exit 0 as success, and Claude, Pi and the in-process
- *  hosts never read stdout for an allow — so they get nothing, on purpose. */
+ *  hosts never read stdout for an allow — so they get nothing there, on purpose. The note a
+ *  review carries is not delivered here: `review` below speaks it, on stderr and on the
+ *  channel each host actually renders. */
 export function allow(dialect: Dialect = "claude"): void {
   if (dialect !== "cursor") return;
   process.stdout.write(`${JSON.stringify({ permission: "allow" })}\n`);

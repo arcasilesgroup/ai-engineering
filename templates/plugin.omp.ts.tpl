@@ -7,7 +7,7 @@
 // carries a copy.
 import { chain } from "./.ai-eng-chain.ts";
 
-type ToolCall = { toolName: string; input: Record<string, unknown>; sessionID?: string; callID?: string };
+type ToolCall = { toolName: string; input: Record<string, unknown>; sessionID?: string; callID?: string; isError?: boolean };
 type Part = { type?: string; text?: string };
 
 /** The tool's own output as text: the injection guard's containment arm reads it. */
@@ -28,8 +28,8 @@ export default function (pi: { on: (event: string, handler: (event: never, ctx: 
       { surface: "oh-my-pi" },
     );
     if (outcome.action === "deny") return { block: true, reason: `[ai-eng] ${outcome.by}: ${outcome.reason}` };
+    if (outcome.action === "review") process.stderr.write(`[ai-eng] ${outcome.by}: ${outcome.reason}\n`);
     if (outcome.action === "rewrite") return { input: { ...call.input, command: outcome.command } };
-    if (outcome.action === "review") process.stderr.write(`[ai-eng] injection: ${outcome.reason}\n`);
     return undefined;
   });
 
@@ -38,7 +38,7 @@ export default function (pi: { on: (event: string, handler: (event: never, ctx: 
     const context = ctx as unknown as { cwd?: string };
     const outcome = chain(
       "PostToolUse",
-      { tool_name: call.toolName, tool_input: call.input, tool_response: textOf(call.content), session_id: call.sessionID, tool_use_id: call.callID, cwd: context.cwd },
+      { tool_name: call.toolName, tool_input: call.input, tool_response: { text: textOf(call.content), isError: call.isError === true }, session_id: call.sessionID, tool_use_id: call.callID, cwd: context.cwd },
       { surface: "oh-my-pi" },
     );
     if (outcome.action === "deny") {
@@ -47,7 +47,7 @@ export default function (pi: { on: (event: string, handler: (event: never, ctx: 
       return { content: [{ type: "text", text: `[ai-eng] ${outcome.by}: ${outcome.reason}` }], isError: true };
     }
     if (outcome.action === "review") {
-      const note = `[ai-eng] injection: ${outcome.reason}`;
+      const note = `[ai-eng] ${outcome.by}: ${outcome.reason}`;
       process.stderr.write(`${note}\n`);
       return { content: [{ type: "text", text: note }, ...(call.content ?? [])] };
     }

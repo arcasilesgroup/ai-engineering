@@ -21,6 +21,8 @@ export interface LocalRule {
   /** The pattern to match — case-insensitive contains, or case-insensitive equals. */
   pattern: string;
   caseSensitive?: boolean;
+  /** config.toml spells the same flag case_sensitive. Either name turns case off. */
+  case_sensitive?: boolean;
   action: LocalRuleAction;
   /** 0–1 risk score. Higher = more severe. Used for priority ordering. */
   risk: number;
@@ -33,8 +35,8 @@ export interface LocalRuleResult {
 
 const MAX_TRAVERSED_VALUES = 50_000;
 
-/** Collect all string values from a nested object/ array (depth-first, capped). */
-function collectStrings(value: unknown, output: string[]): void {
+/** Collect all string values from a nested object/array (depth-first, capped). */
+export function collectStrings(value: unknown, output: string[]): void {
   const pending = [value];
   const seen = new WeakSet<object>();
   let traversed = 0;
@@ -84,9 +86,16 @@ const MAX_REGEX_SUBJECT = 10_000;
  *  (tests, embedders) gets the same protection as config does. */
 const patternSafety = new Map<string, boolean>();
 
+function isCaseSensitive(rule: LocalRule): boolean {
+  if (rule.caseSensitive === true) return true;
+  const snake = (rule as { case_sensitive?: boolean }).case_sensitive;
+  return snake === true;
+}
+
 function matches(rule: LocalRule, candidate: string): boolean {
-  const left = rule.caseSensitive ? candidate : candidate.toLowerCase();
-  const right = rule.caseSensitive ? rule.pattern : rule.pattern.toLowerCase();
+  const sensitive = isCaseSensitive(rule);
+  const left = sensitive ? candidate : candidate.toLowerCase();
+  const right = sensitive ? rule.pattern : rule.pattern.toLowerCase();
   if (rule.match === "equals") return left === right;
   // Support both literal contains and regex patterns.
   // Patterns starting with special chars or containing regex syntax are treated as regex.
@@ -99,7 +108,7 @@ function matches(rule: LocalRule, candidate: string): boolean {
         patternSafety.set(rule.pattern, isSafe);
       }
       if (!isSafe) return left.includes(right);
-      const flags = rule.caseSensitive ? "" : "i";
+      const flags = sensitive ? "" : "i";
       // Bounded subject: even a screened pattern is never handed an unbounded haystack.
       const subject = candidate.length > MAX_REGEX_SUBJECT ? candidate.slice(0, MAX_REGEX_SUBJECT) : candidate;
       return new RegExp(rule.pattern, flags).test(subject);
@@ -118,7 +127,7 @@ export function evaluateLocalRules(payload: Payload, rules: LocalRule[]): LocalR
   const allText: string[] = [];
   const toolNames: string[] = [];
   collectStrings(payload.tool_input, allText);
-  if (typeof payload.tool_response === "string") allText.push(payload.tool_response);
+  collectStrings(payload.tool_response, allText);
   collectToolNames(payload.tool_input, toolNames);
   // Also include the payload's top-level tool_name for tool_name scope matching.
   if (typeof payload.tool_name === "string" && payload.tool_name.length > 0) {
