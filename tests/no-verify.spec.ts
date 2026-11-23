@@ -335,7 +335,12 @@ describe("checkContent", () => {
   });
 
   test("offers no override, because only the loop guard reads that file", () => {
-    expect(checkContent(LINE_DISABLE)?.reason).not.toContain("overrides.toml");
+    const result = checkContent(LINE_DISABLE);
+    expect(result?.deny).toBe(true);
+    if (result?.deny) {
+      expect(result.reason).toContain("No override covers this guard");
+      expect(result.reason).not.toContain("overrides.toml");
+    }
   });
 
   test("allows the prettier carve-out", () => {
