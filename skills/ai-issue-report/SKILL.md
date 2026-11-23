@@ -64,7 +64,7 @@ keep this skill's gate as the last step before publishing.
 1. The governed post-mortem lives at `.ai-engineering/reports/NNN-{slug}.html` — readable
    without session context; the NNN numbering is never rewritten. It is styled by the
    artifact design system — [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md) — never by a
-   stylesheet invented for the report.
+   stylesheet invented for the report. Copy `templates/research.html.tpl` and fill its sections; write no CSS and no script.
 2. It is immune while DECISIONS.md cites it; uncited, it expires to gc (§21.3) — history is
    not rewritten, it is archived in git.
 3. The gate (paths/PII/secrets) runs on ANY text destined to leave a governed repo — it is

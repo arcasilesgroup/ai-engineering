@@ -19,7 +19,7 @@ Every `[[guard.off]]` block in the proposal has `name`, `reason` and `until` (a 
 
 ## The shell
 
-The page uses the artifact design system in [ai-brainstorm › references/artifact-design.md](../../ai-brainstorm/references/artifact-design.md). Copy that document's whole CSS block and the scroll-spy script verbatim: tokens, layout rules and components. Do not invent a second style.
+The page uses the artifact design system in [ai-brainstorm › references/artifact-design.md](../../ai-brainstorm/references/artifact-design.md). Copy `templates/research.html.tpl` and fill its sections; write no CSS and no script. The template already carries the brand styles and the scroll-spy. Do not invent a second style.
 
 ## After the yes
 

@@ -2,11 +2,11 @@
  * The nav highlight is a behaviour, not a colour. `nav a.active` is painted in
  * the artifact shell, and docs/history/blueprint.html is the one page that actually
  * toggles it while scrolling. recap, brainstorm and research copy the shell
- * (the templates, plus the script block in artifact-design.md) and used to
- * ship the paint without the listener, so the titles never selected.
+ * and used to ship the paint without the listener, so the titles never selected.
  *
- * The design doc owns the script. The templates must carry the same bytes,
- * because an agent that fills a template never re-reads the doc.
+ * brand/components.js owns the script. gen splices it into every template, and
+ * the templates must carry the same bytes, because an agent fills a template and
+ * writes no script of its own.
  */
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
@@ -14,19 +14,23 @@ import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..");
 
-const SHELLS = ["templates/recap.html.tpl", "templates/brainstorm.html.tpl", "templates/research.html.tpl", "templates/triage.html.tpl"] as const;
-
 function read(path: string): string {
   return readFileSync(join(ROOT, path), "utf8");
 }
 
-/** The script the design doc tells every artifact writer to copy before </body>. */
+/** Every template whose navigation links to its own sections, found by glob. */
+const SHELLS = readdirSync(join(ROOT, "templates"))
+  .filter((name) => name.endsWith(".html.tpl"))
+  .map((name) => `templates/${name}`)
+  .filter((path) => hasSectionNavigation(read(path)))
+  .sort();
+
+/** The scroll-spy function in brand/components.js: its comment through the IIFE's close. */
 function scrollSpyScript(): string {
-  const design = read("skills/ai-brainstorm/references/artifact-design.md");
-  const fenced = design.match(/```html\r?\n(<script>\r?\n\/\* scroll-spy:[\s\S]*?<\/script>)\r?\n```/);
-  const script = fenced?.[1];
+  const source = read("brand/components.js");
+  const script = /\/\* scroll-spy:[\s\S]*?\n\}\)\(\);\n/.exec(source)?.[0];
   if (script === undefined) {
-    throw new Error("artifact-design.md has no scroll-spy script to copy before </body>");
+    throw new Error("brand/components.js has no scroll-spy function");
   }
   return script;
 }
@@ -89,8 +93,7 @@ function install(script: string, tops: Map<string, number>, check: (links: SpyLi
   try {
     // The listener reads `document` when scroll fires, so the fake stays up
     // for the whole check. Restoring it first is what made the spy a no-op.
-    const body = script.replace(/^<script>\n/, "").replace(/\n<\/script>$/, "");
-    new Function(body)();
+    new Function(script)();
     check(links, onScroll);
   } finally {
     Object.assign(globalThis, { document: previousDocument, window: previousWindow });
@@ -126,8 +129,9 @@ function htmlWithSectionNav(): string[] {
 }
 
 describe("artifact scroll-spy", () => {
-  test("the design doc owns the script, and both shells embed those exact bytes", () => {
+  test("brand/components.js owns the script, and every shell embeds those exact bytes", () => {
     const script = scrollSpyScript();
+    expect(SHELLS.length).toBeGreaterThan(0);
     const drifted = SHELLS.filter((path) => !read(path).includes(script));
     expect(drifted).toEqual([]);
   });

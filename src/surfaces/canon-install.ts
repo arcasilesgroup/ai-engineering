@@ -1,5 +1,5 @@
 // src/surfaces/canon-install.ts — install the global canon once per machine (~/.ai-engineering)
-// and mirror it into the hosts' skill folders: the skills, the agents, the per-skill slash
+// and mirror it into the hosts' skill folders: the skills, the agents, the page templates, the per-skill slash
 // commands and the links that point from ~/.claude/skills, ~/.agents/skills and OpenCode's
 // skill dir into the canon. The mirror rule everywhere is the same: ai-eng writes or rewrites
 // only what is provably its own; a link or a file of the user's is kept and named, never
@@ -10,7 +10,7 @@ import { cpSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, 
 import { basename, dirname, join, resolve } from "node:path";
 import { home, machineBase, versionFile } from "../env.ts";
 import {
-  materializeSkills, materializeAgents, materializeScripts, removeStaleCanonFiles,
+  materializeSkills, materializeAgents, materializeScripts, materializeTemplates, removeStaleCanonFiles,
   recordCanonOwnership, recordedMachinePaths, removeMachineEntry, embeddedUnder, isVersionCacheRecord, safeProjectPath, readProjectFileSnapshot, writeProjectFile,
   refusedStaleCanonText, refusedChangeText, isFilesystemRefusal,
 } from "../embed.ts";
@@ -80,6 +80,11 @@ export function installCanon(version: string): string[] {
   const leftCommands = [...aiEngSkills]
     .filter((name) => !pathEntryExists(join(canonDir, name)) && isRegularFile(join(commandsDir, `${name}.md`)))
     .map((name) => `skills/${name}`);
+  // Before the record: a template this run wrote is named as ai-eng's, and a refusal here is a
+  // warning, so one blocked file never stops the record or the lock the caller writes after.
+  const templateLines = materializeTemplates(join(home(), "templates"));
+  if (templateLines.some((line) => line.startsWith("materialized "))) lines.push(`✓ ${home()}/templates/ — HTML templates installed`);
+  lines.push(...warningsOf(templateLines));
   const recordRefusal = recordCanonOwnership(home(), [...leftInMirror, ...leftCommands]);
   if (recordRefusal !== null) lines.push(`⚠ ${recordRefusal}`);
   const scriptLines = materializeScripts(join(home(), "scripts"));

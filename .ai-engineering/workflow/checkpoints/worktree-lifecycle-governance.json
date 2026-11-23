@@ -10,6 +10,10 @@
     "app_review": "not-started",
     "reviewed_main": null
   },
+  "halted": {
+    "reason": "Not this session's feature: left in implementation by an earlier run with CP6 review and CP10 behavior/ui failed. A person decides whether to resume or drop it.",
+    "checkpoint": 6
+  },
   "checkpoints": [
     {
       "id": 1,
@@ -652,7 +656,7 @@
             "F3 (MEDIUM): skills/ai-brainstorm/SKILL.md:303-304 promises a second plan-approval stop, contradicting the orchestrator. Update the handoff contract and add a cross-skill regression assertion.",
             "Round 3: F2 and F3 resolved. F1 remains open: scripts/checkpoint-gate.py:758-790, 578-625 accepts a prior plan with any checkpoints list without verifying matching slug/path or valid checkpoint shape, allowing a wrong-slug prior plan to authorize approval.",
             "F4 (MEDIUM): tests/workflow-handoff.spec.ts:215-275 checks corrected brainstorm handoff text but not absence of obsolete STOP 1/two-stops wording; add a negative assertion so contradictory plan-stop text cannot be reintroduced.",
-            "Adversarial review attempt 1 reached the four-round cap. F2, F3, and F4 resolved. F1 remains open: scripts/checkpoint-gate.py:756-765 and tests/test_checkpoint_gate.py:389-408 accept a matching same-slug prior plan with an empty checkpoints list or [\u007b\"id\":1\u007d], because legacy detection checks sequential IDs but not full checkpoint structure. Reject malformed/empty legacy plans before allowing pending lifecycle creation or approval.",
+            "Adversarial review attempt 1 reached the four-round cap. F2, F3, and F4 resolved. F1 remains open: scripts/checkpoint-gate.py:756-765 and tests/test_checkpoint_gate.py:389-408 accept a matching same-slug prior plan with an empty checkpoints list or [{\"id\":1}], because legacy detection checks sequential IDs but not full checkpoint structure. Reject malformed/empty legacy plans before allowing pending lifecycle creation or approval.",
             "Adversarial review attempt 2 PASS in round 1: F1-F4 resolved, 0 findings withdrawn/arbitrated/open."
           ]
         }
@@ -722,11 +726,7 @@
       "ui": {
         "route": "/.ai-engineering/workflow/checkpoints/overview.html",
         "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
-        "scope": [
-          "app-header",
-          "project-explorer",
-          "loading-state"
-        ],
+        "scope": "app-header,project-explorer,loading-state",
         "states": [
           "loading-projects"
         ]
@@ -935,32 +935,7 @@
       "ui": {
         "route": "/.ai-engineering/workflow/checkpoints/overview.html",
         "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
-        "scope": [
-          "app-header",
-          "project-explorer",
-          "explorer-resize-handle",
-          "project-tree",
-          "main-pane",
-          "all-projects-view",
-          "project-overview",
-          "project-summary",
-          "project-documents",
-          "project-worktrees",
-          "project-history",
-          "summary",
-          "project-roots",
-          "attention-list",
-          "settings-trigger",
-          "settings-dialog",
-          "settings-guidance",
-          "settings-root-list",
-          "settings-add-root",
-          "settings-validation",
-          "loading-state",
-          "empty-state",
-          "error-state",
-          "action-feedback"
-        ],
+        "scope": "app-header,project-explorer,explorer-resize-handle,project-tree,main-pane,all-projects-view,project-overview,project-summary,project-documents,project-worktrees,project-history,summary,project-roots,attention-list,settings-trigger,settings-dialog,settings-guidance,settings-root-list,settings-add-root,settings-validation,loading-state,empty-state,error-state,action-feedback",
         "states": [
           "all-projects-dashboard",
           "ai-engineering-project-overview",
@@ -1119,50 +1094,7 @@
       "ui": {
         "route": "/.ai-engineering/workflow/checkpoints/overview.html",
         "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
-        "scope": [
-          "app-header",
-          "project-explorer",
-          "explorer-resize-handle",
-          "project-tree",
-          "main-pane",
-          "all-projects-view",
-          "project-overview",
-          "project-summary",
-          "project-documents",
-          "project-worktrees",
-          "project-history",
-          "summary",
-          "project-roots",
-          "attention-list",
-          "settings-trigger",
-          "settings-dialog",
-          "settings-guidance",
-          "settings-root-list",
-          "settings-add-root",
-          "settings-validation",
-          "loading-state",
-          "empty-state",
-          "error-state",
-          "action-feedback",
-          "header-context",
-          "feature-viewer",
-          "viewer-header",
-          "status-banner",
-          "journey",
-          "checkpoint-card",
-          "checkpoint-findings",
-          "technical-details",
-          "assumptions",
-          "notes",
-          "ide-action",
-          "viewer-empty",
-          "lifecycle-record-detail",
-          "document-preview",
-          "document-content",
-          "document-scope-note",
-          "copy-path-action",
-          "mobile-explorer-back"
-        ],
+        "scope": "app-header,project-explorer,explorer-resize-handle,project-tree,main-pane,all-projects-view,project-overview,project-summary,project-documents,project-worktrees,project-history,summary,project-roots,attention-list,settings-trigger,settings-dialog,settings-guidance,settings-root-list,settings-add-root,settings-validation,loading-state,empty-state,error-state,action-feedback,header-context,feature-viewer,viewer-header,status-banner,journey,checkpoint-card,checkpoint-findings,technical-details,assumptions,notes,ide-action,viewer-empty,lifecycle-record-detail,document-preview,document-content,document-scope-note,copy-path-action,mobile-explorer-back",
         "states": [
           "worktree-feature-viewer",
           "azure-feature-viewer",

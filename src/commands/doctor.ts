@@ -81,11 +81,10 @@ async function checkMirrors(root: string | null): Promise<CheckResult | null> {
 }
 
 function checkCanon(): CheckResult {
-  // 4. Canon: the machine's ~/.ai-engineering/skills must byte-match the binary's
-  //    embedded payload. The repo lock never contains skills (it lists hooks,
-  //    settings, config), so filtering the lock by skills/ counts 0 forever.
-  //    Same predicate as materializeSkills: the dot-entries (chain bundle) are
-  //    payload, not canon, so they are neither verified nor counted.
+  // 4. Canon: skills and page templates must byte-match the binary's payload.
+  //    The repo lock never contains skills (it lists hooks, settings, config), so
+  //    filtering the lock by skills/ counts 0 forever. A skills folder that matches
+  //    with templates missing is still incomplete: canonDrift counts both.
   const canon = canonDrift(home());
   const canonTotal = canon.verified + canon.drift + canon.missing;
   // A canon can be complete and dirty at once: an orphan is invisible to a payload

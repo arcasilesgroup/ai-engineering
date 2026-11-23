@@ -109,6 +109,20 @@ jobs:
         run: bun audit --audit-level=high
 
 
+  # The browser half of the accessibility gate, on its own job: `bun test` must still
+  # pass on a machine with no Chrome, and this job's failure should read "a page broke
+  # in a browser" without hiding the rest of the suite. Chrome is preinstalled on the
+  # hosted runner; the gate drives it through `channel: "chrome"` and downloads nothing.
+  a11y:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: npm install -g bun@1.4.4
+      - run: bun install --frozen-lockfile
+      - name: axe-core, the tab keyboard pattern, reflow and the no-script reading
+        run: bun run a11y
+
   # The two gates that need an external account (SONAR_TOKEN, SNYK_TOKEN). A fork PR is
   # handed no secret, and a job-level `if` cannot read one, so the tokens are probed in
   # a step and the jobs are SKIPPED when they are absent — never run green as if they

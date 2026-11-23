@@ -220,8 +220,8 @@ confidence from validated signals and their coverage, independently of
 assessment prose; without signals it displays the assessment's Why now and
 confidence basis. Use recent comments on the item and direct parent/child context
 to explain timing or dependencies, but distinguish a comment's claim from
-verified facts. The writer uses the shared
-`templates/triage.html.tpl` shell and the Azure-specific scope, ranked work-item,
+verified facts. The writer copies the shared
+`templates/triage.html.tpl` shell, writing no CSS and no script, and fills the Azure-specific scope, ranked work-item,
 type/state and method sections. Each ranked item's expanded details renders its parent,
 the backlog item and any children as a hierarchy, with connectors and one indentation
 level per parent-to-item and item-to-child edge; related items remain context and never

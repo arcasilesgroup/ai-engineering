@@ -36,4 +36,9 @@ tavily, exa, context7, mantis, skill-map.
 Runtime dependencies: @clack/prompts (MIT), fast-wrap-ansi (MIT).
 Dev dependencies: @changesets/changelog-github (MIT), @changesets/cli (MIT),
 @hughescr/stryker-bun-runner (Apache-2.0), @stryker-mutator/core (Apache-2.0),
-@types/bun (MIT), oxlint (MIT), oxlint-tsgolint (MIT).
+@types/bun (MIT), axe-core (MPL-2.0), oxlint (MIT), oxlint-tsgolint (MIT),
+playwright-core (Apache-2.0).
+
+axe-core is a dev dependency only: `bun run a11y` injects its source into each page it
+opens and ships no copy of it. playwright-core drives the system Chrome and downloads
+no browser; neither package is bundled into the published tarball.

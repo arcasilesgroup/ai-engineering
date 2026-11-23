@@ -1,0 +1,114 @@
+{
+  "feature": "Brand design system",
+  "slug": "brand-design-system",
+  "order": ["unit", "cli", "browser"],
+  "gating": "Run layers in order. Do not run a layer until every case in the layer before it passes. There is no API and no web app: unit covers every pure function and every file the generator or installer writes; cli runs the generator, the brand gates, typecheck and lint; browser is checkpoint 6's axe-core lane only, outside bun test.",
+  "conventions": [
+    "Every test command runs from the repo root as `TMPDIR=/private/tmp/t-runs bun test <file>` (create the folder first).",
+    "Assert exact bytes and exact messages, never presence alone; each refusing case is proven by mutating a copy, never the committed file (R1).",
+    "Lists of templates, carriers and shells come from a glob of templates/*.html.tpl (plus brand/gallery.html.tpl from checkpoint 5), never a hand list (R7, R35).",
+    "Generator runs point AI_ENGINEERING_WEB_DIR at a scratch folder, so the older website drift stays out of the result (R37).",
+    "Install cases run against a scratch home from the existing useHome helper in tests/carriers-install.spec.ts, never the real home (R41)."
+  ],
+  "layers": {
+    "unit": [
+      { "id": "U1", "checkpoint": 1, "file": "tests/brand-templates.spec.ts", "case": "spliceBrandRegions replaces exactly the bytes between `/* brand:begin */` and `/* brand:end */` with brand/components.css; the result equals a hand-built expected string byte for byte" },
+      { "id": "U2", "checkpoint": 1, "file": "tests/brand-templates.spec.ts", "case": "the brand:js region becomes one classic `<script>` (no type=module) holding brand/components.js byte for byte between `<!-- brand:js:begin -->` and `<!-- brand:js:end -->`" },
+      { "id": "U3", "checkpoint": 1, "file": "tests/brand-templates.spec.ts", "case": "bytes before, between and after the two regions, `{{placeholders}}` included, are byte-identical after a splice" },
+      { "id": "U4", "checkpoint": 1, "file": "tests/brand-templates.spec.ts", "case": "splicing the committed brainstorm.html.tpl with today's brand/components.css and components.js returns the committed bytes, and splicing twice equals splicing once" },
+      { "id": "U5", "checkpoint": 1, "file": "tests/brand-templates.spec.ts", "case": "a missing, doubled or reversed marker, for the css pair and for the js pair (six fixtures), throws an error whose exact message names the file and the marker" },
+      { "id": "U6", "checkpoint": 1, "file": "tests/brand-templates.spec.ts", "case": "a refused splice inside gen leaves the scratch template byte-identical on disk (no partial write)" },
+      { "id": "U7", "checkpoint": 1, "file": "tests/brand-templates.spec.ts", "case": "templateDrift() is empty for the committed tree, and the set it covers equals the glob of marked templates/*.html.tpl" },
+      { "id": "U8", "checkpoint": 1, "file": "tests/brand-templates.spec.ts", "case": "a one-byte edit inside the brainstorm region of a copy makes templateDrift() return exactly that file; a one-byte edit outside the markers survives gen byte for byte" },
+      { "id": "U9", "checkpoint": 1, "file": "tests/brand-templates.spec.ts", "case": "`bun scripts/brand.ts parity` spawned with AI_ENGINEERING_WEB_DIR pointing at a folder that does not exist still prints the template line naming templates/brainstorm.html.tpl" },
+
+      { "id": "U10", "checkpoint": 2, "file": "tests/embed-canon.spec.ts", "case": "machinePayload() holds every templates/*.html.tpl and no other templates/ entry (settings, hook and plugin templates stay out); the set is derived from the embedded map" },
+      { "id": "U11", "checkpoint": 2, "file": "tests/embed-canon.spec.ts", "case": "isRecordKey accepts `templates/<file>.html.tpl` and refuses `templates/a/b.html.tpl`, `templates/.hidden` and `templates/`" },
+      { "id": "U12", "checkpoint": 2, "file": "tests/carriers-install.spec.ts", "case": "after installCanon, <home>/templates holds exactly the shipped *.html.tpl names, each byte-identical to templates/, and the ownership record names each `templates/<file>`" },
+      { "id": "U13", "checkpoint": 2, "file": "tests/carriers-install.spec.ts", "case": "../../templates/research.html.tpl resolved from the installed ai-research skill folder exists and equals templates/research.html.tpl byte for byte" },
+      { "id": "U14", "checkpoint": 2, "file": "tests/carriers-install.spec.ts", "case": "an edited installed template is rewritten to the shipped bytes on the next installCanon (R28)" },
+      { "id": "U15", "checkpoint": 2, "file": "tests/carriers-install.spec.ts", "case": "a recorded template the binary no longer ships is swept and leaves the record; an unrecorded file of the user's in the same folder keeps its bytes" },
+      { "id": "U16", "checkpoint": 2, "file": "tests/carriers-install.spec.ts", "case": "a symlink at <home>/templates, and a regular file at that path, are each refused with the exact named warning; the link target and the file keep their bytes; skills, agents and the ownership record are still written" },
+      { "id": "U17", "checkpoint": 2, "file": "tests/carriers-install.spec.ts", "case": "a template name inside <home>/templates that is a symlink or a hard link is refused through the guarded helper, never written through: the other name keeps its bytes (R38, R39)" },
+      { "id": "U18", "checkpoint": 2, "file": "tests/carriers-install.spec.ts", "case": "uninstall's machine scope removes every installed template, drops them from the record and leaves the user's own file byte for byte" },
+
+      { "id": "U19", "checkpoint": 3, "file": "tests/brand-templates.spec.ts", "case": "templateDrift() covers all eight templates found by glob and is empty for the committed tree" },
+      { "id": "U20", "checkpoint": 3, "file": "tests/brand-templates.spec.ts", "case": "for each of the eight templates, a copy with either marker pair deleted makes templateDrift() name that file (table over the glob)" },
+      { "id": "U21", "checkpoint": 3, "file": "tests/artifact-layout.spec.ts", "case": "no templates/*.html.tpl declares a :root custom property outside its brand region" },
+      { "id": "U22", "checkpoint": 3, "file": "tests/artifact-layout.spec.ts", "case": "every var() brand/components.css uses is declared in its own :root (replaces the doc-block test); the two artifact-design.md block tests are deleted" },
+      { "id": "U23", "checkpoint": 3, "file": "tests/artifact-layout.spec.ts", "case": "skills/ai-brainstorm/references/artifact-design.md contains no ```css fence and no scroll-spy script" },
+      { "id": "U24", "checkpoint": 3, "file": "tests/artifact-brand.spec.ts", "case": "brand/tokens.json artifact.files starts with brand/components.css, contains every templates/*.html.tpl (derived), and no longer lists artifact-design.md" },
+      { "id": "U25", "checkpoint": 3, "file": "tests/artifact-brand.spec.ts", "case": "each of the seven HTML-writing skills (and the triage and refresh references) names the template it copies and carries the exact sentence `write no CSS and no script`; ai-visual-recap keeps `Start with templates/recap.html.tpl`" },
+      { "id": "U26", "checkpoint": 3, "file": "tests/artifact-scroll-spy.spec.ts", "case": "the scroll-spy source is the function in brand/components.js; every template with section navigation (from the glob) carries those exact bytes; the scrolling behaviour test still passes on that source" },
+      { "id": "U27", "checkpoint": 3, "file": "tests/viewer-audit.spec.ts", "case": "the viewer's own app rules sit after `/* brand:end */` and every existing CSS assertion holds; the extracted script is the viewer's, not the brand script; U6 byte identity with .ai-engineering/workflow/checkpoints/viewer.html holds" },
+
+      { "id": "U28", "checkpoint": 4, "file": "tests/brand-contrast.spec.ts", "case": "gray.base on gray.dark3 measures below 4.5:1 and on gray.dark4 at or above it, each ratio pinned to two decimals" },
+      { "id": "U29", "checkpoint": 4, "file": "tests/brand-contrast.spec.ts", "case": "tokens.json pairs include, by exact name, each chip tone on the card and field surfaces, --comment on --surface, the diagram strokes and borders at 3:1, and every print text on white; each declared pair clears its stated minimum" },
+      { "id": "U30", "checkpoint": 4, "file": "tests/brand-check.spec.ts", "case": "the real brand/tokens.json with the chip, amber and print groups has no problems (existing test, new data); a pair whose token is undeclared is still refused" },
+      { "id": "U31", "checkpoint": 4, "file": "tests/artifact-brand.spec.ts", "case": "every artifact token block, the new semantic groups included, matches brand/tokens.json" },
+      { "id": "U32", "checkpoint": 4, "file": "tests/artifact-layout.spec.ts", "case": "rule 4: a copy of brand/components.css with `text-align:justify` on p fails the gate; centring p, capping it at --measure, or an auto margin on notes or lists in any sectioned page fails it; the frozen justified pages under .ai-engineering/ and docs/history still pass" },
+      { "id": "U33", "checkpoint": 4, "file": "tests/artifact-layout.spec.ts", "case": "brand/components.css carries @media (forced-colors: active), (prefers-contrast: more), (prefers-reduced-motion: reduce) and print rules, and no hex or rgba() colour outside its :root token blocks" },
+      { "id": "U34", "checkpoint": 4, "file": "tests/artifact-layout.spec.ts", "case": "code wells take background var(--surface); only `.callout` carries a 3px one-side bar; no label font-size under 11px and no running-text font-size under 12px" },
+      { "id": "U35", "checkpoint": 4, "file": "tests/brand-templates.spec.ts", "case": "after gen, templateDrift() is empty for all eight templates carrying the component layer and components.js" },
+
+      { "id": "U36", "checkpoint": 5, "file": "tests/artifact-a11y.spec.ts", "case": "staticA11yProblems returns [] for every templates/*.html.tpl and brand/gallery.html.tpl (glob)" },
+      { "id": "U37", "checkpoint": 5, "file": "tests/artifact-a11y.spec.ts", "case": "one broken fixture per rule yields its exact message: no html lang, no title, two h1, an h2 then h4, a th without scope, a table without caption" },
+      { "id": "U38", "checkpoint": 5, "file": "tests/artifact-a11y.spec.ts", "case": "one broken fixture per rule yields its exact message: an svg without role=img, an svg without title, a dangling aria-labelledby, aria-describedby and aria-controls id, a duplicate id" },
+      { "id": "U39", "checkpoint": 5, "file": "tests/artifact-a11y.spec.ts", "case": "one broken fixture per rule yields its exact message: an external script src, an external stylesheet href, an inline onclick, a viewport with maximum-scale=1 and one with user-scalable=no; a data: URI script and stylesheet yield no problem" },
+      { "id": "U40", "checkpoint": 5, "file": "tests/artifact-a11y.spec.ts", "case": "a page with no forced-colors rule, one with no prefers-reduced-motion rule and one with no print rule each yield their exact message" },
+      { "id": "U41", "checkpoint": 5, "file": "tests/artifact-a11y.spec.ts", "case": "scriptProblems(brand/components.js) is []; a copy with `el.innerHTML = x` fails with its exact message, and so do outerHTML, insertAdjacentHTML, eval, fetch, an import, an export and a syntax error (table)" },
+      { "id": "U42", "checkpoint": 5, "file": "tests/artifact-a11y.spec.ts", "case": "brainstorm, PRD and recap templates each contain a diagram figure (svg with title and desc plus a text version), decision items with expand-all, a stats row and a tab set; each section opens with one lead paragraph; each carries the generator meta and the written-by-an-AI-agent footer" },
+      { "id": "U43", "checkpoint": 5, "file": "tests/artifact-a11y.spec.ts", "case": "the brainstorm, recap, research and triage heroes carry no stamp line" },
+      { "id": "U44", "checkpoint": 5, "file": "tests/brand-templates.spec.ts", "case": "brand/gallery.html.tpl carries both marker pairs and is in templateDrift()'s set; a one-byte edit inside its region of a copy is named by drift" },
+      { "id": "U45", "checkpoint": 5, "file": "tests/brand-templates.spec.ts", "case": "the parity report adds one informational line naming a carrier over about 30 KB, none for a smaller one, and the exit code is unchanged either way" }
+    ],
+    "cli": [
+      { "id": "C1", "checkpoint": 1, "case": "gen twice leaves every template byte-identical", "command": "mkdir -p /private/tmp/t-runs/web && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum templates/*.html.tpl > /private/tmp/t-runs/tpl.sha && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum -c /private/tmp/t-runs/tpl.sha" },
+      { "id": "C2", "checkpoint": 1, "case": "the layout, scroll-spy and brand suites pass unchanged", "command": "mkdir -p /private/tmp/t-runs && TMPDIR=/private/tmp/t-runs bun test tests/artifact-layout.spec.ts tests/artifact-scroll-spy.spec.ts tests/artifact-brand.spec.ts tests/brand-check.spec.ts" },
+      { "id": "C3", "checkpoint": 1, "case": "typecheck and lint pass", "command": "bun run typecheck && bun run lint" },
+
+      { "id": "C4", "checkpoint": 2, "case": "update, uninstall and the embedded payload suites pass with templates in the canon", "command": "mkdir -p /private/tmp/t-runs && TMPDIR=/private/tmp/t-runs bun test tests/uninstall-command.spec.ts tests/update-command.spec.ts tests/generated-payload.test.ts" },
+      { "id": "C5", "checkpoint": 2, "case": "the architecture rules hold", "command": "mkdir -p /private/tmp/t-runs && TMPDIR=/private/tmp/t-runs bun test tests/arch.spec.ts" },
+      { "id": "C6", "checkpoint": 2, "case": "typecheck and lint pass", "command": "bun run typecheck && bun run lint" },
+
+      { "id": "C7", "checkpoint": 3, "case": "the artifact token gate passes with brand/components.css as the reference and all eight templates listed", "command": "bun scripts/brand.ts artifact" },
+      { "id": "C8", "checkpoint": 3, "case": "gen twice leaves every template byte-identical", "command": "mkdir -p /private/tmp/t-runs/web && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum templates/*.html.tpl > /private/tmp/t-runs/tpl.sha && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum -c /private/tmp/t-runs/tpl.sha" },
+      { "id": "C9", "checkpoint": 3, "case": "the skill, docs, triage, ceremony, token-budget and payload suites pass after the skill edits", "command": "mkdir -p /private/tmp/t-runs && TMPDIR=/private/tmp/t-runs bun test tests/triage-github.spec.ts tests/skills.spec.ts tests/skills-lint.spec.ts tests/docs-lint.spec.ts tests/ceremony-contract.spec.ts tests/token-budget.spec.ts tests/generated-payload.test.ts" },
+      { "id": "C10", "checkpoint": 3, "case": "typecheck and lint pass", "command": "bun run typecheck && bun run lint" },
+
+      { "id": "C11", "checkpoint": 4, "case": "the token declaration validates with the new groups", "command": "bun scripts/brand.ts check" },
+      { "id": "C12", "checkpoint": 4, "case": "every declared pair passes, the chip, code-well, diagram and print pairs among them", "command": "bun scripts/brand.ts contrast" },
+      { "id": "C13", "checkpoint": 4, "case": "the artifact token gate passes with the new token groups", "command": "bun scripts/brand.ts artifact" },
+      { "id": "C14", "checkpoint": 4, "case": "gen twice leaves every template byte-identical", "command": "mkdir -p /private/tmp/t-runs/web && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum templates/*.html.tpl > /private/tmp/t-runs/tpl.sha && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum -c /private/tmp/t-runs/tpl.sha" },
+      { "id": "C15", "checkpoint": 4, "case": "typecheck and lint pass", "command": "bun run typecheck && bun run lint" },
+
+      { "id": "C16", "checkpoint": 5, "case": "contrast still passes with the gallery's pairs", "command": "bun scripts/brand.ts contrast" },
+      { "id": "C17", "checkpoint": 5, "case": "gen twice leaves every template and the gallery byte-identical", "command": "mkdir -p /private/tmp/t-runs/web && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum templates/*.html.tpl brand/gallery.html.tpl > /private/tmp/t-runs/tpl.sha && AI_ENGINEERING_WEB_DIR=/private/tmp/t-runs/web bun scripts/brand.ts gen && shasum -c /private/tmp/t-runs/tpl.sha" },
+      { "id": "C18", "checkpoint": 5, "case": "the triage, skills and docs suites pass after the template and doc edits", "command": "mkdir -p /private/tmp/t-runs && TMPDIR=/private/tmp/t-runs bun test tests/triage-github.spec.ts tests/skills.spec.ts tests/docs-lint.spec.ts" },
+      { "id": "C19", "checkpoint": 5, "case": "typecheck and lint pass", "command": "bun run typecheck && bun run lint" },
+
+      { "id": "C20", "checkpoint": 6, "case": "the lockfile installs frozen with the two pinned devDependencies", "command": "bun install --frozen-lockfile" },
+      { "id": "C21", "checkpoint": 6, "case": "the workflow passes actionlint and the a11y job uses only actions already in the file", "command": "actionlint .github/workflows/check.yml" },
+      { "id": "C22", "checkpoint": 6, "case": "the full suite passes without Chrome being needed", "command": "mkdir -p /private/tmp/t-runs && TMPDIR=/private/tmp/t-runs bun test" },
+      { "id": "C23", "checkpoint": 6, "case": "typecheck, lint and the high-severity audit pass", "command": "bun run typecheck && bun run lint && bun audit --audit-level=high" }
+    ],
+    "browser": [
+      { "id": "B1", "checkpoint": 6, "file": "scripts/artifact-axe.ts", "command": "bun run a11y", "case": "the eight templates and the gallery (glob) show zero axe-core violations for wcag2a, wcag2aa, wcag21a, wcag21aa and wcag22aa at 320, 390, 768 and 1440px and again under forced-colors: active; exit 0", "why_ui": "Rendered contrast, accessible names and forced-colours mapping exist only after the browser computes styles and the accessibility tree." },
+      { "id": "B2", "checkpoint": 6, "file": "scripts/artifact-axe.ts", "command": "bun run a11y", "case": "every tab set walked by keyboard: ArrowRight, ArrowLeft, Home and End move aria-selected and focus, and exactly one panel is visible; the result is reported per page", "why_ui": "Focus movement and panel visibility need real key events and layout; the static gate only sees markup." },
+      { "id": "B3", "checkpoint": 6, "file": "scripts/artifact-axe.ts", "command": "bun run a11y", "case": "at 320px no page scrolls sideways, also with the WCAG text-spacing overrides applied; reported per page", "why_ui": "Horizontal overflow is a layout result only a rendering engine produces." },
+      { "id": "B4", "checkpoint": 6, "file": "scripts/artifact-axe.ts", "command": "bun run a11y", "case": "with JavaScript disabled every tab panel is visible and no copy or filter button shows; reported per page", "why_ui": "The no-script reading depends on CSS and script interplay that only a browser with scripting turned off shows." },
+      { "id": "B5", "checkpoint": 6, "file": "scripts/artifact-axe.ts", "command": "mkdir -p /private/tmp/t-runs && bun scripts/artifact-axe.ts tests/fixtures/axe/contrast-defect.html.tpl > /private/tmp/t-runs/axe-contrast.out; test $? -eq 1 && grep -q 'contrast-defect.html.tpl.*320.*color-contrast' /private/tmp/t-runs/axe-contrast.out", "case": "a copy of a template with a planted low-contrast pair makes the lane exit 1 and print the page, the width and the color-contrast rule", "why_ui": "Proves B1 can fail (R1); computed contrast exists only in the browser." },
+      { "id": "B6", "checkpoint": 6, "file": "scripts/artifact-axe.ts", "command": "mkdir -p /private/tmp/t-runs && bun scripts/artifact-axe.ts tests/fixtures/axe/missing-name.html.tpl > /private/tmp/t-runs/axe-name.out; test $? -eq 1 && grep -q 'missing-name.html.tpl.*320.*button-name' /private/tmp/t-runs/axe-name.out", "case": "a copy of a template with a planted unnamed button makes the lane exit 1 and print the page, the width and the button-name rule", "why_ui": "Proves B1 can fail (R1); the accessible name is computed by the browser's accessibility tree." }
+    ]
+  },
+  "not_tested": [
+    "The copy button's polite status and select-the-text fallback, filter aria-pressed with its announced count, and expand-all are not asserted one by one: axe (B1) checks their names and roles, and the owner's app review judges the behaviour. Add a gallery journey to scripts/artifact-axe.ts if one breaks.",
+    "Chrome missing (one clear line, exit 1) is not automated: Playwright locates the chrome channel at a fixed install path, so it cannot be hidden from inside a test without touching the machine.",
+    "Firefox and Safari forced-colours handling of inline SVG: the lane runs Chrome only (plan note).",
+    "Whether every colour pair a component uses is declared is checked by name (U29) and by axe's rendered contrast (B1), not derived from components.css selectors, because a selector-to-pair mapper would be a second CSS engine.",
+    "The website import of components.css and the published gallery: deferred to the ai-engineering-web pull request.",
+    "Page weight over about 30 KB only informs (U45); no case fails on it.",
+    "`bun run typecheck` and `bun run lint` cover src and tests only; scripts/brand.ts and scripts/artifact-a11y.ts are type-checked through the tests that import them, and scripts/artifact-axe.ts is not imported by any test.",
+    "B5 and B6 assume scripts/artifact-axe.ts accepts file paths as arguments (the glob stays the default) and two fixtures under tests/fixtures/axe/; neither is in checkpoint 6's file list yet."
+  ]
+}

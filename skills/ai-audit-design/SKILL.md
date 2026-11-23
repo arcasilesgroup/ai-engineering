@@ -64,7 +64,7 @@ Downloadable documents — PDFs, Word files, PPTX decks — cannot be audited in
 2. Result: `.ai-engineering/design/audits/NNN-{name}.html` — measurements, not
    opinions; the `NNN` prefix is never rewritten once issued. Render it with the
    artifact design system — [ai-brainstorm › references/artifact-design.md](../../skills/ai-brainstorm/references/artifact-design.md) — so the
-   measurements are presented, not decorated.
+   measurements are presented, not decorated. Copy `templates/research.html.tpl` and fill its sections; write no CSS and no script.
 3. Output format: gates (CHECK / EXPECT / EVIDENCE).
 
 ## Lifecycle

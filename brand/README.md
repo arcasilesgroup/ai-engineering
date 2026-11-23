@@ -36,9 +36,10 @@ Run these from the repository root.
 |---|---|
 | `bun scripts/brand.ts check` | Is `tokens.json` itself valid — every reference resolvable, every colour family running dark to light, every required section present? |
 | `bun scripts/brand.ts gen` | Write everything the tokens produce. Never hand-edit those files; this command owns them. |
-| `bun scripts/brand.ts parity` | Does what is committed still match the tokens? Fails when someone edited a generated file by hand — and when the `theme-color` meta tag, the one palette value that lives in hand-written markup, has gone stale. |
+| `bun scripts/brand.ts parity` | Do the committed token outputs still match `brand/tokens.json`, and does every template's brand region still match `brand/components.css` and `brand/components.js`? A template missing a marker fails with the file and the marker named. Also fails when the `theme-color` meta tag, the one palette value that lives in hand-written markup, has gone stale. |
 | `bun scripts/brand.ts contrast` | Is every text-on-surface pair legible? Prints each measured WCAG 2.1 ratio and the level it must reach. |
 | `bun scripts/brand.ts artifact` | Do the inline token blocks in the generated artifacts still match the brand? |
+| `bun run a11y` | Do the pages still pass WCAG 2.2 AA in a real browser? Opens every template and the gallery in the system Chrome at 320, 390, 768 and 1440px and in forced colours, runs axe-core (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`), then walks every tab set with the arrow keys, checks 320px reflow with the WCAG text-spacing overrides, and opens every page with the script off. Needs Google Chrome and downloads no browser. |
 
 ## What keeps the gates honest
 
@@ -51,6 +52,8 @@ is itself a failing build:
 | `tests/brand-check.spec.ts` | the validator, fed a declaration that breaks each rule | a validator must **report** a malformed entry, never crash on it, and must accept the declared `lineHeight` type — a build that fails on a valid file is a bug the suite catches |
 | `tests/brand-contrast.spec.ts` | the WCAG maths, against published values (`#767676` passes AA on white, `#777777` does not) | pins the border decision: `--border` is `gray.base` because `#5C6C75` measures 2.76:1 on a raised surface, below the level a border pair must reach |
 | `tests/brand-generated.spec.ts` | that `gen` computes the *right* thing, not merely a stable thing | a breakpoint derivation that leaves `design.json` claiming the site has no responsive thresholds fails here even with `parity` green |
+| `tests/artifact-a11y.spec.ts` | the static accessibility gate, on both sides | every shipped page passes; and each rule gets a fixture that breaks exactly it, so the message it prints is proven to come from that rule and no other |
+| `scripts/artifact-axe.ts` | the browser gate, against a real Chrome and a real viewport | axe-core is the oracle; the keyboard walk, the 320px reflow and the script-off pass are asserted by reading the page, and a planted contrast defect is shown to fail the run |
 
 Run them with `bun test tests/brand-*.spec.ts`, or as part of `bun test`.
 
@@ -62,9 +65,31 @@ Run them with `bun test tests/brand-*.spec.ts`, or as part of `bun test`.
 | `../ai-engineering-web/src/styles/tokens.json` | **The declaration itself, byte-for-byte.** The site consumes the CSS, not this file — it exists so somebody working only in that repository can read the whole system: the semantic layer, the reason beside each value, the contrast pairs, the artifact vocabulary. Generated and parity-checked, so "verbatim" is enforced rather than promised. |
 | `src/theme.ts` | The CLI. The banner's brand green and the terminal-native status marks. |
 | `../ai-engineering-web/.impeccable/design.json` | The design record the `impeccable` skill reads: every colour with its ramp, the type scale, the shadows, and the contrast table. |
+| `brand/components.css` | The style body. `gen` reads it and writes those bytes between `/* brand:begin */` and `/* brand:end */` inside `<style>`. |
+| `brand/components.js` | The scroll-spy, with no `<script>` tags. `gen` writes one classic `<script>` of these bytes between `<!-- brand:js:begin -->` and `<!-- brand:js:end -->`. |
+| `templates/*.html.tpl` | Every template, found by glob; each must carry both marker pairs. Only the marked bytes are rewritten; `{{placeholders}}` and every byte outside the markers stay. A missing, doubled, reversed or nested marker names the file and the marker, and that file is not written. No template declares a token outside its brand region. |
+| `brand/gallery.html.tpl` | The reference page: every component live, its markup with a copy button, its keyboard behaviour and a do and don't. Hand-written like a template, spliced in place by the same markers, and checked by the same parity line — a hand edit to its brand region is drift. It stays in this repository: it does not install with the templates. |
 
 `gen` is idempotent: running it twice changes nothing the second time. `parity` is what
-proves that, and it is the reason a hand edit to `tokens.css` cannot survive a review.
+proves that, and it is the reason a hand edit to `tokens.css` — or to a template's brand
+region — cannot survive a review. A missing website checkout is not template drift:
+`parity` still reports every template.
+
+`artifact` reads `artifact.files` in `tokens.json`: `brand/components.css` first, as the
+reference block, then every template, then the two frozen pages in `docs/history/`. The
+font stacks (`--mono`, `--sans`) are left out of that comparison: they name each OS's own
+faces, and a frozen page keeps the stack it shipped with.
+
+Two semantic groups exist for the artifact components alone, and every pair they form is
+declared and measured by `contrast`:
+
+| Group | What it holds | Why it exists |
+|---|---|---|
+| `category` | the text tone of each category chip (`cat-green`, `cat-purple`, `cat-amber`, `cat-red`, `cat-blue`) and the blue chip hue | a chip label is 11px; the base hues measure under 4.5:1 on a card (purple 4.17, red 4.20), the light tones clear it on the field and on a card |
+| `print` | paper, ink, muted, green, red, amber and rule | printing swaps every surface token to white and every text token to a dark brand shade that clears 4.5:1 on it |
+
+Code wells sit on `--surface` (gray.dark4), not `--surface-2`: a code comment
+(`--comment`, gray.base) measures 4.499:1 on gray.dark3, a hair under AA.
 
 Two ways to check it, depending on whether the work is committed:
 
