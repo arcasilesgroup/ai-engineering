@@ -13,11 +13,11 @@
 // use to unpin, unhook or re-date itself.
 
 import { basename, isAbsolute, join, parse, resolve, sep } from "node:path";
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
-import { commandIndex, jsonToolOperands, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, type ShellSegment } from "./shell.ts";
+import { applySegmentMutations, commandIndex, expandPriorAssignments, jsonToolOperands, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, type ShellSegment } from "./shell.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
  *  `sed` joins them only with -i. The list may over-deny: that is a person told to
@@ -404,16 +404,35 @@ function isAncestorOfProtected(paths: ProtectedPaths, candidate: string): boolea
   });
 }
 
-/** Same-command assignments (`f=path; rm $f`) and $HOME, substituted the way bash would. */
-function shellVariables(segments: ShellSegment[]): Map<string, string> {
-  const variables = new Map<string, string>([["HOME", machineBase()]]);
-  for (const segment of segments) {
-    for (const word of shellWords(segment.text)) {
-      const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word.value);
-      if (assignment) variables.set(assignment[1]!, assignment[2]!);
-    }
+const ASSIGNMENT_BUILTINS = new Set(["export", "declare", "typeset", "local", "readonly"]);
+
+/** Update `variables` with the assignments in this segment, preserving execution order
+ *  so a later reassignment never rewrites an earlier use. */
+function applySegmentAssignments(segment: ShellSegment, variables: Map<string, string>): void {
+  const words = shellWords(segment.text);
+  let index = 0;
+  while (index < words.length) {
+    const word = words[index]!;
+    if (word.isOperator) return;
+    const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word.value);
+    if (!assignment) break;
+    const value = substitute(assignment[2]!, variables);
+    if (/[$`]/.test(value)) variables.delete(assignment[1]!);
+    else variables.set(assignment[1]!, value);
+    index++;
   }
-  return variables;
+  const lead = words[index];
+  if (lead === undefined || lead.isOperator || !ASSIGNMENT_BUILTINS.has(commandName(lead.value))) return;
+  for (let at = index + 1; at < words.length; at++) {
+    const word = words[at]!;
+    if (word.isOperator) break;
+    if (word.value.startsWith("-")) continue;
+    const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word.value);
+    if (!assignment) continue;
+    const value = substitute(assignment[2]!, variables);
+    if (/[$`]/.test(value)) variables.delete(assignment[1]!);
+    else variables.set(assignment[1]!, value);
+  }
 }
 
 function substitute(value: string, variables: Map<string, string>): string {
@@ -432,12 +451,16 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
   }
   if (/\b(?:pwsh|powershell)(?:\.exe)?\b/i.test(command) && POWERSHELL_ENCODED.test(command)) return "an encoded PowerShell command hides what it runs";
   const expanded = command.replace(/\$\(\s*(?:which|command\s+-v)\s+([^)\s]+)\s*\)/g, "$1");
-  const segments = shellSegments(normalizeRedirects(expanded));
+  // Sequential: a later assignment must not rewrite the variable an earlier segment already used.
+  const assigned = expandPriorAssignments(expanded) ?? expanded;
+  const segments = shellSegments(normalizeRedirects(assigned));
   if (segments === null) return "its quoting cannot be read, so neither can what it runs";
-  const variables = shellVariables(segments);
+  const variables = new Map<string, string>([["HOME", machineBase()]]);
   const bases = [...context.bases];
   const parsed = segments.map((segment) => {
+    applySegmentAssignments(segment, variables);
     const words = shellWords(resolveSubstitutions(segment)).map((word) => ({ ...word, original: word.value, value: substitute(word.value, variables) }));
+    applySegmentMutations(segment.text, variables, false);
     const plain: string[] = [];
     // Whether the shell expands each plain word: a glob or brace it reads unquoted.
     const isExpanded: boolean[] = [];
@@ -525,8 +548,19 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       if (hit !== null) return `it writes to ${hit}, which governs this session`;
     }
     const isWriter = isTreeWriter(name, args);
-    if (isWriter && plain.slice(0, verb.index).some((before) => commandName(before) === "xargs")) {
-      return `${name} acts on paths read from stdin`;
+    if (plain.slice(0, verb.index).some((before) => commandName(before) === "xargs")) {
+      const prefixes = plain.slice(0, verb.index).map(commandName);
+      const lastPrefix = prefixes.filter((word) => word === "xargs" || EXEC_WRAPPERS.has(word)).at(-1);
+      // Bare xargs is echo. A prefix after xargs leaves the real program on stdin.
+      if (name.length === 0 && lastPrefix !== undefined && lastPrefix !== "xargs") return "xargs feeds a command the guards cannot read";
+      if (isWriter || EXEC_WRAPPERS.has(name)) return `${name || "xargs"} acts on paths read from stdin`;
+      if (name === "sed") {
+        const hasScript = args.some((arg) => !arg.startsWith("-"));
+        const inplace = args.some((arg) => /^-[A-Za-z]*i/.test(arg));
+        const flagScript = args.some((arg) => arg === "-e" || arg === "-f" || /^-[A-Za-z]*[ef]/.test(arg));
+        if (inplace || !hasScript || flagScript) return "xargs sed takes its script and -i from stdin";
+      }
+      if (INTERPRETERS.has(name)) return "xargs feeds paths or code to an interpreter the guards cannot see";
     }
     if (DIFF_APPLIERS.has(name) || (name === "git" && ["apply", "am"].includes(gitSubcommand(args).name))) {
       return `${name} applies edits whose target files are not on the command line; use the edit tool`;
@@ -568,10 +602,12 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
         // A quoted glob reaches the program as text: only a tree writer (git rm, find) may
         // expand it itself. Its `.ai-engineering/` before a `*` is a prefix, not a path.
         const isLiteral = !isWriter && argIsExpanded[index] === false;
-        const embedded = isProse ? [] : [...arg.matchAll(EMBEDDED_PATH)]
-          .filter((match) => match[0] !== arg && !(isLiteral && GLOB_CHARS.test(arg[(match.index ?? 0) + match[0].length] ?? "")))
+        const joinsStrings = INTERPRETERS.has(name) || name === "awk";
+        const scanned = joinsStrings ? collapseStringConcat(arg) : arg;
+        const embedded = isProse ? [] : [...scanned.matchAll(EMBEDDED_PATH)]
+          .filter((match) => match[0] !== scanned && !(isLiteral && GLOB_CHARS.test(scanned[(match.index ?? 0) + match[0].length] ?? "")))
           .map((match) => match[0]);
-        for (const path of [arg, ...embedded]) {
+        for (const path of [scanned, ...embedded]) {
           const hit = names(path, name !== "git", isLiteral);
           if (hit !== null) return `${name} names ${hit}, which governs this session, and ${name} is not a read-only command`;
         }
@@ -641,6 +677,17 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       if (flag >= 0 && args[flag + 1] !== undefined) nested.push(args.slice(flag + 1).join(" "));
       if (isPowerShellHost) nested.push(args.filter((arg) => !arg.startsWith("-")).join(" "));
       nested.push(...segment.heredocs.map(({ body }) => body), ...inputs);
+    }
+    // env -S hides the command in an option value commandIndex skips, so the
+    // prefix is gone by the time `name` is known. Read it off the raw words.
+    const envAt = plain.findIndex((word) => commandName(word) === "env");
+    if (envAt >= 0) {
+      const envArgs = plain.slice(envAt + 1);
+      envArgs.forEach((arg, index) => {
+        if ((arg === "-S" || arg === "--split-string") && envArgs[index + 1] !== undefined) nested.push(envArgs[index + 1]!);
+        else if (arg.startsWith("--split-string=")) nested.push(arg.slice("--split-string=".length));
+        else if (/^-[A-Za-z]*S.+/.test(arg)) nested.push(arg.replace(/^-[A-Za-z]*S/, ""));
+      });
     }
     if (COMMAND_RUNNERS.has(name)) nested.push(...args.filter((arg) => !arg.startsWith("-")));
     if (name === "find") {
@@ -812,6 +859,36 @@ function surfacesSettings(repoRoot: string): string[] {
 
 /** Every path this session may not write to. Derived, never copied: a list that can
  *  fall behind the wiring lets one edit to the IOC catalogue disarm the injection guard. */
+
+/** The lease file, including a worktree whose git metadata is a pointer. */
+function leaseFile(repoRoot: string): string {
+  const dotGit = join(repoRoot, ".git");
+  try {
+    if (!statSync(dotGit).isDirectory()) {
+      const pointer = /^gitdir:\s*(.+)$/m.exec(readFileSync(dotGit, "utf8"))?.[1]?.trim();
+      if (pointer) return join(resolve(repoRoot, pointer), "ai-eng", "lease.json");
+    }
+  } catch {
+    /* the conventional path still applies */
+  }
+  return join(dotGit, "ai-eng", "lease.json");
+}
+
+/** Adjacent quoted pieces joined by + or . or whitespace become one string, so a split path is still a path. */
+function collapseStringConcat(text: string): string {
+  // Normalize Perl q(...) / qq(...) / q{...} / q[...] literals so `.` joining collapses them too.
+  let out = text
+    .replace(/\bqq?\(([^()]*)\)/g, "'$1'")
+    .replace(/\bqq?\{([^{}]*)\}/g, "'$1'")
+    .replace(/\bqq?\[([^[\]]*)\]/g, "'$1'");
+  let previous = "";
+  while (out !== previous) {
+    previous = out;
+    out = out.replace(/(['"])\s*(?:\+|\.)\s*(['"])/g, "").replace(/(['"])\s+(['"])/g, "");
+  }
+  return out;
+}
+
 export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   const literals: string[] = [];
   // The machine side is protected whether or not this call happens inside a governed
@@ -854,6 +931,10 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   // fingerprint to .gitleaksignore can walk a secret past the floor a commit later.
   literals.push(join(repoRoot, ".gitleaksrc.toml"));
   literals.push(join(repoRoot, ".gitleaksignore"));
+  // The stop counter and the one-writer lease are repo files a session can otherwise
+  // delete to reset a gate. The guards themselves still write them.
+  literals.push(join(repoRoot, ".ai-engineering", "cache", "checkpoint-stop"));
+  literals.push(leaseFile(repoRoot));
   // spec.html is protected ONLY once approved: its sha256 sits in the lock (§9.3).
   // The fence is that file, not the word. Matching the substring "spec.html" also denied
   // `templates/spec.html.tpl` — the payload `init` generates every project's contract

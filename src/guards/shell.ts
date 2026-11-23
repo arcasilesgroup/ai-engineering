@@ -459,6 +459,190 @@ function staticOutput(inner: string): string | null {
   return /["'\\$`\n]/.test(output) ? null : output;
 }
 
+const INLINE_SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "mksh", "ash", "fish"]);
+
+/** Every `sh -c` / `bash -c` program in `command`, including ones nested inside those
+ *  programs. The words come from the same reader the guards already share, so a quoted
+ *  program is one word and not a second grammar. Empty when the line cannot be read. */
+export function inlineShellPrograms(command: string): string[] {
+  const found: string[] = [];
+  const visit = (text: string, depth: number): void => {
+    if (depth > 3) return;
+    const segments = shellSegments(text);
+    if (segments === null) return;
+    for (const segment of segments) {
+      const words = shellWords(segment.text).filter((word) => !word.isOperator).map((word) => word.value);
+      const at = commandIndex(words);
+      const name = basename(words[at] ?? "");
+      if (!INLINE_SHELLS.has(name)) continue;
+      const flag = words.findIndex((word, index) => index > at && /^-[A-Za-z]*c[A-Za-z]*$/.test(word));
+      const next = flag >= 0 ? words[flag + 1] : undefined;
+      const body = next === "--" ? words[flag + 2] : next;
+      if (body === undefined || body.length === 0) continue;
+      found.push(body);
+      visit(body, depth + 1);
+    }
+  };
+  visit(command, 0);
+  return found;
+}
+
+/** A value that can replace `$name` without becoming a new command. */
+function isSafeExpansion(value: string): boolean {
+  return value.length > 0 && !/[\s;&|`$<>\\'",(){}]/.test(value);
+}
+
+/** `$name` and `${name}` outside single quotes, using `variables` as they stand now. */
+function expandDollars(text: string, variables: ReadonlyMap<string, string>): string {
+  let out = "";
+  let quote: "'" | '"' | null = null;
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index]!;
+    if (quote === "'") {
+      out += char;
+      if (char === "'") quote = null;
+      continue;
+    }
+    if (char === "\\" && quote === null) {
+      out += char + (text[index + 1] ?? "");
+      index++;
+      continue;
+    }
+    if (char === "'") {
+      quote = "'";
+      out += char;
+      continue;
+    }
+    if (char === '"') {
+      quote = quote === '"' ? null : '"';
+      out += char;
+      continue;
+    }
+    const match = char === "$" ? /^\$\{([A-Za-z_]\w*)\}|^\$([A-Za-z_]\w*)/.exec(text.slice(index)) : null;
+    const name = match?.[1] ?? match?.[2];
+    const value = name === undefined ? undefined : variables.get(name);
+    if (match !== null && value !== undefined && isSafeExpansion(value)) {
+      out += value;
+      index += match[0].length - 1;
+      continue;
+    }
+    out += char;
+  }
+  return out;
+}
+
+const ASSIGNMENT_BUILTINS = new Set(["export", "declare", "typeset", "local", "readonly"]);
+
+/** Assignments that prefix this segment (`f=target rm "$f"`) or follow an assignment
+ *  builtin (`export f=target`), visible to the segment itself and later segments. */
+function takeLeadingAssignments(text: string, variables: Map<string, string>): void {
+  const words = shellWords(text);
+  let index = 0;
+  while (index < words.length) {
+    const word = words[index]!;
+    if (word.isOperator) return;
+    const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word.value);
+    if (!assignment) break;
+    const expanded = expandDollars(assignment[2]!, variables);
+    if (/[$`]/.test(expanded)) variables.delete(assignment[1]!);
+    else if (expanded.length === 0 || isSafeExpansion(expanded)) variables.set(assignment[1]!, expanded);
+    else variables.delete(assignment[1]!);
+    index++;
+  }
+  const lead = words[index];
+  if (lead === undefined || lead.isOperator || !ASSIGNMENT_BUILTINS.has(basename(lead.value))) return;
+  for (let at = index + 1; at < words.length; at++) {
+    const word = words[at]!;
+    if (word.isOperator) break;
+    if (word.value.startsWith("-")) continue;
+    const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word.value);
+    if (!assignment) continue;
+    const expanded = expandDollars(assignment[2]!, variables);
+    if (/[$`]/.test(expanded)) variables.delete(assignment[1]!);
+    else if (expanded.length === 0 || isSafeExpansion(expanded)) variables.set(assignment[1]!, expanded);
+    else variables.delete(assignment[1]!);
+  }
+}
+
+/** What `printf -v name format args` stores, when every conversion is a literal `%s`. */
+export function staticPrintfValue(args: readonly string[]): string | null {
+  if (args.length === 0 || args.some((arg) => /[$`]/.test(arg))) return null;
+  const format = args[0]!;
+  if (/%(?![%s])/.test(format)) return null;
+  const values = args.slice(1);
+  let index = 0;
+  let ok = true;
+  const out = format.replace(/%(?:%|s)/g, (token) => {
+    if (token === "%%") return "%";
+    const next = values[index++];
+    if (next === undefined) {
+      ok = false;
+      return "";
+    }
+    return next;
+  });
+  return ok ? out : null;
+}
+
+/** `printf -v` and `read` mutate variables for the next segment. A value this reader cannot
+ *  evaluate drops the name, so a later `$name` stays unresolved instead of a stale safe path. */
+export function applySegmentMutations(text: string, variables: Map<string, string>, requireSafe: boolean): void {
+  const words = shellWords(text).filter((word) => !word.isOperator).map((word) => word.value);
+  const at = commandIndex(words);
+  const verb = basename(words[at] ?? "");
+  const args = words.slice(at + 1);
+  if (verb === "printf") {
+    const attached = /^-[A-Za-z]*v(.*)$/.exec(args[0] ?? "");
+    let name: string | undefined;
+    let rest: string[] = [];
+    if (args[0] === "-v") {
+      name = args[1];
+      rest = args.slice(2);
+    } else if (attached !== null && attached[1] !== undefined && attached[1].length > 0) {
+      name = attached[1];
+      rest = args.slice(1);
+    }
+    if (name === undefined || !/^[A-Za-z_]\w*$/.test(name)) return;
+    const value = staticPrintfValue(rest);
+    if (value === null || (requireSafe && !isSafeExpansion(value))) variables.delete(name);
+    else variables.set(name, value);
+    return;
+  }
+  if (verb === "read") {
+    for (let index = 0; index < args.length; index++) {
+      const arg = args[index]!;
+      if (arg === "--") continue;
+      if (/^-[A-Za-z]*[dnNpauit]$/.test(arg)) {
+        index++;
+        continue;
+      }
+      if (arg.startsWith("-")) continue;
+      if (/^[A-Za-z_]\w*$/.test(arg)) variables.delete(arg);
+    }
+  }
+}
+
+/** The command with `$name` replaced by the assignment that was in force at that
+ *  point. A later `f=safe` does not rewrite an earlier `$f`. Null when the segments
+ *  cannot be placed back into the original text — the caller keeps the command. */
+export function expandPriorAssignments(command: string): string | null {
+  const segments = shellSegments(command);
+  if (segments === null) return null;
+  const variables = new Map<string, string>();
+  let rest = command;
+  let out = "";
+  for (const segment of segments) {
+    const index = rest.indexOf(segment.text);
+    if (index < 0) return null;
+    out += rest.slice(0, index);
+    takeLeadingAssignments(segment.text, variables);
+    out += expandDollars(segment.text, variables);
+    applySegmentMutations(segment.text, variables, true);
+    rest = rest.slice(index + segment.text.length);
+  }
+  return out + rest;
+}
+
 /** A segment's text with each simple echo/printf substitution replaced by what it prints. */
 export function resolveSubstitutions(segment: ShellSegment): string {
   let index = 0;
