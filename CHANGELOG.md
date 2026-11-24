@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.4.1
+
+### Patch Changes
+
+- [#825](https://github.com/arcasilesgroup/ai-engineering/pull/825) [`252cf14`](https://github.com/arcasilesgroup/ai-engineering/commit/252cf14613e735cbe6477f7d3ae12c41926cd2fd) Thanks [@soydachi](https://github.com/soydachi)! - The README is now a front page of a hero ("Guardrails for the AI Coding Agents you already run"), twelve short sections, a skills grid and five figures, each figure with a text version, and the install edge cases, CLI verbs, lanes, configuration, troubleshooting and skills catalogue moved to `docs/`.
+
 ## 3.4.0
 
 ### Minor Changes
