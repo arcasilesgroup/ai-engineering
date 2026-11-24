@@ -203,6 +203,7 @@ export const heroFile = (mode: Mode) => `hero-${mode}.webp`;
 export const cardFile = (slug: string, mode: Mode) => `card-${slug}-${mode}.webp`;
 export const guardsRefusedFile = (mode: Mode) => `guards-refused-${mode}.webp`;
 export const receiptsLedgerFile = (mode: Mode) => `receipts-ledger-${mode}.webp`;
+export const quickstartPreviewFile = (mode: Mode) => `quickstart-preview-${mode}.webp`;
 export const skillsGridFile = (mode: Mode) => `skills-grid-${mode}.webp`;
 
 /** The guards panel's alt text: the three refused commands, the deny verdict and the guard's own reason. */
@@ -212,6 +213,10 @@ export const guardsRefusedAlt = (): string =>
 /** The receipts panel's alt text: the three accumulating receipt files, their fields and the log-not-proof caveat. */
 export const receiptsLedgerAlt = (): string =>
   `Three receipt files accumulating in .ai-engineering/receipts/: ${SAMPLE_RECEIPTS.map((receipt) => `${receipt.operation_id}.json (${receipt.tool}, denied by ${receipt.guards.denied_by ?? "none"}, ${receipt.latency_ms} ms, outcome ${receipt.outcome})`).join("; ")}. ${RECEIPT_CAVEAT.headline} ${RECEIPT_CAVEAT.detail.replaceAll("`", "")}`;
+
+/** Link-purpose alt text for the static quickstart preview wrapping the finite animated GIF link. */
+export const quickstartPreviewAlt = (): string =>
+  "Watch the 9-second real terminal demo of ai-eng 3.3.1 running ai-eng init and ai-eng doctor (opens finite animated GIF, no autoplay on this page)";
 
 /** The grid's alt text: every group, then every skill in it, so a screen reader gets the same list. */
 export const skillsGridAlt = (): string =>
@@ -226,6 +231,7 @@ export function renderedFiles(): string[] {
     ...FIGURES.map((figure) => figureFile(figure, mode)),
     guardsRefusedFile(mode),
     receiptsLedgerFile(mode),
+    quickstartPreviewFile(mode),
     skillsGridFile(mode),
     heroFile(mode),
   ]);
@@ -241,6 +247,7 @@ export type Theme = {
   well: string;
   ink: string;
   muted: string;
+  panelMuted: string;
   accent: string;
   border: string;
   hairline: string;
@@ -258,14 +265,15 @@ export type Theme = {
 };
 
 // Light is the ivory surface, the one light surface the brand names (tokens.json semantic.surface.surface-ivory).
+// `panelMuted` uses gray.dark2 on light so mono text sitting directly on 5% grid crossings stays above 6.7:1.
 export const THEMES: Record<Mode, Theme> = {
   dark: {
-    field: colour("black"), raised: colour("gray.dark4"), well: colour("black"), ink: colour("white"), muted: colour("gray.light1"), accent: colour("green.base"),
+    field: colour("black"), raised: colour("gray.dark4"), well: colour("black"), ink: colour("white"), muted: colour("gray.light1"), panelMuted: colour("gray.light1"), accent: colour("green.base"),
     border: colour("gray.base"), hairline: `${colour("gray.base")}55`, buttonInk: colour("black"), fill: colour("green.base"), grid: `${colour("white")}0D`, band: `${colour("white")}08`, glow: `${colour("green.base")}14`,
     bad: colour("red.light1"), badText: colour("red.light2"), good: colour("green.base"), goodText: colour("green.light1"), warn: colour("yellow.base"), warnText: colour("yellow.base"),
   },
   light: {
-    field: colour("gray.light3"), raised: colour("white"), well: colour("gray.light3"), ink: colour("black"), muted: colour("gray.dark1"), accent: colour("green.dark2"),
+    field: colour("gray.light3"), raised: colour("white"), well: colour("gray.light3"), ink: colour("black"), muted: colour("gray.dark1"), panelMuted: colour("gray.dark2"), accent: colour("green.dark2"),
     border: colour("gray.base"), hairline: `${colour("gray.base")}66`, buttonInk: colour("black"), fill: colour("green.base"), grid: `${colour("gray.dark1")}14`, band: `${colour("white")}B3`, glow: `${colour("green.dark2")}14`,
     bad: colour("red.dark2"), badText: colour("red.dark2"), good: colour("green.dark2"), goodText: colour("green.dark2"), warn: colour("yellow.dark2"), warnText: colour("yellow.dark2"),
   },
@@ -381,11 +389,11 @@ background-color:${theme.field};background-image:linear-gradient(${theme.grid} 1
 .corner{position:absolute;width:22px;height:22px;border:0 solid ${theme.accent};opacity:.9}
 .corner.tl{top:14px;left:14px;border-width:2px 0 0 2px}.corner.tr{top:14px;right:14px;border-width:2px 2px 0 0}.corner.bl{bottom:14px;left:14px;border-width:0 0 2px 2px}.corner.br{bottom:14px;right:14px;border-width:0 2px 2px 0}
 .p-top{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:10px}
-.p-eyebrow{font:600 13.5px/1 ${MONO};letter-spacing:.14em;text-transform:uppercase;color:${theme.muted}}
-.p-tag{font:500 13.5px/1 ${MONO};color:${theme.muted}}
+.p-eyebrow{font:600 13.5px/1 ${MONO};letter-spacing:.14em;text-transform:uppercase;color:${theme.panelMuted}}
+.p-tag{font:500 13.5px/1 ${MONO};color:${theme.panelMuted}}
 .p-title{font:800 30px/1.1 ${SANS};font-stretch:92%;letter-spacing:-.025em;color:${theme.ink};margin-bottom:22px}
 .p-title em{color:${theme.accent}}
-.p-foot{margin-top:20px;display:flex;justify-content:space-between;align-items:center;gap:16px;font:500 13.5px/1.2 ${MONO};letter-spacing:.04em;color:${theme.muted}}`;
+.p-foot{margin-top:20px;display:flex;justify-content:space-between;align-items:center;gap:16px;font:500 13.5px/1.2 ${MONO};letter-spacing:.04em;color:${theme.panelMuted}}`;
 }
 
 /** Highlight the exact hook-skipping flag inside a command line so the trigger reads at a glance. */
@@ -420,7 +428,7 @@ function guardsRefusedPage(theme: Theme): string {
 <div class="p-foot"><span>{ai} engineering · src/guards/no-verify.ts</span><span>linter silences refused the same way</span></div>
 </div>`,
     `${panelFrameCss(theme)}
-.cols{display:grid;grid-template-columns:296px 116px minmax(0,1fr);gap:14px;padding:0 20px 8px;font:600 13.5px/1 ${MONO};letter-spacing:.12em;text-transform:uppercase;color:${theme.muted}}
+.cols{display:grid;grid-template-columns:296px 116px minmax(0,1fr);gap:14px;padding:0 20px 8px;font:600 13.5px/1 ${MONO};letter-spacing:.12em;text-transform:uppercase;color:${theme.panelMuted}}
 .cols .c-verdict{padding-left:36px}
 .lanes{display:grid;gap:10px}
 .lane{display:grid;grid-template-columns:296px 116px minmax(0,1fr);gap:14px;align-items:center;border:1px solid ${theme.border};border-radius:12px;background:${theme.raised};padding:15px 20px}
@@ -501,6 +509,40 @@ dd{margin:0}
   );
 }
 
+/** Extract the final crisp `ai-eng doctor` frame from `.github/assets/quickstart.gif` as a PNG data URI. */
+function quickstartFrameDataUri(): string {
+  const gif = join(ROOT, ".github", "assets", "quickstart.gif");
+  const extract = Bun.spawnSync(["ffmpeg", "-v", "error", "-sseof", "-0.2", "-i", gif, "-vframes", "1", "-f", "image2pipe", "-vcodec", "png", "-"]);
+  if (!extract.success || extract.stdout.length === 0) {
+    throw new Error(`ffmpeg failed to extract final frame from ${gif}: ${extract.stderr.toString()}`);
+  }
+  return `data:image/png;base64,${Buffer.from(extract.stdout).toString("base64")}`;
+}
+
+/** Section 11: static dark/light preview card linking to the finite VHS demo, so the README carries zero autoplay motion. */
+function quickstartPreviewPage(theme: Theme, frameDataUri: string): string {
+  const playIcon = `<svg class="play-icon" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.8L12 7L3 12.2V1.8Z" fill="${theme.buttonInk}"/></svg>`;
+  return page(
+    `<div id="asset"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+<div class="p-top"><span class="p-eyebrow">11 / Get it</span><span class="p-tag">real CLI capture · finite playback</span></div>
+<h2 class="p-title">${withAccent("Watch a real session — init, then doctor", "init")}</h2>
+<div class="stage"><img class="still" alt="" src="${frameDataUri}"></div>
+<div class="action-bar">
+  <span class="play-cta">${playIcon}<span>Open 9s animated recording</span></span>
+  <span class="action-meta">ai-eng init · ai-eng doctor · plays once, no loop</span>
+</div>
+<div class="p-foot"><span>{ai} engineering · .github/assets/tapes/quickstart.tape</span><span>static preview · no autoplay</span></div>
+</div>`,
+    `${panelFrameCss(theme)}
+.stage{border:1px solid ${theme.border};border-radius:12px;overflow:hidden;background:${THEMES.dark.field};line-height:0}
+.still{display:block;width:100%;height:auto}
+.action-bar{margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:16px;border:1px solid ${theme.border};border-radius:12px;background:${theme.raised};padding:12px 18px}
+.play-cta{display:inline-flex;align-items:center;gap:10px;padding:8px 16px;border-radius:8px;border:1px solid ${theme.accent};background:${theme.fill};color:${theme.buttonInk};font:700 15px/1 ${SANS};font-stretch:92%;white-space:nowrap}
+.play-icon{flex:0 0 auto;display:block}
+.action-meta{font:500 13.5px/1.2 ${MONO};color:${theme.muted};white-space:nowrap}`,
+  );
+}
+
 /** Six tiles, three across: a title and its count, one plain line, then the names in small mono type. */
 function skillsGridPage(theme: Theme): string {
   const tiles = SKILL_GROUPS.map((group) => {
@@ -532,7 +574,9 @@ function figurePage(figureIndex: number, mode: Mode): string {
 
 type Job = { file: string; html: string; families: string[]; isFigure: boolean; minPxAt800?: number };
 
-function jobs(): Job[] {
+function jobs(only = ""): Job[] {
+  const needsQuickstart = only === "" || quickstartPreviewFile("dark").includes(only) || quickstartPreviewFile("light").includes(only);
+  const frameDataUri = needsQuickstart ? quickstartFrameDataUri() : "";
   return MODES.flatMap((mode) => {
     const theme = THEMES[mode];
     const both = ["Archivo", "JetBrains Mono"];
@@ -543,6 +587,7 @@ function jobs(): Job[] {
       ...FIGURES.map((figure, index) => ({ file: figureFile(figure, mode), html: figurePage(index, mode), families: both, isFigure: true })),
       { file: guardsRefusedFile(mode), html: guardsRefusedPage(theme), families: both, isFigure: false, minPxAt800: 11 },
       { file: receiptsLedgerFile(mode), html: receiptsLedgerPage(theme), families: both, isFigure: false, minPxAt800: 11 },
+      ...(needsQuickstart ? [{ file: quickstartPreviewFile(mode), html: quickstartPreviewPage(theme, frameDataUri), families: both, isFigure: false, minPxAt800: 11 }] : []),
       { file: skillsGridFile(mode), html: skillsGridPage(theme), families: both, isFigure: false },
       { file: heroFile(mode), html: heroPage(theme), families: both, isFigure: false },
     ];
@@ -562,7 +607,7 @@ async function main(): Promise<void> {
   const browser = await chromium.launch({ channel: "chrome" });
   try {
     const only = process.argv[2] ?? "";
-    for (const job of jobs().filter((candidate) => candidate.file.includes(only))) {
+    for (const job of jobs(only).filter((candidate) => candidate.file.includes(only))) {
       const context = await browser.newContext({ deviceScaleFactor: 2 });
       const tab = await context.newPage();
       await tab.setContent(job.html, { waitUntil: "networkidle" });

@@ -17,6 +17,8 @@ import {
   heroFile,
   liveGuardReason,
   OUT_DIR,
+  quickstartPreviewAlt,
+  quickstartPreviewFile,
   receiptsLedgerAlt,
   receiptsLedgerFile,
   renderedFiles,
@@ -111,6 +113,28 @@ describe("README repeats the assets' words", () => {
     expect(altFor(heroFile("light"))).toBe(`${HERO.wordmark}. ${HERO.claim}`);
   });
 
+  test("the README has one top-level h1, no h1 stat cells, and no self-linked section headings", () => {
+    const h1Tags = README.match(/<h1\b[^>]*>/g) ?? [];
+    expect(h1Tags.length).toBe(1);
+    expect(README).toMatch(/<h1><picture>[\s\S]*?hero-light\.webp/);
+    expect(README).not.toMatch(/<td\b[^>]*>[\s\S]*?<h1\b/);
+    expect(README).not.toMatch(/<h2\b[^>]*><a\s+href="#/);
+    expect(README).not.toMatch(/<a\s+name="/);
+    for (const heading of HEADINGS) {
+      expect(README, `id="${heading.slug}"`).toContain(`<h2 id="${heading.slug}"`);
+    }
+  });
+
+  test("the quickstart demo does not autoplay on the README, plays finitely, and carries a transcript", () => {
+    expect(README).not.toMatch(/<img\b[^>]*src="\.github\/assets\/quickstart\.gif"/);
+    expect(README).toContain('href=".github/assets/quickstart.gif"');
+    expect(altFor(quickstartPreviewFile("light"))).toBe(quickstartPreviewAlt());
+    expect(README).toContain(quickstartPreviewFile("dark"));
+    expect(README).toContain("<summary>Text transcript of ai-eng init and ai-eng doctor</summary>");
+    const gifBytes = readFileSync(join(ROOT, ".github", "assets", "quickstart.gif"));
+    expect(gifBytes.includes(Buffer.from("NETSCAPE2.0"))).toBe(false);
+  });
+
   test("the guards refusal panel matches live no-verify refusals and carries its claim in alt text", () => {
     for (const entry of GUARD_REFUSALS) {
       const reason = liveGuardReason(entry.command);
@@ -118,6 +142,7 @@ describe("README repeats the assets' words", () => {
     }
     expect(altFor(guardsRefusedFile("light"))).toBe(guardsRefusedAlt());
     expect(README).toContain(guardsRefusedFile("dark"));
+    expect(README).not.toMatch(/<a\s+href="src\/guards\/no-verify\.ts"><picture>/);
     expect(README).not.toContain("payload-bash-");
     expect(README).not.toContain("payload-edit-");
   });
@@ -126,6 +151,7 @@ describe("README repeats the assets' words", () => {
     expect(SAMPLE_RECEIPTS.length).toBeGreaterThanOrEqual(2);
     expect(altFor(receiptsLedgerFile("light"))).toBe(receiptsLedgerAlt());
     expect(README).toContain(receiptsLedgerFile("dark"));
+    expect(README).not.toMatch(/<a\s+href="src\/receipts\.ts"><picture>/);
     expect(altFor(receiptsLedgerFile("light")).toLowerCase()).toContain("a receipt is a log, not proof");
   });
 
@@ -178,7 +204,7 @@ describe("the figures stay legible in both modes", () => {
   test("hero, heading, button, card and showcase panel text clear their contrast floors", () => {
     for (const mode of ["dark", "light"] as const) {
       const theme = THEMES[mode];
-      for (const text of [theme.ink, theme.muted, theme.accent, theme.badText, theme.goodText, theme.warnText]) {
+      for (const text of [theme.ink, theme.muted, theme.panelMuted, theme.accent, theme.badText, theme.goodText, theme.warnText]) {
         expect(contrast(text, theme.field), `${mode} ${text} on field`).toBeGreaterThanOrEqual(4.5);
         expect(contrast(text, theme.well), `${mode} ${text} on well`).toBeGreaterThanOrEqual(4.5);
       }

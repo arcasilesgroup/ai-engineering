@@ -1,9 +1,9 @@
 <div align="center">
 
-<picture>
+<h1><picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/hero-dark.webp">
   <img src=".github/assets/readme/hero-light.webp" alt="{ai} engineering. Guardrails for the AI Coding Agents you already run" width="100%">
-</picture>
+</picture></h1>
 
 <b>Turn any repo into a governed workspace.</b><br/>
 The agent can't edit its own rules, and every refusal it gets is saved as a file you can read.
@@ -24,14 +24,16 @@ The agent can't edit its own rules, and every refusal it gets is saved as a file
 
 </div>
 
-<a name="guards"></a>
-<h2 align="center"><a href="#guards"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-guards-dark.webp"><img src=".github/assets/readme/heading-guards-light.webp" alt="Refused before it runs" width="600"></picture></a></h2>
+<h2 id="guards" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-guards-dark.webp"><img src=".github/assets/readme/heading-guards-light.webp" alt="Refused before it runs" width="600"></picture></h2>
 
 <p align="center"><code>--no-verify</code> is only one way to skip a hook. <code>git commit -n</code> and <code>HUSKY=0</code> are refused before git starts too, and the agent is told why.</p>
 
 <p align="center">
-  <a href="src/guards/no-verify.ts"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/guards-refused-dark.webp"><img src=".github/assets/readme/guards-refused-light.webp" alt="Three hook-skipping commands refused before git starts by the no-verify guard: git commit --no-verify returns deny (--no-verify skips the git hooks. Run the command without it.) git commit -n -m fix returns deny (git commit -n skips the git hooks. Fix what they would flag.) HUSKY=0 git commit -m fix returns deny (an environment flag skips the git hooks. Refused before git starts.) The stderr artifact prints the live no-verify denial message and exits with status 2." width="880"></picture></a>
-  <br/><sub>Linter-silencing edits (<code>eslint-disable</code>, <code>@ts-ignore</code>, <code>noqa</code>) are refused the same way; recognised test runs are rewritten to <code>ai-eng wrap test</code>, which prints only the failures.</sub>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/guards-refused-dark.webp">
+    <img src=".github/assets/readme/guards-refused-light.webp" alt="Three hook-skipping commands refused before git starts by the no-verify guard: git commit --no-verify returns deny (--no-verify skips the git hooks. Run the command without it.) git commit -n -m fix returns deny (git commit -n skips the git hooks. Fix what they would flag.) HUSKY=0 git commit -m fix returns deny (an environment flag skips the git hooks. Refused before git starts.) The stderr artifact prints the live no-verify denial message and exits with status 2." width="880">
+  </picture>
+  <br/><sub>Source: <a href="src/guards/no-verify.ts"><code>src/guards/no-verify.ts</code></a>. Linter-silencing edits (<code>eslint-disable</code>, <code>@ts-ignore</code>, <code>noqa</code>) are refused the same way; recognised test runs are rewritten to <code>ai-eng wrap test</code>, which prints only the failures.</sub>
 </p>
 
 <p align="center">
@@ -84,18 +86,19 @@ Each guard runs only for the tools it governs, in this order, and the first refu
 
 </details>
 
-<a name="receipts"></a>
-<h2 align="center"><a href="#receipts"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-receipts-dark.webp"><img src=".github/assets/readme/heading-receipts-light.webp" alt="Every refusal on file" width="600"></picture></a></h2>
+<h2 id="receipts" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-receipts-dark.webp"><img src=".github/assets/readme/heading-receipts-light.webp" alt="Every refusal on file" width="600"></picture></h2>
 
 <p align="center">Git keeps no record of a skipped check. ai-eng saves every answer as a small file in your repo, so you can see what the agent tried.</p>
 
 <p align="center">
-  <a href="src/receipts.ts"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/receipts-ledger-dark.webp"><img src=".github/assets/readme/receipts-ledger-light.webp" alt="Three receipt files accumulating in .ai-engineering/receipts/: 7d07ec0d.json (Bash, denied by no-verify, 3 ms, outcome deny); c6f8ffd7.json (Edit, denied by self-protect, 2 ms, outcome deny); a20c2d8e.json (Bash, denied by none, 3 ms, outcome allow). A receipt is a log, not proof. Each verdict writes one JSON file in .ai-engineering/receipts/. Anyone who can write to that folder can write one, so treat it as an audit trail, never as cryptographic evidence." width="880"></picture></a>
-  <br/><sub>One JSON file per verdict in <code>.ai-engineering/receipts/</code>, plus <code>denies.json</code> for repeat counts.</sub>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/receipts-ledger-dark.webp">
+    <img src=".github/assets/readme/receipts-ledger-light.webp" alt="Three receipt files accumulating in .ai-engineering/receipts/: 7d07ec0d.json (Bash, denied by no-verify, 3 ms, outcome deny); c6f8ffd7.json (Edit, denied by self-protect, 2 ms, outcome deny); a20c2d8e.json (Bash, denied by none, 3 ms, outcome allow). A receipt is a log, not proof. Each verdict writes one JSON file in .ai-engineering/receipts/. Anyone who can write to that folder can write one, so treat it as an audit trail, never as cryptographic evidence." width="880">
+  </picture>
+  <br/><sub>Source: <a href="src/receipts.ts"><code>src/receipts.ts</code></a>. One JSON file per verdict in <code>.ai-engineering/receipts/</code>, plus <code>denies.json</code> for repeat counts.</sub>
 </p>
 
-<a name="skills"></a>
-<h2 align="center"><a href="#skills"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-skills-dark.webp"><img src=".github/assets/readme/heading-skills-light.webp" alt="Skills, sorted by the job" width="600"></picture></a></h2>
+<h2 id="skills" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-skills-dark.webp"><img src=".github/assets/readme/heading-skills-light.webp" alt="Skills, sorted by the job" width="600"></picture></h2>
 
 <p align="center">27 skills, grouped by job. One finds a bug's cause before it touches code; another builds a feature in small steps and asks for your yes twice.</p>
 
@@ -163,8 +166,7 @@ None of this is required to get the refusals above. The triggers that send a cha
 
 </details>
 
-<a name="fail-closed"></a>
-<h2 align="center"><a href="#fail-closed"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-fail-closed-dark.webp"><img src=".github/assets/readme/heading-fail-closed-light.webp" alt="Unsure means no" width="600"></picture></a></h2>
+<h2 id="fail-closed" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-fail-closed-dark.webp"><img src=".github/assets/readme/heading-fail-closed-light.webp" alt="Unsure means no" width="600"></picture></h2>
 
 <p align="center">If a check breaks or cannot decide, the answer is no. Copilot and Codex are the exceptions, and this section says when.</p>
 
@@ -181,8 +183,7 @@ None of this is required to get the refusals above. The triggers that send a cha
 
 The exceptions are real. The Copilot adapter (CLI and VS Code) fails open on a timeout and when `ai-eng` is not on `PATH`, and Codex fails open on a hook error. Both are in [Where the agent still can](#where-it-stops), next to the dated host matrix.
 
-<a name="your-repo"></a>
-<h2 align="center"><a href="#your-repo"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-your-repo-dark.webp"><img src=".github/assets/readme/heading-your-repo-light.webp" alt="The rules live in your repo" width="600"></picture></a></h2>
+<h2 id="your-repo" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-your-repo-dark.webp"><img src=".github/assets/readme/heading-your-repo-light.webp" alt="The rules live in your repo" width="600"></picture></h2>
 
 <p align="center">They are files in git, reviewed like code. The agent can edit <code>AGENTS.md</code> and <code>DECISIONS.md</code> and cannot edit the machinery that governs it; turning the loop guard off takes a dated entry that expires.</p>
 
@@ -191,17 +192,16 @@ The exceptions are real. The Copilot adapter (CLI and VS Code) fails open on a t
 - **Local only.** 0 hosted services, 0 model calls. No prompt and no source leaves the machine.
 - **One optional network read.** Commands you type ask the npm registry for a newer version at most every 24 hours. Set `AI_ENG_NO_UPDATE_NOTICES=1` and it never does. Offline, the check stays silent.
 
-<a name="measured"></a>
-<h2 align="center"><a href="#measured"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-measured-dark.webp"><img src=".github/assets/readme/heading-measured-light.webp" alt="Numbers you can rerun" width="600"></picture></a></h2>
+<h2 id="measured" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-measured-dark.webp"><img src=".github/assets/readme/heading-measured-light.webp" alt="Numbers you can rerun" width="600"></picture></h2>
 
 <p align="center">On our Mac, 95 in 100 checks add under 3 milliseconds; 7 of the 10 agents we list are enforced and tested. Each one can be rerun.</p>
 
 <table align="center">
   <tr>
-    <td align="center"><h1>2,600+</h1><b>tests in the suite</b><br/><sub>2,695 passing, 1 skipped, 0 failing on 2026-11-23 · <code>bun test</code></sub></td>
-    <td align="center"><h1>12</h1><b>false alarms we fixed, each paired with the attack it looks like</b><br/><sub>each one now passes, each paired attack is still refused · <code>bun test tests/friction-corpus.spec.ts</code></sub></td>
-    <td align="center"><h1>under 3 ms</h1><b>added to a tool call, 95th percentile</b><br/><sub>2.56, 2.64 and 2.72 ms in three runs of 100 calls · <code>bun run bench</code></sub></td>
-    <td align="center"><h1>7 of 10</h1><b>agent hosts enforced and verified</b><br/><sub>1 enforced but unverified, 2 advisory only · <a href="docs/surface-capability-matrix.md">capability matrix</a></sub></td>
+    <td align="center"><p><strong>2,600+</strong></p><b>tests in the suite</b><br/><sub>2,695 passing, 1 skipped, 0 failing on 2026-11-23 · <code>bun test</code></sub></td>
+    <td align="center"><p><strong>12</strong></p><b>false alarms we fixed, each paired with the attack it looks like</b><br/><sub>each one now passes, each paired attack is still refused · <code>bun test tests/friction-corpus.spec.ts</code></sub></td>
+    <td align="center"><p><strong>under 3 ms</strong></p><b>added to a tool call, 95th percentile</b><br/><sub>2.56, 2.64 and 2.72 ms in three runs of 100 calls · <code>bun run bench</code></sub></td>
+    <td align="center"><p><strong>7 of 10</strong></p><b>agent hosts enforced and verified</b><br/><sub>1 enforced but unverified, 2 advisory only · <a href="docs/surface-capability-matrix.md">capability matrix</a></sub></td>
   </tr>
 </table>
 
@@ -220,8 +220,7 @@ Want the figure for your repo? `ai-eng doctor` counts refusals per 1,000 real to
   </tr>
 </table>
 
-<a name="where-it-stops"></a>
-<h2 align="center"><a href="#where-it-stops"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-where-it-stops-dark.webp"><img src=".github/assets/readme/heading-where-it-stops-light.webp" alt="Where the agent still can" width="600"></picture></a></h2>
+<h2 id="where-it-stops" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-where-it-stops-dark.webp"><img src=".github/assets/readme/heading-where-it-stops-light.webp" alt="Where the agent still can" width="600"></picture></h2>
 
 <p align="center">ai-eng catches an agent's visible shortcuts; it does not lock the agent in. This section lists every way past it that we know of.</p>
 
@@ -274,8 +273,7 @@ For untrusted code, use OS-level isolation: a container, a VM or an OS sandbox.
 
 Some limits are not on the host list at all. ai-eng does not read test content, so an agent that deletes a failing test or weakens an assertion still gets a green build. [Figure 3](#where-it-stops) shows which layer is meant to catch that.
 
-<a name="under-the-hood"></a>
-<h2 align="center"><a href="#under-the-hood"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-under-the-hood-dark.webp"><img src=".github/assets/readme/heading-under-the-hood-light.webp" alt="One CLI, many hosts" width="600"></picture></a></h2>
+<h2 id="under-the-hood" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-under-the-hood-dark.webp"><img src=".github/assets/readme/heading-under-the-hood-light.webp" alt="One CLI, many hosts" width="600"></picture></h2>
 
 <p align="center">Eight of the agent tools we list ask the same small program before each action; we have tested seven. It needs no server and calls no model.</p>
 
@@ -305,8 +303,7 @@ Some limits are not on the host list at all. ai-eng does not read test content, 
 
 The two hosts that never call the command: Zed has no hook API, and the agy hook file is a template nothing installs.
 
-<a name="release"></a>
-<h2 align="center"><a href="#release"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-release-dark.webp"><img src=".github/assets/readme/heading-release-light.webp" alt="One way to ship" width="600"></picture></a></h2>
+<h2 id="release" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-release-dark.webp"><img src=".github/assets/readme/heading-release-light.webp" alt="One way to ship" width="600"></picture></h2>
 
 <p align="center">Each release reaches npm only after a person approves it, and one command checks the package's signed build record on your machine.</p>
 
@@ -323,8 +320,7 @@ npm audit signatures
 gh attestation verify ai-eng-darwin-arm64 --repo arcasilesgroup/ai-engineering   # a binary from the GitHub release
 ```
 
-<a name="answers"></a>
-<h2 align="center"><a href="#answers"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-answers-dark.webp"><img src=".github/assets/readme/heading-answers-light.webp" alt="What sceptics ask" width="600"></picture></a></h2>
+<h2 id="answers" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-answers-dark.webp"><img src=".github/assets/readme/heading-answers-light.webp" alt="What sceptics ask" width="600"></picture></h2>
 
 <details>
 <summary><b>Can the agent get around it?</b></summary>
@@ -375,8 +371,7 @@ When it refuses something harmless, it tells you which check fired and why. Only
 
 </details>
 
-<a name="get-it"></a>
-<h2 align="center"><a href="#get-it"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-get-it-dark.webp"><img src=".github/assets/readme/heading-get-it-light.webp" alt="Try it on one repo" width="600"></picture></a></h2>
+<h2 id="get-it" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-get-it-dark.webp"><img src=".github/assets/readme/heading-get-it-light.webp" alt="Try it on one repo" width="600"></picture></h2>
 
 <p align="center">Set it up in one repository. Its first health check tries a real shortcut and shows you the refusal.</p>
 
@@ -391,14 +386,27 @@ ai-eng doctor
 `ai-eng init` asks which agents to govern, installs the skills on your machine, and writes the contract into the repository you are in. Run it again at any time; it converges. Hooks do not run in an untrusted folder, so trust the folder in your agent once. That is the one step `ai-eng` cannot do for you.
 
 <p align="center">
-  <img src=".github/assets/quickstart.gif" alt="Real terminal session of ai-eng: ai-eng init installing the contract files and git hooks in a fresh repository, then ai-eng doctor verifying all checks and denying an adversarial git commit -n probe" width="880">
-  <br/><sub>a real session recorded with <a href=".github/assets/tapes/quickstart.tape">VHS</a>: <code>ai-eng init</code>, then <code>ai-eng doctor</code></sub>
+  <a href=".github/assets/quickstart.gif"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/quickstart-preview-dark.webp"><img src=".github/assets/readme/quickstart-preview-light.webp" alt="Watch the 9-second real terminal demo of ai-eng 3.3.1 running ai-eng init and ai-eng doctor (opens finite animated GIF, no autoplay on this page)" width="880"></picture></a>
+  <br/><sub>Static preview (no autoplay). Select to open the finite 9-second <a href=".github/assets/quickstart.gif">animated recording</a> captured with <a href=".github/assets/tapes/quickstart.tape"><code>quickstart.tape</code></a> against <code>ai-eng 3.3.1</code>.</sub>
 </p>
+
+<details>
+<summary>Text transcript of ai-eng init and ai-eng doctor</summary>
+
+1. Run `ai-eng init --surface claude-code --yes` in a fresh repository (`my-app`, running `ai-eng` 3.3.1):
+   - Verifies the machine-side global canon in `~/.ai-engineering` is intact for 3.3.1.
+   - Installs your editable contract files: `AGENTS.md`, `DECISIONS.md`, and `.gitignore`.
+   - Scaffolds `.ai-engineering/overrides.toml`, `.ai-engineering/config.toml`, `.github/workflows/ai-eng-check.yml`, marker-managed git floor hooks in `.git/hooks/{pre-commit,commit-msg,pre-push}`, and `.ai-engineering/ai-eng.lock` (6 assets with sha256) for surface `claude-code` and CI `github-actions`.
+   - Notes that layer rules are proposed on demand with `/ai-refresh-project`, reminds you to trust the workspace in your editor, commits nothing automatically, and prints `Next: ai-eng doctor`.
+2. Run `ai-eng doctor` in `my-app`:
+   - Reports 1 warning (`arch`: no layer rules yet — run `/ai-refresh-project` to propose them) and 15 passing checks across `AGENTS.md` (47 rules, 89 lines), `config.toml` (governed, `claude-code`), 4/4 skill mirrors, 107/107 verified canon files with 0 drift, assets installed by 3.3.1, marker hooks in `.git/hooks/` with `gitleaks` present, the live adversarial probe (`git commit -n` → `DENY` in ~6 ms), receipt latency (p50/p95 well under the 50 ms ceiling), friction (0 denies/1000), overrides (none active), clean spec slot, research cache, enforced `~/.claude/settings.json` carrier, machine state, and behaviors.
+   - Ends with `16 checks: 15 OK · 1 WARN · 0 FAIL` and `Chain verified.`
+
+</details>
 
 More: [install edge cases](docs/install.md) (from source, no administrator rights, Windows) · [CLI](docs/cli.md) · [lanes](docs/lanes.md) · [configuration](docs/configuration.md) · [troubleshooting](docs/troubleshooting.md) · [skills](docs/skills.md) (the triggers that send a change to a skill).
 
-<a name="build-with-us"></a>
-<h2 align="center"><a href="#build-with-us"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-build-with-us-dark.webp"><img src=".github/assets/readme/heading-build-with-us-light.webp" alt="Found a way past it?" width="600"></picture></a></h2>
+<h2 id="build-with-us" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-build-with-us-dark.webp"><img src=".github/assets/readme/heading-build-with-us-light.webp" alt="Found a way past it?" width="600"></picture></h2>
 
 <p align="center">Report it through <a href="SECURITY.md">SECURITY.md</a>. On an enforced host, any way past a check that our list does not already name is a security bug.</p>
 
