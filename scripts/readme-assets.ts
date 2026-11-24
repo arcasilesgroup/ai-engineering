@@ -3,12 +3,13 @@
 //
 // Every pixel is typeset or drawn here, from brand/tokens.json and the brand's own component
 // styles, in dark and light: the hero, the section headings, the two buttons, the "blocks" and
-// "informs" cards, the skills grid and the five figures (scripts/readme-figures.ts). A model misspells and its
-// output cannot be re-rendered; this can. Change a line in a table below, run
-// `bun scripts/readme-assets.ts`, commit the images it wrote.
+// "informs" cards, the guards refusal and receipts ledger panels, the skills grid and the five
+// figures (scripts/readme-figures.ts). A model misspells and its output cannot be re-rendered;
+// this can. Change a line in a table below, run `bun scripts/readme-assets.ts`, commit the
+// images it wrote.
 //
-// The four terminal stills in .github/assets/readme/ are not drawn here: VHS records them
-// from real hook payloads (.github/assets/tapes/stills.tape).
+// The animated quickstart recording (.github/assets/quickstart.gif) is recorded with VHS
+// against the real `ai-eng` CLI (.github/assets/tapes/quickstart.tape).
 //
 // Pass a filename fragment to render only the matching files (`bun scripts/readme-assets.ts figure-`).
 // Needs Google Chrome (playwright-core drives it, as scripts/artifact-axe.ts does), network
@@ -18,6 +19,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Locator, Page } from "playwright-core";
+import { checkBash } from "../src/guards/no-verify.ts";
+import type { Receipt } from "../src/receipts.ts";
 import { colour, DIAGRAM_VARS, FIGURE_CSS, FIGURES, figureFile, figureSvg, FIGURE_WIDTH, type Mode } from "./readme-figures.ts";
 
 const ROOT = join(import.meta.dir, "..");
@@ -100,6 +103,94 @@ export const SKILL_GROUPS: readonly SkillGroup[] = [
   { title: "Keep the repo in order", line: "Rank the backlog, and keep the agent's guidance current.", skills: ["ai-triage", "ai-refresh-project", "ai-writing-behavior"] },
 ];
 
+/** One hook-skip attempt refused by `no-verify` before git runs. */
+export type GuardRefusal = {
+  command: string;
+  flag: string;
+  guard: string;
+  verdict: "deny";
+  reason: string;
+};
+
+// Every command here is checked against the real `checkBash` guard at render time and in tests/readme-assets.spec.ts.
+export const GUARD_REFUSALS: readonly GuardRefusal[] = [
+  {
+    command: "git commit --no-verify",
+    flag: "--no-verify",
+    guard: "no-verify",
+    verdict: "deny",
+    reason: "--no-verify skips the git hooks. Run the command without it.",
+  },
+  {
+    command: "git commit -n -m fix",
+    flag: "-n",
+    guard: "no-verify",
+    verdict: "deny",
+    reason: "git commit -n skips the git hooks. Fix what they would flag.",
+  },
+  {
+    command: "HUSKY=0 git commit -m fix",
+    flag: "HUSKY=0",
+    guard: "no-verify",
+    verdict: "deny",
+    reason: "an environment flag skips the git hooks. Refused before git starts.",
+  },
+];
+
+/** Run the real `no-verify` guard on a command and return its verbatim denial reason. */
+export function liveGuardReason(command: string): string {
+  const result = checkBash(command, ROOT);
+  if (!result || !result.deny) throw new Error(`expected no-verify to deny "${command}", got allow`);
+  return result.reason;
+}
+
+/** Three representative receipts accumulating in `.ai-engineering/receipts/`, typed against `src/receipts.ts`. */
+export const SAMPLE_RECEIPTS: readonly Receipt[] = [
+  {
+    schema: "urn:ai-eng:receipt:2",
+    operation_id: "7d07ec0d",
+    ts: "2026-11-23T17:48:59.882Z",
+    event: "PreToolUse",
+    surface: "claude-code",
+    tool: "Bash",
+    guards: { ran: ["self-protect", "no-verify"], denied_by: "no-verify" },
+    latency_ms: 3,
+    outcome: "deny",
+  },
+  {
+    schema: "urn:ai-eng:receipt:2",
+    operation_id: "c6f8ffd7",
+    ts: "2026-11-23T17:49:03.556Z",
+    event: "PreToolUse",
+    surface: "claude-code",
+    tool: "Edit",
+    guards: { ran: ["self-protect"], denied_by: "self-protect" },
+    latency_ms: 2,
+    outcome: "deny",
+  },
+  {
+    schema: "urn:ai-eng:receipt:2",
+    operation_id: "a20c2d8e",
+    ts: "2026-11-23T17:49:07.362Z",
+    event: "PreToolUse",
+    surface: "claude-code",
+    tool: "Bash",
+    guards: {
+      ran: ["self-protect", "no-verify", "no-stash", "policy", "injection", "loop", "checkpoint", "lease", "wrap"],
+      denied_by: null,
+    },
+    latency_ms: 3,
+    outcome: "allow",
+  },
+];
+
+export const RECEIPT_CAVEAT = {
+  label: "Log, not proof",
+  headline: "A receipt is a log, not proof.",
+  detail: "Each verdict writes one JSON file in `.ai-engineering/receipts/`. Anyone who can write to that folder can write one, so treat it as an audit trail, never as cryptographic evidence.",
+} as const;
+
+const PANEL_WIDTH = 960;
 const GRID_WIDTH = 880;
 const HEADING_WIDTH = 800;
 const HEADING_HEIGHT = 112;
@@ -110,7 +201,17 @@ export const headingFile = (slug: string, mode: Mode) => `heading-${slug}-${mode
 export const buttonFile = (slug: string, mode: Mode) => `button-${slug}-${mode}.webp`;
 export const heroFile = (mode: Mode) => `hero-${mode}.webp`;
 export const cardFile = (slug: string, mode: Mode) => `card-${slug}-${mode}.webp`;
+export const guardsRefusedFile = (mode: Mode) => `guards-refused-${mode}.webp`;
+export const receiptsLedgerFile = (mode: Mode) => `receipts-ledger-${mode}.webp`;
 export const skillsGridFile = (mode: Mode) => `skills-grid-${mode}.webp`;
+
+/** The guards panel's alt text: the three refused commands, the deny verdict and the guard's own reason. */
+export const guardsRefusedAlt = (): string =>
+  `Three hook-skipping commands refused before git starts by the no-verify guard: ${GUARD_REFUSALS.map((entry) => `${entry.command} returns deny (${entry.reason})`).join(" ")} The stderr artifact prints the live no-verify denial message and exits with status 2.`;
+
+/** The receipts panel's alt text: the three accumulating receipt files, their fields and the log-not-proof caveat. */
+export const receiptsLedgerAlt = (): string =>
+  `Three receipt files accumulating in .ai-engineering/receipts/: ${SAMPLE_RECEIPTS.map((receipt) => `${receipt.operation_id}.json (${receipt.tool}, denied by ${receipt.guards.denied_by ?? "none"}, ${receipt.latency_ms} ms, outcome ${receipt.outcome})`).join("; ")}. ${RECEIPT_CAVEAT.headline} ${RECEIPT_CAVEAT.detail.replaceAll("`", "")}`;
 
 /** The grid's alt text: every group, then every skill in it, so a screen reader gets the same list. */
 export const skillsGridAlt = (): string =>
@@ -123,6 +224,8 @@ export function renderedFiles(): string[] {
     ...BUTTONS.map((button) => buttonFile(button.slug, mode)),
     ...CARDS.map((card) => cardFile(card.slug, mode)),
     ...FIGURES.map((figure) => figureFile(figure, mode)),
+    guardsRefusedFile(mode),
+    receiptsLedgerFile(mode),
     skillsGridFile(mode),
     heroFile(mode),
   ]);
@@ -135,10 +238,12 @@ export function renderedFiles(): string[] {
 export type Theme = {
   field: string;
   raised: string;
+  well: string;
   ink: string;
   muted: string;
   accent: string;
   border: string;
+  hairline: string;
   buttonInk: string;
   fill: string;
   grid: string;
@@ -148,19 +253,21 @@ export type Theme = {
   badText: string;
   good: string;
   goodText: string;
+  warn: string;
+  warnText: string;
 };
 
 // Light is the ivory surface, the one light surface the brand names (tokens.json semantic.surface.surface-ivory).
 export const THEMES: Record<Mode, Theme> = {
   dark: {
-    field: colour("black"), raised: colour("gray.dark4"), ink: colour("white"), muted: colour("gray.light1"), accent: colour("green.base"),
-    border: colour("gray.base"), buttonInk: colour("black"), fill: colour("green.base"), grid: `${colour("white")}0D`, band: `${colour("white")}08`, glow: `${colour("green.base")}14`,
-    bad: colour("red.light1"), badText: colour("red.light2"), good: colour("green.base"), goodText: colour("green.light1"),
+    field: colour("black"), raised: colour("gray.dark4"), well: colour("black"), ink: colour("white"), muted: colour("gray.light1"), accent: colour("green.base"),
+    border: colour("gray.base"), hairline: `${colour("gray.base")}55`, buttonInk: colour("black"), fill: colour("green.base"), grid: `${colour("white")}0D`, band: `${colour("white")}08`, glow: `${colour("green.base")}14`,
+    bad: colour("red.light1"), badText: colour("red.light2"), good: colour("green.base"), goodText: colour("green.light1"), warn: colour("yellow.base"), warnText: colour("yellow.base"),
   },
   light: {
-    field: colour("gray.light3"), raised: colour("white"), ink: colour("black"), muted: colour("gray.dark1"), accent: colour("green.dark2"),
-    border: colour("gray.base"), buttonInk: colour("black"), fill: colour("green.base"), grid: `${colour("gray.dark1")}14`, band: `${colour("white")}B3`, glow: `${colour("green.dark2")}14`,
-    bad: colour("red.dark2"), badText: colour("red.dark2"), good: colour("green.dark2"), goodText: colour("green.dark2"),
+    field: colour("gray.light3"), raised: colour("white"), well: colour("gray.light3"), ink: colour("black"), muted: colour("gray.dark1"), accent: colour("green.dark2"),
+    border: colour("gray.base"), hairline: `${colour("gray.base")}66`, buttonInk: colour("black"), fill: colour("green.base"), grid: `${colour("gray.dark1")}14`, band: `${colour("white")}B3`, glow: `${colour("green.dark2")}14`,
+    bad: colour("red.dark2"), badText: colour("red.dark2"), good: colour("green.dark2"), goodText: colour("green.dark2"), warn: colour("yellow.dark2"), warnText: colour("yellow.dark2"),
   },
 };
 
@@ -267,6 +374,133 @@ code{font:500 13px/1 ${MONO};color:${theme.ink}}
   );
 }
 
+/** Shared architectural frame for README showcase panels: navy/ivory field, 5% grid, four corner brackets, mono eyebrow, one accent word, ledger footer. */
+function panelFrameCss(theme: Theme): string {
+  return `#asset{position:relative;overflow:hidden;width:${PANEL_WIDTH}px;border-radius:12px;border:1px solid ${theme.border};padding:38px 40px 30px;
+background-color:${theme.field};background-image:linear-gradient(${theme.grid} 1px,transparent 1px),linear-gradient(90deg,${theme.grid} 1px,transparent 1px);background-size:32px 32px}
+.corner{position:absolute;width:22px;height:22px;border:0 solid ${theme.accent};opacity:.9}
+.corner.tl{top:14px;left:14px;border-width:2px 0 0 2px}.corner.tr{top:14px;right:14px;border-width:2px 2px 0 0}.corner.bl{bottom:14px;left:14px;border-width:0 0 2px 2px}.corner.br{bottom:14px;right:14px;border-width:0 2px 2px 0}
+.p-top{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:10px}
+.p-eyebrow{font:600 13.5px/1 ${MONO};letter-spacing:.14em;text-transform:uppercase;color:${theme.muted}}
+.p-tag{font:500 13.5px/1 ${MONO};color:${theme.muted}}
+.p-title{font:800 30px/1.1 ${SANS};font-stretch:92%;letter-spacing:-.025em;color:${theme.ink};margin-bottom:22px}
+.p-title em{color:${theme.accent}}
+.p-foot{margin-top:20px;display:flex;justify-content:space-between;align-items:center;gap:16px;font:500 13.5px/1.2 ${MONO};letter-spacing:.04em;color:${theme.muted}}`;
+}
+
+/** Highlight the exact hook-skipping flag inside a command line so the trigger reads at a glance. */
+function withFlagMark(command: string, flag: string): string {
+  const at = command.indexOf(flag);
+  if (at < 0) throw new Error(`flag "${flag}" is not in "${command}"`);
+  return `${escapeHtml(command.slice(0, at))}<mark class="flag">${escapeHtml(flag)}</mark>${escapeHtml(command.slice(at + flag.length))}`;
+}
+
+/** Section 01: three stacked hook-skip lanes (attempt -> verdict -> reason) plus one live stderr artifact. */
+function guardsRefusedPage(theme: Theme): string {
+  const liveReasons = GUARD_REFUSALS.map((entry) => liveGuardReason(entry.command));
+  const artifactReason = liveReasons[0] as string;
+  const arrowSvg = `<svg class="arrow" width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M1 6H23" stroke="${theme.bad}" stroke-width="1.6" stroke-linecap="round"/><path d="M18 2L24 6L18 10" fill="none" stroke="${theme.bad}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const lanes = GUARD_REFUSALS.map(
+    (entry) => `<div class="lane">
+  <p class="cmd"><span class="prompt">$</span><span>${withFlagMark(entry.command, entry.flag)}</span></p>
+  <div class="verdict">${arrowSvg}<span class="pill is-deny">${escapeHtml(entry.verdict)}</span></div>
+  <p class="reason">${escapeHtml(entry.reason)}</p>
+</div>`,
+  ).join("");
+  return page(
+    `<div id="asset"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+<div class="p-top"><span class="p-eyebrow">01 / Guards</span><span class="p-tag">PreToolUse · no-verify</span></div>
+<h2 class="p-title">${withAccent("Every hook skip is refused before git starts", "refused")}</h2>
+<div class="cols"><span>Attempt</span><span class="c-verdict">Verdict</span><span>Reason</span></div>
+<div class="lanes">${lanes}</div>
+<div class="artifact">
+  <div class="art-head"><span class="art-lbl">Actual stderr message · no-verify</span><span class="art-exit">exit 2</span></div>
+  <p class="art-line"><span class="art-brand">[ai-eng]</span> <span class="art-guard">no-verify:</span> ${escapeHtml(artifactReason)}</p>
+</div>
+<div class="p-foot"><span>{ai} engineering · src/guards/no-verify.ts</span><span>linter silences refused the same way</span></div>
+</div>`,
+    `${panelFrameCss(theme)}
+.cols{display:grid;grid-template-columns:296px 116px minmax(0,1fr);gap:14px;padding:0 20px 8px;font:600 13.5px/1 ${MONO};letter-spacing:.12em;text-transform:uppercase;color:${theme.muted}}
+.cols .c-verdict{padding-left:36px}
+.lanes{display:grid;gap:10px}
+.lane{display:grid;grid-template-columns:296px 116px minmax(0,1fr);gap:14px;align-items:center;border:1px solid ${theme.border};border-radius:12px;background:${theme.raised};padding:15px 20px}
+.cmd{display:flex;align-items:baseline;gap:8px;font:500 14.5px/1.35 ${MONO};color:${theme.ink};white-space:nowrap}
+.prompt{color:${theme.accent};font-weight:700}
+.flag{background:color-mix(in srgb,${theme.bad} 16%,transparent);color:${theme.badText};border:1px solid color-mix(in srgb,${theme.bad} 55%,transparent);border-radius:5px;padding:1px 6px;font-weight:700}
+.verdict{display:flex;align-items:center;gap:10px}
+.arrow{flex:0 0 auto;display:block}
+.pill{display:inline-flex;align-items:center;justify-content:center;font:700 13.5px/1 ${MONO};letter-spacing:.04em;padding:6px 13px;border-radius:999px;white-space:nowrap}
+.pill.is-deny{border:1px solid ${theme.bad};color:${theme.badText};background:color-mix(in srgb,${theme.bad} 13%,transparent)}
+.reason{font:400 14.5px/1.4 ${SANS};color:${theme.muted};text-wrap:balance}
+.artifact{margin-top:16px;border:1px solid ${theme.border};border-radius:12px;background:${theme.well};padding:14px 20px}
+.art-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid ${theme.hairline}}
+.art-lbl{font:600 13.5px/1 ${MONO};letter-spacing:.1em;text-transform:uppercase;color:${theme.muted}}
+.art-exit{font:700 13.5px/1 ${MONO};color:${theme.badText}}
+.art-line{font:500 13.5px/1.55 ${MONO};color:${theme.ink}}
+.art-brand{color:${theme.goodText};font-weight:700}
+.art-guard{color:${theme.badText};font-weight:700}`,
+  );
+}
+
+/** Section 02: three side-by-side receipt cards showing accumulation, plus the log-not-proof caveat given typographic weight. */
+function receiptsLedgerPage(theme: Theme): string {
+  const totalGuards = 9;
+  const cards = SAMPLE_RECEIPTS.map((receipt) => {
+    const isDeny = receipt.outcome === "deny";
+    const time = `${receipt.ts.slice(11, 19)}Z`;
+    const guardValue = receipt.guards.denied_by ?? "none";
+    const ranCount = receipt.guards.ran.length;
+    const guardClass = isDeny ? "val is-bad" : "val is-muted";
+    const pillClass = isDeny ? "pill is-deny" : "pill is-allow";
+    return `<article class="rcpt">
+  <header class="rcpt-head"><span class="rcpt-id">${escapeHtml(receipt.operation_id)}.json</span><span class="rcpt-ts">${escapeHtml(time)}</span></header>
+  <dl class="fields">
+    <div class="row"><dt>Tried</dt><dd class="val">${escapeHtml(receipt.tool)}</dd></div>
+    <div class="row"><dt>Denied by</dt><dd class="${guardClass}">${escapeHtml(guardValue)}</dd></div>
+    <div class="row"><dt>Latency</dt><dd class="val num">${receipt.latency_ms} ms</dd></div>
+    <div class="row"><dt>Outcome</dt><dd><span class="${pillClass}">${escapeHtml(receipt.outcome)}</span></dd></div>
+  </dl>
+  <p class="rcpt-meta">${escapeHtml(receipt.surface)} · ${ranCount} of ${totalGuards} ran</p>
+</article>`;
+  }).join("");
+  return page(
+    `<div id="asset"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+<div class="p-top"><span class="p-eyebrow">02 / Receipts</span><span class="p-tag">.ai-engineering/receipts/</span></div>
+<h2 class="p-title">${withAccent("Three verdicts, three files in your repo", "files")}</h2>
+<div class="cards">${cards}</div>
+<div class="caveat">
+  <div class="caveat-top"><span class="caveat-chip">${escapeHtml(RECEIPT_CAVEAT.label)}</span><strong class="caveat-head">${escapeHtml(RECEIPT_CAVEAT.headline)}</strong></div>
+  <p class="caveat-body">${withCode(RECEIPT_CAVEAT.detail)}</p>
+</div>
+<div class="p-foot"><span>{ai} engineering · src/receipts.ts</span><span>schema urn:ai-eng:receipt:2 · + denies.json</span></div>
+</div>`,
+    `${panelFrameCss(theme)}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.rcpt{border:1px solid ${theme.border};border-radius:12px;background:${theme.raised};padding:18px 20px 16px;display:flex;flex-direction:column;gap:12px}
+.rcpt-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding-bottom:10px;border-bottom:1px solid ${theme.hairline}}
+.rcpt-id{font:700 14px/1 ${MONO};color:${theme.ink}}
+.rcpt-ts{font:500 13.5px/1 ${MONO};font-variant-numeric:tabular-nums;color:${theme.muted}}
+.fields{display:grid;gap:10px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+dt{font:600 13.5px/1 ${MONO};letter-spacing:.08em;text-transform:uppercase;color:${theme.muted}}
+dd{margin:0}
+.val{font:700 14.5px/1.2 ${MONO};color:${theme.ink}}
+.val.num{font-variant-numeric:tabular-nums}
+.val.is-bad{color:${theme.badText}}
+.val.is-muted{color:${theme.muted};font-weight:500}
+.pill{display:inline-flex;align-items:center;justify-content:center;font:700 13.5px/1 ${MONO};letter-spacing:.04em;padding:5px 12px;border-radius:999px;white-space:nowrap}
+.pill.is-deny{border:1px solid ${theme.bad};color:${theme.badText};background:color-mix(in srgb,${theme.bad} 13%,transparent)}
+.pill.is-allow{border:1px solid ${theme.good};color:${theme.goodText};background:color-mix(in srgb,${theme.good} 13%,transparent)}
+.rcpt-meta{margin-top:2px;padding-top:10px;border-top:1px solid ${theme.hairline};font:500 13.5px/1.2 ${MONO};font-variant-numeric:tabular-nums;color:${theme.muted}}
+.caveat{margin-top:18px;border:1.5px dashed ${theme.warn};border-radius:12px;background:${theme.raised};padding:18px 22px;display:flex;flex-direction:column;gap:8px}
+.caveat-top{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px}
+.caveat-chip{font:700 13.5px/1 ${MONO};letter-spacing:.1em;text-transform:uppercase;padding:5px 12px;border-radius:999px;border:1px solid ${theme.warn};color:${theme.warnText};background:color-mix(in srgb,${theme.warn} 12%,transparent)}
+.caveat-head{font:800 22px/1.15 ${SANS};font-stretch:92%;letter-spacing:-.02em;color:${theme.ink}}
+.caveat-body{font:400 15px/1.45 ${SANS};color:${theme.muted}}
+.caveat-body code{font:500 13.5px/1 ${MONO};color:${theme.ink}}`,
+  );
+}
+
 /** Six tiles, three across: a title and its count, one plain line, then the names in small mono type. */
 function skillsGridPage(theme: Theme): string {
   const tiles = SKILL_GROUPS.map((group) => {
@@ -296,7 +530,7 @@ function figurePage(figureIndex: number, mode: Mode): string {
 // Rendering
 // ---------------------------------------------------------------------------
 
-type Job = { file: string; html: string; families: string[]; isFigure: boolean };
+type Job = { file: string; html: string; families: string[]; isFigure: boolean; minPxAt800?: number };
 
 function jobs(): Job[] {
   return MODES.flatMap((mode) => {
@@ -307,6 +541,8 @@ function jobs(): Job[] {
       ...BUTTONS.map((button) => ({ file: buttonFile(button.slug, mode), html: buttonPage(button, theme), families: ["Archivo"], isFigure: false })),
       ...CARDS.map((card) => ({ file: cardFile(card.slug, mode), html: cardPage(card, theme), families: both, isFigure: false })),
       ...FIGURES.map((figure, index) => ({ file: figureFile(figure, mode), html: figurePage(index, mode), families: both, isFigure: true })),
+      { file: guardsRefusedFile(mode), html: guardsRefusedPage(theme), families: both, isFigure: false, minPxAt800: 11 },
+      { file: receiptsLedgerFile(mode), html: receiptsLedgerPage(theme), families: both, isFigure: false, minPxAt800: 11 },
       { file: skillsGridFile(mode), html: skillsGridPage(theme), families: both, isFigure: false },
       { file: heroFile(mode), html: heroPage(theme), families: both, isFigure: false },
     ];
@@ -337,6 +573,10 @@ async function main(): Promise<void> {
       const box = tab.locator("#asset");
       const overflow = job.isFigure ? await svgTextOverflow(tab) : await boxTextOverflow(box);
       if (overflow) throw new Error(`${job.file}: ${overflow}`);
+      if (job.minPxAt800 !== undefined) {
+        const tooSmall = await boxMinFontAt800(box, job.minPxAt800);
+        if (tooSmall) throw new Error(`${job.file}: ${tooSmall}`);
+      }
       const png = join(scratch, `${job.file}.png`);
       await box.screenshot({ path: png, omitBackground: true });
       encode(png, join(OUT_DIR, job.file));
@@ -376,6 +616,27 @@ async function boxTextOverflow(box: Locator): Promise<string | null> {
     return null;
   });
   return culprit ? `text overflows its canvas: ${culprit}` : null;
+}
+
+/** Every visible text node must stay at or above `floorPx` when GitHub renders the image at 800 px wide. */
+async function boxMinFontAt800(box: Locator, floorPx: number): Promise<string | null> {
+  return box.evaluate((element, minPx): string | null => {
+    const width = element.getBoundingClientRect().width;
+    const scale = Math.min(1, 800 / width);
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let current: Node | null;
+    while ((current = walker.nextNode()) !== null) {
+      if (!current.textContent?.trim()) continue;
+      const host = current.parentElement;
+      if (!host) continue;
+      const computed = Number.parseFloat(getComputedStyle(host).fontSize);
+      const rendered = computed * scale;
+      if (rendered < minPx - 0.05) {
+        return `"${current.textContent.trim().slice(0, 32)}" renders at ${rendered.toFixed(1)}px at 800px wide (floor ${minPx}px)`;
+      }
+    }
+    return null;
+  }, floorPx);
 }
 
 /** SVG text never wraps: any line that leaves its node, column or the canvas is a layout bug. */

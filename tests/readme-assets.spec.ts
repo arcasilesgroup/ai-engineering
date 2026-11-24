@@ -3,12 +3,33 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { BUTTONS, buttonFile, CARDS, cardFile, HEADINGS, headingFile, HERO, heroFile, OUT_DIR, renderedFiles, SKILL_GROUPS, skillsGridAlt, skillsGridFile, THEMES } from "../scripts/readme-assets.ts";
+import {
+  BUTTONS,
+  buttonFile,
+  CARDS,
+  cardFile,
+  GUARD_REFUSALS,
+  guardsRefusedAlt,
+  guardsRefusedFile,
+  HEADINGS,
+  headingFile,
+  HERO,
+  heroFile,
+  liveGuardReason,
+  OUT_DIR,
+  receiptsLedgerAlt,
+  receiptsLedgerFile,
+  renderedFiles,
+  SAMPLE_RECEIPTS,
+  SKILL_GROUPS,
+  skillsGridAlt,
+  skillsGridFile,
+  THEMES,
+} from "../scripts/readme-assets.ts";
 import { DIAGRAM_VARS, FIGURES, figureFile, figureSvg } from "../scripts/readme-figures.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
 const README = readFileSync(join(ROOT, "README.md"), "utf8");
-const STILLS = ["deny-no-verify.webp", "deny-silence.webp", "rewrite-test.webp", "receipt.webp"];
 
 const referenced = (): string[] => [...README.matchAll(/(?:src|srcset)="(\.github\/assets\/[^"#]+)/g)].map((match) => match[1] as string);
 
@@ -39,7 +60,7 @@ describe("README images", () => {
 
   test("no file in .github/assets/readme is an orphan, and the script's own files all exist", () => {
     const onDisk = readdirSync(OUT_DIR).sort();
-    expect(onDisk).toEqual([...renderedFiles(), ...STILLS].sort());
+    expect(onDisk).toEqual(renderedFiles().sort());
     const used = new Set(referenced().map((path) => path.split("/").pop()));
     expect(onDisk.filter((file) => !used.has(file))).toEqual([]);
   });
@@ -90,6 +111,24 @@ describe("README repeats the assets' words", () => {
     expect(altFor(heroFile("light"))).toBe(`${HERO.wordmark}. ${HERO.claim}`);
   });
 
+  test("the guards refusal panel matches live no-verify refusals and carries its claim in alt text", () => {
+    for (const entry of GUARD_REFUSALS) {
+      const reason = liveGuardReason(entry.command);
+      expect(reason.length).toBeGreaterThan(0);
+    }
+    expect(altFor(guardsRefusedFile("light"))).toBe(guardsRefusedAlt());
+    expect(README).toContain(guardsRefusedFile("dark"));
+    expect(README).not.toContain("payload-bash-");
+    expect(README).not.toContain("payload-edit-");
+  });
+
+  test("the receipts ledger panel shows accumulating files, keeps the log-not-proof caveat, and carries its claim in alt text", () => {
+    expect(SAMPLE_RECEIPTS.length).toBeGreaterThanOrEqual(2);
+    expect(altFor(receiptsLedgerFile("light"))).toBe(receiptsLedgerAlt());
+    expect(README).toContain(receiptsLedgerFile("dark"));
+    expect(altFor(receiptsLedgerFile("light")).toLowerCase()).toContain("a receipt is a log, not proof");
+  });
+
   test("the skills grid names exactly the skills in skills/, once each, and its alt text lists them", () => {
     const onDisk = readdirSync(join(ROOT, "skills")).filter((name) => existsSync(join(ROOT, "skills", name, "SKILL.md"))).sort();
     expect(SKILL_GROUPS.flatMap((group) => group.skills).sort()).toEqual(onDisk);
@@ -136,13 +175,19 @@ describe("the figures stay legible in both modes", () => {
     }
   });
 
-  test("hero, heading, button and card text clear their contrast floors", () => {
+  test("hero, heading, button, card and showcase panel text clear their contrast floors", () => {
     for (const mode of ["dark", "light"] as const) {
       const theme = THEMES[mode];
-      for (const text of [theme.ink, theme.muted, theme.accent]) expect(contrast(text, theme.field), `${mode} ${text} on field`).toBeGreaterThanOrEqual(4.5);
-      for (const text of [theme.ink, theme.muted, theme.badText, theme.goodText]) expect(contrast(text, theme.raised), `${mode} ${text} on card`).toBeGreaterThanOrEqual(4.5);
+      for (const text of [theme.ink, theme.muted, theme.accent, theme.badText, theme.goodText, theme.warnText]) {
+        expect(contrast(text, theme.field), `${mode} ${text} on field`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(text, theme.well), `${mode} ${text} on well`).toBeGreaterThanOrEqual(4.5);
+      }
+      for (const text of [theme.ink, theme.muted, theme.badText, theme.goodText, theme.warnText]) {
+        expect(contrast(text, theme.raised), `${mode} ${text} on card`).toBeGreaterThanOrEqual(4.5);
+      }
       expect(contrast(theme.buttonInk, theme.fill), `${mode} button text on fill`).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme.border, theme.field), `${mode} outline button border on field`).toBeGreaterThanOrEqual(3);
+      expect(contrast(theme.warn, theme.field), `${mode} caveat dashed border on field`).toBeGreaterThanOrEqual(3);
     }
   });
 });

@@ -30,18 +30,8 @@ The agent can't edit its own rules, and every refusal it gets is saved as a file
 <p align="center"><code>--no-verify</code> is only one way to skip a hook. <code>git commit -n</code> and <code>HUSKY=0</code> are refused before git starts too, and the agent is told why.</p>
 
 <p align="center">
-  <a href="src/guards/no-verify.ts"><img src=".github/assets/readme/deny-no-verify.webp" alt="A terminal. The payload of a git commit --no-verify call goes into ai-eng chain PreToolUse. The answer: no-verify skips the git hooks, so run the command without it. Exit 2." width="880"></a>
-  <br/><sub>The agent tried <code>git commit --no-verify</code>. The chain refused it before git ran, and said why.</sub>
-</p>
-
-<p align="center">
-  <a href="src/guards/no-verify.ts"><img src=".github/assets/readme/deny-silence.webp" alt="A terminal. The payload of an edit that adds an eslint-disable comment goes into ai-eng chain PreToolUse. The answer: this silences a check, and silencing a check is skipping a hook. No override covers this guard, so the edit is refused. Exit 2." width="880"></a>
-  <br/><sub>The agent tried to silence a linter in an edit. Refused: only the loop guard takes an override, so the fix here is in the code, or in a rule a person changes in a reviewed diff.</sub>
-</p>
-
-<p align="center">
-  <a href="src/guards/wrap.ts"><img src=".github/assets/readme/rewrite-test.webp" alt="A terminal. The payload of a bun test call goes into ai-eng chain PreToolUse. The updated command is ai-eng wrap test, which prints only the failures." width="880"></a>
-  <br/><sub>A test run became <code>ai-eng wrap test</code>, which prints only the failures. Not every answer is a refusal.</sub>
+  <a href="src/guards/no-verify.ts"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/guards-refused-dark.webp"><img src=".github/assets/readme/guards-refused-light.webp" alt="Three hook-skipping commands refused before git starts by the no-verify guard: git commit --no-verify returns deny (--no-verify skips the git hooks. Run the command without it.) git commit -n -m fix returns deny (git commit -n skips the git hooks. Fix what they would flag.) HUSKY=0 git commit -m fix returns deny (an environment flag skips the git hooks. Refused before git starts.) The stderr artifact prints the live no-verify denial message and exits with status 2." width="880"></picture></a>
+  <br/><sub>Linter-silencing edits (<code>eslint-disable</code>, <code>@ts-ignore</code>, <code>noqa</code>) are refused the same way; recognised test runs are rewritten to <code>ai-eng wrap test</code>, which prints only the failures.</sub>
 </p>
 
 <p align="center">
@@ -100,8 +90,8 @@ Each guard runs only for the tools it governs, in this order, and the first refu
 <p align="center">Git keeps no record of a skipped check. ai-eng saves every answer as a small file in your repo, so you can see what the agent tried.</p>
 
 <p align="center">
-  <a href="src/receipts.ts"><img src=".github/assets/readme/receipt.webp" alt="A terminal. ls lists three receipt files in .ai-engineering/receipts/, one per verdict, plus denies.json. jq prints the first: event PreToolUse, surface claude-code, tool Bash, guards ran self-protect and no-verify, denied_by no-verify, outcome deny, latency 5 ms." width="880"></a>
-  <br/><sub>Three verdicts, three files in <code>.ai-engineering/receipts/</code>. A receipt is a file; anyone who can write to the folder can write one, so treat it as a log, not as proof.</sub>
+  <a href="src/receipts.ts"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/receipts-ledger-dark.webp"><img src=".github/assets/readme/receipts-ledger-light.webp" alt="Three receipt files accumulating in .ai-engineering/receipts/: 7d07ec0d.json (Bash, denied by no-verify, 3 ms, outcome deny); c6f8ffd7.json (Edit, denied by self-protect, 2 ms, outcome deny); a20c2d8e.json (Bash, denied by none, 3 ms, outcome allow). A receipt is a log, not proof. Each verdict writes one JSON file in .ai-engineering/receipts/. Anyone who can write to that folder can write one, so treat it as an audit trail, never as cryptographic evidence." width="880"></picture></a>
+  <br/><sub>One JSON file per verdict in <code>.ai-engineering/receipts/</code>, plus <code>denies.json</code> for repeat counts.</sub>
 </p>
 
 <a name="skills"></a>
@@ -401,8 +391,8 @@ ai-eng doctor
 `ai-eng init` asks which agents to govern, installs the skills on your machine, and writes the contract into the repository you are in. Run it again at any time; it converges. Hooks do not run in an untrusted folder, so trust the folder in your agent once. That is the one step `ai-eng` cannot do for you.
 
 <p align="center">
-  <img src=".github/assets/quickstart.gif" alt="ai-eng init installing the canon and the git floor, then ai-eng doctor running its checks and adversarial probe" width="880">
-  <br/><sub>a real session, sped up: <code>ai-eng init</code>, then <code>ai-eng doctor</code></sub>
+  <img src=".github/assets/quickstart.gif" alt="Real terminal session of ai-eng: ai-eng init installing the contract files and git hooks in a fresh repository, then ai-eng doctor verifying all checks and denying an adversarial git commit -n probe" width="880">
+  <br/><sub>a real session recorded with <a href=".github/assets/tapes/quickstart.tape">VHS</a>: <code>ai-eng init</code>, then <code>ai-eng doctor</code></sub>
 </p>
 
 More: [install edge cases](docs/install.md) (from source, no administrator rights, Windows) · [CLI](docs/cli.md) · [lanes](docs/lanes.md) · [configuration](docs/configuration.md) · [troubleshooting](docs/troubleshooting.md) · [skills](docs/skills.md) (the triggers that send a change to a skill).
@@ -422,6 +412,6 @@ bun run lint && bun run typecheck
 bun scripts/readme-assets.ts   # re-render the README's headings, buttons, cards, skills grid, hero and figures
 ```
 
-The terminal stills are recorded with [VHS](https://github.com/charmbracelet/vhs) from real hook payloads: see `.github/assets/tapes/stills.tape`. Versions come from [changesets](.changeset/README.md); [docs/history](docs/history/recap.html) holds the early design record, which is history.
+The quickstart demo is recorded with [VHS](https://github.com/charmbracelet/vhs) against the installed `ai-eng` CLI: see `.github/assets/tapes/quickstart.tape`. Versions come from [changesets](.changeset/README.md); [docs/history](docs/history/recap.html) holds the early design record, which is history.
 
 <p align="center"><sub>Apache-2.0 © <a href="https://github.com/arcasilesgroup">Arcasiles Group</a> · <a href="LICENSE">LICENSE</a> · <a href="NOTICE.md">NOTICE</a> · <a href="THIRD-PARTY-NOTICES.md">THIRD-PARTY-NOTICES</a> · <a href="https://ai-engineering.arcasiles.com">website</a></sub></p>
