@@ -8,17 +8,16 @@ import {
   buttonFile,
   CARDS,
   cardFile,
-  GUARD_REFUSALS,
+  GUARD_LANES,
+  guardCountFor,
   guardsRefusedAlt,
   guardsRefusedFile,
   HEADINGS,
   headingFile,
   HERO,
   heroFile,
-  liveGuardReason,
   OUT_DIR,
-  quickstartPreviewAlt,
-  quickstartPreviewFile,
+  receiptFilename,
   receiptsLedgerAlt,
   receiptsLedgerFile,
   renderedFiles,
@@ -27,7 +26,9 @@ import {
   skillsGridAlt,
   skillsGridFile,
   THEMES,
+  verifyGuardLane,
 } from "../scripts/readme-assets.ts";
+import { TABLE } from "../src/chain/mod.ts";
 import { DIAGRAM_VARS, FIGURES, figureFile, figureSvg } from "../scripts/readme-figures.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
@@ -113,42 +114,58 @@ describe("README repeats the assets' words", () => {
     expect(altFor(heroFile("light"))).toBe(`${HERO.wordmark}. ${HERO.claim}`);
   });
 
-  test("the README has one top-level h1, no h1 stat cells, and no self-linked section headings", () => {
+  test("the README has one top-level h1 wrapping the hero and h3 stat cells with no h1 inside table cells", () => {
     const h1Tags = README.match(/<h1\b[^>]*>/g) ?? [];
     expect(h1Tags.length).toBe(1);
     expect(README).toMatch(/<h1><picture>[\s\S]*?hero-light\.webp/);
-    expect(README).not.toMatch(/<td\b[^>]*>[\s\S]*?<h1\b/);
-    expect(README).not.toMatch(/<h2\b[^>]*><a\s+href="#/);
-    expect(README).not.toMatch(/<a\s+name="/);
-    for (const heading of HEADINGS) {
-      expect(README, `id="${heading.slug}"`).toContain(`<h2 id="${heading.slug}"`);
+    expect(README).not.toMatch(/<td\b[^>]*>(?:(?!<\/td>)[\s\S])*?<h1\b/i);
+    for (const metric of ["2,600+", "12", "under 3 ms", "7 of 10"]) {
+      expect(README, `stat cell ${metric}`).toContain(`<td align="center"><h3>${metric}</h3>`);
     }
   });
 
-  test("the quickstart demo does not autoplay on the README, plays finitely, and carries a transcript", () => {
-    expect(README).not.toMatch(/<img\b[^>]*src="\.github\/assets\/quickstart\.gif"/);
-    expect(README).toContain('href=".github/assets/quickstart.gif"');
-    expect(altFor(quickstartPreviewFile("light"))).toBe(quickstartPreviewAlt());
-    expect(README).toContain(quickstartPreviewFile("dark"));
+  test("the quickstart demo embeds the finite recording directly and carries a faithful transcript", () => {
+    const gifTag = (README.match(/<img\b[^>]*>/g) ?? []).find((entry) => entry.includes('src=".github/assets/quickstart.gif"'));
+    expect(gifTag, "inline quickstart.gif img tag").toBeDefined();
+    const gifAlt = gifTag?.match(/\balt="([^"]*)"/)?.[1] ?? "";
+    expect(gifAlt).toContain("ai-eng init");
+    expect(gifAlt).toContain("ai-eng doctor");
+    expect(gifAlt).toContain("3.3.1");
+    expect(README).not.toContain("quickstart-preview-");
     expect(README).toContain("<summary>Text transcript of ai-eng init and ai-eng doctor</summary>");
+    expect(README).toContain("DENY in 7ms");
+    expect(README).not.toContain("~6 ms");
     const gifBytes = readFileSync(join(ROOT, ".github", "assets", "quickstart.gif"));
     expect(gifBytes.includes(Buffer.from("NETSCAPE2.0"))).toBe(false);
   });
 
-  test("the guards refusal panel matches live no-verify refusals and carries its claim in alt text", () => {
-    for (const entry of GUARD_REFUSALS) {
-      const reason = liveGuardReason(entry.command);
-      expect(reason.length).toBeGreaterThan(0);
+  test("the guards panel matches live no-verify and wrap verdicts and carries its claim in alt text", () => {
+    expect(GUARD_LANES.some((lane) => lane.kind === "bash-deny")).toBe(true);
+    expect(GUARD_LANES.some((lane) => lane.kind === "edit-deny")).toBe(true);
+    expect(GUARD_LANES.some((lane) => lane.kind === "bash-rewrite" && lane.verdict === "rewrite")).toBe(true);
+    for (const lane of GUARD_LANES) {
+      expect(verifyGuardLane(lane).length).toBeGreaterThan(0);
     }
     expect(altFor(guardsRefusedFile("light"))).toBe(guardsRefusedAlt());
     expect(README).toContain(guardsRefusedFile("dark"));
-    expect(README).not.toMatch(/<a\s+href="src\/guards\/no-verify\.ts"><picture>/);
+    expect(README).toContain('href="src/guards/no-verify.ts"');
+    expect(README).toContain('href="src/guards/wrap.ts"');
+    expect(README).not.toMatch(/<a\s+href="src\/guards\/(?:no-verify|wrap)\.ts"><picture>/);
     expect(README).not.toContain("payload-bash-");
     expect(README).not.toContain("payload-edit-");
   });
 
-  test("the receipts ledger panel shows accumulating files, keeps the log-not-proof caveat, and carries its claim in alt text", () => {
+  test("the receipts ledger panel matches real receipt filenames and per-tool guard counts, keeps the log-not-proof caveat, and carries its claim in alt text", () => {
     expect(SAMPLE_RECEIPTS.length).toBeGreaterThanOrEqual(2);
+    const receiptNamePattern = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z-[A-Za-z0-9_-]+-[0-9a-f]{8}\.json$/;
+    for (const receipt of SAMPLE_RECEIPTS) {
+      expect(receiptFilename(receipt), `filename of ${receipt.operation_id}`).toMatch(receiptNamePattern);
+      const matching = (TABLE[receipt.event] ?? []).filter((row) => row.matcher.test(receipt.tool)).map((row) => row.name);
+      expect(guardCountFor(receipt.event, receipt.tool), `guard count for ${receipt.tool}`).toBe(matching.length);
+      expect(matching.slice(0, receipt.guards.ran.length)).toEqual(receipt.guards.ran);
+    }
+    expect(guardCountFor("PreToolUse", "Edit")).toBe(5);
+    expect(guardCountFor("PreToolUse", "Bash")).toBe(9);
     expect(altFor(receiptsLedgerFile("light"))).toBe(receiptsLedgerAlt());
     expect(README).toContain(receiptsLedgerFile("dark"));
     expect(README).not.toMatch(/<a\s+href="src\/receipts\.ts"><picture>/);

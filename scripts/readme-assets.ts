@@ -19,8 +19,10 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Locator, Page } from "playwright-core";
-import { checkBash } from "../src/guards/no-verify.ts";
-import type { Receipt } from "../src/receipts.ts";
+import { TABLE } from "../src/chain/mod.ts";
+import { checkBash, checkContent } from "../src/guards/no-verify.ts";
+import { isTestCommand, rewrite } from "../src/guards/wrap.ts";
+import { receiptEventName, type Receipt } from "../src/receipts.ts";
 import { colour, DIAGRAM_VARS, FIGURE_CSS, FIGURES, figureFile, figureSvg, FIGURE_WIDTH, type Mode } from "./readme-figures.ts";
 
 const ROOT = join(import.meta.dir, "..");
@@ -103,45 +105,97 @@ export const SKILL_GROUPS: readonly SkillGroup[] = [
   { title: "Keep the repo in order", line: "Rank the backlog, and keep the agent's guidance current.", skills: ["ai-triage", "ai-refresh-project", "ai-writing-behavior"] },
 ];
 
-/** One hook-skip attempt refused by `no-verify` before git runs. */
-export type GuardRefusal = {
-  command: string;
+/** One PreToolUse attempt judged by the guard chain before the tool runs. */
+export type GuardLane = {
+  kind: "bash-deny" | "edit-deny" | "bash-rewrite";
+  prefix: "$" | "+";
+  input: string;
   flag: string;
-  guard: string;
-  verdict: "deny";
+  guard: "no-verify" | "wrap";
+  verdict: "deny" | "rewrite";
   reason: string;
 };
 
-// Every command here is checked against the real `checkBash` guard at render time and in tests/readme-assets.spec.ts.
-export const GUARD_REFUSALS: readonly GuardRefusal[] = [
+// Every lane here is checked against its real guard (`checkBash`, `checkContent`, `isTestCommand`/`rewrite`)
+// at render time and in tests/readme-assets.spec.ts.
+export const GUARD_LANES: readonly GuardLane[] = [
   {
-    command: "git commit --no-verify",
+    kind: "bash-deny",
+    prefix: "$",
+    input: "git commit --no-verify",
     flag: "--no-verify",
     guard: "no-verify",
     verdict: "deny",
     reason: "--no-verify skips the git hooks. Run the command without it.",
   },
   {
-    command: "git commit -n -m fix",
+    kind: "bash-deny",
+    prefix: "$",
+    input: "git commit -n -m fix",
     flag: "-n",
     guard: "no-verify",
     verdict: "deny",
     reason: "git commit -n skips the git hooks. Fix what they would flag.",
   },
   {
-    command: "HUSKY=0 git commit -m fix",
+    kind: "bash-deny",
+    prefix: "$",
+    input: "HUSKY=0 git commit -m fix",
     flag: "HUSKY=0",
     guard: "no-verify",
     verdict: "deny",
     reason: "an environment flag skips the git hooks. Refused before git starts.",
   },
+  {
+    kind: "edit-deny",
+    prefix: "+",
+    input: "// eslint-disable-next-line",
+    flag: "eslint-disable-next-line",
+    guard: "no-verify",
+    verdict: "deny",
+    reason: "Silencing a check is skipping a hook. No override covers this guard.",
+  },
+  {
+    kind: "bash-rewrite",
+    prefix: "$",
+    input: "bun test",
+    flag: "bun test",
+    guard: "wrap",
+    verdict: "rewrite",
+    reason: "Rewritten to ai-eng wrap test, which prints only the failures.",
+  },
 ];
 
-/** Run the real `no-verify` guard on a command and return its verbatim denial reason. */
-export function liveGuardReason(command: string): string {
-  const result = checkBash(command, ROOT);
-  if (!result || !result.deny) throw new Error(`expected no-verify to deny "${command}", got allow`);
-  return result.reason;
+/** Run the real guard behind a Section 01 lane and return its verbatim denial reason or rewritten command. */
+export function verifyGuardLane(lane: GuardLane): string {
+  if (lane.kind === "bash-deny") {
+    const result = checkBash(lane.input, ROOT);
+    if (!result || !result.deny) throw new Error(`expected no-verify to deny "${lane.input}", got allow`);
+    return result.reason;
+  }
+  if (lane.kind === "edit-deny") {
+    const result = checkContent(lane.input);
+    if (!result || !result.deny) throw new Error(`expected no-verify to deny edit "${lane.input}", got allow`);
+    return result.reason;
+  }
+  const decision = isTestCommand(lane.input);
+  if (!decision.wrap) throw new Error(`expected wrap to rewrite "${lane.input}", got pass-through`);
+  const rewritten = rewrite(lane.input);
+  if (!rewritten.startsWith("ai-eng wrap test ")) {
+    throw new Error(`expected wrap rewrite to target ai-eng wrap test, got "${rewritten}"`);
+  }
+  return rewritten;
+}
+
+/** On-disk filename written by `writeReceipt` in `src/receipts.ts`: `<ISO-stamp>-<event>-<operation_id>.json`. */
+export function receiptFilename(receipt: Receipt): string {
+  const stamp = receipt.ts.replace(/[:.]/g, "-");
+  return `${stamp}-${receiptEventName(receipt.event)}-${receipt.operation_id}.json`;
+}
+
+/** Number of guards in `TABLE[event]` whose tool matcher applies to `tool`. */
+export function guardCountFor(event: string, tool: string): number {
+  return (TABLE[event] ?? []).filter((row) => row.matcher.test(tool)).length;
 }
 
 /** Three representative receipts accumulating in `.ai-engineering/receipts/`, typed against `src/receipts.ts`. */
@@ -203,20 +257,15 @@ export const heroFile = (mode: Mode) => `hero-${mode}.webp`;
 export const cardFile = (slug: string, mode: Mode) => `card-${slug}-${mode}.webp`;
 export const guardsRefusedFile = (mode: Mode) => `guards-refused-${mode}.webp`;
 export const receiptsLedgerFile = (mode: Mode) => `receipts-ledger-${mode}.webp`;
-export const quickstartPreviewFile = (mode: Mode) => `quickstart-preview-${mode}.webp`;
 export const skillsGridFile = (mode: Mode) => `skills-grid-${mode}.webp`;
 
-/** The guards panel's alt text: the three refused commands, the deny verdict and the guard's own reason. */
+/** The guards panel's alt text: all five lanes (three hook skips, linter silence, and test rewrite), their guards, verdicts and reasons. */
 export const guardsRefusedAlt = (): string =>
-  `Three hook-skipping commands refused before git starts by the no-verify guard: ${GUARD_REFUSALS.map((entry) => `${entry.command} returns deny (${entry.reason})`).join(" ")} The stderr artifact prints the live no-verify denial message and exits with status 2.`;
+  `Five PreToolUse verdicts before the tool runs: ${GUARD_LANES.map((lane) => `${lane.input} handled by ${lane.guard} returns ${lane.verdict} (${lane.reason})`).join(" ")} The stderr artifact prints the live no-verify denial message and exits with status 2.`;
 
-/** The receipts panel's alt text: the three accumulating receipt files, their fields and the log-not-proof caveat. */
+/** The receipts panel's alt text: the three accumulating receipt files, their real on-disk filenames, per-tool guard counts and the log-not-proof caveat. */
 export const receiptsLedgerAlt = (): string =>
-  `Three receipt files accumulating in .ai-engineering/receipts/: ${SAMPLE_RECEIPTS.map((receipt) => `${receipt.operation_id}.json (${receipt.tool}, denied by ${receipt.guards.denied_by ?? "none"}, ${receipt.latency_ms} ms, outcome ${receipt.outcome})`).join("; ")}. ${RECEIPT_CAVEAT.headline} ${RECEIPT_CAVEAT.detail.replaceAll("`", "")}`;
-
-/** Link-purpose alt text for the static quickstart preview wrapping the finite animated GIF link. */
-export const quickstartPreviewAlt = (): string =>
-  "Watch the 9-second real terminal demo of ai-eng 3.3.1 running ai-eng init and ai-eng doctor (opens finite animated GIF, no autoplay on this page)";
+  `Three receipt files accumulating in .ai-engineering/receipts/: ${SAMPLE_RECEIPTS.map((receipt) => `${receiptFilename(receipt)} (${receipt.tool}, denied by ${receipt.guards.denied_by ?? "none"}, ${receipt.latency_ms} ms, ${receipt.guards.ran.length} of ${guardCountFor(receipt.event, receipt.tool)} guards ran, outcome ${receipt.outcome})`).join("; ")}. ${RECEIPT_CAVEAT.headline} ${RECEIPT_CAVEAT.detail.replaceAll("`", "")}`;
 
 /** The grid's alt text: every group, then every skill in it, so a screen reader gets the same list. */
 export const skillsGridAlt = (): string =>
@@ -231,7 +280,6 @@ export function renderedFiles(): string[] {
     ...FIGURES.map((figure) => figureFile(figure, mode)),
     guardsRefusedFile(mode),
     receiptsLedgerFile(mode),
-    quickstartPreviewFile(mode),
     skillsGridFile(mode),
     heroFile(mode),
   ]);
@@ -396,51 +444,64 @@ background-color:${theme.field};background-image:linear-gradient(${theme.grid} 1
 .p-foot{margin-top:20px;display:flex;justify-content:space-between;align-items:center;gap:16px;font:500 13.5px/1.2 ${MONO};letter-spacing:.04em;color:${theme.panelMuted}}`;
 }
 
-/** Highlight the exact hook-skipping flag inside a command line so the trigger reads at a glance. */
-function withFlagMark(command: string, flag: string): string {
+/** Highlight the exact trigger token inside a command or edit line so the match reads at a glance. */
+function withFlagMark(command: string, flag: string, tone: "deny" | "rewrite"): string {
   const at = command.indexOf(flag);
   if (at < 0) throw new Error(`flag "${flag}" is not in "${command}"`);
-  return `${escapeHtml(command.slice(0, at))}<mark class="flag">${escapeHtml(flag)}</mark>${escapeHtml(command.slice(at + flag.length))}`;
+  const cls = tone === "rewrite" ? "flag is-rewrite" : "flag";
+  return `${escapeHtml(command.slice(0, at))}<mark class="${cls}">${escapeHtml(flag)}</mark>${escapeHtml(command.slice(at + flag.length))}`;
 }
 
-/** Section 01: three stacked hook-skip lanes (attempt -> verdict -> reason) plus one live stderr artifact. */
+/** Section 01: five PreToolUse lanes (three hook skips, one linter silence, one test-command rewrite) plus one live stderr artifact. */
 function guardsRefusedPage(theme: Theme): string {
-  const liveReasons = GUARD_REFUSALS.map((entry) => liveGuardReason(entry.command));
-  const artifactReason = liveReasons[0] as string;
-  const arrowSvg = `<svg class="arrow" width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M1 6H23" stroke="${theme.bad}" stroke-width="1.6" stroke-linecap="round"/><path d="M18 2L24 6L18 10" fill="none" stroke="${theme.bad}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  const lanes = GUARD_REFUSALS.map(
-    (entry) => `<div class="lane">
-  <p class="cmd"><span class="prompt">$</span><span>${withFlagMark(entry.command, entry.flag)}</span></p>
-  <div class="verdict">${arrowSvg}<span class="pill is-deny">${escapeHtml(entry.verdict)}</span></div>
-  <p class="reason">${escapeHtml(entry.reason)}</p>
-</div>`,
-  ).join("");
+  const liveOutputs = GUARD_LANES.map((lane) => verifyGuardLane(lane));
+  const artifactReason = liveOutputs[0] as string;
+  const arrowSvg = (stroke: string) =>
+    `<svg class="arrow" width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><path d="M1 6H19" stroke="${stroke}" stroke-width="1.6" stroke-linecap="round"/><path d="M14 2L20 6L14 10" fill="none" stroke="${stroke}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const lanes = GUARD_LANES.map((lane) => {
+    const isRewrite = lane.verdict === "rewrite";
+    const arrow = arrowSvg(isRewrite ? theme.good : theme.bad);
+    const pillClass = isRewrite ? "pill is-rewrite" : "pill is-deny";
+    const promptClass = lane.prefix === "+" ? "prompt is-edit" : "prompt";
+    const guardClass = isRewrite ? "guard is-rewrite" : "guard";
+    return `<div class="lane">
+  <p class="cmd"><span class="${promptClass}">${escapeHtml(lane.prefix)}</span><span>${withFlagMark(lane.input, lane.flag, lane.verdict)}</span></p>
+  <span class="${guardClass}">${escapeHtml(lane.guard)}</span>
+  <div class="verdict">${arrow}<span class="${pillClass}">${escapeHtml(lane.verdict)}</span></div>
+  <p class="reason">${escapeHtml(lane.reason)}</p>
+</div>`;
+  }).join("");
   return page(
     `<div id="asset"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-<div class="p-top"><span class="p-eyebrow">01 / Guards</span><span class="p-tag">PreToolUse · no-verify</span></div>
-<h2 class="p-title">${withAccent("Every hook skip is refused before git starts", "refused")}</h2>
-<div class="cols"><span>Attempt</span><span class="c-verdict">Verdict</span><span>Reason</span></div>
+<div class="p-top"><span class="p-eyebrow">01 / Guards</span><span class="p-tag">PreToolUse · no-verify · wrap</span></div>
+<h2 class="p-title">${withAccent("Refused or rewritten before the tool runs", "Refused")}</h2>
+<div class="cols"><span>Attempt</span><span>Guard</span><span class="c-verdict">Verdict</span><span>Reason</span></div>
 <div class="lanes">${lanes}</div>
 <div class="artifact">
   <div class="art-head"><span class="art-lbl">Actual stderr message · no-verify</span><span class="art-exit">exit 2</span></div>
   <p class="art-line"><span class="art-brand">[ai-eng]</span> <span class="art-guard">no-verify:</span> ${escapeHtml(artifactReason)}</p>
 </div>
-<div class="p-foot"><span>{ai} engineering · src/guards/no-verify.ts</span><span>linter silences refused the same way</span></div>
+<div class="p-foot"><span>{ai} engineering · src/guards/no-verify.ts · src/guards/wrap.ts</span><span>not every answer is a refusal</span></div>
 </div>`,
     `${panelFrameCss(theme)}
-.cols{display:grid;grid-template-columns:296px 116px minmax(0,1fr);gap:14px;padding:0 20px 8px;font:600 13.5px/1 ${MONO};letter-spacing:.12em;text-transform:uppercase;color:${theme.panelMuted}}
-.cols .c-verdict{padding-left:36px}
-.lanes{display:grid;gap:10px}
-.lane{display:grid;grid-template-columns:296px 116px minmax(0,1fr);gap:14px;align-items:center;border:1px solid ${theme.border};border-radius:12px;background:${theme.raised};padding:15px 20px}
-.cmd{display:flex;align-items:baseline;gap:8px;font:500 14.5px/1.35 ${MONO};color:${theme.ink};white-space:nowrap}
+.cols{display:grid;grid-template-columns:288px 86px 122px minmax(0,1fr);gap:12px;padding:0 18px 8px;font:600 13.5px/1 ${MONO};letter-spacing:.12em;text-transform:uppercase;color:${theme.panelMuted}}
+.cols .c-verdict{padding-left:30px}
+.lanes{display:grid;gap:9px}
+.lane{display:grid;grid-template-columns:288px 86px 122px minmax(0,1fr);gap:12px;align-items:center;border:1px solid ${theme.border};border-radius:12px;background:${theme.raised};padding:13px 18px}
+.cmd{display:flex;align-items:baseline;gap:7px;font:500 14px/1.35 ${MONO};color:${theme.ink};white-space:nowrap}
 .prompt{color:${theme.accent};font-weight:700}
-.flag{background:color-mix(in srgb,${theme.bad} 16%,transparent);color:${theme.badText};border:1px solid color-mix(in srgb,${theme.bad} 55%,transparent);border-radius:5px;padding:1px 6px;font-weight:700}
-.verdict{display:flex;align-items:center;gap:10px}
+.prompt.is-edit{color:${theme.badText}}
+.flag{background:color-mix(in srgb,${theme.bad} 16%,transparent);color:${theme.badText};border:1px solid color-mix(in srgb,${theme.bad} 55%,transparent);border-radius:5px;padding:1px 5px;font-weight:700}
+.flag.is-rewrite{background:color-mix(in srgb,${theme.good} 16%,transparent);color:${theme.goodText};border-color:color-mix(in srgb,${theme.good} 55%,transparent)}
+.guard{font:600 13.5px/1 ${MONO};color:${theme.muted};white-space:nowrap}
+.guard.is-rewrite{color:${theme.goodText}}
+.verdict{display:flex;align-items:center;gap:8px}
 .arrow{flex:0 0 auto;display:block}
-.pill{display:inline-flex;align-items:center;justify-content:center;font:700 13.5px/1 ${MONO};letter-spacing:.04em;padding:6px 13px;border-radius:999px;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;justify-content:center;font:700 13.5px/1 ${MONO};letter-spacing:.03em;padding:5px 11px;border-radius:999px;white-space:nowrap}
 .pill.is-deny{border:1px solid ${theme.bad};color:${theme.badText};background:color-mix(in srgb,${theme.bad} 13%,transparent)}
-.reason{font:400 14.5px/1.4 ${SANS};color:${theme.muted};text-wrap:balance}
-.artifact{margin-top:16px;border:1px solid ${theme.border};border-radius:12px;background:${theme.well};padding:14px 20px}
+.pill.is-rewrite{border:1px solid ${theme.good};color:${theme.goodText};background:color-mix(in srgb,${theme.good} 13%,transparent)}
+.reason{font:400 14px/1.4 ${SANS};color:${theme.muted};text-wrap:balance}
+.artifact{margin-top:14px;border:1px solid ${theme.border};border-radius:12px;background:${theme.well};padding:14px 20px}
 .art-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid ${theme.hairline}}
 .art-lbl{font:600 13.5px/1 ${MONO};letter-spacing:.1em;text-transform:uppercase;color:${theme.muted}}
 .art-exit{font:700 13.5px/1 ${MONO};color:${theme.badText}}
@@ -452,16 +513,18 @@ function guardsRefusedPage(theme: Theme): string {
 
 /** Section 02: three side-by-side receipt cards showing accumulation, plus the log-not-proof caveat given typographic weight. */
 function receiptsLedgerPage(theme: Theme): string {
-  const totalGuards = 9;
   const cards = SAMPLE_RECEIPTS.map((receipt) => {
     const isDeny = receipt.outcome === "deny";
+    const date = receipt.ts.slice(0, 10);
     const time = `${receipt.ts.slice(11, 19)}Z`;
+    const shortName = `…-${receiptEventName(receipt.event)}-${receipt.operation_id}.json`;
     const guardValue = receipt.guards.denied_by ?? "none";
     const ranCount = receipt.guards.ran.length;
+    const totalGuards = guardCountFor(receipt.event, receipt.tool);
     const guardClass = isDeny ? "val is-bad" : "val is-muted";
     const pillClass = isDeny ? "pill is-deny" : "pill is-allow";
     return `<article class="rcpt">
-  <header class="rcpt-head"><span class="rcpt-id">${escapeHtml(receipt.operation_id)}.json</span><span class="rcpt-ts">${escapeHtml(time)}</span></header>
+  <header class="rcpt-head"><span class="rcpt-id">${escapeHtml(shortName)}</span><span class="rcpt-ts">${escapeHtml(date)} · ${escapeHtml(time)}</span></header>
   <dl class="fields">
     <div class="row"><dt>Tried</dt><dd class="val">${escapeHtml(receipt.tool)}</dd></div>
     <div class="row"><dt>Denied by</dt><dd class="${guardClass}">${escapeHtml(guardValue)}</dd></div>
@@ -480,13 +543,13 @@ function receiptsLedgerPage(theme: Theme): string {
   <div class="caveat-top"><span class="caveat-chip">${escapeHtml(RECEIPT_CAVEAT.label)}</span><strong class="caveat-head">${escapeHtml(RECEIPT_CAVEAT.headline)}</strong></div>
   <p class="caveat-body">${withCode(RECEIPT_CAVEAT.detail)}</p>
 </div>
-<div class="p-foot"><span>{ai} engineering · src/receipts.ts</span><span>schema urn:ai-eng:receipt:2 · + denies.json</span></div>
+<div class="p-foot"><span>{ai} engineering · src/receipts.ts</span><span>&lt;ISO&gt;-&lt;event&gt;-&lt;id&gt;.json · + denies.json</span></div>
 </div>`,
     `${panelFrameCss(theme)}
 .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 .rcpt{border:1px solid ${theme.border};border-radius:12px;background:${theme.raised};padding:18px 20px 16px;display:flex;flex-direction:column;gap:12px}
-.rcpt-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding-bottom:10px;border-bottom:1px solid ${theme.hairline}}
-.rcpt-id{font:700 14px/1 ${MONO};color:${theme.ink}}
+.rcpt-head{display:flex;flex-direction:column;gap:5px;padding-bottom:10px;border-bottom:1px solid ${theme.hairline}}
+.rcpt-id{font:700 13.5px/1.2 ${MONO};color:${theme.ink};white-space:nowrap}
 .rcpt-ts{font:500 13.5px/1 ${MONO};font-variant-numeric:tabular-nums;color:${theme.muted}}
 .fields{display:grid;gap:10px}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -506,40 +569,6 @@ dd{margin:0}
 .caveat-head{font:800 22px/1.15 ${SANS};font-stretch:92%;letter-spacing:-.02em;color:${theme.ink}}
 .caveat-body{font:400 15px/1.45 ${SANS};color:${theme.muted}}
 .caveat-body code{font:500 13.5px/1 ${MONO};color:${theme.ink}}`,
-  );
-}
-
-/** Extract the final crisp `ai-eng doctor` frame from `.github/assets/quickstart.gif` as a PNG data URI. */
-function quickstartFrameDataUri(): string {
-  const gif = join(ROOT, ".github", "assets", "quickstart.gif");
-  const extract = Bun.spawnSync(["ffmpeg", "-v", "error", "-sseof", "-0.2", "-i", gif, "-vframes", "1", "-f", "image2pipe", "-vcodec", "png", "-"]);
-  if (!extract.success || extract.stdout.length === 0) {
-    throw new Error(`ffmpeg failed to extract final frame from ${gif}: ${extract.stderr.toString()}`);
-  }
-  return `data:image/png;base64,${Buffer.from(extract.stdout).toString("base64")}`;
-}
-
-/** Section 11: static dark/light preview card linking to the finite VHS demo, so the README carries zero autoplay motion. */
-function quickstartPreviewPage(theme: Theme, frameDataUri: string): string {
-  const playIcon = `<svg class="play-icon" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.8L12 7L3 12.2V1.8Z" fill="${theme.buttonInk}"/></svg>`;
-  return page(
-    `<div id="asset"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-<div class="p-top"><span class="p-eyebrow">11 / Get it</span><span class="p-tag">real CLI capture · finite playback</span></div>
-<h2 class="p-title">${withAccent("Watch a real session — init, then doctor", "init")}</h2>
-<div class="stage"><img class="still" alt="" src="${frameDataUri}"></div>
-<div class="action-bar">
-  <span class="play-cta">${playIcon}<span>Open 9s animated recording</span></span>
-  <span class="action-meta">ai-eng init · ai-eng doctor · plays once, no loop</span>
-</div>
-<div class="p-foot"><span>{ai} engineering · .github/assets/tapes/quickstart.tape</span><span>static preview · no autoplay</span></div>
-</div>`,
-    `${panelFrameCss(theme)}
-.stage{border:1px solid ${theme.border};border-radius:12px;overflow:hidden;background:${THEMES.dark.field};line-height:0}
-.still{display:block;width:100%;height:auto}
-.action-bar{margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:16px;border:1px solid ${theme.border};border-radius:12px;background:${theme.raised};padding:12px 18px}
-.play-cta{display:inline-flex;align-items:center;gap:10px;padding:8px 16px;border-radius:8px;border:1px solid ${theme.accent};background:${theme.fill};color:${theme.buttonInk};font:700 15px/1 ${SANS};font-stretch:92%;white-space:nowrap}
-.play-icon{flex:0 0 auto;display:block}
-.action-meta{font:500 13.5px/1.2 ${MONO};color:${theme.muted};white-space:nowrap}`,
   );
 }
 
@@ -574,9 +603,7 @@ function figurePage(figureIndex: number, mode: Mode): string {
 
 type Job = { file: string; html: string; families: string[]; isFigure: boolean; minPxAt800?: number };
 
-function jobs(only = ""): Job[] {
-  const needsQuickstart = only === "" || quickstartPreviewFile("dark").includes(only) || quickstartPreviewFile("light").includes(only);
-  const frameDataUri = needsQuickstart ? quickstartFrameDataUri() : "";
+function jobs(): Job[] {
   return MODES.flatMap((mode) => {
     const theme = THEMES[mode];
     const both = ["Archivo", "JetBrains Mono"];
@@ -587,7 +614,6 @@ function jobs(only = ""): Job[] {
       ...FIGURES.map((figure, index) => ({ file: figureFile(figure, mode), html: figurePage(index, mode), families: both, isFigure: true })),
       { file: guardsRefusedFile(mode), html: guardsRefusedPage(theme), families: both, isFigure: false, minPxAt800: 11 },
       { file: receiptsLedgerFile(mode), html: receiptsLedgerPage(theme), families: both, isFigure: false, minPxAt800: 11 },
-      ...(needsQuickstart ? [{ file: quickstartPreviewFile(mode), html: quickstartPreviewPage(theme, frameDataUri), families: both, isFigure: false, minPxAt800: 11 }] : []),
       { file: skillsGridFile(mode), html: skillsGridPage(theme), families: both, isFigure: false },
       { file: heroFile(mode), html: heroPage(theme), families: both, isFigure: false },
     ];
@@ -607,7 +633,7 @@ async function main(): Promise<void> {
   const browser = await chromium.launch({ channel: "chrome" });
   try {
     const only = process.argv[2] ?? "";
-    for (const job of jobs(only).filter((candidate) => candidate.file.includes(only))) {
+    for (const job of jobs().filter((candidate) => candidate.file.includes(only))) {
       const context = await browser.newContext({ deviceScaleFactor: 2 });
       const tab = await context.newPage();
       await tab.setContent(job.html, { waitUntil: "networkidle" });
