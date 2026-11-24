@@ -16,7 +16,10 @@ import {
   headingFile,
   HERO,
   heroFile,
+  loadQuickstartFacts,
   OUT_DIR,
+  quickstartPosterAlt,
+  quickstartPosterFile,
   receiptFilename,
   receiptsLedgerAlt,
   receiptsLedgerFile,
@@ -124,33 +127,144 @@ describe("README repeats the assets' words", () => {
     }
   });
 
-  test("the quickstart demo is an endless loop whose whole cycle is under 5 s (WCAG 2.2.2) and carries a faithful transcript", () => {
-    const gifTag = (README.match(/<img\b[^>]*>/g) ?? []).find((entry) => entry.includes('src=".github/assets/quickstart-loop.gif"'));
-    expect(gifTag, "inline quickstart-loop.gif img tag").toBeDefined();
-    const gifAlt = gifTag?.match(/\balt="([^"]*)"/)?.[1] ?? "";
-    for (const spoken of ["ai-eng init", "ls -A", "ai-eng doctor", "3.3.1"]) {
-      expect(gifAlt, `alt text names ${spoken}`).toContain(spoken);
-    }
-    expect(README).not.toContain("quickstart-preview-");
-    expect(README).toContain("<summary>Text transcript of ai-eng init, ls and ai-eng doctor</summary>");
-    expect(README).toContain("DENY in 5ms");
-    expect(README).not.toContain("~6 ms");
+/** Minimal ISO BMFF (MP4) box reader so tests verify real video metadata without shelling out. */
+type Mp4Box = { type: string; offset: number; payloadStart: number; end: number };
 
-    const gifBytes = readFileSync(join(ROOT, ".github", "assets", "quickstart-loop.gif"));
-    // NETSCAPE2.0 application extension: sub-block id 3, loop sub-id 1, then the repeat count; 0 means forever.
-    const loopBlockAt = gifBytes.indexOf("NETSCAPE2.0");
-    expect(loopBlockAt, "GIF89a NETSCAPE2.0 loop block").toBeGreaterThan(0);
-    expect(gifBytes.readUInt16LE(loopBlockAt + 11 + 2), "loop count 0 = repeat forever").toBe(0);
-    // Cycle length = sum of every frame's Graphic Control Extension delay (hundredths of a second).
-    const frameDelayMarker = Buffer.from([0x21, 0xf9, 0x04]);
-    let cycleCentiseconds = 0;
-    for (let at = gifBytes.indexOf(frameDelayMarker); at >= 0; at = gifBytes.indexOf(frameDelayMarker, at + 3)) {
-      cycleCentiseconds += gifBytes.readUInt16LE(at + 4);
+function mp4Children(buf: Buffer, start: number, end: number): Mp4Box[] {
+  const boxes: Mp4Box[] = [];
+  let cursor = start;
+  while (cursor + 8 <= end) {
+    let size = buf.readUInt32BE(cursor);
+    const type = buf.toString("ascii", cursor + 4, cursor + 8);
+    let header = 8;
+    if (size === 1) {
+      if (cursor + 16 > end) break;
+      size = Number(buf.readBigUInt64BE(cursor + 8));
+      header = 16;
+    } else if (size === 0) {
+      size = end - cursor;
     }
-    expect(cycleCentiseconds, "cycle must stay under 5 s: autoplay that repeats needs a pause control after that").toBeLessThan(500);
-    // The alt text quotes the cycle a reader will sit through, read off the asset so the two cannot drift.
-    const cycleSeconds = (cycleCentiseconds / 100).toFixed(1);
-    expect(gifAlt, `alt text names the recorded cycle of ${cycleSeconds} s`).toContain(`repeating every ${cycleSeconds} seconds`);
+    if (size < header || cursor + size > end) break;
+    boxes.push({ type, offset: cursor, payloadStart: cursor + header, end: cursor + size });
+    cursor += size;
+  }
+  return boxes;
+}
+
+function inspectMp4(buf: Buffer): {
+  topBoxes: string[];
+  durationSeconds: number;
+  width: number;
+  height: number;
+  handlers: string[];
+  codecs: string[];
+} {
+  const top = mp4Children(buf, 0, buf.length);
+  const moov = top.find((box) => box.type === "moov");
+  expect(moov, "MP4 moov atom").toBeDefined();
+  const moovChildren = mp4Children(buf, (moov as Mp4Box).payloadStart, (moov as Mp4Box).end);
+
+  const mvhd = moovChildren.find((box) => box.type === "mvhd");
+  expect(mvhd, "MP4 mvhd atom").toBeDefined();
+  const mvhdStart = (mvhd as Mp4Box).payloadStart;
+  const mvhdVer = buf[mvhdStart] ?? 0;
+  const timescale = mvhdVer === 1 ? buf.readUInt32BE(mvhdStart + 20) : buf.readUInt32BE(mvhdStart + 12);
+  const rawDuration = mvhdVer === 1 ? Number(buf.readBigUInt64BE(mvhdStart + 24)) : buf.readUInt32BE(mvhdStart + 16);
+
+  let width = 0;
+  let height = 0;
+  const handlers: string[] = [];
+  const codecs: string[] = [];
+
+  for (const trak of moovChildren.filter((box) => box.type === "trak")) {
+    const trakChildren = mp4Children(buf, trak.payloadStart, trak.end);
+    const tkhd = trakChildren.find((box) => box.type === "tkhd");
+    if (tkhd) {
+      const tkhdVer = buf[tkhd.payloadStart] ?? 0;
+      const wOff = tkhdVer === 1 ? 88 : 76;
+      const trackW = buf.readUInt32BE(tkhd.payloadStart + wOff) / 65536;
+      const trackH = buf.readUInt32BE(tkhd.payloadStart + wOff + 4) / 65536;
+      if (trackW > 0 && trackH > 0) {
+        width = trackW;
+        height = trackH;
+      }
+    }
+    const mdia = trakChildren.find((box) => box.type === "mdia");
+    if (!mdia) continue;
+    const mdiaChildren = mp4Children(buf, mdia.payloadStart, mdia.end);
+    const hdlr = mdiaChildren.find((box) => box.type === "hdlr");
+    if (hdlr) handlers.push(buf.toString("ascii", hdlr.payloadStart + 8, hdlr.payloadStart + 12));
+    const minf = mdiaChildren.find((box) => box.type === "minf");
+    const stbl = minf ? mp4Children(buf, minf.payloadStart, minf.end).find((box) => box.type === "stbl") : undefined;
+    const stsd = stbl ? mp4Children(buf, stbl.payloadStart, stbl.end).find((box) => box.type === "stsd") : undefined;
+    if (stsd && stsd.payloadStart + 16 <= stsd.end) {
+      codecs.push(buf.toString("ascii", stsd.payloadStart + 12, stsd.payloadStart + 16));
+    }
+  }
+
+  return {
+    topBoxes: top.map((box) => box.type),
+    durationSeconds: rawDuration / timescale,
+    width,
+    height,
+    handlers,
+    codecs,
+  };
+}
+
+  test("the quickstart walkthrough is a silent 16:9 MP4 linked from a non-autoplaying poster with faithful transcript", () => {
+    const facts = loadQuickstartFacts();
+    const assetsDir = join(ROOT, ".github", "assets");
+    const tapesDir = join(assetsDir, "tapes");
+
+    // No autoplaying GIF loop remains anywhere in assets or README (WCAG 2.2.2).
+    expect(readdirSync(assetsDir).filter((name) => name.endsWith(".gif"))).toEqual([]);
+    expect(README).not.toContain("quickstart-loop.gif");
+    expect(README).not.toContain("quickstart-loop.tape");
+    expect(existsSync(join(tapesDir, "quickstart-loop.tape"))).toBe(false);
+
+    // Deterministic VHS tape, ffmpeg script, and captured facts live beside each other.
+    for (const file of ["quickstart.tape", "quickstart-video.sh", "quickstart-facts.json"]) {
+      expect(existsSync(join(tapesDir, file)), `tapes/${file}`).toBe(true);
+    }
+
+    // README embeds the dark/light poster wrapped in a link to the MP4 (never autoplays).
+    expect(README).toMatch(/<a href="\.github\/assets\/quickstart\.mp4">\s*<picture>[\s\S]*?quickstart-poster-dark\.webp[\s\S]*?quickstart-poster-light\.webp[\s\S]*?<\/picture>\s*<\/a>/);
+    expect(altFor(quickstartPosterFile("light"))).toBe(quickstartPosterAlt());
+    expect(README).toContain(quickstartPosterFile("dark"));
+
+    // Real MP4 metadata: 16:9 H.264, faststart (moov before mdat), silent (no audio track), sensible size, human-paced duration.
+    const mp4Bytes = readFileSync(join(assetsDir, "quickstart.mp4"));
+    expect(mp4Bytes.length, "MP4 size stays sensible for a repository (<= 4 MiB)").toBeLessThanOrEqual(4 * 1024 * 1024);
+    const meta = inspectMp4(mp4Bytes);
+    expect(meta.topBoxes[0]).toBe("ftyp");
+    expect(meta.topBoxes.indexOf("moov"), "faststart puts moov before mdat").toBeLessThan(meta.topBoxes.indexOf("mdat"));
+    expect(meta.width).toBe(1920);
+    expect(meta.height).toBe(1080);
+    expect(meta.handlers).toEqual(["vide"]);
+    expect(meta.codecs).toContain("avc1");
+    expect(Math.abs(meta.durationSeconds - facts.durationSeconds), "facts duration matches MP4").toBeLessThan(0.25);
+    expect(meta.durationSeconds, "paced for human reading, not a rushed < 5 s loop").toBeGreaterThanOrEqual(30);
+
+    // Transcript and caption quote the exact recorded values from the run.
+    expect(README).toContain("<summary>Text transcript of the quickstart walkthrough (init, doctor, work, config)</summary>");
+    for (const expected of [
+      `ai-eng ${facts.version}`,
+      `${facts.durationSeconds.toFixed(1)} s MP4`,
+      "ai-eng init --surface claude-code --yes",
+      "ai-eng doctor",
+      `DENY in ${facts.denyMs}ms`,
+      `p50 ${facts.receiptP50Ms}ms · p95 ${facts.receiptP95Ms}ms`,
+      `${facts.checksTotal} checks: ${facts.checksOk} OK · ${facts.checksWarn} WARN · ${facts.checksFail} FAIL`,
+      "Chain verified.",
+      "ai-eng work",
+      `active lanes: ${facts.activeLanes}/${facts.maxLanes}`,
+      "ai-eng config --add cursor",
+      `2 enabled: ${facts.surfacesAfterAdd.join(", ")}`,
+      `${facts.mirrorTargets} targets`,
+    ]) {
+      expect(README, `README quotes recorded fact "${expected}"`).toContain(expected);
+    }
   });
 
   test("the guards panel matches live no-verify and wrap verdicts and carries its claim in alt text", () => {
