@@ -11,9 +11,10 @@
 // The animated quickstart recording (.github/assets/quickstart.gif) is recorded with VHS
 // against the real `ai-eng` CLI (.github/assets/tapes/quickstart.tape).
 //
-// Pass a filename fragment to render only the matching files (`bun scripts/readme-assets.ts figure-`).
-// Needs Google Chrome (playwright-core drives it, as scripts/artifact-axe.ts does), network
-// for Google Fonts at render time only, and `cwebp`. The README itself loads no font.
+// Pass a filename fragment (and optional output directory) to render only the matching files
+// (`bun scripts/readme-assets.ts figure-`). Rasterised WebP jobs need Google Chrome (playwright-core
+// drives it, as scripts/artifact-axe.ts does), network for Google Fonts at render time only, and
+// `cwebp`; badge-only runs (`badge-`) emit plain SVG and need none of them. The README itself loads no font.
 
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

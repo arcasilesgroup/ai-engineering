@@ -427,7 +427,7 @@ bun install
 bun run build                  # compile the binary, skills, agents and templates inside
 bun test                       # unit, adversarial, gate and architecture tests
 bun run lint && bun run typecheck
-bun scripts/readme-assets.ts   # re-render the README's headings, buttons, cards, skills grid, hero and figures
+bun scripts/readme-assets.ts   # re-render the README's badges, headings, buttons, cards, skills grid, hero and figures
 ```
 
 The quickstart demo is recorded with [VHS](https://github.com/charmbracelet/vhs) against the installed `ai-eng` CLI: see `.github/assets/tapes/quickstart.tape`. Versions come from [changesets](.changeset/README.md); [docs/history](docs/history/recap.html) holds the early design record, which is history.
