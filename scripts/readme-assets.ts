@@ -8,8 +8,8 @@
 // this can. Change a line in a table below, run `bun scripts/readme-assets.ts`, commit the
 // images it wrote.
 //
-// The animated quickstart recording (.github/assets/quickstart.gif) is recorded with VHS
-// against the real `ai-eng` CLI (.github/assets/tapes/quickstart.tape).
+// The animated quickstart recording (.github/assets/quickstart-loop.gif) is recorded with VHS
+// against the real `ai-eng` CLI (.github/assets/tapes/quickstart-loop.tape).
 //
 // Pass a filename fragment to render only the matching files (`bun scripts/readme-assets.ts figure-`).
 // Needs Google Chrome (playwright-core drives it, as scripts/artifact-axe.ts does), network

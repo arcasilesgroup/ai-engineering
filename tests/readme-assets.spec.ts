@@ -124,19 +124,33 @@ describe("README repeats the assets' words", () => {
     }
   });
 
-  test("the quickstart demo embeds the finite recording directly and carries a faithful transcript", () => {
-    const gifTag = (README.match(/<img\b[^>]*>/g) ?? []).find((entry) => entry.includes('src=".github/assets/quickstart.gif"'));
-    expect(gifTag, "inline quickstart.gif img tag").toBeDefined();
+  test("the quickstart demo is an endless loop whose whole cycle is under 5 s (WCAG 2.2.2) and carries a faithful transcript", () => {
+    const gifTag = (README.match(/<img\b[^>]*>/g) ?? []).find((entry) => entry.includes('src=".github/assets/quickstart-loop.gif"'));
+    expect(gifTag, "inline quickstart-loop.gif img tag").toBeDefined();
     const gifAlt = gifTag?.match(/\balt="([^"]*)"/)?.[1] ?? "";
-    expect(gifAlt).toContain("ai-eng init");
-    expect(gifAlt).toContain("ai-eng doctor");
-    expect(gifAlt).toContain("3.3.1");
+    for (const spoken of ["ai-eng init", "ls -A", "ai-eng doctor", "3.3.1"]) {
+      expect(gifAlt, `alt text names ${spoken}`).toContain(spoken);
+    }
     expect(README).not.toContain("quickstart-preview-");
-    expect(README).toContain("<summary>Text transcript of ai-eng init and ai-eng doctor</summary>");
-    expect(README).toContain("DENY in 7ms");
+    expect(README).toContain("<summary>Text transcript of ai-eng init, ls and ai-eng doctor</summary>");
+    expect(README).toContain("DENY in 5ms");
     expect(README).not.toContain("~6 ms");
-    const gifBytes = readFileSync(join(ROOT, ".github", "assets", "quickstart.gif"));
-    expect(gifBytes.includes(Buffer.from("NETSCAPE2.0"))).toBe(false);
+
+    const gifBytes = readFileSync(join(ROOT, ".github", "assets", "quickstart-loop.gif"));
+    // NETSCAPE2.0 application extension: sub-block id 3, loop sub-id 1, then the repeat count; 0 means forever.
+    const loopBlockAt = gifBytes.indexOf("NETSCAPE2.0");
+    expect(loopBlockAt, "GIF89a NETSCAPE2.0 loop block").toBeGreaterThan(0);
+    expect(gifBytes.readUInt16LE(loopBlockAt + 11 + 2), "loop count 0 = repeat forever").toBe(0);
+    // Cycle length = sum of every frame's Graphic Control Extension delay (hundredths of a second).
+    const frameDelayMarker = Buffer.from([0x21, 0xf9, 0x04]);
+    let cycleCentiseconds = 0;
+    for (let at = gifBytes.indexOf(frameDelayMarker); at >= 0; at = gifBytes.indexOf(frameDelayMarker, at + 3)) {
+      cycleCentiseconds += gifBytes.readUInt16LE(at + 4);
+    }
+    expect(cycleCentiseconds, "cycle must stay under 5 s: autoplay that repeats needs a pause control after that").toBeLessThan(500);
+    // The alt text quotes the cycle a reader will sit through, read off the asset so the two cannot drift.
+    const cycleSeconds = (cycleCentiseconds / 100).toFixed(1);
+    expect(gifAlt, `alt text names the recorded cycle of ${cycleSeconds} s`).toContain(`repeating every ${cycleSeconds} seconds`);
   });
 
   test("the guards panel matches live no-verify and wrap verdicts and carries its claim in alt text", () => {
