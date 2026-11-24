@@ -17,7 +17,7 @@
 
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { Locator, Page } from "playwright-core";
 import { TABLE } from "../src/chain/mod.ts";
 import { checkBash, checkContent } from "../src/guards/no-verify.ts";
@@ -629,14 +629,15 @@ function encode(png: string, webp: string): void {
 }
 
 async function main(): Promise<void> {
-  mkdirSync(OUT_DIR, { recursive: true });
   const only = process.argv[2] ?? "";
+  const outDir = process.argv[3] ? resolve(process.argv[3]) : OUT_DIR;
+  mkdirSync(outDir, { recursive: true });
   // Badges are plain SVG text, so they need neither Chrome nor the network.
   for (const badge of badges()) {
     for (const mode of MODES) {
       const file = badgeFile(badge.slug, mode);
       if (!file.includes(only)) continue;
-      const target = join(OUT_DIR, file);
+      const target = join(outDir, file);
       const next = badgeSvg(badge, mode);
       if (!existsSync(target) || readFileSync(target, "utf8") !== next) writeFileSync(target, next);
       console.log(`ok  ${file}`);
@@ -665,7 +666,7 @@ async function main(): Promise<void> {
       }
       const png = join(scratch, `${job.file}.png`);
       await box.screenshot({ path: png, omitBackground: true });
-      encode(png, join(OUT_DIR, job.file));
+      encode(png, join(outDir, job.file));
       await context.close();
       console.log(`ok  ${job.file}`);
     }

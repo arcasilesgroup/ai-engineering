@@ -165,22 +165,59 @@ describe("README repeats the assets' words", () => {
   });
 
   test("badge-only asset rendering and badge sync run without Chrome or node_modules", () => {
-    const badgeOnlyRun = spawnSync(process.execPath, [join(ROOT, "scripts/readme-assets.ts"), "badge-"], { encoding: "utf8" });
+    const scratch = mkdtempSync(join(tmpdir(), "readme-badges-sync-"));
+    scratchRoots.push(scratch);
+
+    const blockPlaywright = join(scratch, "block-playwright.ts");
+    writeFileSync(
+      blockPlaywright,
+      [
+        'import { plugin } from "bun";',
+        'plugin({ name: "block-playwright", setup(build) {',
+        '  const refuse = () => { throw new Error("forbidden import in badge-only mode: playwright-core"); };',
+        '  build.module("playwright-core", refuse);',
+        '  build.module("playwright", refuse);',
+        '  build.onLoad({ filter: /playwright(?:-core)?/ }, refuse);',
+        "} });",
+      ].join("\n"),
+    );
+    const badgeOutDir = join(scratch, "rendered-badges");
+    const badgeOnlyRun = spawnSync(
+      process.execPath,
+      ["--preload", blockPlaywright, join(ROOT, "scripts/readme-assets.ts"), "badge-", badgeOutDir],
+      { encoding: "utf8" },
+    );
     expect(badgeOnlyRun.stderr).toBe("");
     expect(badgeOnlyRun.status).toBe(0);
     const renderedLines = badgeOnlyRun.stdout.trim().split("\n");
     expect(renderedLines.length).toBe(6);
     for (const line of renderedLines) expect(line).toMatch(/^ok  badge-[a-z]+-(?:dark|light)\.svg$/);
+    expect(readdirSync(badgeOutDir).sort()).toEqual(
+      badges().flatMap((badge) => (["dark", "light"] as const).map((mode) => badgeFile(badge.slug, mode))).sort(),
+    );
+    for (const badge of badges()) {
+      for (const mode of ["dark", "light"] as const) {
+        expect(readFileSync(join(badgeOutDir, badgeFile(badge.slug, mode)), "utf8")).toBe(badgeSvg(badge, mode));
+      }
+    }
 
-    const scratch = mkdtempSync(join(tmpdir(), "readme-badges-sync-"));
-    scratchRoots.push(scratch);
+    const browserJobRun = spawnSync(
+      process.execPath,
+      ["--preload", blockPlaywright, join(ROOT, "scripts/readme-assets.ts"), "hero-", join(scratch, "blocked-hero")],
+      { encoding: "utf8" },
+    );
+    expect(browserJobRun.status).not.toBe(0);
+    expect(browserJobRun.stderr).toContain("forbidden import in badge-only mode: playwright-core");
+
     const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { name: string; version: string; license: string };
     writeFileSync(join(scratch, "package.json"), JSON.stringify({ ...pkg, version: "9.9.9-rc.1" }, null, 2));
     mkdirSync(join(scratch, "brand"), { recursive: true });
+    mkdirSync(join(scratch, "scripts"), { recursive: true });
     mkdirSync(join(scratch, ".github/assets/readme"), { recursive: true });
     copyFileSync(join(ROOT, "brand/tokens.json"), join(scratch, "brand/tokens.json"));
     copyFileSync(join(ROOT, "LICENSE"), join(scratch, "LICENSE"));
     copyFileSync(join(ROOT, "README.md"), join(scratch, "README.md"));
+    copyFileSync(join(ROOT, "scripts/readme-badges.ts"), join(scratch, "scripts/readme-badges.ts"));
     for (const badge of badges()) {
       for (const mode of ["dark", "light"] as const) {
         const file = badgeFile(badge.slug, mode);
@@ -188,8 +225,8 @@ describe("README repeats the assets' words", () => {
       }
     }
 
-    const syncScript = join(ROOT, "scripts/readme-badges.ts");
-    const first = spawnSync(process.execPath, [syncScript, scratch], { encoding: "utf8" });
+    const syncScript = join(scratch, "scripts/readme-badges.ts");
+    const first = spawnSync(process.execPath, ["--install=disable", syncScript], { cwd: scratch, encoding: "utf8" });
     expect(first.stderr).toBe("");
     expect(first.status).toBe(0);
     const syncedReadme = readFileSync(join(scratch, "README.md"), "utf8");
@@ -202,7 +239,7 @@ describe("README repeats the assets' words", () => {
     expect(darkAfterFirst).toContain(">9.9.9-rc.1</text>");
     expect(lightAfterFirst).toContain(">9.9.9-rc.1</text>");
 
-    const second = spawnSync(process.execPath, [syncScript, scratch], { encoding: "utf8" });
+    const second = spawnSync(process.execPath, ["--install=disable", syncScript, scratch], { cwd: scratch, encoding: "utf8" });
     expect(second.stderr).toBe("");
     expect(second.status).toBe(0);
     expect(second.stdout).toContain("already match package.json");
@@ -211,7 +248,7 @@ describe("README repeats the assets' words", () => {
     expect(readFileSync(join(scratch, "README.md"), "utf8")).toBe(syncedReadme);
 
     writeFileSync(join(scratch, "README.md"), syncedReadme.replace(/<img[^>]*badge-version-light\.svg[^>]*>/, ""));
-    const missing = spawnSync(process.execPath, [syncScript, scratch], { encoding: "utf8" });
+    const missing = spawnSync(process.execPath, ["--install=disable", syncScript], { cwd: scratch, encoding: "utf8" });
     expect(missing.status).toBe(2);
     expect(missing.stderr).toContain("badge-version-light.svg");
   });
