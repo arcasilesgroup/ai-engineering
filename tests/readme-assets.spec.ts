@@ -16,8 +16,11 @@ import {
   headingFile,
   HERO,
   heroFile,
+  loadQuickstartFacts,
   OUT_DIR,
   QUICKSTART_STORYBOARD,
+  quickstartPosterAlt,
+  quickstartPosterFile,
   quickstartStoryboardAlt,
   quickstartStoryboardFile,
   receiptFilename,
@@ -147,13 +150,99 @@ describe("README repeats the assets' words", () => {
     }
   });
 
-  test("the quickstart storyboard ships both themes at matching 2x dimensions, verifies live denial, and carries faithful alt text and transcript", () => {
+/** Minimal ISO BMFF (MP4) box reader so tests verify real video metadata without shelling out. */
+type Mp4Box = { type: string; offset: number; payloadStart: number; end: number };
+
+function mp4Children(buf: Buffer, start: number, end: number): Mp4Box[] {
+  const boxes: Mp4Box[] = [];
+  let cursor = start;
+  while (cursor + 8 <= end) {
+    let size = buf.readUInt32BE(cursor);
+    const type = buf.toString("ascii", cursor + 4, cursor + 8);
+    let header = 8;
+    if (size === 1) {
+      if (cursor + 16 > end) break;
+      size = Number(buf.readBigUInt64BE(cursor + 8));
+      header = 16;
+    } else if (size === 0) {
+      size = end - cursor;
+    }
+    if (size < header || cursor + size > end) break;
+    boxes.push({ type, offset: cursor, payloadStart: cursor + header, end: cursor + size });
+    cursor += size;
+  }
+  return boxes;
+}
+
+function inspectMp4(buf: Buffer): {
+  topBoxes: string[];
+  durationSeconds: number;
+  width: number;
+  height: number;
+  handlers: string[];
+  codecs: string[];
+} {
+  const top = mp4Children(buf, 0, buf.length);
+  const moov = top.find((box) => box.type === "moov");
+  expect(moov, "MP4 moov atom").toBeDefined();
+  const moovChildren = mp4Children(buf, (moov as Mp4Box).payloadStart, (moov as Mp4Box).end);
+
+  const mvhd = moovChildren.find((box) => box.type === "mvhd");
+  expect(mvhd, "MP4 mvhd atom").toBeDefined();
+  const mvhdStart = (mvhd as Mp4Box).payloadStart;
+  const mvhdVer = buf[mvhdStart] ?? 0;
+  const timescale = mvhdVer === 1 ? buf.readUInt32BE(mvhdStart + 20) : buf.readUInt32BE(mvhdStart + 12);
+  const rawDuration = mvhdVer === 1 ? Number(buf.readBigUInt64BE(mvhdStart + 24)) : buf.readUInt32BE(mvhdStart + 16);
+
+  let width = 0;
+  let height = 0;
+  const handlers: string[] = [];
+  const codecs: string[] = [];
+
+  for (const trak of moovChildren.filter((box) => box.type === "trak")) {
+    const trakChildren = mp4Children(buf, trak.payloadStart, trak.end);
+    const tkhd = trakChildren.find((box) => box.type === "tkhd");
+    if (tkhd) {
+      const tkhdVer = buf[tkhd.payloadStart] ?? 0;
+      const wOff = tkhdVer === 1 ? 88 : 76;
+      const trackW = buf.readUInt32BE(tkhd.payloadStart + wOff) / 65536;
+      const trackH = buf.readUInt32BE(tkhd.payloadStart + wOff + 4) / 65536;
+      if (trackW > 0 && trackH > 0) {
+        width = trackW;
+        height = trackH;
+      }
+    }
+    const mdia = trakChildren.find((box) => box.type === "mdia");
+    if (!mdia) continue;
+    const mdiaChildren = mp4Children(buf, mdia.payloadStart, mdia.end);
+    const hdlr = mdiaChildren.find((box) => box.type === "hdlr");
+    if (hdlr) handlers.push(buf.toString("ascii", hdlr.payloadStart + 8, hdlr.payloadStart + 12));
+    const minf = mdiaChildren.find((box) => box.type === "minf");
+    const stbl = minf ? mp4Children(buf, minf.payloadStart, minf.end).find((box) => box.type === "stbl") : undefined;
+    const stsd = stbl ? mp4Children(buf, stbl.payloadStart, stbl.end).find((box) => box.type === "stsd") : undefined;
+    if (stsd && stsd.payloadStart + 16 <= stsd.end) {
+      codecs.push(buf.toString("ascii", stsd.payloadStart + 12, stsd.payloadStart + 16));
+    }
+  }
+
+  return {
+    topBoxes: top.map((box) => box.type),
+    durationSeconds: rawDuration / timescale,
+    width,
+    height,
+    handlers,
+    codecs,
+  };
+}
+
+  test("the quickstart still and the walkthrough under it share one section: the still leads, the video follows, and no autoplaying loop remains", () => {
+    // The still: both themes, matching 2x dimensions, and the live denial verified rather than typed.
     expect(verifyQuickstartDeny().length).toBeGreaterThan(0);
-    const darkFile = quickstartStoryboardFile("dark");
-    const lightFile = quickstartStoryboardFile("light");
-    expect(README).toContain(`srcset=".github/assets/readme/${darkFile}"`);
-    expect(README).toContain(`src=".github/assets/readme/${lightFile}"`);
-    expect(altFor(lightFile)).toBe(quickstartStoryboardAlt());
+    const stillDark = quickstartStoryboardFile("dark");
+    const stillLight = quickstartStoryboardFile("light");
+    expect(README).toContain(`srcset=".github/assets/readme/${stillDark}"`);
+    expect(README).toContain(`src=".github/assets/readme/${stillLight}"`);
+    expect(altFor(stillLight)).toBe(quickstartStoryboardAlt());
     for (const spoken of [
       QUICKSTART_STORYBOARD.version,
       QUICKSTART_STORYBOARD.init.command,
@@ -164,21 +253,75 @@ describe("README repeats the assets' words", () => {
       QUICKSTART_STORYBOARD.doctor.denyPill,
       QUICKSTART_STORYBOARD.doctor.verdict,
     ]) {
-      expect(altFor(lightFile), `alt text names ${spoken}`).toContain(spoken);
+      expect(altFor(stillLight), `alt text names ${spoken}`).toContain(spoken);
     }
+
+    const stillDarkDims = webpDimensions(readFileSync(join(OUT_DIR, stillDark)));
+    const stillLightDims = webpDimensions(readFileSync(join(OUT_DIR, stillLight)));
+    expect(stillDarkDims.width, "dark storyboard width (2x CSS canvas)").toBe(STORYBOARD_WIDTH * 2);
+    expect(stillLightDims, "light storyboard matches dark dimensions").toEqual(stillDarkDims);
+    expect(stillDarkDims.height, "compact landscape-ish proportions").toBeGreaterThan(800);
+    expect(stillDarkDims.height, "fits cleanly without vertical bloat").toBeLessThan(1600);
+
+    // No autoplaying GIF loop remains anywhere in the assets or the README (WCAG 2.2.2).
+    const facts = loadQuickstartFacts();
+    const assetsDir = join(ROOT, ".github", "assets");
+    const tapesDir = join(assetsDir, "tapes");
+    expect(readdirSync(assetsDir).filter((name) => name.endsWith(".gif"))).toEqual([]);
     expect(README).not.toContain("quickstart-loop.gif");
+    expect(README).not.toContain("quickstart-loop.tape");
     expect(README).not.toContain("quickstart-preview-");
+    expect(existsSync(join(tapesDir, "quickstart-loop.tape"))).toBe(false);
+
+    // Deterministic VHS tape, ffmpeg script, and captured facts live beside each other.
+    for (const file of ["quickstart.tape", "quickstart-video.sh", "quickstart-facts.json"]) {
+      expect(existsSync(join(tapesDir, file)), `tapes/${file}`).toBe(true);
+    }
+
+    // The video follows the still: its dark/light poster sits under the storyboard, inside a link
+    // to the MP4, so it never autoplays and the still is what a reader sees first.
+    expect(README).toMatch(/<a href="\.github\/assets\/quickstart\.mp4">\s*<picture>[\s\S]*?quickstart-poster-dark\.webp[\s\S]*?quickstart-poster-light\.webp[\s\S]*?<\/picture>\s*<\/a>/);
+    expect(altFor(quickstartPosterFile("light"))).toBe(quickstartPosterAlt());
+    expect(README).toContain(quickstartPosterFile("dark"));
+    const stillTagAt = README.indexOf(`src=".github/assets/readme/${stillLight}"`);
+    const posterLinkAt = README.indexOf('<a href=".github/assets/quickstart.mp4">');
+    expect(stillTagAt, "the still's img tag comes before the video link").toBeLessThan(posterLinkAt);
+
+    // Real MP4 metadata: 16:9 H.264, faststart (moov before mdat), silent (no audio track), sensible size, human-paced duration.
+    const mp4Bytes = readFileSync(join(assetsDir, "quickstart.mp4"));
+    expect(mp4Bytes.length, "MP4 size stays sensible for a repository (<= 4 MiB)").toBeLessThanOrEqual(4 * 1024 * 1024);
+    const meta = inspectMp4(mp4Bytes);
+    expect(meta.topBoxes[0]).toBe("ftyp");
+    expect(meta.topBoxes.indexOf("moov"), "faststart puts moov before mdat").toBeLessThan(meta.topBoxes.indexOf("mdat"));
+    expect(meta.width).toBe(1920);
+    expect(meta.height).toBe(1080);
+    expect(meta.handlers).toEqual(["vide"]);
+    expect(meta.codecs).toContain("avc1");
+    expect(Math.abs(meta.durationSeconds - facts.durationSeconds), "facts duration matches MP4").toBeLessThan(0.25);
+    expect(meta.durationSeconds, "paced for human reading, not a rushed < 5 s loop").toBeGreaterThanOrEqual(30);
+
+    // One transcript serves both assets: it quotes the still's four panels and the recording's own run.
     expect(README).toContain("<summary>Text transcript of ai-eng init, doctor, work and config</summary>");
     expect(README).toContain(QUICKSTART_STORYBOARD.doctor.denyPill);
     expect(README).toContain(QUICKSTART_STORYBOARD.work.header);
     expect(README).toContain(QUICKSTART_STORYBOARD.config.command);
-
-    const darkDims = webpDimensions(readFileSync(join(OUT_DIR, darkFile)));
-    const lightDims = webpDimensions(readFileSync(join(OUT_DIR, lightFile)));
-    expect(darkDims.width, "dark storyboard width (2x CSS canvas)").toBe(STORYBOARD_WIDTH * 2);
-    expect(lightDims, "light storyboard matches dark dimensions").toEqual(darkDims);
-    expect(darkDims.height, "compact landscape-ish proportions").toBeGreaterThan(800);
-    expect(darkDims.height, "fits cleanly without vertical bloat").toBeLessThan(1600);
+    for (const expected of [
+      `ai-eng ${facts.version}`,
+      `${facts.durationSeconds.toFixed(1)} s MP4`,
+      "ai-eng init --surface claude-code --yes",
+      "ai-eng doctor",
+      `DENY in ${facts.denyMs}ms`,
+      `p50 ${facts.receiptP50Ms}ms · p95 ${facts.receiptP95Ms}ms`,
+      `${facts.checksTotal} checks: ${facts.checksOk} OK · ${facts.checksWarn} WARN · ${facts.checksFail} FAIL`,
+      "Chain verified.",
+      "ai-eng work",
+      `active lanes: ${facts.activeLanes}/${facts.maxLanes}`,
+      "ai-eng config --add cursor",
+      `2 enabled: ${facts.surfacesAfterAdd.join(", ")}`,
+      `${facts.mirrorTargets} targets`,
+    ]) {
+      expect(README, `README quotes recorded fact "${expected}"`).toContain(expected);
+    }
   });
 
   test("the guards panel matches live no-verify and wrap verdicts and carries its claim in alt text", () => {
