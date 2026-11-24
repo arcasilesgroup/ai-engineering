@@ -29,6 +29,7 @@ import {
   verifyGuardLane,
 } from "../scripts/readme-assets.ts";
 import { TABLE } from "../src/chain/mod.ts";
+import { badgeFile, badges, badgeSvg } from "../scripts/readme-badges.ts";
 import { DIAGRAM_VARS, FIGURES, figureFile, figureSvg } from "../scripts/readme-figures.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
@@ -68,13 +69,13 @@ describe("README images", () => {
     expect(onDisk.filter((file) => !used.has(file))).toEqual([]);
   });
 
-  test("the README uses no absolute local path and loads no third-party image host but shields.io", () => {
+  test("the README uses no absolute local path and loads no third-party image host", () => {
     expect(README).not.toMatch(/(?:src|href|srcset)="(?:\/Users|\/home|[A-Za-z]:\\)/);
     const htmlHosts = [...README.matchAll(/\b(?:src|srcset)="([^"]+)"/g)].flatMap((match) =>
       [...(match[1] as string).matchAll(/https?:\/\/([^/\s,]+)/g)].map((url) => url[1] as string),
     );
     const markdownHosts = [...README.matchAll(/!\[[^\]]*\]\(https?:\/\/([^/\s)]+)/g)].map((match) => match[1] as string);
-    expect([...new Set([...htmlHosts, ...markdownHosts])]).toEqual(["img.shields.io"]);
+    expect([...new Set([...htmlHosts, ...markdownHosts])]).toEqual([]);
   });
 
   test("every image carries alt text", () => {
@@ -107,6 +108,19 @@ describe("README repeats the assets' words", () => {
       expect(alt, `title of ${card.slug}`).toContain(card.title);
       for (const bullet of card.bullets) expect(alt, `bullet of ${card.slug}`).toContain(bullet.replaceAll("`", ""));
       expect(alt, `closing of ${card.slug}`).toContain(card.closing);
+    }
+  });
+
+  test("each badge is a committed SVG whose alt text and link match the repository, in both themes", () => {
+    const { version, license, name } = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string; license: string; name: string };
+    const row = badges();
+    expect(row.map((badge) => badge.value)).toEqual([version, name, license]);
+    for (const badge of row) {
+      expect(altFor(badgeFile(badge.slug, "light")), badge.slug).toBe(badge.alt);
+      expect(README, `link of ${badge.slug}`).toContain(`<a href="${badge.href}"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/${badgeFile(badge.slug, "dark")}">`);
+      for (const mode of ["dark", "light"] as const) {
+        expect(readFileSync(join(OUT_DIR, badgeFile(badge.slug, mode)), "utf8"), `${badge.slug} ${mode} is stale; run bun scripts/readme-assets.ts badge-`).toBe(badgeSvg(badge, mode));
+      }
     }
   });
 

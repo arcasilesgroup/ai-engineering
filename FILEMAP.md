@@ -69,6 +69,7 @@ scripts/
   artifact-axe.ts              The browser gate `bun run a11y`: axe-core in system Chrome, keys, reflow, no script
   chain-bundle.ts              Build the chain module the in-process plugin hosts import (into generated/)
   readme-assets.ts             Renders the README's hero, headings, buttons, cards, guard and receipt panels, skills grid and figures from brand/tokens.json (no image model)
+  readme-badges.ts             The README badge row as SVG: version, npm name and licence read from package.json and LICENSE (no shields.io)
   readme-figures.ts            The five figures as data and drawing: nodes, one-anchor edges, captions and text versions
   readme-diagrams.ts           Renders the older skill-chain and guard-flow SVGs, which the README no longer embeds
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate

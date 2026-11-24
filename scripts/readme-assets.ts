@@ -2,7 +2,7 @@
 // scripts/readme-assets.ts — renders the README's images from the repo, with no image model.
 //
 // Every pixel is typeset or drawn here, from brand/tokens.json and the brand's own component
-// styles, in dark and light: the hero, the section headings, the two buttons, the "blocks" and
+// styles, in dark and light (the badge row is SVG, scripts/readme-badges.ts): the hero, the section headings, the two buttons, the "blocks" and
 // "informs" cards, the guards refusal and receipts ledger panels, the skills grid and the five
 // figures (scripts/readme-figures.ts). A model misspells and its output cannot be re-rendered;
 // this can. Change a line in a table below, run `bun scripts/readme-assets.ts`, commit the
@@ -15,7 +15,7 @@
 // Needs Google Chrome (playwright-core drives it, as scripts/artifact-axe.ts does), network
 // for Google Fonts at render time only, and `cwebp`. The README itself loads no font.
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Locator, Page } from "playwright-core";
@@ -23,6 +23,7 @@ import { TABLE } from "../src/chain/mod.ts";
 import { checkBash, checkContent } from "../src/guards/no-verify.ts";
 import { isTestCommand, rewrite } from "../src/guards/wrap.ts";
 import { receiptEventName, type Receipt } from "../src/receipts.ts";
+import { badgeFile, badges, badgeSvg } from "./readme-badges.ts";
 import { colour, DIAGRAM_VARS, FIGURE_CSS, FIGURES, figureFile, figureSvg, FIGURE_WIDTH, type Mode } from "./readme-figures.ts";
 
 const ROOT = join(import.meta.dir, "..");
@@ -282,6 +283,7 @@ export function renderedFiles(): string[] {
     receiptsLedgerFile(mode),
     skillsGridFile(mode),
     heroFile(mode),
+    ...badges().map((badge) => badgeFile(badge.slug, mode)),
   ]);
 }
 
@@ -627,12 +629,21 @@ function encode(png: string, webp: string): void {
 }
 
 async function main(): Promise<void> {
-  const { chromium } = await import("playwright-core");
   mkdirSync(OUT_DIR, { recursive: true });
+  const only = process.argv[2] ?? "";
+  // Badges are plain SVG text, so they need neither Chrome nor the network.
+  for (const badge of badges()) {
+    for (const mode of MODES) {
+      const file = badgeFile(badge.slug, mode);
+      if (!file.includes(only)) continue;
+      writeFileSync(join(OUT_DIR, file), badgeSvg(badge, mode));
+      console.log(`ok  ${file}`);
+    }
+  }
+  const { chromium } = await import("playwright-core");
   const scratch = mkdtempSync(join(tmpdir(), "readme-assets-"));
   const browser = await chromium.launch({ channel: "chrome" });
   try {
-    const only = process.argv[2] ?? "";
     for (const job of jobs().filter((candidate) => candidate.file.includes(only))) {
       const context = await browser.newContext({ deviceScaleFactor: 2 });
       const tab = await context.newPage();

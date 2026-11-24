@@ -13,11 +13,9 @@ The agent can't edit its own rules, and every refusal it gets is saved as a file
 <sub>Bun 1.4.4+ · macOS · Linux · Windows · Apache-2.0 · Runs on your machine and calls no model · 7 of 10 agent hosts enforced and verified on 2026-11-23</sub>
 
 <p>
-  <a href="https://github.com/arcasilesgroup/ai-engineering/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/arcasilesgroup/ai-engineering?style=flat-square&amp;labelColor=001E2B&amp;color=00684A&amp;label=release"></a>
-  <a href="https://www.npmjs.com/package/ai-engineering"><img alt="npm" src="https://img.shields.io/npm/v/ai-engineering?style=flat-square&amp;labelColor=001E2B&amp;color=00684A&amp;logo=npm"></a>
-  <a href="https://github.com/arcasilesgroup/ai-engineering/actions/workflows/check.yml"><img alt="check workflow status" src="https://img.shields.io/github/actions/workflow/status/arcasilesgroup/ai-engineering/check.yml?branch=main&amp;style=flat-square&amp;labelColor=001E2B&amp;label=check"></a>
-  <a href="https://sonarcloud.io/component_measures?id=arcasilesgroup_ai-engineering&amp;metric=coverage"><img alt="test coverage on SonarCloud" src="https://img.shields.io/sonar/coverage/arcasilesgroup_ai-engineering?server=https%3A%2F%2Fsonarcloud.io&amp;style=flat-square&amp;labelColor=001E2B&amp;color=00684A"></a>
-  <a href="LICENSE"><img alt="license" src="https://img.shields.io/github/license/arcasilesgroup/ai-engineering?style=flat-square&amp;labelColor=001E2B&amp;color=00684A"></a>
+  <a href="https://github.com/arcasilesgroup/ai-engineering/releases/latest"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/badge-version-dark.svg"><img alt="version 3.4.0" src=".github/assets/readme/badge-version-light.svg" height="20"></picture></a>
+  <a href="https://www.npmjs.com/package/ai-engineering"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/badge-npm-dark.svg"><img alt="npm package ai-engineering" src=".github/assets/readme/badge-npm-light.svg" height="20"></picture></a>
+  <a href="LICENSE"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/badge-license-dark.svg"><img alt="license Apache-2.0" src=".github/assets/readme/badge-license-light.svg" height="20"></picture></a>
 </p>
 
 <sub><a href="#guards">Guards</a> · <a href="#receipts">Receipts</a> · <a href="#skills">Skills</a> · <a href="#fail-closed">Fail closed</a> · <a href="#your-repo">Your repo</a> · <a href="#measured">Measured</a> · <a href="#where-it-stops">Known limits</a> · <a href="#under-the-hood">Under the hood</a> · <a href="#release">Release</a> · <a href="#answers">Answers</a> · <a href="#get-it">Get it</a> · <a href="#build-with-us">Build with us</a></sub>
