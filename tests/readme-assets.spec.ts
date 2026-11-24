@@ -17,6 +17,9 @@ import {
   HERO,
   heroFile,
   OUT_DIR,
+  QUICKSTART_STORYBOARD,
+  quickstartStoryboardAlt,
+  quickstartStoryboardFile,
   receiptFilename,
   receiptsLedgerAlt,
   receiptsLedgerFile,
@@ -25,8 +28,10 @@ import {
   SKILL_GROUPS,
   skillsGridAlt,
   skillsGridFile,
+  STORYBOARD_WIDTH,
   THEMES,
   verifyGuardLane,
+  verifyQuickstartDeny,
 } from "../scripts/readme-assets.ts";
 import { TABLE } from "../src/chain/mod.ts";
 import { DIAGRAM_VARS, FIGURES, figureFile, figureSvg } from "../scripts/readme-figures.ts";
@@ -41,6 +46,24 @@ function altFor(file: string): string {
   const alt = tag?.match(/\balt="([^"]*)"/)?.[1];
   expect(alt, `alt attribute for ${file}`).toBeDefined();
   return alt as string;
+}
+
+/** Decode canvas pixel dimensions directly from a WebP VP8L or VP8X header. */
+function webpDimensions(bytes: Buffer): { width: number; height: number } {
+  expect(bytes.toString("ascii", 0, 4), "RIFF header").toBe("RIFF");
+  expect(bytes.toString("ascii", 8, 12), "WEBP signature").toBe("WEBP");
+  const chunk = bytes.toString("ascii", 12, 16);
+  if (chunk === "VP8L") {
+    expect(bytes[20], "VP8L signature byte").toBe(0x2f);
+    const bits = bytes.readUInt32LE(21);
+    return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
+  }
+  if (chunk === "VP8X") {
+    const width = (bytes[24]! | (bytes[25]! << 8) | (bytes[26]! << 16)) + 1;
+    const height = (bytes[27]! | (bytes[28]! << 8) | (bytes[29]! << 16)) + 1;
+    return { width, height };
+  }
+  throw new Error(`unexpected WebP chunk "${chunk}"`);
 }
 
 /** WCAG 2.1 contrast ratio of two `#RRGGBB` colours. */
@@ -124,33 +147,38 @@ describe("README repeats the assets' words", () => {
     }
   });
 
-  test("the quickstart demo is an endless loop whose whole cycle is under 5 s (WCAG 2.2.2) and carries a faithful transcript", () => {
-    const gifTag = (README.match(/<img\b[^>]*>/g) ?? []).find((entry) => entry.includes('src=".github/assets/quickstart-loop.gif"'));
-    expect(gifTag, "inline quickstart-loop.gif img tag").toBeDefined();
-    const gifAlt = gifTag?.match(/\balt="([^"]*)"/)?.[1] ?? "";
-    for (const spoken of ["ai-eng init", "ls -A", "ai-eng doctor", "3.3.1"]) {
-      expect(gifAlt, `alt text names ${spoken}`).toContain(spoken);
+  test("the quickstart storyboard ships both themes at matching 2x dimensions, verifies live denial, and carries faithful alt text and transcript", () => {
+    expect(verifyQuickstartDeny().length).toBeGreaterThan(0);
+    const darkFile = quickstartStoryboardFile("dark");
+    const lightFile = quickstartStoryboardFile("light");
+    expect(README).toContain(`srcset=".github/assets/readme/${darkFile}"`);
+    expect(README).toContain(`src=".github/assets/readme/${lightFile}"`);
+    expect(altFor(lightFile)).toBe(quickstartStoryboardAlt());
+    for (const spoken of [
+      QUICKSTART_STORYBOARD.version,
+      QUICKSTART_STORYBOARD.init.command,
+      QUICKSTART_STORYBOARD.doctor.command,
+      QUICKSTART_STORYBOARD.work.command,
+      QUICKSTART_STORYBOARD.config.command,
+      QUICKSTART_STORYBOARD.doctor.denyCommand,
+      QUICKSTART_STORYBOARD.doctor.denyPill,
+      QUICKSTART_STORYBOARD.doctor.verdict,
+    ]) {
+      expect(altFor(lightFile), `alt text names ${spoken}`).toContain(spoken);
     }
+    expect(README).not.toContain("quickstart-loop.gif");
     expect(README).not.toContain("quickstart-preview-");
-    expect(README).toContain("<summary>Text transcript of ai-eng init, ls and ai-eng doctor</summary>");
-    expect(README).toContain("DENY in 5ms");
-    expect(README).not.toContain("~6 ms");
+    expect(README).toContain("<summary>Text transcript of ai-eng init, doctor, work and config</summary>");
+    expect(README).toContain(QUICKSTART_STORYBOARD.doctor.denyPill);
+    expect(README).toContain(QUICKSTART_STORYBOARD.work.header);
+    expect(README).toContain(QUICKSTART_STORYBOARD.config.command);
 
-    const gifBytes = readFileSync(join(ROOT, ".github", "assets", "quickstart-loop.gif"));
-    // NETSCAPE2.0 application extension: sub-block id 3, loop sub-id 1, then the repeat count; 0 means forever.
-    const loopBlockAt = gifBytes.indexOf("NETSCAPE2.0");
-    expect(loopBlockAt, "GIF89a NETSCAPE2.0 loop block").toBeGreaterThan(0);
-    expect(gifBytes.readUInt16LE(loopBlockAt + 11 + 2), "loop count 0 = repeat forever").toBe(0);
-    // Cycle length = sum of every frame's Graphic Control Extension delay (hundredths of a second).
-    const frameDelayMarker = Buffer.from([0x21, 0xf9, 0x04]);
-    let cycleCentiseconds = 0;
-    for (let at = gifBytes.indexOf(frameDelayMarker); at >= 0; at = gifBytes.indexOf(frameDelayMarker, at + 3)) {
-      cycleCentiseconds += gifBytes.readUInt16LE(at + 4);
-    }
-    expect(cycleCentiseconds, "cycle must stay under 5 s: autoplay that repeats needs a pause control after that").toBeLessThan(500);
-    // The alt text quotes the cycle a reader will sit through, read off the asset so the two cannot drift.
-    const cycleSeconds = (cycleCentiseconds / 100).toFixed(1);
-    expect(gifAlt, `alt text names the recorded cycle of ${cycleSeconds} s`).toContain(`repeating every ${cycleSeconds} seconds`);
+    const darkDims = webpDimensions(readFileSync(join(OUT_DIR, darkFile)));
+    const lightDims = webpDimensions(readFileSync(join(OUT_DIR, lightFile)));
+    expect(darkDims.width, "dark storyboard width (2x CSS canvas)").toBe(STORYBOARD_WIDTH * 2);
+    expect(lightDims, "light storyboard matches dark dimensions").toEqual(darkDims);
+    expect(darkDims.height, "compact landscape-ish proportions").toBeGreaterThan(800);
+    expect(darkDims.height, "fits cleanly without vertical bloat").toBeLessThan(1600);
   });
 
   test("the guards panel matches live no-verify and wrap verdicts and carries its claim in alt text", () => {
@@ -241,6 +269,11 @@ describe("the figures stay legible in both modes", () => {
       }
       for (const text of [theme.ink, theme.muted, theme.badText, theme.goodText, theme.warnText]) {
         expect(contrast(text, theme.raised), `${mode} ${text} on card`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(text, theme.termWell), `${mode} ${text} on termWell`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(text, theme.denyWell), `${mode} ${text} on denyWell`).toBeGreaterThanOrEqual(4.5);
+      }
+      for (const text of [theme.ink, theme.panelMuted, theme.goodText, theme.badText]) {
+        expect(contrast(text, theme.chrome), `${mode} ${text} on chrome`).toBeGreaterThanOrEqual(4.5);
       }
       expect(contrast(theme.buttonInk, theme.fill), `${mode} button text on fill`).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme.border, theme.field), `${mode} outline button border on field`).toBeGreaterThanOrEqual(3);

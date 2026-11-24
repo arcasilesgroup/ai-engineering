@@ -3,13 +3,10 @@
 //
 // Every pixel is typeset or drawn here, from brand/tokens.json and the brand's own component
 // styles, in dark and light: the hero, the section headings, the two buttons, the "blocks" and
-// "informs" cards, the guards refusal and receipts ledger panels, the skills grid and the five
-// figures (scripts/readme-figures.ts). A model misspells and its output cannot be re-rendered;
-// this can. Change a line in a table below, run `bun scripts/readme-assets.ts`, commit the
-// images it wrote.
-//
-// The animated quickstart recording (.github/assets/quickstart-loop.gif) is recorded with VHS
-// against the real `ai-eng` CLI (.github/assets/tapes/quickstart-loop.tape).
+// "informs" cards, the guards refusal, receipts ledger and quickstart storyboard panels, the
+// skills grid and the five figures (scripts/readme-figures.ts). A model misspells and its output
+// cannot be re-rendered; this can. Change a line in a table below, run
+// `bun scripts/readme-assets.ts`, commit the images it wrote.
 //
 // Pass a filename fragment to render only the matching files (`bun scripts/readme-assets.ts figure-`).
 // Needs Google Chrome (playwright-core drives it, as scripts/artifact-axe.ts does), network
@@ -244,6 +241,115 @@ export const RECEIPT_CAVEAT = {
   detail: "Each verdict writes one JSON file in `.ai-engineering/receipts/`. Anyone who can write to that folder can write one, so treat it as an audit trail, never as cryptographic evidence.",
 } as const;
 
+export type StoryboardLine = {
+  mark?: "✓" | "◆" | "▲";
+  key: string;
+  detail?: string;
+};
+
+export type StoryboardLane = {
+  state: "active" | "parked";
+  branch: string;
+  age: string;
+  note: string;
+};
+
+/**
+ * Section 11: four curated real moments from `ai-eng 3.3.1` in `my-app` on a 2x2 grid
+ * (800 px CSS / 1600 px @2x): `init` writes the contract, `doctor` verifies the chain
+ * with the live `no-verify` denial accented as the payoff, `work` tracks active and parked
+ * lanes, and `config` adds a second enforced surface. Panel 02's live denial is checked
+ * against `checkBash` at render time and in `tests/readme-assets.spec.ts`.
+ */
+export const QUICKSTART_STORYBOARD = {
+  eyebrow: "11 / Get it",
+  tag: "ai-eng 3.3.1 · my-app",
+  title: "Four commands to govern one repo",
+  accent: "govern",
+  version: "3.3.1",
+  repo: "my-app",
+  init: {
+    step: "01",
+    title: "Write the contract",
+    pill: "installed",
+    command: "ai-eng init --surface claude-code --yes",
+    lines: [
+      { mark: "✓", key: "AGENTS.md", detail: "· contract" },
+      { mark: "✓", key: "DECISIONS.md", detail: "· contract" },
+      { mark: "✓", key: ".ai-engineering/config.toml" },
+      { mark: "✓", key: ".github/workflows/ai-eng-check.yml" },
+      { mark: "✓", key: ".git/hooks/", detail: "· marker-managed" },
+      { mark: "✓", key: ".ai-engineering/ai-eng.lock", detail: "· 6 assets" },
+      { mark: "▲", key: "Trust this workspace in your editor." },
+    ] as readonly StoryboardLine[],
+    status: "Nothing committed.",
+    next: "Next: ai-eng doctor",
+  },
+  doctor: {
+    step: "02",
+    title: "Verify the chain",
+    pill: "16 / 16 OK",
+    command: "ai-eng doctor",
+    lines: [
+      { mark: "✓", key: "AGENTS.md", detail: "· 47 rules · 89 lines" },
+      { mark: "✓", key: "canon", detail: "· 107/107 verified · 0 drift" },
+      { mark: "✓", key: "git floor", detail: "· .git/hooks/ · gitleaks" },
+    ] as readonly StoryboardLine[],
+    denyCommand: "git commit -n",
+    denyFlag: "-n",
+    denyGuard: "no-verify",
+    denyPill: "DENY · exit 2 · 8ms",
+    denyLead: "git commit -n skips the git hooks",
+    denyTail: "Run the command without it.",
+    summary: "16 OK · 0 WARN · 0 FAIL",
+    verdict: "Chain verified.",
+  },
+  work: {
+    step: "03",
+    title: "Track your lanes",
+    pill: "2 / 3 active",
+    command: "ai-eng work",
+    header: "my-app · base main · 2 active · 1 parked",
+    lanes: [
+      { state: "active", branch: "feat/auth", age: "0 d", note: "checked out" },
+      { state: "active", branch: "feat/search", age: "0 d", note: "no folder" },
+      { state: "parked", branch: "feat/billing", age: "0 d", note: "waiting on API key" },
+    ] as readonly StoryboardLane[],
+    summary: "active lanes: 2/3",
+    actions: "tidy · park · drop",
+  },
+  config: {
+    step: "04",
+    title: "Change surfaces",
+    pill: "2 enabled",
+    command: "ai-eng config --add cursor",
+    lines: [
+      { mark: "✓", key: ".cursor/hooks.json", detail: "· repo carrier" },
+      { mark: "◆", key: "2 enabled:", detail: "claude-code, cursor" },
+      { mark: "✓", key: "cursor", detail: "· adapter + skill mirror" },
+      { mark: "✓", key: "Mirrors verified", detail: "· 4 targets" },
+    ] as readonly StoryboardLine[],
+    surfaces: "claude-code · cursor",
+    next: "Next: ai-eng doctor",
+  },
+  footerLeft: "{ai} engineering · ai-eng 3.3.1",
+  footerRight: "real 3.3.1 output · 0 model calls",
+} as const;
+
+/** Run the live `no-verify` guard on Panel 02's probe command and confirm its verbatim clauses match. */
+export function verifyQuickstartDeny(): string {
+  const { denyCommand, denyLead, denyTail } = QUICKSTART_STORYBOARD.doctor;
+  const result = checkBash(denyCommand, ROOT);
+  if (!result || !result.deny) {
+    throw new Error(`expected no-verify to deny "${denyCommand}", got allow`);
+  }
+  if (!result.reason.startsWith(denyLead) || !result.reason.endsWith(denyTail)) {
+    throw new Error(`unexpected no-verify reason for "${denyCommand}": "${result.reason}"`);
+  }
+  return result.reason;
+}
+
+export const STORYBOARD_WIDTH = 800;
 const PANEL_WIDTH = 960;
 const GRID_WIDTH = 880;
 const HEADING_WIDTH = 800;
@@ -257,6 +363,7 @@ export const heroFile = (mode: Mode) => `hero-${mode}.webp`;
 export const cardFile = (slug: string, mode: Mode) => `card-${slug}-${mode}.webp`;
 export const guardsRefusedFile = (mode: Mode) => `guards-refused-${mode}.webp`;
 export const receiptsLedgerFile = (mode: Mode) => `receipts-ledger-${mode}.webp`;
+export const quickstartStoryboardFile = (mode: Mode) => `quickstart-storyboard-${mode}.webp`;
 export const skillsGridFile = (mode: Mode) => `skills-grid-${mode}.webp`;
 
 /** The guards panel's alt text: all five lanes (three hook skips, linter silence, and test rewrite), their guards, verdicts and reasons. */
@@ -266,6 +373,12 @@ export const guardsRefusedAlt = (): string =>
 /** The receipts panel's alt text: the three accumulating receipt files, their real on-disk filenames, per-tool guard counts and the log-not-proof caveat. */
 export const receiptsLedgerAlt = (): string =>
   `Three receipt files accumulating in .ai-engineering/receipts/: ${SAMPLE_RECEIPTS.map((receipt) => `${receiptFilename(receipt)} (${receipt.tool}, denied by ${receipt.guards.denied_by ?? "none"}, ${receipt.latency_ms} ms, ${receipt.guards.ran.length} of ${guardCountFor(receipt.event, receipt.tool)} guards ran, outcome ${receipt.outcome})`).join("; ")}. ${RECEIPT_CAVEAT.headline} ${RECEIPT_CAVEAT.detail.replaceAll("`", "")}`;
+
+/** The quickstart storyboard's alt text: all four real ai-eng 3.3.1 moments, counts, and the live denial payoff. */
+export const quickstartStoryboardAlt = (): string => {
+  const { version, repo, init, doctor, work, config } = QUICKSTART_STORYBOARD;
+  return `Four-panel quickstart storyboard from ai-eng ${version} in ${repo}. Panel 01, ${init.title}: ${init.command} installs AGENTS.md, DECISIONS.md, .ai-engineering/config.toml, .github/workflows/ai-eng-check.yml, marker-managed hooks in .git/hooks/, and .ai-engineering/ai-eng.lock (6 assets), reminds you to trust the workspace in your editor, commits nothing, and prints ${init.next}. Panel 02, ${doctor.title}: ${doctor.command} passes 16 checks (${doctor.summary}) including AGENTS.md (47 rules, 89 lines), 107/107 canon files verified with 0 drift, marker hooks in .git/hooks/ with gitleaks, and the live chain test where ${doctor.denyCommand} returns ${doctor.denyPill} from ${doctor.denyGuard} (${verifyQuickstartDeny()}), ending with ${doctor.verdict} Panel 03, ${work.title}: ${work.command} lists ${work.header} (${work.lanes.map((lane) => `${lane.state} ${lane.branch} ${lane.age} ${lane.note}`).join("; ")}) with ${work.summary} and ${work.actions}. Panel 04, ${config.title}: ${config.command} installs .cursor/hooks.json as a repo carrier, enables claude-code and cursor with adapter and skill mirror, verifies 4 mirror targets, and prints ${config.next}.`;
+};
 
 /** The grid's alt text: every group, then every skill in it, so a screen reader gets the same list. */
 export const skillsGridAlt = (): string =>
@@ -280,6 +393,7 @@ export function renderedFiles(): string[] {
     ...FIGURES.map((figure) => figureFile(figure, mode)),
     guardsRefusedFile(mode),
     receiptsLedgerFile(mode),
+    quickstartStoryboardFile(mode),
     skillsGridFile(mode),
     heroFile(mode),
   ]);
@@ -293,6 +407,9 @@ export type Theme = {
   field: string;
   raised: string;
   well: string;
+  chrome: string;
+  denyWell: string;
+  termWell: string;
   ink: string;
   muted: string;
   panelMuted: string;
@@ -316,12 +433,14 @@ export type Theme = {
 // `panelMuted` uses gray.dark2 on light so mono text sitting directly on 5% grid crossings stays above 6.7:1.
 export const THEMES: Record<Mode, Theme> = {
   dark: {
-    field: colour("black"), raised: colour("gray.dark4"), well: colour("black"), ink: colour("white"), muted: colour("gray.light1"), panelMuted: colour("gray.light1"), accent: colour("green.base"),
+    field: colour("black"), raised: colour("gray.dark4"), well: colour("black"), chrome: colour("gray.dark3"), denyWell: colour("gray.dark4"), termWell: colour("black"),
+    ink: colour("white"), muted: colour("gray.light1"), panelMuted: colour("gray.light1"), accent: colour("green.base"),
     border: colour("gray.base"), hairline: `${colour("gray.base")}55`, buttonInk: colour("black"), fill: colour("green.base"), grid: `${colour("white")}0D`, band: `${colour("white")}08`, glow: `${colour("green.base")}14`,
     bad: colour("red.light1"), badText: colour("red.light2"), good: colour("green.base"), goodText: colour("green.light1"), warn: colour("yellow.base"), warnText: colour("yellow.base"),
   },
   light: {
-    field: colour("gray.light3"), raised: colour("white"), well: colour("gray.light3"), ink: colour("black"), muted: colour("gray.dark1"), panelMuted: colour("gray.dark2"), accent: colour("green.dark2"),
+    field: colour("gray.light3"), raised: colour("white"), well: colour("gray.light3"), chrome: colour("gray.light2"), denyWell: colour("red.light3"), termWell: colour("white"),
+    ink: colour("black"), muted: colour("gray.dark1"), panelMuted: colour("gray.dark2"), accent: colour("green.dark2"),
     border: colour("gray.base"), hairline: `${colour("gray.base")}66`, buttonInk: colour("black"), fill: colour("green.base"), grid: `${colour("gray.dark1")}14`, band: `${colour("white")}B3`, glow: `${colour("green.dark2")}14`,
     bad: colour("red.dark2"), badText: colour("red.dark2"), good: colour("green.dark2"), goodText: colour("green.dark2"), warn: colour("yellow.dark2"), warnText: colour("yellow.dark2"),
   },
@@ -572,6 +691,134 @@ dd{margin:0}
   );
 }
 
+/** Section 11: four real moments (`init`, `doctor` with live `no-verify` deny accent, `work`, `config`) in a 2x2 grid on an 800 px CSS (1600 px @2x) canvas. */
+export function quickstartStoryboardPage(theme: Theme): string {
+  const { eyebrow, tag, title, accent, init, doctor, work, config, footerLeft, footerRight } = QUICKSTART_STORYBOARD;
+  verifyQuickstartDeny();
+  const renderLine = (line: StoryboardLine): string => {
+    const mark = line.mark ?? "✓";
+    const markClass = mark === "◆" ? "t-diamond" : mark === "▲" ? "t-warn" : "t-mark";
+    const keyClass = mark === "▲" ? "t-muted" : "t-key";
+    const detail = line.detail ? `<span class="t-muted">${escapeHtml(line.detail)}</span>` : "";
+    return `<p class="t-line"><span class="${markClass}">${escapeHtml(mark)}</span><span class="${keyClass}">${escapeHtml(line.key)}</span>${detail}</p>`;
+  };
+  const renderLane = (lane: StoryboardLane): string => {
+    const tagClass = lane.state === "parked" ? "lane-tag is-warn" : "lane-tag is-ok";
+    return `<div class="lane-row"><span class="${tagClass}">${escapeHtml(lane.state)}</span><span class="lane-branch">${escapeHtml(lane.branch)}</span><span class="lane-age">${escapeHtml(lane.age)}</span><span class="lane-note">${escapeHtml(lane.note)}</span></div>`;
+  };
+  return page(
+    `<div id="asset"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+<div class="p-top"><span class="p-eyebrow">${escapeHtml(eyebrow)}</span><span class="p-tag">${escapeHtml(tag)}</span></div>
+<h2 class="p-title">${withAccent(title, accent)}</h2>
+<div class="grid">
+  <section class="step">
+    <header class="step-head">
+      <div class="step-id"><span class="step-num">${escapeHtml(init.step)}</span><h3>${escapeHtml(init.title)}</h3></div>
+      <span class="pill is-ok">${escapeHtml(init.pill)}</span>
+    </header>
+    <div class="term">
+      <p class="t-cmd"><span class="prompt">$</span><span>${escapeHtml(init.command)}</span></p>
+      <div class="t-out">${init.lines.map(renderLine).join("")}</div>
+      <div class="t-bar"><span class="t-summary"><span class="t-mark">✓</span>${escapeHtml(init.status)}</span><span class="t-verdict is-ok">${escapeHtml(init.next)}</span></div>
+    </div>
+  </section>
+  <section class="step">
+    <header class="step-head">
+      <div class="step-id"><span class="step-num">${escapeHtml(doctor.step)}</span><h3>${escapeHtml(doctor.title)}</h3></div>
+      <span class="pill is-ok">${escapeHtml(doctor.pill)}</span>
+    </header>
+    <div class="term">
+      <p class="t-cmd"><span class="prompt">$</span><span>${escapeHtml(doctor.command)}</span></p>
+      <div class="t-out">${doctor.lines.map(renderLine).join("")}</div>
+      <div class="deny-box">
+        <div class="deny-top">
+          <p class="deny-cmd"><span class="prompt is-bad">$</span><span>${withFlagMark(doctor.denyCommand, doctor.denyFlag, "deny")}</span></p>
+          <span class="mini-pill is-deny">${escapeHtml(doctor.denyPill)}</span>
+        </div>
+        <p class="deny-msg"><span class="art-brand">[ai-eng]</span> <span class="art-guard">${escapeHtml(doctor.denyGuard)}:</span> ${escapeHtml(doctor.denyLead)}… ${escapeHtml(doctor.denyTail)}</p>
+      </div>
+      <div class="t-bar"><span class="t-summary"><span class="t-diamond">◆</span>${escapeHtml(doctor.summary)}</span><span class="t-verdict is-ok">${escapeHtml(doctor.verdict)}</span></div>
+    </div>
+  </section>
+  <section class="step">
+    <header class="step-head">
+      <div class="step-id"><span class="step-num">${escapeHtml(work.step)}</span><h3>${escapeHtml(work.title)}</h3></div>
+      <span class="pill is-ok">${escapeHtml(work.pill)}</span>
+    </header>
+    <div class="term">
+      <p class="t-cmd"><span class="prompt">$</span><span>${escapeHtml(work.command)}</span></p>
+      <p class="work-head">${escapeHtml(work.header)}</p>
+      <div class="lanes">${work.lanes.map(renderLane).join("")}</div>
+      <div class="t-bar"><span class="t-summary">${escapeHtml(work.summary)}</span><span class="t-muted">${escapeHtml(work.actions)}</span></div>
+    </div>
+  </section>
+  <section class="step">
+    <header class="step-head">
+      <div class="step-id"><span class="step-num">${escapeHtml(config.step)}</span><h3>${escapeHtml(config.title)}</h3></div>
+      <span class="pill is-ok">${escapeHtml(config.pill)}</span>
+    </header>
+    <div class="term">
+      <p class="t-cmd"><span class="prompt">$</span><span>${escapeHtml(config.command)}</span></p>
+      <div class="t-out">${config.lines.map(renderLine).join("")}</div>
+      <div class="t-bar"><span class="t-muted">${escapeHtml(config.surfaces)}</span><span class="t-verdict is-ok">${escapeHtml(config.next)}</span></div>
+    </div>
+  </section>
+</div>
+<div class="p-foot"><span>${escapeHtml(footerLeft)}</span><span>${escapeHtml(footerRight)}</span></div>
+</div>`,
+    `#asset{position:relative;overflow:hidden;width:${STORYBOARD_WIDTH}px;border-radius:12px;border:1px solid ${theme.border};padding:30px 26px 22px;
+background-color:${theme.field};background-image:linear-gradient(${theme.grid} 1px,transparent 1px),linear-gradient(90deg,${theme.grid} 1px,transparent 1px);background-size:32px 32px}
+.corner{position:absolute;width:20px;height:20px;border:0 solid ${theme.accent};opacity:.9}
+.corner.tl{top:12px;left:12px;border-width:2px 0 0 2px}.corner.tr{top:12px;right:12px;border-width:2px 2px 0 0}.corner.bl{bottom:12px;left:12px;border-width:0 0 2px 2px}.corner.br{bottom:12px;right:12px;border-width:0 2px 2px 0}
+.p-top{display:flex;justify-content:space-between;align-items:baseline;gap:14px;margin-bottom:6px}
+.p-eyebrow{font:600 12.5px/1.2 ${MONO};letter-spacing:.12em;text-transform:uppercase;color:${theme.panelMuted}}
+.p-tag{font:500 12.5px/1.2 ${MONO};font-variant-numeric:tabular-nums;color:${theme.panelMuted}}
+.p-title{font:800 28px/1.1 ${SANS};font-stretch:92%;letter-spacing:-.02em;word-spacing:.03em;color:${theme.ink};margin-bottom:16px}
+.p-title em{color:${theme.accent}}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:stretch}
+.step{border:1px solid ${theme.border};border-radius:12px;background:${theme.termWell};overflow:hidden;display:flex;flex-direction:column}
+.step-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 13px;background:${theme.chrome};border-bottom:1px solid ${theme.hairline}}
+.step-id{display:flex;align-items:center;gap:8px;min-width:0}
+.step-num{font:700 12.5px/1 ${MONO};font-variant-numeric:tabular-nums;padding:3px 7px;border-radius:5px;border:1px solid ${theme.good};color:${theme.goodText};background:color-mix(in srgb,${theme.good} 12%,transparent);flex:0 0 auto}
+.step-head h3{font:800 17.5px/1.15 ${SANS};font-stretch:92%;letter-spacing:-.015em;word-spacing:.04em;color:${theme.ink};white-space:nowrap}
+.pill{display:inline-flex;align-items:center;justify-content:center;font:700 12.5px/1 ${MONO};font-variant-numeric:tabular-nums;letter-spacing:.02em;padding:4px 9px;border-radius:999px;white-space:nowrap;flex:0 0 auto}
+.pill.is-ok{border:1px solid ${theme.good};color:${theme.goodText};background:color-mix(in srgb,${theme.good} 12%,transparent)}
+.term{flex:1 1 auto;padding:11px 13px 12px;display:flex;flex-direction:column;gap:8px;background:${theme.termWell}}
+.t-cmd{display:flex;align-items:baseline;gap:6px;font:700 13px/1.3 ${MONO};color:${theme.ink};white-space:nowrap}
+.prompt{color:${theme.accent};font-weight:700}
+.prompt.is-bad{color:${theme.badText}}
+.t-out{display:flex;flex-direction:column;gap:4.5px}
+.t-line{display:flex;align-items:baseline;gap:6px;font:500 12.5px/1.4 ${MONO};font-variant-numeric:tabular-nums;white-space:nowrap}
+.t-mark{color:${theme.goodText};font-weight:700;flex:0 0 auto}
+.t-diamond{color:${theme.accent};font-weight:700;flex:0 0 auto}
+.t-warn{color:${theme.warnText};font-weight:700;flex:0 0 auto}
+.t-key{color:${theme.ink};font-weight:700;flex:0 0 auto}
+.t-muted{color:${theme.panelMuted};white-space:nowrap}
+.deny-box{border:1.5px solid ${theme.bad};border-radius:8px;background:${theme.denyWell};padding:9px 10px;display:flex;flex-direction:column;gap:6px}
+.deny-top{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.deny-cmd{display:flex;align-items:baseline;gap:5px;font:700 12.5px/1.2 ${MONO};color:${theme.ink};white-space:nowrap}
+.flag{background:color-mix(in srgb,${theme.bad} 16%,transparent);color:${theme.badText};border:1px solid color-mix(in srgb,${theme.bad} 55%,transparent);border-radius:4px;padding:1px 4px;font-weight:700}
+.mini-pill{display:inline-flex;align-items:center;justify-content:center;font:700 12px/1 ${MONO};font-variant-numeric:tabular-nums;padding:3px 7px;border-radius:999px;white-space:nowrap;flex:0 0 auto}
+.mini-pill.is-deny{border:1px solid ${theme.bad};color:${theme.badText};background:color-mix(in srgb,${theme.bad} 13%,transparent)}
+.deny-msg{font:500 12.5px/1.42 ${MONO};color:${theme.ink}}
+.art-brand{color:${theme.goodText};font-weight:700}
+.art-guard{color:${theme.badText};font-weight:700}
+.work-head{font:500 12.5px/1.3 ${MONO};font-variant-numeric:tabular-nums;color:${theme.panelMuted};white-space:nowrap}
+.lanes{display:flex;flex-direction:column;gap:4.5px}
+.lane-row{display:grid;grid-template-columns:56px 95px 25px minmax(0,1fr);gap:6px;align-items:center;font:500 12.5px/1.35 ${MONO};font-variant-numeric:tabular-nums}
+.lane-tag{display:inline-flex;align-items:center;justify-content:center;font:700 12px/1 ${MONO};padding:3px 6px;border-radius:5px;white-space:nowrap}
+.lane-tag.is-ok{border:1px solid ${theme.good};color:${theme.goodText};background:color-mix(in srgb,${theme.good} 12%,transparent)}
+.lane-tag.is-warn{border:1px solid ${theme.warn};color:${theme.warnText};background:color-mix(in srgb,${theme.warn} 12%,transparent)}
+.lane-branch{color:${theme.ink};font-weight:700;white-space:nowrap}
+.lane-age{color:${theme.panelMuted};text-align:right;white-space:nowrap}
+.lane-note{color:${theme.panelMuted};white-space:nowrap}
+.t-bar{margin-top:auto;padding-top:9px;border-top:1px solid ${theme.hairline};display:flex;justify-content:space-between;align-items:baseline;gap:8px;font:600 12.5px/1.2 ${MONO};font-variant-numeric:tabular-nums}
+.t-summary{display:inline-flex;align-items:baseline;gap:5px;color:${theme.ink};white-space:nowrap}
+.t-verdict.is-ok{color:${theme.goodText};font-weight:700;white-space:nowrap}
+.p-foot{margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:14px;font:500 12.5px/1.2 ${MONO};letter-spacing:.03em;color:${theme.panelMuted}}`,
+  );
+}
+
 /** Six tiles, three across: a title and its count, one plain line, then the names in small mono type. */
 function skillsGridPage(theme: Theme): string {
   const tiles = SKILL_GROUPS.map((group) => {
@@ -601,7 +848,7 @@ function figurePage(figureIndex: number, mode: Mode): string {
 // Rendering
 // ---------------------------------------------------------------------------
 
-type Job = { file: string; html: string; families: string[]; isFigure: boolean; minPxAt800?: number };
+type Job = { file: string; html: string; families: string[]; isFigure: boolean; minPxAt800?: number; minPxAt360?: number };
 
 function jobs(): Job[] {
   return MODES.flatMap((mode) => {
@@ -614,6 +861,7 @@ function jobs(): Job[] {
       ...FIGURES.map((figure, index) => ({ file: figureFile(figure, mode), html: figurePage(index, mode), families: both, isFigure: true })),
       { file: guardsRefusedFile(mode), html: guardsRefusedPage(theme), families: both, isFigure: false, minPxAt800: 11 },
       { file: receiptsLedgerFile(mode), html: receiptsLedgerPage(theme), families: both, isFigure: false, minPxAt800: 11 },
+      { file: quickstartStoryboardFile(mode), html: quickstartStoryboardPage(theme), families: both, isFigure: false, minPxAt800: 12 },
       { file: skillsGridFile(mode), html: skillsGridPage(theme), families: both, isFigure: false },
       { file: heroFile(mode), html: heroPage(theme), families: both, isFigure: false },
     ];
@@ -645,7 +893,11 @@ async function main(): Promise<void> {
       const overflow = job.isFigure ? await svgTextOverflow(tab) : await boxTextOverflow(box);
       if (overflow) throw new Error(`${job.file}: ${overflow}`);
       if (job.minPxAt800 !== undefined) {
-        const tooSmall = await boxMinFontAt800(box, job.minPxAt800);
+        const tooSmall = await boxMinFontAtWidth(box, 800, job.minPxAt800);
+        if (tooSmall) throw new Error(`${job.file}: ${tooSmall}`);
+      }
+      if (job.minPxAt360 !== undefined) {
+        const tooSmall = await boxMinFontAtWidth(box, 360, job.minPxAt360);
         if (tooSmall) throw new Error(`${job.file}: ${tooSmall}`);
       }
       const png = join(scratch, `${job.file}.png`);
@@ -689,11 +941,11 @@ async function boxTextOverflow(box: Locator): Promise<string | null> {
   return culprit ? `text overflows its canvas: ${culprit}` : null;
 }
 
-/** Every visible text node must stay at or above `floorPx` when GitHub renders the image at 800 px wide. */
-async function boxMinFontAt800(box: Locator, floorPx: number): Promise<string | null> {
-  return box.evaluate((element, minPx): string | null => {
+/** Every visible text node must stay at or above `floorPx` when the image scales to `viewportWidth` px wide. */
+async function boxMinFontAtWidth(box: Locator, viewportWidth: number, floorPx: number): Promise<string | null> {
+  return box.evaluate((element, [targetWidth, minPx]): string | null => {
     const width = element.getBoundingClientRect().width;
-    const scale = Math.min(1, 800 / width);
+    const scale = Math.min(1, targetWidth / width);
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
     let current: Node | null;
     while ((current = walker.nextNode()) !== null) {
@@ -703,11 +955,11 @@ async function boxMinFontAt800(box: Locator, floorPx: number): Promise<string | 
       const computed = Number.parseFloat(getComputedStyle(host).fontSize);
       const rendered = computed * scale;
       if (rendered < minPx - 0.05) {
-        return `"${current.textContent.trim().slice(0, 32)}" renders at ${rendered.toFixed(1)}px at 800px wide (floor ${minPx}px)`;
+        return `"${current.textContent.trim().slice(0, 32)}" renders at ${rendered.toFixed(1)}px at ${targetWidth}px wide (floor ${minPx}px)`;
       }
     }
     return null;
-  }, floorPx);
+  }, [viewportWidth, floorPx] as const);
 }
 
 /** SVG text never wraps: any line that leaves its node, column or the canvas is a layout bug. */
