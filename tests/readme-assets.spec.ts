@@ -162,7 +162,7 @@ describe("README repeats the assets' words", () => {
       expect(receiptFilename(receipt), `filename of ${receipt.operation_id}`).toMatch(receiptNamePattern);
       const matching = (TABLE[receipt.event] ?? []).filter((row) => row.matcher.test(receipt.tool)).map((row) => row.name);
       expect(guardCountFor(receipt.event, receipt.tool), `guard count for ${receipt.tool}`).toBe(matching.length);
-      expect(matching.slice(0, receipt.guards.ran.length)).toEqual(receipt.guards.ran);
+      expect(receipt.guards.ran).toEqual(matching.slice(0, receipt.guards.ran.length));
     }
     expect(guardCountFor("PreToolUse", "Edit")).toBe(5);
     expect(guardCountFor("PreToolUse", "Bash")).toBe(9);
