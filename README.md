@@ -397,12 +397,6 @@ ai-eng doctor
 `ai-eng init` asks which agents to govern, installs the skills on your machine, and writes the contract into the repository you are in. Run it again at any time; it converges. Hooks do not run in an untrusted folder, so trust the folder in your agent once. That is the one step `ai-eng` cannot do for you.
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/quickstart-storyboard-dark.webp">
-    <img src=".github/assets/readme/quickstart-storyboard-light.webp" alt="Four-panel quickstart storyboard from ai-eng 3.3.1 in my-app. Panel 01, Write the contract: ai-eng init --surface claude-code --yes installs AGENTS.md, DECISIONS.md, .ai-engineering/config.toml, .github/workflows/ai-eng-check.yml, marker-managed hooks in .git/hooks/, and .ai-engineering/ai-eng.lock (6 assets), reminds you to trust the workspace in your editor, commits nothing, and prints Next: ai-eng doctor. Panel 02, Verify the chain: ai-eng doctor passes 16 checks (16 OK · 0 WARN · 0 FAIL) including AGENTS.md (47 rules, 89 lines), 107/107 canon files verified with 0 drift, marker hooks in .git/hooks/ with gitleaks, and the live chain test where git commit -n returns DENY · exit 2 · 8ms from no-verify (git commit -n skips the git hooks, the floor every agent and every person in this repository commits through. Whatever the hooks would have said is what needs fixing. Run the command without it.), ending with Chain verified. Panel 03, Track your lanes: ai-eng work lists my-app · base main · 2 active · 1 parked (active feat/auth 0 d checked out; active feat/search 0 d no folder; parked feat/billing 0 d waiting on API key) with active lanes: 2/3 and tidy · park · drop. Panel 04, Change surfaces: ai-eng config --add cursor installs .cursor/hooks.json as a repo carrier, enables claude-code and cursor with adapter and skill mirror, verifies 4 mirror targets, and prints Next: ai-eng doctor." width="880">
-  </picture>
-  <br/><sub>Four real commands against <code>ai-eng 3.3.1</code> in a fresh repository (<code>my-app</code>): <code>ai-eng init</code> writes the contract, <code>ai-eng doctor</code> verifies the chain with a live refusal on <code>git commit -n</code>, <code>ai-eng work</code> tracks active and parked lanes, and <code>ai-eng config</code> adds a second surface.</sub>
-  <br/><br/>
   <a href=".github/assets/quickstart.mp4">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/quickstart-poster-dark.webp">
@@ -426,7 +420,7 @@ ai-eng doctor
    - Reports `active lanes: 2/3` (`tidy · park · drop`).
 4. **04 · Change surfaces** — `ai-eng config --add cursor` in `my-app`:
    - Installs `.cursor/hooks.json` as a repo carrier, changes enabled surfaces to `2 enabled: claude-code, cursor`, writes the `cursor` adapter and skill mirror, verifies `4 targets`, and prints `Next: ai-eng doctor`.
-5. **The recording** — the same four commands at human reading pace in the 56.7 s `quickstart.mp4` behind the poster under the still; it never autoplays, and click the poster to watch it with burned-in captions. It is its own run, so the numbers that move belong to that run: the live probe reports `DENY in 10ms`, receipt latency `p50 7ms · p95 7ms`, and `active lanes: 1/3` with `7 uncommitted`.
+5. **The recording** — the same four commands at human reading pace in the 56.7 s `quickstart.mp4` behind the poster; it never autoplays, and click the poster to watch it with burned-in captions. It is its own run, so the numbers that move belong to that run: the live probe reports `DENY in 10ms`, receipt latency `p50 7ms · p95 7ms`, and `active lanes: 1/3` with `7 uncommitted`.
 
 </details>
 
@@ -447,6 +441,6 @@ bun run lint && bun run typecheck
 bun scripts/readme-assets.ts   # re-render the README's headings, buttons, cards, skills grid, hero and figures
 ```
 
-The quickstart still is rendered by `bun scripts/readme-assets.ts`; its walkthrough is recorded with [VHS](https://github.com/charmbracelet/vhs) against the installed `ai-eng` CLI and edited with `ffmpeg`: run `bash .github/assets/tapes/quickstart-video.sh` (see `.github/assets/tapes/quickstart.tape`). Versions come from [changesets](.changeset/README.md); [docs/history](docs/history/recap.html) holds the early design record, which is history.
+The video poster is rendered by `bun scripts/readme-assets.ts`; the walkthrough itself is recorded with [VHS](https://github.com/charmbracelet/vhs) against the installed `ai-eng` CLI and edited with `ffmpeg`: run `bash .github/assets/tapes/quickstart-video.sh` (see `.github/assets/tapes/quickstart.tape`). Versions come from [changesets](.changeset/README.md); [docs/history](docs/history/recap.html) holds the early design record, which is history.
 
 <p align="center"><sub>Apache-2.0 © <a href="https://github.com/arcasilesgroup">Arcasiles Group</a> · <a href="LICENSE">LICENSE</a> · <a href="NOTICE.md">NOTICE</a> · <a href="THIRD-PARTY-NOTICES.md">THIRD-PARTY-NOTICES</a> · <a href="https://ai-engineering.arcasiles.com">website</a></sub></p>

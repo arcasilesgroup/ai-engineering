@@ -18,11 +18,8 @@ import {
   heroFile,
   loadQuickstartFacts,
   OUT_DIR,
-  QUICKSTART_STORYBOARD,
   quickstartPosterAlt,
   quickstartPosterFile,
-  quickstartStoryboardAlt,
-  quickstartStoryboardFile,
   receiptFilename,
   receiptsLedgerAlt,
   receiptsLedgerFile,
@@ -31,10 +28,8 @@ import {
   SKILL_GROUPS,
   skillsGridAlt,
   skillsGridFile,
-  STORYBOARD_WIDTH,
   THEMES,
   verifyGuardLane,
-  verifyQuickstartDeny,
 } from "../scripts/readme-assets.ts";
 import { TABLE } from "../src/chain/mod.ts";
 import { DIAGRAM_VARS, FIGURES, figureFile, figureSvg } from "../scripts/readme-figures.ts";
@@ -49,24 +44,6 @@ function altFor(file: string): string {
   const alt = tag?.match(/\balt="([^"]*)"/)?.[1];
   expect(alt, `alt attribute for ${file}`).toBeDefined();
   return alt as string;
-}
-
-/** Decode canvas pixel dimensions directly from a WebP VP8L or VP8X header. */
-function webpDimensions(bytes: Buffer): { width: number; height: number } {
-  expect(bytes.toString("ascii", 0, 4), "RIFF header").toBe("RIFF");
-  expect(bytes.toString("ascii", 8, 12), "WEBP signature").toBe("WEBP");
-  const chunk = bytes.toString("ascii", 12, 16);
-  if (chunk === "VP8L") {
-    expect(bytes[20], "VP8L signature byte").toBe(0x2f);
-    const bits = bytes.readUInt32LE(21);
-    return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
-  }
-  if (chunk === "VP8X") {
-    const width = (bytes[24]! | (bytes[25]! << 8) | (bytes[26]! << 16)) + 1;
-    const height = (bytes[27]! | (bytes[28]! << 8) | (bytes[29]! << 16)) + 1;
-    return { width, height };
-  }
-  throw new Error(`unexpected WebP chunk "${chunk}"`);
 }
 
 /** WCAG 2.1 contrast ratio of two `#RRGGBB` colours. */
@@ -235,34 +212,7 @@ function inspectMp4(buf: Buffer): {
   };
 }
 
-  test("the quickstart still and the walkthrough under it share one section: the still leads, the video follows, and no autoplaying loop remains", () => {
-    // The still: both themes, matching 2x dimensions, and the live denial verified rather than typed.
-    expect(verifyQuickstartDeny().length).toBeGreaterThan(0);
-    const stillDark = quickstartStoryboardFile("dark");
-    const stillLight = quickstartStoryboardFile("light");
-    expect(README).toContain(`srcset=".github/assets/readme/${stillDark}"`);
-    expect(README).toContain(`src=".github/assets/readme/${stillLight}"`);
-    expect(altFor(stillLight)).toBe(quickstartStoryboardAlt());
-    for (const spoken of [
-      QUICKSTART_STORYBOARD.version,
-      QUICKSTART_STORYBOARD.init.command,
-      QUICKSTART_STORYBOARD.doctor.command,
-      QUICKSTART_STORYBOARD.work.command,
-      QUICKSTART_STORYBOARD.config.command,
-      QUICKSTART_STORYBOARD.doctor.denyCommand,
-      QUICKSTART_STORYBOARD.doctor.denyPill,
-      QUICKSTART_STORYBOARD.doctor.verdict,
-    ]) {
-      expect(altFor(stillLight), `alt text names ${spoken}`).toContain(spoken);
-    }
-
-    const stillDarkDims = webpDimensions(readFileSync(join(OUT_DIR, stillDark)));
-    const stillLightDims = webpDimensions(readFileSync(join(OUT_DIR, stillLight)));
-    expect(stillDarkDims.width, "dark storyboard width (2x CSS canvas)").toBe(STORYBOARD_WIDTH * 2);
-    expect(stillLightDims, "light storyboard matches dark dimensions").toEqual(stillDarkDims);
-    expect(stillDarkDims.height, "compact landscape-ish proportions").toBeGreaterThan(800);
-    expect(stillDarkDims.height, "fits cleanly without vertical bloat").toBeLessThan(1600);
-
+  test("the quickstart walkthrough's poster links to the recording and no autoplaying loop remains", () => {
     // No autoplaying GIF loop remains anywhere in the assets or the README (WCAG 2.2.2).
     const facts = loadQuickstartFacts();
     const assetsDir = join(ROOT, ".github", "assets");
@@ -278,14 +228,11 @@ function inspectMp4(buf: Buffer): {
       expect(existsSync(join(tapesDir, file)), `tapes/${file}`).toBe(true);
     }
 
-    // The video follows the still: its dark/light poster sits under the storyboard, inside a link
-    // to the MP4, so it never autoplays and the still is what a reader sees first.
+    // The dark/light poster is the section's inline figure inside a link to the MP4, so it never
+    // autoplays and a reader opens the recording from the image itself.
     expect(README).toMatch(/<a href="\.github\/assets\/quickstart\.mp4">\s*<picture>[\s\S]*?quickstart-poster-dark\.webp[\s\S]*?quickstart-poster-light\.webp[\s\S]*?<\/picture>\s*<\/a>/);
     expect(altFor(quickstartPosterFile("light"))).toBe(quickstartPosterAlt());
     expect(README).toContain(quickstartPosterFile("dark"));
-    const stillTagAt = README.indexOf(`src=".github/assets/readme/${stillLight}"`);
-    const posterLinkAt = README.indexOf('<a href=".github/assets/quickstart.mp4">');
-    expect(stillTagAt, "the still's img tag comes before the video link").toBeLessThan(posterLinkAt);
 
     // Real MP4 metadata: 16:9 H.264, faststart (moov before mdat), silent (no audio track), sensible size, human-paced duration.
     const mp4Bytes = readFileSync(join(assetsDir, "quickstart.mp4"));
@@ -300,11 +247,10 @@ function inspectMp4(buf: Buffer): {
     expect(Math.abs(meta.durationSeconds - facts.durationSeconds), "facts duration matches MP4").toBeLessThan(0.25);
     expect(meta.durationSeconds, "paced for human reading, not a rushed < 5 s loop").toBeGreaterThanOrEqual(30);
 
-    // One transcript serves both assets: it quotes the still's four panels and the recording's own run.
+    // The transcript quotes the recording's own run.
     expect(README).toContain("<summary>Text transcript of ai-eng init, doctor, work and config</summary>");
-    expect(README).toContain(QUICKSTART_STORYBOARD.doctor.denyPill);
-    expect(README).toContain(QUICKSTART_STORYBOARD.work.header);
-    expect(README).toContain(QUICKSTART_STORYBOARD.config.command);
+    expect(README).toContain("DENY · exit 2 · 8ms");
+    expect(README).toContain("my-app · base main · 2 active · 1 parked");
     for (const expected of [
       `ai-eng ${facts.version}`,
       `${facts.durationSeconds.toFixed(1)} s MP4`,
