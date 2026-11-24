@@ -3,12 +3,36 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { BUTTONS, buttonFile, CARDS, cardFile, HEADINGS, headingFile, HERO, heroFile, OUT_DIR, renderedFiles, SKILL_GROUPS, skillsGridAlt, skillsGridFile, THEMES } from "../scripts/readme-assets.ts";
+import {
+  BUTTONS,
+  buttonFile,
+  CARDS,
+  cardFile,
+  GUARD_LANES,
+  guardCountFor,
+  guardsRefusedAlt,
+  guardsRefusedFile,
+  HEADINGS,
+  headingFile,
+  HERO,
+  heroFile,
+  OUT_DIR,
+  receiptFilename,
+  receiptsLedgerAlt,
+  receiptsLedgerFile,
+  renderedFiles,
+  SAMPLE_RECEIPTS,
+  SKILL_GROUPS,
+  skillsGridAlt,
+  skillsGridFile,
+  THEMES,
+  verifyGuardLane,
+} from "../scripts/readme-assets.ts";
+import { TABLE } from "../src/chain/mod.ts";
 import { DIAGRAM_VARS, FIGURES, figureFile, figureSvg } from "../scripts/readme-figures.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
 const README = readFileSync(join(ROOT, "README.md"), "utf8");
-const STILLS = ["deny-no-verify.webp", "deny-silence.webp", "rewrite-test.webp", "receipt.webp"];
 
 const referenced = (): string[] => [...README.matchAll(/(?:src|srcset)="(\.github\/assets\/[^"#]+)/g)].map((match) => match[1] as string);
 
@@ -39,7 +63,7 @@ describe("README images", () => {
 
   test("no file in .github/assets/readme is an orphan, and the script's own files all exist", () => {
     const onDisk = readdirSync(OUT_DIR).sort();
-    expect(onDisk).toEqual([...renderedFiles(), ...STILLS].sort());
+    expect(onDisk).toEqual(renderedFiles().sort());
     const used = new Set(referenced().map((path) => path.split("/").pop()));
     expect(onDisk.filter((file) => !used.has(file))).toEqual([]);
   });
@@ -90,6 +114,64 @@ describe("README repeats the assets' words", () => {
     expect(altFor(heroFile("light"))).toBe(`${HERO.wordmark}. ${HERO.claim}`);
   });
 
+  test("the README has one top-level h1 wrapping the hero and h3 stat cells with no h1 inside table cells", () => {
+    const h1Tags = README.match(/<h1\b[^>]*>/g) ?? [];
+    expect(h1Tags.length).toBe(1);
+    expect(README).toMatch(/<h1><picture>[\s\S]*?hero-light\.webp/);
+    expect(README).not.toMatch(/<td\b[^>]*>(?:(?!<\/td>)[\s\S])*?<h1\b/i);
+    for (const metric of ["2,600+", "12", "under 3 ms", "7 of 10"]) {
+      expect(README, `stat cell ${metric}`).toContain(`<td align="center"><h3>${metric}</h3>`);
+    }
+  });
+
+  test("the quickstart demo embeds the finite recording directly and carries a faithful transcript", () => {
+    const gifTag = (README.match(/<img\b[^>]*>/g) ?? []).find((entry) => entry.includes('src=".github/assets/quickstart.gif"'));
+    expect(gifTag, "inline quickstart.gif img tag").toBeDefined();
+    const gifAlt = gifTag?.match(/\balt="([^"]*)"/)?.[1] ?? "";
+    expect(gifAlt).toContain("ai-eng init");
+    expect(gifAlt).toContain("ai-eng doctor");
+    expect(gifAlt).toContain("3.3.1");
+    expect(README).not.toContain("quickstart-preview-");
+    expect(README).toContain("<summary>Text transcript of ai-eng init and ai-eng doctor</summary>");
+    expect(README).toContain("DENY in 7ms");
+    expect(README).not.toContain("~6 ms");
+    const gifBytes = readFileSync(join(ROOT, ".github", "assets", "quickstart.gif"));
+    expect(gifBytes.includes(Buffer.from("NETSCAPE2.0"))).toBe(false);
+  });
+
+  test("the guards panel matches live no-verify and wrap verdicts and carries its claim in alt text", () => {
+    expect(GUARD_LANES.some((lane) => lane.kind === "bash-deny")).toBe(true);
+    expect(GUARD_LANES.some((lane) => lane.kind === "edit-deny")).toBe(true);
+    expect(GUARD_LANES.some((lane) => lane.kind === "bash-rewrite" && lane.verdict === "rewrite")).toBe(true);
+    for (const lane of GUARD_LANES) {
+      expect(verifyGuardLane(lane).length).toBeGreaterThan(0);
+    }
+    expect(altFor(guardsRefusedFile("light"))).toBe(guardsRefusedAlt());
+    expect(README).toContain(guardsRefusedFile("dark"));
+    expect(README).toContain('href="src/guards/no-verify.ts"');
+    expect(README).toContain('href="src/guards/wrap.ts"');
+    expect(README).not.toMatch(/<a\s+href="src\/guards\/(?:no-verify|wrap)\.ts"><picture>/);
+    expect(README).not.toContain("payload-bash-");
+    expect(README).not.toContain("payload-edit-");
+  });
+
+  test("the receipts ledger panel matches real receipt filenames and per-tool guard counts, keeps the log-not-proof caveat, and carries its claim in alt text", () => {
+    expect(SAMPLE_RECEIPTS.length).toBeGreaterThanOrEqual(2);
+    const receiptNamePattern = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z-[A-Za-z0-9_-]+-[0-9a-f]{8}\.json$/;
+    for (const receipt of SAMPLE_RECEIPTS) {
+      expect(receiptFilename(receipt), `filename of ${receipt.operation_id}`).toMatch(receiptNamePattern);
+      const matching = (TABLE[receipt.event] ?? []).filter((row) => row.matcher.test(receipt.tool)).map((row) => row.name);
+      expect(guardCountFor(receipt.event, receipt.tool), `guard count for ${receipt.tool}`).toBe(matching.length);
+      expect(receipt.guards.ran).toEqual(matching.slice(0, receipt.guards.ran.length));
+    }
+    expect(guardCountFor("PreToolUse", "Edit")).toBe(5);
+    expect(guardCountFor("PreToolUse", "Bash")).toBe(9);
+    expect(altFor(receiptsLedgerFile("light"))).toBe(receiptsLedgerAlt());
+    expect(README).toContain(receiptsLedgerFile("dark"));
+    expect(README).not.toMatch(/<a\s+href="src\/receipts\.ts"><picture>/);
+    expect(altFor(receiptsLedgerFile("light")).toLowerCase()).toContain("a receipt is a log, not proof");
+  });
+
   test("the skills grid names exactly the skills in skills/, once each, and its alt text lists them", () => {
     const onDisk = readdirSync(join(ROOT, "skills")).filter((name) => existsSync(join(ROOT, "skills", name, "SKILL.md"))).sort();
     expect(SKILL_GROUPS.flatMap((group) => group.skills).sort()).toEqual(onDisk);
@@ -136,13 +218,19 @@ describe("the figures stay legible in both modes", () => {
     }
   });
 
-  test("hero, heading, button and card text clear their contrast floors", () => {
+  test("hero, heading, button, card and showcase panel text clear their contrast floors", () => {
     for (const mode of ["dark", "light"] as const) {
       const theme = THEMES[mode];
-      for (const text of [theme.ink, theme.muted, theme.accent]) expect(contrast(text, theme.field), `${mode} ${text} on field`).toBeGreaterThanOrEqual(4.5);
-      for (const text of [theme.ink, theme.muted, theme.badText, theme.goodText]) expect(contrast(text, theme.raised), `${mode} ${text} on card`).toBeGreaterThanOrEqual(4.5);
+      for (const text of [theme.ink, theme.muted, theme.panelMuted, theme.accent, theme.badText, theme.goodText, theme.warnText]) {
+        expect(contrast(text, theme.field), `${mode} ${text} on field`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(text, theme.well), `${mode} ${text} on well`).toBeGreaterThanOrEqual(4.5);
+      }
+      for (const text of [theme.ink, theme.muted, theme.badText, theme.goodText, theme.warnText]) {
+        expect(contrast(text, theme.raised), `${mode} ${text} on card`).toBeGreaterThanOrEqual(4.5);
+      }
       expect(contrast(theme.buttonInk, theme.fill), `${mode} button text on fill`).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme.border, theme.field), `${mode} outline button border on field`).toBeGreaterThanOrEqual(3);
+      expect(contrast(theme.warn, theme.field), `${mode} caveat dashed border on field`).toBeGreaterThanOrEqual(3);
     }
   });
 });

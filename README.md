@@ -1,9 +1,9 @@
 <div align="center">
 
-<picture>
+<h1><picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/hero-dark.webp">
   <img src=".github/assets/readme/hero-light.webp" alt="{ai} engineering. Guardrails for the AI Coding Agents you already run" width="100%">
-</picture>
+</picture></h1>
 
 <b>Turn any repo into a governed workspace.</b><br/>
 The agent can't edit its own rules, and every refusal it gets is saved as a file you can read.
@@ -30,18 +30,11 @@ The agent can't edit its own rules, and every refusal it gets is saved as a file
 <p align="center"><code>--no-verify</code> is only one way to skip a hook. <code>git commit -n</code> and <code>HUSKY=0</code> are refused before git starts too, and the agent is told why.</p>
 
 <p align="center">
-  <a href="src/guards/no-verify.ts"><img src=".github/assets/readme/deny-no-verify.webp" alt="A terminal. The payload of a git commit --no-verify call goes into ai-eng chain PreToolUse. The answer: no-verify skips the git hooks, so run the command without it. Exit 2." width="880"></a>
-  <br/><sub>The agent tried <code>git commit --no-verify</code>. The chain refused it before git ran, and said why.</sub>
-</p>
-
-<p align="center">
-  <a href="src/guards/no-verify.ts"><img src=".github/assets/readme/deny-silence.webp" alt="A terminal. The payload of an edit that adds an eslint-disable comment goes into ai-eng chain PreToolUse. The answer: this silences a check, and silencing a check is skipping a hook. No override covers this guard, so the edit is refused. Exit 2." width="880"></a>
-  <br/><sub>The agent tried to silence a linter in an edit. Refused: only the loop guard takes an override, so the fix here is in the code, or in a rule a person changes in a reviewed diff.</sub>
-</p>
-
-<p align="center">
-  <a href="src/guards/wrap.ts"><img src=".github/assets/readme/rewrite-test.webp" alt="A terminal. The payload of a bun test call goes into ai-eng chain PreToolUse. The updated command is ai-eng wrap test, which prints only the failures." width="880"></a>
-  <br/><sub>A test run became <code>ai-eng wrap test</code>, which prints only the failures. Not every answer is a refusal.</sub>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/guards-refused-dark.webp">
+    <img src=".github/assets/readme/guards-refused-light.webp" alt="Five PreToolUse verdicts before the tool runs: git commit --no-verify handled by no-verify returns deny (--no-verify skips the git hooks. Run the command without it.) git commit -n -m fix handled by no-verify returns deny (git commit -n skips the git hooks. Fix what they would flag.) HUSKY=0 git commit -m fix handled by no-verify returns deny (an environment flag skips the git hooks. Refused before git starts.) // eslint-disable-next-line handled by no-verify returns deny (Silencing a check is skipping a hook. No override covers this guard.) bun test handled by wrap returns rewrite (Rewritten to ai-eng wrap test, which prints only the failures.) The stderr artifact prints the live no-verify denial message and exits with status 2." width="880">
+  </picture>
+  <br/><sub>Source: <a href="src/guards/no-verify.ts"><code>src/guards/no-verify.ts</code></a> and <a href="src/guards/wrap.ts"><code>src/guards/wrap.ts</code></a>. Hook skips and linter-silencing edits are refused before the tool runs; recognised test runs become <code>ai-eng wrap test</code>, which prints only the failures.</sub>
 </p>
 
 <p align="center">
@@ -100,8 +93,11 @@ Each guard runs only for the tools it governs, in this order, and the first refu
 <p align="center">Git keeps no record of a skipped check. ai-eng saves every answer as a small file in your repo, so you can see what the agent tried.</p>
 
 <p align="center">
-  <a href="src/receipts.ts"><img src=".github/assets/readme/receipt.webp" alt="A terminal. ls lists three receipt files in .ai-engineering/receipts/, one per verdict, plus denies.json. jq prints the first: event PreToolUse, surface claude-code, tool Bash, guards ran self-protect and no-verify, denied_by no-verify, outcome deny, latency 5 ms." width="880"></a>
-  <br/><sub>Three verdicts, three files in <code>.ai-engineering/receipts/</code>. A receipt is a file; anyone who can write to the folder can write one, so treat it as a log, not as proof.</sub>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/receipts-ledger-dark.webp">
+    <img src=".github/assets/readme/receipts-ledger-light.webp" alt="Three receipt files accumulating in .ai-engineering/receipts/: 2026-11-23T17-48-59-882Z-PreToolUse-7d07ec0d.json (Bash, denied by no-verify, 3 ms, 2 of 9 guards ran, outcome deny); 2026-11-23T17-49-03-556Z-PreToolUse-c6f8ffd7.json (Edit, denied by self-protect, 2 ms, 1 of 5 guards ran, outcome deny); 2026-11-23T17-49-07-362Z-PreToolUse-a20c2d8e.json (Bash, denied by none, 3 ms, 9 of 9 guards ran, outcome allow). A receipt is a log, not proof. Each verdict writes one JSON file in .ai-engineering/receipts/. Anyone who can write to that folder can write one, so treat it as an audit trail, never as cryptographic evidence." width="880">
+  </picture>
+  <br/><sub>Source: <a href="src/receipts.ts"><code>src/receipts.ts</code></a>. One JSON file per verdict in <code>.ai-engineering/receipts/</code>, plus <code>denies.json</code> for repeat counts.</sub>
 </p>
 
 <a name="skills"></a>
@@ -208,10 +204,10 @@ The exceptions are real. The Copilot adapter (CLI and VS Code) fails open on a t
 
 <table align="center">
   <tr>
-    <td align="center"><h1>2,600+</h1><b>tests in the suite</b><br/><sub>2,695 passing, 1 skipped, 0 failing on 2026-11-23 · <code>bun test</code></sub></td>
-    <td align="center"><h1>12</h1><b>false alarms we fixed, each paired with the attack it looks like</b><br/><sub>each one now passes, each paired attack is still refused · <code>bun test tests/friction-corpus.spec.ts</code></sub></td>
-    <td align="center"><h1>under 3 ms</h1><b>added to a tool call, 95th percentile</b><br/><sub>2.56, 2.64 and 2.72 ms in three runs of 100 calls · <code>bun run bench</code></sub></td>
-    <td align="center"><h1>7 of 10</h1><b>agent hosts enforced and verified</b><br/><sub>1 enforced but unverified, 2 advisory only · <a href="docs/surface-capability-matrix.md">capability matrix</a></sub></td>
+    <td align="center"><h3>2,600+</h3><b>tests in the suite</b><br/><sub>2,695 passing, 1 skipped, 0 failing on 2026-11-23 · <code>bun test</code></sub></td>
+    <td align="center"><h3>12</h3><b>false alarms we fixed, each paired with the attack it looks like</b><br/><sub>each one now passes, each paired attack is still refused · <code>bun test tests/friction-corpus.spec.ts</code></sub></td>
+    <td align="center"><h3>under 3 ms</h3><b>added to a tool call, 95th percentile</b><br/><sub>2.56, 2.64 and 2.72 ms in three runs of 100 calls · <code>bun run bench</code></sub></td>
+    <td align="center"><h3>7 of 10</h3><b>agent hosts enforced and verified</b><br/><sub>1 enforced but unverified, 2 advisory only · <a href="docs/surface-capability-matrix.md">capability matrix</a></sub></td>
   </tr>
 </table>
 
@@ -401,9 +397,23 @@ ai-eng doctor
 `ai-eng init` asks which agents to govern, installs the skills on your machine, and writes the contract into the repository you are in. Run it again at any time; it converges. Hooks do not run in an untrusted folder, so trust the folder in your agent once. That is the one step `ai-eng` cannot do for you.
 
 <p align="center">
-  <img src=".github/assets/quickstart.gif" alt="ai-eng init installing the canon and the git floor, then ai-eng doctor running its checks and adversarial probe" width="880">
-  <br/><sub>a real session, sped up: <code>ai-eng init</code>, then <code>ai-eng doctor</code></sub>
+  <img src=".github/assets/quickstart.gif" alt="Real 9-second terminal recording of ai-eng 3.3.1 running ai-eng init --surface claude-code --yes and ai-eng doctor in a fresh repository, ending on 16 checks: 15 OK, 1 WARN, 0 FAIL and Chain verified (plays once, no loop)" width="880">
+  <br/><sub>A real session against <code>ai-eng 3.3.1</code> (plays once, no loop): <code>ai-eng init</code>, then <code>ai-eng doctor</code>. Captured with <a href=".github/assets/tapes/quickstart.tape"><code>quickstart.tape</code></a>.</sub>
 </p>
+
+<details>
+<summary>Text transcript of ai-eng init and ai-eng doctor</summary>
+
+1. Run `ai-eng init --surface claude-code --yes` in a fresh repository (`my-app`, running `ai-eng` 3.3.1):
+   - Verifies the machine-side global canon in the demo's throwaway home directory (`$HOME/.ai-engineering`) is intact for 3.3.1.
+   - Installs your editable contract files: `AGENTS.md`, `DECISIONS.md`, and `.gitignore`.
+   - Scaffolds `.ai-engineering/overrides.toml`, `.ai-engineering/config.toml`, `.github/workflows/ai-eng-check.yml`, marker-managed git floor hooks in `.git/hooks/{pre-commit,commit-msg,pre-push}`, and `.ai-engineering/ai-eng.lock` (6 assets with sha256) for surface `claude-code` and CI `github-actions`.
+   - Notes that layer rules are proposed on demand with `/ai-refresh-project`, reminds you to trust the workspace in your editor, commits nothing automatically, and prints `Next: ai-eng doctor`.
+2. Run `ai-eng doctor` in `my-app`:
+   - Reports 1 warning (`arch`: no layer rules yet — run `/ai-refresh-project` to propose them) and 15 passing checks across `AGENTS.md` (47 rules, 89 lines), `config.toml` (governed, `claude-code`), 4/4 skill mirrors, 107/107 verified canon files with 0 drift, assets installed by 3.3.1, marker hooks in `.git/hooks/` with `gitleaks` present, the live adversarial probe (`git commit -n` → `DENY in 7ms`), receipt latency (`p50 5ms · p95 5ms`, ceiling 50), friction (0 denies/1000), overrides (none active), clean spec slot, research cache, enforced `~/.claude/settings.json` carrier, machine state, and behaviors.
+   - Ends with `16 checks: 15 OK · 1 WARN · 0 FAIL` and `Chain verified.`
+
+</details>
 
 More: [install edge cases](docs/install.md) (from source, no administrator rights, Windows) · [CLI](docs/cli.md) · [lanes](docs/lanes.md) · [configuration](docs/configuration.md) · [troubleshooting](docs/troubleshooting.md) · [skills](docs/skills.md) (the triggers that send a change to a skill).
 
@@ -422,6 +432,6 @@ bun run lint && bun run typecheck
 bun scripts/readme-assets.ts   # re-render the README's headings, buttons, cards, skills grid, hero and figures
 ```
 
-The terminal stills are recorded with [VHS](https://github.com/charmbracelet/vhs) from real hook payloads: see `.github/assets/tapes/stills.tape`. Versions come from [changesets](.changeset/README.md); [docs/history](docs/history/recap.html) holds the early design record, which is history.
+The quickstart demo is recorded with [VHS](https://github.com/charmbracelet/vhs) against the installed `ai-eng` CLI: see `.github/assets/tapes/quickstart.tape`. Versions come from [changesets](.changeset/README.md); [docs/history](docs/history/recap.html) holds the early design record, which is history.
 
 <p align="center"><sub>Apache-2.0 © <a href="https://github.com/arcasilesgroup">Arcasiles Group</a> · <a href="LICENSE">LICENSE</a> · <a href="NOTICE.md">NOTICE</a> · <a href="THIRD-PARTY-NOTICES.md">THIRD-PARTY-NOTICES</a> · <a href="https://ai-engineering.arcasiles.com">website</a></sub></p>
