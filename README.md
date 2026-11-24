@@ -397,22 +397,27 @@ ai-eng doctor
 `ai-eng init` asks which agents to govern, installs the skills on your machine, and writes the contract into the repository you are in. Run it again at any time; it converges. Hooks do not run in an untrusted folder, so trust the folder in your agent once. That is the one step `ai-eng` cannot do for you.
 
 <p align="center">
-  <img src=".github/assets/quickstart-loop.gif" alt="Real terminal recording of ai-eng 3.3.1 in a fresh repository, repeating every 4.7 seconds: ai-eng init --surface claude-code --yes writes the contract and scaffolding, ls -A lists AGENTS.md, DECISIONS.md, .ai-engineering and .github, and ai-eng doctor ends on 16 checks: 16 OK, 0 WARN, 0 FAIL and Chain verified" width="880">
-  <br/><sub>A real session against <code>ai-eng 3.3.1</code>, looping every 4.7 seconds: <code>ai-eng init</code> writes the contract, <code>ls</code> shows it, <code>ai-eng doctor</code> verifies the chain. Captured with <a href=".github/assets/tapes/quickstart-loop.tape"><code>quickstart-loop.tape</code></a>.</sub>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/quickstart-storyboard-dark.webp">
+    <img src=".github/assets/readme/quickstart-storyboard-light.webp" alt="Four-panel quickstart storyboard from ai-eng 3.3.1 in my-app. Panel 01, Write the contract: ai-eng init --surface claude-code --yes installs AGENTS.md, DECISIONS.md, .ai-engineering/config.toml, .github/workflows/ai-eng-check.yml, marker-managed hooks in .git/hooks/, and .ai-engineering/ai-eng.lock (6 assets), reminds you to trust the workspace in your editor, commits nothing, and prints Next: ai-eng doctor. Panel 02, Verify the chain: ai-eng doctor passes 16 checks (16 OK · 0 WARN · 0 FAIL) including AGENTS.md (47 rules, 89 lines), 107/107 canon files verified with 0 drift, marker hooks in .git/hooks/ with gitleaks, and the live chain test where git commit -n returns DENY · exit 2 · 8ms from no-verify (git commit -n skips the git hooks, the floor every agent and every person in this repository commits through. Whatever the hooks would have said is what needs fixing. Run the command without it.), ending with Chain verified. Panel 03, Track your lanes: ai-eng work lists my-app · base main · 2 active · 1 parked (active feat/auth 0 d checked out; active feat/search 0 d no folder; parked feat/billing 0 d waiting on API key) with active lanes: 2/3 and tidy · park · drop. Panel 04, Change surfaces: ai-eng config --add cursor installs .cursor/hooks.json as a repo carrier, enables claude-code and cursor with adapter and skill mirror, verifies 4 mirror targets, and prints Next: ai-eng doctor." width="880">
+  </picture>
+  <br/><sub>Four real commands against <code>ai-eng 3.3.1</code> in a fresh repository (<code>my-app</code>): <code>ai-eng init</code> writes the contract, <code>ai-eng doctor</code> verifies the chain with a live refusal on <code>git commit -n</code>, <code>ai-eng work</code> tracks active and parked lanes, and <code>ai-eng config</code> adds a second surface.</sub>
 </p>
 
 <details>
-<summary>Text transcript of ai-eng init, ls and ai-eng doctor</summary>
+<summary>Text transcript of ai-eng init, doctor, work and config</summary>
 
-1. Run `ai-eng init --surface claude-code --yes` in a fresh repository (`my-app`, running `ai-eng` 3.3.1):
-   - Verifies the machine-side global canon in the demo's throwaway home directory (`$HOME/.ai-engineering`) is intact for 3.3.1.
-   - Installs your editable contract files: `AGENTS.md`, `DECISIONS.md`, and `.gitignore`.
-   - Scaffolds `.ai-engineering/overrides.toml`, `.ai-engineering/config.toml`, `.github/workflows/ai-eng-check.yml`, marker-managed git floor hooks in `.git/hooks/{pre-commit,commit-msg,pre-push}`, and `.ai-engineering/ai-eng.lock` (6 assets with sha256) for surface `claude-code` and CI `github-actions`.
-   - Leaves the machine carrier `~/.claude/settings.json` unchanged (already current), notes that layer rules are proposed on demand with `/ai-refresh-project`, reminds you to trust the workspace in your editor, commits nothing automatically, and prints `Next: ai-eng doctor`.
-2. Run `ls -A` in `my-app`: it lists `.ai-engineering`, `.git`, `.github`, `.gitignore`, `AGENTS.md`, and `DECISIONS.md`.
-3. Run `ai-eng doctor` in `my-app`:
-   - Reports 16 passing checks across `AGENTS.md` (47 rules, 89 lines), `config.toml` (governed, `claude-code`), 4/4 skill mirrors, 107/107 verified canon files with 0 drift, assets installed by 3.3.1, marker hooks in `.git/hooks/` with `gitleaks` present, the live adversarial probe (`git commit -n` → `DENY in 5ms`), receipt latency (`p50 4ms · p95 4ms`, ceiling 50), friction (0 denies/1000), overrides (none active), arch (no code yet, so no layer rules to check), clean spec slot, research cache, enforced `~/.claude/settings.json` carrier, machine state, and behaviors.
-   - Ends with `16 checks: 16 OK · 0 WARN · 0 FAIL` and `Chain verified.`
+1. **01 · Write the contract** — `ai-eng init --surface claude-code --yes` in `my-app` (`ai-eng` 3.3.1):
+   - Installs editable contract files `AGENTS.md` and `DECISIONS.md`, plus `.ai-engineering/config.toml`, `.github/workflows/ai-eng-check.yml`, marker-managed hooks in `.git/hooks/`, and `.ai-engineering/ai-eng.lock` (`6 assets`).
+   - Reminds you to trust the workspace in your editor, prints `Nothing committed.`, and ends with `Next: ai-eng doctor`.
+2. **02 · Verify the chain** — `ai-eng doctor` in `my-app`:
+   - Passes 16 checks (`16 OK · 0 WARN · 0 FAIL`), including `AGENTS.md` (`47 rules · 89 lines`), `canon` (`107/107 verified · 0 drift`), `git floor` (`.git/hooks/ · gitleaks`), and the live chain test: `git commit -n` returns `DENY · exit 2 · 8ms` from `no-verify` (`[ai-eng] no-verify: git commit -n skips the git hooks, the floor every agent and every person in this repository commits through. Whatever the hooks would have said is what needs fixing. Run the command without it.`).
+   - Ends with `Chain verified.`
+3. **03 · Track your lanes** — `ai-eng work` in `my-app`:
+   - Shows `my-app · base main · 2 active · 1 parked`: `active feat/auth` (`0 d`, `checked out`), `active feat/search` (`0 d`, `no folder`), and `parked feat/billing` (`0 d`, `waiting on API key`).
+   - Reports `active lanes: 2/3` (`tidy · park · drop`).
+4. **04 · Change surfaces** — `ai-eng config --add cursor` in `my-app`:
+   - Installs `.cursor/hooks.json` as a repo carrier, changes enabled surfaces to `2 enabled: claude-code, cursor`, writes the `cursor` adapter and skill mirror, verifies `4 targets`, and prints `Next: ai-eng doctor`.
 
 </details>
 
@@ -433,6 +438,6 @@ bun run lint && bun run typecheck
 bun scripts/readme-assets.ts   # re-render the README's headings, buttons, cards, skills grid, hero and figures
 ```
 
-The quickstart demo is recorded with [VHS](https://github.com/charmbracelet/vhs) against the installed `ai-eng` CLI: see `.github/assets/tapes/quickstart-loop.tape`. Versions come from [changesets](.changeset/README.md); [docs/history](docs/history/recap.html) holds the early design record, which is history.
+Versions come from [changesets](.changeset/README.md); [docs/history](docs/history/recap.html) holds the early design record, which is history.
 
 <p align="center"><sub>Apache-2.0 © <a href="https://github.com/arcasilesgroup">Arcasiles Group</a> · <a href="LICENSE">LICENSE</a> · <a href="NOTICE.md">NOTICE</a> · <a href="THIRD-PARTY-NOTICES.md">THIRD-PARTY-NOTICES</a> · <a href="https://ai-engineering.arcasiles.com">website</a></sub></p>
