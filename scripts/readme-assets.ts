@@ -15,7 +15,7 @@
 // Needs Google Chrome (playwright-core drives it, as scripts/artifact-axe.ts does), network
 // for Google Fonts at render time only, and `cwebp`. The README itself loads no font.
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Locator, Page } from "playwright-core";
@@ -636,15 +636,19 @@ async function main(): Promise<void> {
     for (const mode of MODES) {
       const file = badgeFile(badge.slug, mode);
       if (!file.includes(only)) continue;
-      writeFileSync(join(OUT_DIR, file), badgeSvg(badge, mode));
+      const target = join(OUT_DIR, file);
+      const next = badgeSvg(badge, mode);
+      if (!existsSync(target) || readFileSync(target, "utf8") !== next) writeFileSync(target, next);
       console.log(`ok  ${file}`);
     }
   }
+  const selectedJobs = jobs().filter((candidate) => candidate.file.includes(only));
+  if (selectedJobs.length === 0) return;
   const { chromium } = await import("playwright-core");
   const scratch = mkdtempSync(join(tmpdir(), "readme-assets-"));
   const browser = await chromium.launch({ channel: "chrome" });
   try {
-    for (const job of jobs().filter((candidate) => candidate.file.includes(only))) {
+    for (const job of selectedJobs) {
       const context = await browser.newContext({ deviceScaleFactor: 2 });
       const tab = await context.newPage();
       await tab.setContent(job.html, { waitUntil: "networkidle" });

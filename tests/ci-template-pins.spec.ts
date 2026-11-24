@@ -164,14 +164,24 @@ function versionCommand(): string {
   return changesets?.with?.["version-script"] ?? "changeset version";
 }
 
+const BADGE_FILES = [
+  ".github/assets/readme/badge-version-dark.svg",
+  ".github/assets/readme/badge-version-light.svg",
+  ".github/assets/readme/badge-npm-dark.svg",
+  ".github/assets/readme/badge-npm-light.svg",
+  ".github/assets/readme/badge-license-dark.svg",
+  ".github/assets/readme/badge-license-light.svg",
+];
+
 function releaseTree(preTag?: string): string {
   const root = mkdtempSync(join(tmpdir(), "ci-template-release-"));
   scratchRoots.push(root);
-  const { name, scripts } = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8")) as {
+  const { name, license, scripts } = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8")) as {
     name: string;
+    license: string;
     scripts: Record<string, string>;
   };
-  writeFileSync(join(root, "package.json"), JSON.stringify({ name, version: "9.9.8", scripts }, null, 2));
+  writeFileSync(join(root, "package.json"), JSON.stringify({ name, version: "9.9.8", license, scripts }, null, 2));
   mkdirSync(join(root, ".changeset"));
   writeFileSync(join(root, ".changeset/config.json"), JSON.stringify({ changelog: false, commit: false, baseBranch: "main" }));
   writeFileSync(join(root, ".changeset/bump.md"), `---\n"${name}": patch\n---\n\nbump\n`);
@@ -181,20 +191,31 @@ function releaseTree(preTag?: string): string {
       JSON.stringify({ mode: "pre", tag: preTag, initialVersions: { [name]: "9.9.8" }, changesets: [] }),
     );
   }
-  for (const dir of ["templates", "scripts"]) mkdirSync(join(root, dir));
-  for (const file of [...PINNED_TEMPLATES, "scripts/sync-ci-template-pins.ts", "scripts/release-flags.ts"]) {
+  for (const dir of ["templates", "scripts", "brand", ".github/assets/readme"]) {
+    mkdirSync(join(root, dir), { recursive: true });
+  }
+  for (const file of [
+    ...PINNED_TEMPLATES,
+    ...BADGE_FILES,
+    "scripts/sync-ci-template-pins.ts",
+    "scripts/release-flags.ts",
+    "scripts/readme-badges.ts",
+    "brand/tokens.json",
+    "LICENSE",
+    "README.md",
+  ]) {
     copyFileSync(resolve(ROOT, file), join(root, file));
   }
   symlinkSync(resolve(ROOT, "node_modules"), join(root, "node_modules"), "dir");
   return root;
 }
 
-describe("the version workflow bumps the version and the pins in one command", () => {
+describe("the version workflow bumps the version, pins and README badges in one command", () => {
   for (const { preTag, expected } of [
     { preTag: undefined, expected: "9.9.9" },
     { preTag: "rc", expected: "9.9.9-rc.0" },
   ]) {
-    test(`a pending patch changeset lands as ${expected} in package.json and both pins`, () => {
+    test(`a pending patch changeset lands as ${expected} in package.json, both pins, and the README version badges`, () => {
       const root = releaseTree(preTag);
       const run = spawnSync("sh", ["-c", versionCommand()], {
         cwd: root,
@@ -205,6 +226,13 @@ describe("the version workflow bumps the version and the pins in one command", (
       const { version } = JSON.parse(templateIn(root, "package.json")) as { version: string };
       expect(version).toBe(expected);
       for (const file of PINNED_TEMPLATES) expect(aiEngVersion(templateIn(root, file))).toBe(`v${expected}`);
+      expect(templateIn(root, "README.md")).toContain(`alt="version ${expected}" src=".github/assets/readme/badge-version-light.svg"`);
+      for (const mode of ["dark", "light"] as const) {
+        const svg = templateIn(root, `.github/assets/readme/badge-version-${mode}.svg`);
+        expect(svg).toContain(`<title>version ${expected}</title>`);
+        expect(svg).toContain(`aria-label="version ${expected}"`);
+        expect(svg).toContain(`>${expected}</text>`);
+      }
     });
   }
 });

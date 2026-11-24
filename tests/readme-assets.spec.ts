@@ -1,7 +1,9 @@
 // The README's images: every one it references exists, every file in the folder is
 // referenced, and the words the README repeats from a figure match the figure.
-import { describe, expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { afterAll, describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
   BUTTONS,
@@ -34,12 +36,22 @@ import { DIAGRAM_VARS, FIGURES, figureFile, figureSvg } from "../scripts/readme-
 
 const ROOT = resolve(import.meta.dir, "..");
 const README = readFileSync(join(ROOT, "README.md"), "utf8");
+const scratchRoots: string[] = [];
+
+afterAll(() => {
+  for (const root of scratchRoots) rmSync(root, { recursive: true, force: true });
+});
 
 const referenced = (): string[] => [...README.matchAll(/(?:src|srcset)="(\.github\/assets\/[^"#]+)/g)].map((match) => match[1] as string);
 
-function altFor(file: string): string {
+function imgTagFor(file: string): string {
   const tag = (README.match(/<img\b[^>]*>/g) ?? []).find((entry) => entry.includes(`src=".github/assets/readme/${file}"`));
-  const alt = tag?.match(/\balt="([^"]*)"/)?.[1];
+  expect(tag, `<img> tag for ${file}`).toBeDefined();
+  return tag as string;
+}
+
+function altFor(file: string): string {
+  const alt = imgTagFor(file).match(/\balt="([^"]*)"/)?.[1];
   expect(alt, `alt attribute for ${file}`).toBeDefined();
   return alt as string;
 }
@@ -111,17 +123,97 @@ describe("README repeats the assets' words", () => {
     }
   });
 
-  test("each badge is a committed SVG whose alt text and link match the repository, in both themes", () => {
+  test("each badge is a committed SVG whose alt text, link, height, text and contrast match the repository, in both themes", () => {
     const { version, license, name } = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string; license: string; name: string };
+    const expectedRow = [
+      { slug: "version", label: "version", value: version, alt: `version ${version}` },
+      { slug: "npm", label: "npm", value: name, alt: `npm package ${name}` },
+      { slug: "license", label: "license", value: license, alt: `license ${license}` },
+    ];
     const row = badges();
     expect(row.map((badge) => badge.value)).toEqual([version, name, license]);
-    for (const badge of row) {
-      expect(altFor(badgeFile(badge.slug, "light")), badge.slug).toBe(badge.alt);
+    row.forEach((badge, index) => {
+      const expected = expectedRow[index] as (typeof expectedRow)[number];
+      const lightFile = badgeFile(badge.slug, "light");
+      const imgTag = imgTagFor(lightFile);
+      const readmeHeight = imgTag.match(/\bheight="(\d+)"/)?.[1];
+      expect(readmeHeight, `height of ${badge.slug} in README.md`).toBe("20");
+      expect(altFor(lightFile), badge.slug).toBe(expected.alt);
+      expect(badge.alt, badge.slug).toBe(expected.alt);
       expect(README, `link of ${badge.slug}`).toContain(`<a href="${badge.href}"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/${badgeFile(badge.slug, "dark")}">`);
       for (const mode of ["dark", "light"] as const) {
-        expect(readFileSync(join(OUT_DIR, badgeFile(badge.slug, mode)), "utf8"), `${badge.slug} ${mode} is stale; run bun scripts/readme-assets.ts badge-`).toBe(badgeSvg(badge, mode));
+        const svg = readFileSync(join(OUT_DIR, badgeFile(badge.slug, mode)), "utf8");
+        expect(svg, `${badge.slug} ${mode} is stale; run bun scripts/readme-assets.ts badge-`).toBe(badgeSvg(badge, mode));
+        const rootMatch = svg.match(/^<svg\b[^>]*\bwidth="(\d+)"[^>]*\bheight="(\d+)"[^>]*\bviewBox="0 0 (\d+) (\d+)"[^>]*\brole="img"[^>]*\baria-label="([^"]+)"/);
+        expect(rootMatch, `${badge.slug} ${mode} root <svg>`).not.toBeNull();
+        expect(rootMatch?.[2], `${badge.slug} ${mode} height`).toBe(readmeHeight);
+        expect(rootMatch?.[3], `${badge.slug} ${mode} viewBox width`).toBe(rootMatch?.[1]);
+        expect(rootMatch?.[4], `${badge.slug} ${mode} viewBox height`).toBe(readmeHeight);
+        expect(rootMatch?.[5], `${badge.slug} ${mode} aria-label`).toBe(expected.alt);
+        expect(svg, `${badge.slug} ${mode} <title>`).toContain(`<title>${expected.alt}</title>`);
+        const rectFills = [...svg.matchAll(/<rect\b[^>]*\bfill="(#[0-9A-Fa-f]{6})"/g)].map((match) => match[1] as string);
+        const texts = [...svg.matchAll(/<text\b[^>]*\bfill="(#[0-9A-Fa-f]{6})"[^>]*>([^<]+)<\/text>/g)].map((match) => ({
+          ink: match[1] as string,
+          content: match[2] as string,
+        }));
+        expect(rectFills.length, `${badge.slug} ${mode} background rects`).toBe(2);
+        expect(texts.map((entry) => entry.content), `${badge.slug} ${mode} <text> values`).toEqual([expected.label, expected.value]);
+        expect(contrast(texts[0]?.ink as string, rectFills[0] as string), `${badge.slug} ${mode} label contrast`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(texts[1]?.ink as string, rectFills[1] as string), `${badge.slug} ${mode} value contrast`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+  });
+
+  test("badge-only asset rendering and badge sync run without Chrome or node_modules", () => {
+    const badgeOnlyRun = spawnSync(process.execPath, [join(ROOT, "scripts/readme-assets.ts"), "badge-"], { encoding: "utf8" });
+    expect(badgeOnlyRun.stderr).toBe("");
+    expect(badgeOnlyRun.status).toBe(0);
+    const renderedLines = badgeOnlyRun.stdout.trim().split("\n");
+    expect(renderedLines.length).toBe(6);
+    for (const line of renderedLines) expect(line).toMatch(/^ok  badge-[a-z]+-(?:dark|light)\.svg$/);
+
+    const scratch = mkdtempSync(join(tmpdir(), "readme-badges-sync-"));
+    scratchRoots.push(scratch);
+    const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { name: string; version: string; license: string };
+    writeFileSync(join(scratch, "package.json"), JSON.stringify({ ...pkg, version: "9.9.9-rc.1" }, null, 2));
+    mkdirSync(join(scratch, "brand"), { recursive: true });
+    mkdirSync(join(scratch, ".github/assets/readme"), { recursive: true });
+    copyFileSync(join(ROOT, "brand/tokens.json"), join(scratch, "brand/tokens.json"));
+    copyFileSync(join(ROOT, "LICENSE"), join(scratch, "LICENSE"));
+    copyFileSync(join(ROOT, "README.md"), join(scratch, "README.md"));
+    for (const badge of badges()) {
+      for (const mode of ["dark", "light"] as const) {
+        const file = badgeFile(badge.slug, mode);
+        copyFileSync(join(OUT_DIR, file), join(scratch, ".github/assets/readme", file));
       }
     }
+
+    const syncScript = join(ROOT, "scripts/readme-badges.ts");
+    const first = spawnSync(process.execPath, [syncScript, scratch], { encoding: "utf8" });
+    expect(first.stderr).toBe("");
+    expect(first.status).toBe(0);
+    const syncedReadme = readFileSync(join(scratch, "README.md"), "utf8");
+    const withoutVersionAlt = (text: string): string =>
+      text.replace(/alt="version [^"]*"(?= src="\.github\/assets\/readme\/badge-version-light\.svg")/, 'alt="version <value>"');
+    expect(syncedReadme).toContain('alt="version 9.9.9-rc.1" src=".github/assets/readme/badge-version-light.svg"');
+    expect(withoutVersionAlt(syncedReadme)).toBe(withoutVersionAlt(README));
+    const darkAfterFirst = readFileSync(join(scratch, ".github/assets/readme/badge-version-dark.svg"), "utf8");
+    const lightAfterFirst = readFileSync(join(scratch, ".github/assets/readme/badge-version-light.svg"), "utf8");
+    expect(darkAfterFirst).toContain(">9.9.9-rc.1</text>");
+    expect(lightAfterFirst).toContain(">9.9.9-rc.1</text>");
+
+    const second = spawnSync(process.execPath, [syncScript, scratch], { encoding: "utf8" });
+    expect(second.stderr).toBe("");
+    expect(second.status).toBe(0);
+    expect(second.stdout).toContain("already match package.json");
+    expect(readFileSync(join(scratch, ".github/assets/readme/badge-version-dark.svg"), "utf8")).toBe(darkAfterFirst);
+    expect(readFileSync(join(scratch, ".github/assets/readme/badge-version-light.svg"), "utf8")).toBe(lightAfterFirst);
+    expect(readFileSync(join(scratch, "README.md"), "utf8")).toBe(syncedReadme);
+
+    writeFileSync(join(scratch, "README.md"), syncedReadme.replace(/<img[^>]*badge-version-light\.svg[^>]*>/, ""));
+    const missing = spawnSync(process.execPath, [syncScript, scratch], { encoding: "utf8" });
+    expect(missing.status).toBe(2);
+    expect(missing.stderr).toContain("badge-version-light.svg");
   });
 
   test("the hero's alt text is the wordmark and the claim, word for word", () => {

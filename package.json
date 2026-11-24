@@ -39,7 +39,7 @@
     "tokens": "bun scripts/tokens.ts",
     "mutation": "stryker run",
     "changeset": "changeset",
-    "version-packages": "changeset version && bun scripts/sync-ci-template-pins.ts"
+    "version-packages": "changeset version && bun scripts/sync-ci-template-pins.ts && bun scripts/readme-badges.ts"
   },
   "dependencies": {
     "@clack/prompts": "1.7.0",
