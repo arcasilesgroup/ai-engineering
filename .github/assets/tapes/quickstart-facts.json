@@ -1,0 +1,31 @@
+{
+  "version": "3.3.1",
+  "rulesCount": 47,
+  "rulesLines": 89,
+  "mirrorsOk": 4,
+  "mirrorsTotal": 4,
+  "canonVerified": 107,
+  "canonTotal": 107,
+  "lockAssets": 6,
+  "denyMs": 10,
+  "receiptP50Ms": 7,
+  "receiptP95Ms": 7,
+  "checksTotal": 16,
+  "checksOk": 16,
+  "checksWarn": 0,
+  "checksFail": 0,
+  "branch": "feat/auth",
+  "baseBranch": "main",
+  "activeLanes": 1,
+  "maxLanes": 3,
+  "uncommitted": 7,
+  "surfacesAfterAdd": [
+    "claude-code",
+    "cursor"
+  ],
+  "mirrorTargets": 4,
+  "width": 1920,
+  "height": 1080,
+  "fps": 25,
+  "durationSeconds": 56.7
+}

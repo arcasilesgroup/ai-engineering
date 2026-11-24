@@ -3,10 +3,17 @@
 //
 // Every pixel is typeset or drawn here, from brand/tokens.json and the brand's own component
 // styles, in dark and light: the hero, the section headings, the two buttons, the "blocks" and
-// "informs" cards, the guards refusal, receipts ledger and quickstart storyboard panels, the
-// skills grid and the five figures (scripts/readme-figures.ts). A model misspells and its output
-// cannot be re-rendered; this can. Change a line in a table below, run
+// "informs" cards, the guards refusal, receipts ledger, quickstart storyboard and quickstart
+// video poster panels, the skills grid and the five figures (scripts/readme-figures.ts). A model
+// misspells and its output cannot be re-rendered; this can. Change a line in a table below, run
 // `bun scripts/readme-assets.ts`, commit the images it wrote.
+//
+// The quickstart storyboard still is drawn from `QUICKSTART_STORYBOARD` below, and the poster
+// frame of the quickstart walkthrough from the recorded run in
+// `.github/assets/tapes/quickstart-facts.json`. The walkthrough itself
+// (.github/assets/quickstart.mp4) is recorded with VHS against the real `ai-eng` CLI
+// (.github/assets/tapes/quickstart.tape) and edited with ffmpeg via
+// `.github/assets/tapes/quickstart-video.sh`.
 //
 // Pass a filename fragment to render only the matching files (`bun scripts/readme-assets.ts figure-`).
 // Needs Google Chrome (playwright-core drives it, as scripts/artifact-axe.ts does), network
@@ -21,6 +28,7 @@ import { checkBash, checkContent } from "../src/guards/no-verify.ts";
 import { isTestCommand, rewrite } from "../src/guards/wrap.ts";
 import { receiptEventName, type Receipt } from "../src/receipts.ts";
 import { colour, DIAGRAM_VARS, FIGURE_CSS, FIGURES, figureFile, figureSvg, FIGURE_WIDTH, type Mode } from "./readme-figures.ts";
+import type { QuickstartFacts } from "./quickstart-video.ts";
 
 const ROOT = join(import.meta.dir, "..");
 export const OUT_DIR = join(ROOT, ".github", "assets", "readme");
@@ -364,7 +372,27 @@ export const cardFile = (slug: string, mode: Mode) => `card-${slug}-${mode}.webp
 export const guardsRefusedFile = (mode: Mode) => `guards-refused-${mode}.webp`;
 export const receiptsLedgerFile = (mode: Mode) => `receipts-ledger-${mode}.webp`;
 export const quickstartStoryboardFile = (mode: Mode) => `quickstart-storyboard-${mode}.webp`;
+export const quickstartPosterFile = (mode: Mode) => `quickstart-poster-${mode}.webp`;
 export const skillsGridFile = (mode: Mode) => `skills-grid-${mode}.webp`;
+
+export const QUICKSTART_FACTS_PATH = join(ROOT, ".github", "assets", "tapes", "quickstart-facts.json");
+
+export function loadQuickstartFacts(): QuickstartFacts {
+  return JSON.parse(readFileSync(QUICKSTART_FACTS_PATH, "utf8")) as QuickstartFacts;
+}
+
+export function formatClockDuration(seconds: number): string {
+  const total = Math.round(seconds);
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+}
+
+/** The quickstart video poster's alt text: the four recorded commands, key live outcomes, duration, and no-autoplay play link. */
+export function quickstartPosterAlt(): string {
+  const facts = loadQuickstartFacts();
+  return `Recorded terminal walkthrough of ai-eng ${facts.version} (${facts.durationSeconds.toFixed(1)} seconds MP4, no autoplay, burned-in captions): ai-eng init --surface claude-code --yes writes AGENTS.md, DECISIONS.md, git floor hooks and a ${facts.lockAssets}-asset sha256 lock; ai-eng doctor runs ${facts.checksTotal} checks including live adversarial git commit -n → DENY in ${facts.denyMs}ms and ends on ${facts.checksOk} OK, ${facts.checksWarn} WARN, ${facts.checksFail} FAIL and Chain verified.; ai-eng work tracks ${facts.branch} against ${facts.baseBranch} (${facts.activeLanes}/${facts.maxLanes} active lanes, ${facts.uncommitted} uncommitted); ai-eng config --add cursor enables ${facts.surfacesAfterAdd.join(" and ")} across ${facts.mirrorTargets} verified skill mirrors. Click to open the video.`;
+}
 
 /** The guards panel's alt text: all five lanes (three hook skips, linter silence, and test rewrite), their guards, verdicts and reasons. */
 export const guardsRefusedAlt = (): string =>
@@ -394,6 +422,7 @@ export function renderedFiles(): string[] {
     guardsRefusedFile(mode),
     receiptsLedgerFile(mode),
     quickstartStoryboardFile(mode),
+    quickstartPosterFile(mode),
     skillsGridFile(mode),
     heroFile(mode),
   ]);
@@ -819,6 +848,90 @@ background-color:${theme.field};background-image:linear-gradient(${theme.grid} 1
   );
 }
 
+/** Section 12: dark/light 16:9 poster frame linking to the real recorded terminal walkthrough MP4 (no autoplay). */
+function quickstartPosterPage(theme: Theme): string {
+  const facts = loadQuickstartFacts();
+  const clock = formatClockDuration(facts.durationSeconds);
+  const playSvg = `<svg width="15" height="17" viewBox="0 0 15 17" aria-hidden="true"><path d="M1.5 1.5L13.5 8.5L1.5 15.5V1.5Z" fill="currentColor"/></svg>`;
+  const chapters = [
+    { num: "01", cmd: "init", desc: `Contract, hooks & ${facts.lockAssets}-asset lock` },
+    { num: "02", cmd: "doctor", desc: `Live deny (${facts.denyMs}ms) + ${facts.checksTotal} checks` },
+    { num: "03", cmd: "work", desc: `Lane board (${facts.activeLanes}/${facts.maxLanes} active)` },
+    { num: "04", cmd: "config", desc: `Add ${facts.surfacesAfterAdd[1]} (${facts.mirrorTargets} mirrors)` },
+  ]
+    .map(
+      (chapter) => `<div class="ch"><span class="ch-num">${chapter.num}</span><span class="ch-cmd">${escapeHtml(chapter.cmd)}</span><span class="ch-desc">${escapeHtml(chapter.desc)}</span></div>`,
+    )
+    .join("");
+
+  return page(
+    `<div id="asset"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+<div class="p-top"><span class="p-eyebrow">11 / Get it · Video walkthrough</span><span class="p-tag">ai-eng ${escapeHtml(facts.version)} · ${clock} MP4 · no autoplay</span></div>
+<h2 class="p-title">${withAccent("Four real commands, one live refusal", "one live refusal")}</h2>
+<div class="poster-grid">
+  <div class="preview">
+    <div class="pv-bar"><span class="pv-title">my-app — bash</span><span class="pv-tag">1920×1080 · sound off</span></div>
+    <div class="pv-body">
+      <div class="pv-step">
+        <p class="pv-cmd"><span class="pv-p">$</span><span>ai-eng init --surface claude-code --yes</span></p>
+        <p class="pv-out">✓ AGENTS.md · DECISIONS.md · git floor · ${facts.lockAssets} locked</p>
+      </div>
+      <div class="pv-step">
+        <p class="pv-cmd"><span class="pv-p">$</span><span>ai-eng doctor</span></p>
+        <div class="pv-hl"><span class="pv-hl-txt">git commit -n → DENY in ${facts.denyMs}ms</span><span class="pill is-deny">✕ deny</span></div>
+        <div class="pv-hl is-pass"><span class="pv-hl-txt">${facts.checksTotal} checks: ${facts.checksOk} OK · Chain verified.</span><span class="pill is-pass">✓ pass</span></div>
+      </div>
+      <div class="pv-step">
+        <p class="pv-cmd"><span class="pv-p">$</span><span>ai-eng work</span></p>
+        <p class="pv-out">active ${escapeHtml(facts.branch)} · base ${escapeHtml(facts.baseBranch)} · ${facts.activeLanes}/${facts.maxLanes} lanes</p>
+      </div>
+      <div class="pv-step">
+        <p class="pv-cmd"><span class="pv-p">$</span><span>ai-eng config --add cursor</span></p>
+        <p class="pv-out">2 enabled: ${escapeHtml(facts.surfacesAfterAdd.join(", "))} · ${facts.mirrorTargets} targets</p>
+      </div>
+    </div>
+  </div>
+  <div class="cta-col">
+    <div class="cta-top">
+      <div class="play-btn">${playSvg}<span>Watch walkthrough · ${clock}</span></div>
+      <div class="meta-chips"><span class="m-chip">Burned-in captions</span><span class="m-chip">Click to play</span></div>
+      <p class="cta-note">Recorded live in a throwaway repo. Every count on screen comes from this run.</p>
+    </div>
+    <div class="chapters">${chapters}</div>
+  </div>
+</div>
+<div class="p-foot"><span>{ai} engineering · .github/assets/quickstart.mp4</span><span>static poster · no autoplay (WCAG 2.2.2)</span></div>
+</div>`,
+    `${panelFrameCss(theme)}
+.poster-grid{display:grid;grid-template-columns:minmax(0,1.34fr) minmax(0,1fr);gap:16px;align-items:stretch}
+.preview{border:1px solid ${theme.border};border-radius:12px;background:${theme.well};overflow:hidden;display:flex;flex-direction:column}
+.pv-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 16px;background:${theme.raised};border-bottom:1px solid ${theme.hairline}}
+.pv-title{font:700 13.5px/1 ${MONO};color:${theme.ink}}
+.pv-tag{font:500 13.5px/1 ${MONO};color:${theme.muted}}
+.pv-body{padding:14px 16px;display:flex;flex-direction:column;gap:11px}
+.pv-step{display:flex;flex-direction:column;gap:5px}
+.pv-cmd{display:flex;align-items:baseline;gap:7px;font:600 13.5px/1.3 ${MONO};color:${theme.ink};white-space:nowrap}
+.pv-p{color:${theme.accent};font-weight:700}
+.pv-out{font:500 13.5px/1.3 ${MONO};color:${theme.muted};white-space:nowrap}
+.pv-hl{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1.5px solid ${theme.accent};background:${theme.raised}}
+.pv-hl-txt{font:600 13.5px/1.25 ${MONO};color:${theme.ink};white-space:nowrap}
+.pill{display:inline-flex;align-items:center;justify-content:center;font:700 13.5px/1 ${MONO};letter-spacing:.03em;padding:4px 9px;border-radius:999px;white-space:nowrap}
+.pill.is-deny{border:1px solid ${theme.bad};color:${theme.badText};background:color-mix(in srgb,${theme.bad} 13%,transparent)}
+.pill.is-pass{border:1px solid ${theme.good};color:${theme.goodText};background:color-mix(in srgb,${theme.good} 13%,transparent)}
+.cta-col{border:1px solid ${theme.border};border-radius:12px;background:${theme.raised};padding:18px 18px 16px;display:flex;flex-direction:column;justify-content:space-between;gap:14px}
+.cta-top{display:flex;flex-direction:column;gap:10px}
+.play-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 16px;border-radius:8px;background:${theme.fill};color:${theme.buttonInk};font:800 18px/1 ${SANS};font-stretch:92%;white-space:nowrap}
+.meta-chips{display:flex;flex-wrap:wrap;gap:8px}
+.m-chip{font:600 13.5px/1.2 ${MONO};padding:5px 10px;border-radius:999px;border:1px solid ${theme.border};background:${theme.field};color:${theme.muted};white-space:nowrap}
+.cta-note{font:400 14px/1.45 ${SANS};color:${theme.muted}}
+.chapters{display:flex;flex-direction:column;gap:9px;padding-top:12px;border-top:1px solid ${theme.hairline}}
+.ch{display:grid;grid-template-columns:28px 66px minmax(0,1fr);align-items:baseline;gap:8px}
+.ch-num{font:700 13.5px/1.2 ${MONO};color:${theme.goodText}}
+.ch-cmd{font:700 13.5px/1.2 ${MONO};color:${theme.ink}}
+.ch-desc{font:400 13.5px/1.3 ${SANS};color:${theme.muted}}`,
+  );
+}
+
 /** Six tiles, three across: a title and its count, one plain line, then the names in small mono type. */
 function skillsGridPage(theme: Theme): string {
   const tiles = SKILL_GROUPS.map((group) => {
@@ -862,6 +975,7 @@ function jobs(): Job[] {
       { file: guardsRefusedFile(mode), html: guardsRefusedPage(theme), families: both, isFigure: false, minPxAt800: 11 },
       { file: receiptsLedgerFile(mode), html: receiptsLedgerPage(theme), families: both, isFigure: false, minPxAt800: 11 },
       { file: quickstartStoryboardFile(mode), html: quickstartStoryboardPage(theme), families: both, isFigure: false, minPxAt800: 12 },
+      { file: quickstartPosterFile(mode), html: quickstartPosterPage(theme), families: both, isFigure: false, minPxAt800: 11 },
       { file: skillsGridFile(mode), html: skillsGridPage(theme), families: both, isFigure: false },
       { file: heroFile(mode), html: heroPage(theme), families: both, isFigure: false },
     ];
