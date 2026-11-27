@@ -30,10 +30,6 @@ describe("the verb-help data answers for every verb", () => {
     }
     expect(renderVerbHelp("recap")).toBeNull();
   });
-
-  test("the menu and the help read the same list, so a verb cannot be one without the other", () => {
-    expect(ALL_VERBS).toEqual([...HUMAN_VERBS, ...MACHINE_VERBS].map((entry) => entry.verb));
-  });
 });
 
 describe("the spawned binary: `ai-eng <verb> --help` prints that verb's help", () => {

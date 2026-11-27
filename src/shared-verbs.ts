@@ -4,6 +4,11 @@
 //
 // It lives here rather than in cli.ts because cli.ts runs main() on import and so
 // cannot be a pure seam — and the suggestion is the part worth testing.
+//
+// Every claim here is the code's claim: the hosts `--surface` accepts come from the same
+// list init and config offer, so help cannot promise a host the verb would refuse.
+
+import { surfaceOptions } from "./commands/init-shared.ts";
 
 /** One flag a verb answers to, with the answer it gives. */
 export type VerbFlag = { readonly flag: string; readonly helps: string };
@@ -30,7 +35,7 @@ export const HUMAN_VERBS: readonly VerbEntry[] = [
     flags: [
       { flag: "--yes", helps: "take every default instead of asking" },
       { flag: "--global", helps: "repair this machine's canon and stop; the repo is untouched" },
-      { flag: "--surface", helps: "install these hosts only: claude-code, cursor, codex, pi, zed, …" },
+      { flag: "--surface", helps: `install these hosts only: ${surfaceOptions().map((surface) => surface.id).join(", ")}` },
       { flag: "--ci", helps: "write the CI template for github or azure-pipelines" },
     ],
     note: "Without --yes and --surface, the hosts detected in this repo start ticked and you confirm the list.",
@@ -40,7 +45,7 @@ export const HUMAN_VERBS: readonly VerbEntry[] = [
     description: "verify hooks, canon, and one live deny",
     usage: "ai-eng doctor [--gc]",
     flags: [{ flag: "--gc", helps: "delete receipts and artifacts past their retention window" }],
-    note: "It sends a real attack payload through the guard: a doctor that only reads files is not evidence. Exit 1 means a check failed.",
+    note: "It sends a real attack payload through the guard: a doctor that only reads files is not evidence. Exit 2 means a check failed.",
   },
   {
     verb: "config",
@@ -58,24 +63,24 @@ export const HUMAN_VERBS: readonly VerbEntry[] = [
     description: "install a newer binary, then sync this repo",
     usage: "ai-eng update [--yes]",
     flags: [{ flag: "--yes", helps: "install the newer binary without asking" }],
-    note: "It asks the registry for the release first, then re-runs init so this repo gets the files the new binary expects.",
+    note: "It asks the registry for a newer release, installs it, then syncs this machine and this repo to the files that binary carries.",
   },
   {
     verb: "work",
-    description: "list lanes; tidy, park, or drop to close one",
+    description: "list lanes; park, resume, tidy, or drop",
     usage: "ai-eng work [--json] | tidy | park <branch> <reason> [--until <YYYY-MM-DD>] | resume <branch> | drop <branch> | release",
     flags: [
       { flag: "--json", helps: "the lane board as JSON, for a program" },
       { flag: "--until", helps: "on park: the date the lane is expected back" },
     ],
-    note: "Bare `work` prints the board. Every other word closes a lane by one door: land, park, or drop.",
+    note: "Bare `work` prints the board. tidy closes the lanes that have landed and drop archives one; park keeps a lane for later and resume reopens it; release frees this folder's session lease.",
   },
   {
     verb: "uninstall",
     description: "remove ai-eng here; keep your files",
     usage: "ai-eng uninstall",
     flags: [],
-    note: "Removes the files init installed, here and on this machine. Your own files and your own hooks stay.",
+    note: "Removes the files init installed in this repo; the extra scope takes it off this machine too. Your own files and your own hooks stay.",
   },
 ];
 
@@ -86,7 +91,8 @@ export const MACHINE_VERBS: readonly VerbEntry[] = [
     description: "hook decision, JSON in, JSON out",
     usage: "ai-eng chain <event> [--surface <host>] < payload.json",
     flags: [{ flag: "--surface", helps: "the host whose payload dialect to read (default claude-code)" }],
-    note: "Events: PreToolUse, PostToolUse, SessionStart, SessionEnd. It writes the verdict to stdout; a deny exits 0 too, because the payload carries the decision.",
+    note:
+      "Events: PreToolUse, Stop, PostToolUse, UserPromptSubmit, SessionStart, SessionEnd. Where the verdict lands depends on the host: claude-code reads the exit code, so a deny exits 2 and an allow says nothing; cursor, codex and copilot read the JSON on stdout and exit 0.",
   },
   {
     verb: "git",

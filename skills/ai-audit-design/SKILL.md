@@ -78,8 +78,4 @@ Read by: the human, the milestone gate
 Dies: immune while a permanent governor cites it; doctor --gc after older_than when nothing cites it
 Next: none
 
-Source: third-party skill, integrated with attribution. The upstream licence is unresolved, so
-`license: LicenseRef-Attributed` above is the honest record: `scripts/audit.mjs` is third-party code
-carried as it arrived and is **not** relicensed by this repository's Apache-2.0. The replacement is
-`@arcasiles/web-floor`, our own Apache-2.0 engine; it is not published yet, so until it ships this
-script is the only engine and nothing here claims otherwise.
+Source: installed skill lineage, integrated with attribution. NOTICE.md is the one record of the author, the licence and the source URL.
