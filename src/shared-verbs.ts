@@ -32,10 +32,10 @@ export const HUMAN_VERBS: readonly VerbEntry[] = [
     flags: [
       { flag: "--yes", helps: "take every default instead of asking" },
       { flag: "--global", helps: "repair this machine's canon and stop; the repo is untouched" },
-      { flag: "--surface", helps: "install these hosts only — an advisory host is refused" },
+      { flag: "--surface", helps: "with --yes, install these hosts only — an advisory host is refused" },
       { flag: "--ci", helps: `write the CI template for one of ${CI_PROVIDERS.join(", ")}` },
     ],
-    note: "Without --yes and --surface, the hosts detected in this repo start ticked and you confirm the list.",
+    note: "The host picker starts with the hosts detected in this repo ticked; --surface takes effect with --yes.",
   },
   {
     verb: "doctor",
@@ -109,7 +109,7 @@ export const MACHINE_VERBS: readonly VerbEntry[] = [
     verb: "worktree",
     description: "new, list, merge, rm a lane checkout",
     usage: "ai-eng worktree new <branch> | list [<slug>] | merge <slug> | request-changes <slug> <sha> | rm <slug> [--force]",
-    flags: [{ flag: "--force", helps: "on rm: also delete ignored files inside the checkout" }],
+    flags: [{ flag: "--force", helps: "on rm: also permanently delete ignored files inside the checkout" }],
     note: "A lane is one branch in its own checkout. merge lands it; rm removes the checkout, never the branch.",
   },
   {

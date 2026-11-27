@@ -230,7 +230,8 @@ async function reinitHandoff(
   return null;
 }
 
-/** Pick which surfaces govern this project. Detected hosts start ticked; --yes and --surface skip the prompt. */
+/** Pick which surfaces govern this project. Detected hosts start ticked; --yes takes the
+ *  list as given (`--surface` included) and skips the prompt. */
 async function pickSurfaces(
   flags: InitFlags,
   cwd: string,
