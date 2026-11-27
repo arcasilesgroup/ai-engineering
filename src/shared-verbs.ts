@@ -4,11 +4,6 @@
 //
 // It lives here rather than in cli.ts because cli.ts runs main() on import and so
 // cannot be a pure seam — and the suggestion is the part worth testing.
-//
-// Every claim here is the code's claim: the hosts `--surface` accepts come from the same
-// list init and config offer, so help cannot promise a host the verb would refuse.
-
-import { surfaceOptions } from "./commands/init-shared.ts";
 
 /** One flag a verb answers to, with the answer it gives. */
 export type VerbFlag = { readonly flag: string; readonly helps: string };
@@ -35,8 +30,8 @@ export const HUMAN_VERBS: readonly VerbEntry[] = [
     flags: [
       { flag: "--yes", helps: "take every default instead of asking" },
       { flag: "--global", helps: "repair this machine's canon and stop; the repo is untouched" },
-      { flag: "--surface", helps: `install these hosts only: ${surfaceOptions().map((surface) => surface.id).join(", ")}` },
-      { flag: "--ci", helps: "write the CI template for github or azure-pipelines" },
+      { flag: "--surface", helps: "install these hosts only: claude-code, oh-my-pi, opencode, cursor, codex, copilot-cli, pi" },
+      { flag: "--ci", helps: "write the CI template for github-actions, azure-pipelines or none" },
     ],
     note: "Without --yes and --surface, the hosts detected in this repo start ticked and you confirm the list.",
   },
@@ -54,7 +49,7 @@ export const HUMAN_VERBS: readonly VerbEntry[] = [
     flags: [
       { flag: "--add", helps: "start governing this host too" },
       { flag: "--remove", helps: "stop governing this host" },
-      { flag: "--ci", helps: "switch the CI template to github or azure-pipelines" },
+      { flag: "--ci", helps: "switch the CI template to github-actions, azure-pipelines or none" },
     ],
     note: "With none of the three it asks, one question at a time.",
   },
