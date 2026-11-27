@@ -100,15 +100,21 @@ function packageVersion(root) {
   }
 }
 
-/** What `bun run build` recorded about the one binary it wrote: the version of the
- *  package.json that compile read. scripts/build.ts names the stamp after the
- *  artifact it vouches for, so a build for another target can never make older
- *  bytes look current. Its absence means unknown provenance (a build from before
- *  this rule, a copy, an unpacked artifact), not "probably fine". */
-function buildStamp(binaryPath) {
+/** Where `bun run build` records the version it compiled into one binary: the
+ *  stamp names the artifact it vouches for, so a build for another target can
+ *  never make older bytes look current. Exported because scripts/build.ts must
+ *  write exactly the file this module reads. */
+export function buildStampPath(binaryPath) {
   const artifact = basename(binaryPath).replace(/\.exe$/, "");
+  return join(dirname(binaryPath), `BUILD-VERSION-${artifact}`);
+}
+
+/** The version that stamp names, or null when there is no stamp: unknown
+ *  provenance (a build from before this rule, a copy, an unpacked artifact), not
+ *  "probably fine". */
+function buildStamp(binaryPath) {
   try {
-    return readFileSync(join(dirname(binaryPath), `BUILD-VERSION-${artifact}`), "utf8").trim();
+    return readFileSync(buildStampPath(binaryPath), "utf8").trim();
   } catch {
     return null;
   }

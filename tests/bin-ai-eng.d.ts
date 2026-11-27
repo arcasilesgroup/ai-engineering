@@ -5,4 +5,5 @@ declare module "*/bin/ai-eng.js" {
   export function resolveTarget(platform: string, arch: string, musl?: boolean): string | null;
   export function targetBinaryNames(target: string | null): string[];
   export function hostTarget(): string | null;
+  export function buildStampPath(binaryPath: string): string;
 }

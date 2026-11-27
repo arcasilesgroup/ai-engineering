@@ -6,9 +6,9 @@
 // renamed away or it does not outlive this script.
 import { readdirSync, existsSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { basename, dirname, join } from "node:path";
+import { join } from "node:path";
 import { PAYLOAD_FOLDERS } from "../src/embed.ts";
-import { hostTarget, targetBinaryNames } from "../bin/ai-eng.js";
+import { buildStampPath, hostTarget, targetBinaryNames } from "../bin/ai-eng.js";
 import { buildChainBundle } from "./chain-bundle.ts";
 
 const args = process.argv.slice(2);
@@ -51,16 +51,11 @@ buildChainBundle();
 // it at its own relative path, and src/embed.ts reads it back from there.
 const artifactPath = outfile(args);
 // The stamp bin/ai-eng.js demands before it runs anything out of dist/: the
-// version this compile freezes into the binary, in a file named after the
-// artifact it vouches for — a build of another target or another version must
-// never make older bytes look current. Removed before the compile and written
-// only after it succeeds, so a failed or interrupted build leaves no stamp and
-// the launcher runs the source rather than bytes nobody can tie to package.json.
-function stampFor(binaryPath: string): string {
-  const artifact = basename(binaryPath).replace(/\.exe$/, "");
-  return join(dirname(binaryPath), `BUILD-VERSION-${artifact}`);
-}
-const stampPath = stampFor(artifactPath);
+// version this compile freezes into the binary. Removed before the compile and
+// written only after it succeeds, so a failed or interrupted build leaves no
+// stamp and the launcher runs the source rather than bytes nobody can tie to
+// package.json.
+const stampPath = buildStampPath(artifactPath);
 const { version } = JSON.parse(readFileSync("package.json", "utf8")) as { version: string };
 rmSync(stampPath, { force: true });
 const assets = PAYLOAD_FOLDERS.flatMap((folder) => ["--asset", folder]);
@@ -83,7 +78,7 @@ if (!args.includes("--target") && !args.some((flag) => flag.startsWith("--target
     const platformBin = join("dist", name);
     if (!existsSync(platformBin)) continue;
     unlinkSync(platformBin);
-    rmSync(stampFor(platformBin), { force: true });
+    rmSync(buildStampPath(platformBin), { force: true });
     console.log(`build: removed stale ${platformBin} — bin/ai-eng.js was preferring it over dist/ai-eng`);
   }
 }
