@@ -105,10 +105,12 @@ test(
   { timeout: 180_000 },
 );
 
-/** A package built on purpose to be stale: its manifest says 9.9.9 while both the
- *  binary it carries and the code it runs answer 3.2.2 — the shape of an install
- *  whose binary outvoted its manifest. Never a real release; the release gate has
- *  to refuse it all the same, which is what makes the gate worth trusting. */
+/** A package built on purpose to be stale: its manifest says 9.9.9 while the
+ *  binary it carries answers 3.2.2, and the stamp that binary carries names the
+ *  manifest — a build older than the manifest it travels beside, the shape of an
+ *  install whose binary outvoted its manifest. Never a real release; the release
+ *  gate has to refuse it all the same, which is what makes the gate worth
+ *  trusting. */
 function stalePackageTarball(root: string): string {
   const packageRoot = join(root, "package");
   const shipped: Record<string, string> = {
@@ -118,7 +120,7 @@ function stalePackageTarball(root: string): string {
       2,
     )}\n`,
     "src/cli.ts": 'console.log("ai-eng 3.2.2");\n',
-    "dist/BUILD-VERSION": "3.2.2\n",
+    "dist/BUILD-VERSION-ai-eng": "9.9.9\n",
     "dist/ai-eng": "#!/bin/sh\necho ai-eng 3.2.2\n",
   };
   for (const [path, contents] of Object.entries(shipped)) {

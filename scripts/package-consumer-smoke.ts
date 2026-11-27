@@ -164,11 +164,17 @@ function tarballFiles(tarballPath: string): string[] {
  *  files, a copied artifact or a stray compile leaves behind. `bin/ai-eng.js`
  *  must ignore it: a binary beside a package.json cannot be allowed to outvote
  *  the manifest, or every command answers an older version while installs claim
- *  the newer one. Returns what the installed command answers with it planted. */
-function plantStaleDistAndAskAgain(consumerRoot: string, packageRoot: string): CommandResult {
+ *  the newer one. The stamp names the installed version, so the drill proves the
+ *  launcher ignores dist/ by layout rather than because the numbers happen to
+ *  disagree. Returns what the installed command answers with it planted. */
+function plantStaleDistAndAskAgain(
+  consumerRoot: string,
+  packageRoot: string,
+  installedVersion: string,
+): CommandResult {
   const dist = join(packageRoot, "dist");
   mkdirSync(dist, { recursive: true });
-  writeFileSync(join(dist, "BUILD-VERSION"), "0.0.0\n");
+  writeFileSync(join(dist, "BUILD-VERSION-ai-eng"), `${installedVersion}\n`);
   writeFileSync(join(dist, "ai-eng"), "#!/bin/sh\necho ai-eng 0.0.0\n");
   // Windows has no mode bits and no shebang: the file is planted, never run.
   if (process.platform !== "win32") chmodSync(join(dist, "ai-eng"), 0o755);
@@ -249,7 +255,7 @@ export async function runPackageConsumerSmoke(
     // Inventories before the drill below plants a dist/ in the installed package.
     const npmInstalledFiles = listInstalledFiles(npmPackageRoot);
     const bunInstalledFiles = listInstalledFiles(bunPackageRoot);
-    const staleDistCommand = plantStaleDistAndAskAgain(npmConsumer, npmPackageRoot);
+    const staleDistCommand = plantStaleDistAndAskAgain(npmConsumer, npmPackageRoot, npmManifest.version);
     const tarballHashAfter = sha256File(tarballPath);
 
     if (bunManifest.version !== npmManifest.version) {

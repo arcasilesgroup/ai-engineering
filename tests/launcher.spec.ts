@@ -95,14 +95,19 @@ function markDevCheckout({ packageRoot }: Staged): void {
   writeFileSync(join(packageRoot, "scripts", "build.ts"), "// dev checkout marker\n");
 }
 
-/** What `bun run build` leaves beside its binaries: the package version the
- *  compile read. The launcher runs a dist binary only when this names the
- *  version in package.json. */
-function stampDist({ packageRoot }: Staged, version: string | null = VERSION): void {
-  const dist = join(packageRoot, "dist");
-  mkdirSync(dist, { recursive: true });
-  if (version === null) rmSync(join(dist, "BUILD-VERSION"), { force: true });
-  else writeFileSync(join(dist, "BUILD-VERSION"), `${version}\n`);
+/** What `bun run build` leaves beside the binary it wrote: the package version
+ *  the compile read, in a file named after the artifact it vouches for. The
+ *  launcher runs a dist binary only when its own stamp names the version in
+ *  package.json, so a default version here is the "this binary is current" case. */
+function plantDist(
+  { packageRoot }: Staged,
+  name: string,
+  output: string,
+  version: string | null = VERSION,
+): void {
+  writeFakeExecutable(join(packageRoot, "dist", name), output);
+  if (version === null) return;
+  writeFileSync(join(packageRoot, "dist", `BUILD-VERSION-${name.replace(/\.exe$/, "")}`), `${version}\n`);
 }
 
 function writeFakeExecutable(path: string, output: string): void {
@@ -203,10 +208,9 @@ describe.skipIf(IS_WINDOWS)("published install", () => {
     addRealSource(staged);
     // A real 3.3.1 binary once sat here and answered every command while the
     // package said 3.4.1. The tarball ships no binary, so anything under dist/ is
-    // bytes this install cannot vouch for.
-    writeFakeExecutable(join(staged.packageRoot, "dist", `ai-eng-${TARGET}`), "from-dist");
-    writeFakeExecutable(join(staged.packageRoot, "dist", "ai-eng"), "from-dist-plain");
-    stampDist(staged, "0.0.0");
+    // bytes this install cannot vouch for — even stamped with this very version.
+    plantDist(staged, `ai-eng-${TARGET}`, "from-dist");
+    plantDist(staged, "ai-eng", "from-dist-plain");
 
     expect(run(NODE, [staged.launcher, "--version"], bunOnlyPath(staged))).toEqual({
       status: 0,
@@ -222,8 +226,7 @@ describe.skipIf(IS_WINDOWS)("dev checkout", () => {
     const staged = stageLauncher("ai-eng-launcher-dev-");
     markDevCheckout(staged);
     addManifest(staged);
-    writeFakeExecutable(join(staged.packageRoot, "dist", "ai-eng"), "from-dist-plain");
-    stampDist(staged);
+    plantDist(staged, "ai-eng", "from-dist-plain");
 
     expect(run(NODE, [staged.launcher, "--version"], "")).toEqual({
       status: 0,
@@ -238,8 +241,27 @@ describe.skipIf(IS_WINDOWS)("dev checkout", () => {
     addRealSource(staged);
     // The incident: binary built at 3.3.1, package.json now 3.4.1, every command
     // answered 3.3.1 until the binary was moved out of the way.
-    writeFakeExecutable(join(staged.packageRoot, "dist", "ai-eng"), "from-stale-dist");
-    stampDist(staged, "0.0.0");
+    plantDist(staged, "ai-eng", "from-stale-dist", "0.0.0");
+
+    expect(run(NODE, [staged.launcher, "--version"], bunOnlyPath(staged))).toEqual({
+      status: 0,
+      stdout: `ai-eng ${VERSION}\n`,
+      stderr: "",
+    });
+  });
+
+  test("a directory-wide stamp never vouches for binaries it did not write", () => {
+    const staged = stageLauncher("ai-eng-launcher-dev-foreign-stamp-");
+    markDevCheckout(staged);
+    addRealSource(staged);
+    // A `--target` build leaves the host-named binary alone (build.ts never
+    // deletes it), so a stamp that spoke for all of dist/ made those older bytes
+    // look current after any later cross-compile. Both names are planted
+    // unstamped, with only the shared stamp present.
+    const dist = join(staged.packageRoot, "dist");
+    writeFakeExecutable(join(dist, "ai-eng"), "from-stale-dist");
+    writeFakeExecutable(join(dist, `ai-eng-${TARGET}`), "from-stale-target-dist");
+    writeFileSync(join(dist, "BUILD-VERSION"), `${VERSION}\n`);
 
     expect(run(NODE, [staged.launcher, "--version"], bunOnlyPath(staged))).toEqual({
       status: 0,
@@ -252,8 +274,7 @@ describe.skipIf(IS_WINDOWS)("dev checkout", () => {
     const staged = stageLauncher("ai-eng-launcher-dev-unstamped-");
     markDevCheckout(staged);
     addRealSource(staged);
-    writeFakeExecutable(join(staged.packageRoot, "dist", "ai-eng"), "from-unstamped-dist");
-    stampDist(staged, null);
+    plantDist(staged, "ai-eng", "from-unstamped-dist", null);
 
     expect(run(NODE, [staged.launcher, "--version"], bunOnlyPath(staged))).toEqual({
       status: 0,
@@ -323,9 +344,8 @@ describe.skipIf(IS_WINDOWS)("under bun", () => {
 
   test("a published install imports the source in-process and ignores a planted dist build", () => {
     const { staged, fakeBin } = stageUnderBun("ai-eng-launcher-bun-dist-");
-    writeFakeExecutable(join(staged.packageRoot, "dist", `ai-eng-${TARGET}`), "from-dist");
-    writeFakeExecutable(join(staged.packageRoot, "dist", "ai-eng"), "from-dist-plain");
-    stampDist(staged, "0.0.0");
+    plantDist(staged, `ai-eng-${TARGET}`, "from-dist");
+    plantDist(staged, "ai-eng", "from-dist-plain");
 
     expect(run(process.execPath, [staged.launcher, "--version"], fakeBin)).toEqual({
       status: 0,
@@ -341,8 +361,7 @@ test.skipIf(IS_WINDOWS)("argv through a symlink still launches (realpath invocat
   symlinkSync(staged.launcher, link);
   markDevCheckout(staged);
   addManifest(staged);
-  writeFakeExecutable(join(staged.packageRoot, "dist", `ai-eng-${TARGET}`), "via-symlink");
-  stampDist(staged);
+  plantDist(staged, `ai-eng-${TARGET}`, "via-symlink");
 
   expect(run(NODE, [link, "--version"], "")).toEqual({
     status: 0,

@@ -6,7 +6,8 @@
 //
 //   Dev checkout (scripts/build.ts is here; it is not in the published tarball):
 //     1. dist/ai-eng-<target> or dist/ai-eng from `bun run build`, but only when
-//        dist/BUILD-VERSION still names the version in package.json;
+//        the build stamp written beside that very binary still names the version
+//        in package.json;
 //     2. the TypeScript source, via bun.
 //
 //   Published install (npm / bun add, no scripts/build.ts):
@@ -29,7 +30,7 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** Which dist binary this host wants: `bun run build --target` writes
@@ -86,30 +87,33 @@ function packageVersion(root) {
   }
 }
 
-/** What `bun run build` recorded about the binaries it left in dist/: the version
- *  of the package.json that compile read. scripts/build.ts writes it, so its
- *  absence means unknown provenance (a build from before this rule, a copy, an
- *  unpacked artifact), not "probably fine". */
-function buildStamp(root) {
+/** What `bun run build` recorded about the one binary it wrote: the version of the
+ *  package.json that compile read. scripts/build.ts names the stamp after the
+ *  artifact it vouches for, so a build for another target can never make older
+ *  bytes look current. Its absence means unknown provenance (a build from before
+ *  this rule, a copy, an unpacked artifact), not "probably fine". */
+function buildStamp(binaryPath) {
+  const artifact = basename(binaryPath).replace(/\.exe$/, "");
   try {
-    return readFileSync(join(root, "dist", "BUILD-VERSION"), "utf8").trim();
+    return readFileSync(join(dirname(binaryPath), `BUILD-VERSION-${artifact}`), "utf8").trim();
   } catch {
     return null;
   }
 }
 
-/** A local compile, if one exists AND it was built from this package's version.
- *  The target-named file is a `bun run build --target` for this host; `dist/ai-eng`
- *  is what a plain `bun run build` writes. Windows may add `.exe` to either name. */
+/** A local compile, if one exists AND its own stamp says this package's version
+ *  built it. The target-named file is a `bun run build --target` for this host;
+ *  `dist/ai-eng` is what a plain `bun run build` writes. Windows may add `.exe`
+ *  to either name. */
 function localBinary(root, target) {
   const version = packageVersion(root);
-  if (version === null || buildStamp(root) !== version) return null;
+  if (version === null) return null;
   const names = [];
   if (target) names.push(`ai-eng-${target}`, `ai-eng-${target}.exe`);
   names.push("ai-eng", "ai-eng.exe");
   for (const name of names) {
     const path = join(root, "dist", name);
-    if (existsSync(path)) return path;
+    if (existsSync(path) && buildStamp(path) === version) return path;
   }
   return null;
 }
