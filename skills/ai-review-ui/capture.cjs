@@ -2,8 +2,8 @@
 // Drives both sides through the same scenario steps, fingerprints the UI state on each,
 // and flags pairs whose states diverge, so reviewers never compare an empty form with a submitted one.
 //
-// Run from the repo root:
-//   npx -y -p playwright sh -c 'NODE_PATH="$(dirname "$(command -v playwright)")/.." node skills/ai-review-ui/capture.cjs <name> [baseUrl]'
+// Run from the repo root; <skill-dir> is this script's directory:
+//   npx -y -p playwright sh -c 'NODE_PATH="$(dirname "$(command -v playwright)")/.." node <skill-dir>/capture.cjs <name> [baseUrl]'
 // Reads   .ai-engineering/workflow/prototypes/<name>.states.json
 // Writes  .ai-engineering/workflow/playwright/review/<name>/<state>-<width>-{proto,live}.png and states.json
 const { chromium } = require("playwright");
@@ -15,7 +15,7 @@ const si = argv.indexOf("--scope");
 // Scope = the regions (data-region names) the current checkpoint has built; null = whole screen.
 const scope = si >= 0 ? argv.splice(si, 2)[1].split(",").map((s) => s.trim()).filter(Boolean) : null;
 const [name, base = "http://localhost:3000"] = argv;
-if (!name) { console.error("usage: skills/ai-review-ui/capture.cjs <prototype-name> [baseUrl] [--scope region1,region2]"); process.exit(1); }
+if (!name) { console.error("usage: <skill-dir>/capture.cjs <prototype-name> [baseUrl] [--scope region1,region2]"); process.exit(1); }
 
 const root = process.cwd();
 const scenarioPath = path.join(root, ".ai-engineering", "workflow", "prototypes", `${name}.states.json`);

@@ -11,7 +11,7 @@ generated/
 .ai-engineering/cache/
 .ai-engineering/research-cache/
 .ai-engineering/workflow/playwright/
-.claude/reviews/
+.ai-engineering/reviews/
 .claude/settings.local.json
 # Secrets and logs: the same lines templates/gitignore.tpl gives every governed repo.
 .env

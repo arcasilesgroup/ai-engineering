@@ -133,7 +133,7 @@ regardless of framework; use the project's own dev URL and port.
 ## Report
 
 Follow the output contract in `CONVENTIONS.md`. Write to
-`.claude/reviews/a11y-audit-<stamp>.md`.
+`.ai-engineering/reviews/a11y-audit-<stamp>.md`.
 
 Add the WCAG criterion to each finding, and write **Trigger** as the blocked user:
 

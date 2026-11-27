@@ -291,8 +291,9 @@ export type ReviewRound = {
   head: string | null;
 };
 
-/** The rounds document, flattened: `axi rounds --step review --json` (or one of the
- *  captured runs the eval corpus stores), plus any revisions the document names. */
+/** The rounds document, flattened: the review rounds a run prints as JSON (or one of the
+ *  captured runs the eval corpus stores), plus any revisions the document names. See
+ *  INPUT_HINT for what a caller is told when the document says neither. */
 export type RoundDocument = { rounds: ReviewRound[]; base: string | null; head: string | null };
 
 type RawRecord = Record<string, unknown>;
@@ -364,6 +365,12 @@ function parseRound(record: unknown, position: number): ReviewRound | null {
   };
 }
 
+/** The document a reader is looking for, said without assuming the reader has met the
+ *  tool that prints it: the plain `{findings: […]}` shape first, the pipeline's own
+ *  command second. */
+const INPUT_HINT =
+  "pass a `{findings: […]}` file with --base and --head, or the review rounds a review tool prints as JSON (for the no-mistakes pipeline that is `no-mistakes axi rounds --step review --json`)";
+
 /** Read the document a run prints. Accepts the live shape (`{rounds:[…]}`), the captured
  *  shape (an array of rounds), and a bare `{findings:[…]}` — the last one carries no
  *  chronology, so it can be annotated but cannot measure a decline or an outcome. */
@@ -376,7 +383,7 @@ export function parseRoundDocument(text: string): RoundDocument {
   }
   if (Array.isArray(parsed)) {
     const rounds = parsed.map((item, position) => parseRound(item, position)).filter((round): round is ReviewRound => round !== null);
-    if (rounds.length === 0) throw new Error("the rounds document has no review round: run `no-mistakes axi rounds --step review --json`");
+    if (rounds.length === 0) throw new Error(`the rounds document has no review round: ${INPUT_HINT}`);
     return { rounds: sortRounds(rounds), base: null, head: null };
   }
   const record = asRecord(parsed);
@@ -385,14 +392,14 @@ export function parseRoundDocument(text: string): RoundDocument {
   const head = asString(record.head_sha) ?? asString(record.head);
   if (Array.isArray(record.rounds)) {
     const rounds = record.rounds.map((item, position) => parseRound(item, position)).filter((round): round is ReviewRound => round !== null);
-    if (rounds.length === 0) throw new Error("the rounds document has no review round: run `no-mistakes axi rounds --step review --json`");
+    if (rounds.length === 0) throw new Error(`the rounds document has no review round: ${INPUT_HINT}`);
     return { rounds: sortRounds(rounds), base, head };
   }
   if (Array.isArray(record.findings)) {
     const findings = record.findings.map((item) => parseFinding(item)).filter((finding): finding is Finding => finding !== null);
     return { rounds: [{ number: 1, findings, selected: new Set(), isUserSelection: false, head }], base, head };
   }
-  throw new Error("the document has neither rounds nor findings: pass `axi rounds --step review --json` or a `{findings:[…]}` file");
+  throw new Error(`the document has neither rounds nor findings: ${INPUT_HINT}`);
 }
 
 function sortRounds(rounds: ReviewRound[]): ReviewRound[] {

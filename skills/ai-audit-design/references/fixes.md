@@ -46,9 +46,9 @@ Before changing any value, look for the reason beside it. Whole-pixel line boxes
 ## Prove it
 
 ```bash
-node scripts/audit.mjs --base $URL --routes … --widths … --json before.json   # on the branch point
+node <skill-dir>/scripts/audit.mjs --base $URL --routes … --widths … --json before.json   # on the branch point
 # … make the change …
-node scripts/audit.mjs --base $URL --routes … --widths … --baseline before.json
+node <skill-dir>/scripts/audit.mjs --base $URL --routes … --widths … --baseline before.json
 ```
 
 Then a pixel diff, if the project has one, and eyes last. The numbers say nothing moved; only a person says it reads right.

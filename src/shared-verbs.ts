@@ -5,23 +5,124 @@
 // It lives here rather than in cli.ts because cli.ts runs main() on import and so
 // cannot be a pure seam — and the suggestion is the part worth testing.
 
+/** One flag a verb answers to, with the answer it gives. */
+export type VerbFlag = { readonly flag: string; readonly helps: string };
+
+/** A verb as every surface needs it: one line for the menu, and the usage, flags and
+ *  note that `ai-eng <verb> --help` prints. The two live together so a verb cannot be
+ *  listed without being explainable. */
+export type VerbEntry = {
+  readonly verb: string;
+  readonly description: string;
+  /** One line after `usage: `, arguments and optional flags included. */
+  readonly usage: string;
+  readonly flags: readonly VerbFlag[];
+  /** One paragraph under the flags: what the flags cannot say in a column. */
+  readonly note?: string;
+};
+
 /** The verbs a person types, in help order, each with its one-line --help answer. */
-export const HUMAN_VERBS: readonly { readonly verb: string; readonly description: string }[] = [
-  { verb: "init", description: "install the contract in this repo (--global = this machine)" },
-  { verb: "doctor", description: "verify hooks, canon, and one live deny" },
-  { verb: "config", description: "change surfaces or the CI provider" },
-  { verb: "update", description: "install a newer binary, then sync this repo" },
-  { verb: "work", description: "list lanes; tidy, park, or drop to close one" },
-  { verb: "uninstall", description: "remove ai-eng here; keep your files" },
+export const HUMAN_VERBS: readonly VerbEntry[] = [
+  {
+    verb: "init",
+    description: "install the contract in this repo (--global = this machine)",
+    usage: "ai-eng init [--yes] [--global] [--surface <host,host>] [--ci <provider>]",
+    flags: [
+      { flag: "--yes", helps: "take every default instead of asking" },
+      { flag: "--global", helps: "repair this machine's canon and stop; the repo is untouched" },
+      { flag: "--surface", helps: "install these hosts only: claude-code, cursor, codex, pi, zed, …" },
+      { flag: "--ci", helps: "write the CI template for github or azure-pipelines" },
+    ],
+    note: "Without --yes and --surface, the hosts detected in this repo start ticked and you confirm the list.",
+  },
+  {
+    verb: "doctor",
+    description: "verify hooks, canon, and one live deny",
+    usage: "ai-eng doctor [--gc]",
+    flags: [{ flag: "--gc", helps: "delete receipts and artifacts past their retention window" }],
+    note: "It sends a real attack payload through the guard: a doctor that only reads files is not evidence. Exit 1 means a check failed.",
+  },
+  {
+    verb: "config",
+    description: "change surfaces or the CI provider",
+    usage: "ai-eng config [--add <host>] [--remove <host>] [--ci <provider>]",
+    flags: [
+      { flag: "--add", helps: "start governing this host too" },
+      { flag: "--remove", helps: "stop governing this host" },
+      { flag: "--ci", helps: "switch the CI template to github or azure-pipelines" },
+    ],
+    note: "With none of the three it asks, one question at a time.",
+  },
+  {
+    verb: "update",
+    description: "install a newer binary, then sync this repo",
+    usage: "ai-eng update [--yes]",
+    flags: [{ flag: "--yes", helps: "install the newer binary without asking" }],
+    note: "It asks the registry for the release first, then re-runs init so this repo gets the files the new binary expects.",
+  },
+  {
+    verb: "work",
+    description: "list lanes; tidy, park, or drop to close one",
+    usage: "ai-eng work [--json] | tidy | park <branch> <reason> [--until <YYYY-MM-DD>] | resume <branch> | drop <branch> | release",
+    flags: [
+      { flag: "--json", helps: "the lane board as JSON, for a program" },
+      { flag: "--until", helps: "on park: the date the lane is expected back" },
+    ],
+    note: "Bare `work` prints the board. Every other word closes a lane by one door: land, park, or drop.",
+  },
+  {
+    verb: "uninstall",
+    description: "remove ai-eng here; keep your files",
+    usage: "ai-eng uninstall",
+    flags: [],
+    note: "Removes the files init installed, here and on this machine. Your own files and your own hooks stay.",
+  },
 ];
 
 /** Verbs typed by agents and hooks. One line each in --help, same column as the human verbs. */
-export const MACHINE_VERBS: readonly { readonly verb: string; readonly description: string }[] = [
-  { verb: "chain", description: "hook decision, JSON in, JSON out" },
-  { verb: "git", description: "pre-commit, commit-msg, pre-push" },
-  { verb: "wrap", description: "run tests, print failures only" },
-  { verb: "worktree", description: "new, list, merge, rm a lane checkout" },
-  { verb: "findings", description: "annotate review findings a program can disprove" },
+export const MACHINE_VERBS: readonly VerbEntry[] = [
+  {
+    verb: "chain",
+    description: "hook decision, JSON in, JSON out",
+    usage: "ai-eng chain <event> [--surface <host>] < payload.json",
+    flags: [{ flag: "--surface", helps: "the host whose payload dialect to read (default claude-code)" }],
+    note: "Events: PreToolUse, PostToolUse, SessionStart, SessionEnd. It writes the verdict to stdout; a deny exits 0 too, because the payload carries the decision.",
+  },
+  {
+    verb: "git",
+    description: "pre-commit, commit-msg, pre-push",
+    usage: "ai-eng git <pre-commit|commit-msg|pre-push> [msgfile]",
+    flags: [],
+    note: "The hook entry points the installer wires into .git/hooks. The hook runs them; you rarely type this.",
+  },
+  {
+    verb: "wrap",
+    description: "run tests, print failures only",
+    usage: "ai-eng wrap test --base64 <encoded command>",
+    flags: [],
+    note: "The guard rewrites a test command to this shape. Run it by hand only to reproduce what that rewrite ran.",
+  },
+  {
+    verb: "worktree",
+    description: "new, list, merge, rm a lane checkout",
+    usage: "ai-eng worktree new <branch> | list [<slug>] | merge <slug> | request-changes <slug> <sha> | rm <slug> [--force]",
+    flags: [{ flag: "--force", helps: "on rm: also delete ignored files inside the checkout" }],
+    note: "A lane is one branch in its own checkout. merge lands it; rm removes the checkout, never the branch.",
+  },
+  {
+    verb: "findings",
+    description: "annotate the findings of a git diff review",
+    usage: "ai-eng findings check <rounds.json|-> [--json] [--round <n>] [--base <rev>] [--head <rev>]",
+    flags: [
+      { flag: "--json", helps: "counts and per-finding verdicts as one JSON object" },
+      { flag: "--round", helps: "read round n of a document that holds several" },
+      { flag: "--base", helps: "the commit the review started from; inferred when the document says" },
+      { flag: "--head", helps: "the commit the review looked at; defaults to HEAD" },
+    ],
+    note:
+      "It attaches the evidence a program can check to each finding of a review of a git diff: the file and line the finding cites, the lines the diff added, and the ids earlier rounds declined or later fixed. The annotation is a note, not a verdict: nothing is removed and a hit exits 0.\n\n" +
+      "The generic input is a `{findings: [...]}` file plus --base and --head. A review tool that prints its rounds as JSON can be piped in instead: `no-mistakes` is a review pipeline whose `axi` command does it, as in `no-mistakes axi rounds --step review --json` (that is the worked example, not a requirement).",
+  },
 ];
 
 /** Every verb the binary answers to. */
@@ -29,6 +130,23 @@ export const ALL_VERBS: readonly string[] = [
   ...HUMAN_VERBS.map((entry) => entry.verb),
   ...MACHINE_VERBS.map((entry) => entry.verb),
 ];
+
+/** `ai-eng <verb> --help`, or null for a verb this binary does not have. The caller
+ *  falls back to the global menu only when nothing was named: someone who asked about
+ *  `findings` is not asking what `ai-eng` is. */
+export function renderVerbHelp(verb: string): string | null {
+  const entry = [...HUMAN_VERBS, ...MACHINE_VERBS].find((candidate) => candidate.verb === verb);
+  if (entry === undefined) return null;
+  const lines = [`ai-eng ${entry.verb} · ${entry.description}`, "", `usage: ${entry.usage}`];
+  if (entry.flags.length > 0) {
+    const flagWidth = Math.max(...entry.flags.map((item) => item.flag.length)) + 2;
+    lines.push("");
+    for (const { flag, helps } of entry.flags) lines.push(`  ${flag.padEnd(flagWidth)}${helps}`);
+  }
+  if (entry.note !== undefined) lines.push("", entry.note);
+  lines.push("", "Run 'ai-eng --help' for every verb.");
+  return `${lines.join("\n")}\n`;
+}
 
 /** Levenshtein, two rows. The inputs are short and there is no dependency to add. */
 export function editDistance(a: string, b: string): number {

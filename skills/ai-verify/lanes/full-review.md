@@ -68,7 +68,7 @@ Give each agent this prompt shape:
 > Stay strictly in your lane: `<lane>`. If you notice something outside it, note
 > it in one line under "Cross-lane observations" and do not investigate — another
 > agent owns it.
-> Write your full report to `.claude/reviews/<name>-<stamp>.md` as the conventions
+> Write your full report to `.ai-engineering/reviews/<name>-<stamp>.md` as the conventions
 > specify. Return **only**: the verdict, a one-line summary per finding with
 > severity and `file:line`, and the report path. Do not return the full report
 > text.
@@ -115,7 +115,7 @@ evidence — read that file yourself and adjudicate.
 
 ## 5. Report
 
-Write the merged report to `.claude/reviews/full-review-<stamp>.md` and give the
+Write the merged report to `.ai-engineering/reviews/full-review-<stamp>.md` and give the
 user a short summary in chat with the top items and the path.
 
 ```markdown

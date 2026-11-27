@@ -141,8 +141,8 @@ result.
 
 ## 6. Output contract
 
-Write the report to `.claude/reviews/<skill-name>-<YYYYMMDD-HHMMSS>.md`
-(`mkdir -p .claude/reviews` first; get the stamp from `date +%Y%m%d-%H%M%S`).
+Write the report to `.ai-engineering/reviews/<skill-name>-<YYYYMMDD-HHMMSS>.md`
+(`mkdir -p .ai-engineering/reviews` first; get the stamp from `date +%Y%m%d-%H%M%S`).
 Print the path as the last line of your response.
 
 ````markdown

@@ -261,3 +261,32 @@ describe("CP11 skills lint", () => {
     expect(stopRuns).toMatch(/Direct\/light\/spike do not invoke the full brainstorm path/i);
   });
 });
+
+// The paths a shipped skill used to write or point at, and no longer may: `.claude/reviews/`
+// was one host's folder standing in for the project's own state, `/ai-design` named a skill
+// that does not exist, and both script invocations were relative to this repository, so they
+// resolved to nothing in the repository a consumer installs the skill into.
+const RETIRED_REFERENCES: readonly { readonly name: string; readonly pattern: RegExp }[] = [
+  { name: ".claude/reviews", pattern: /\.claude\/reviews/ },
+  { name: "/ai-design", pattern: /\/ai-design(?![\w-])/ },
+  { name: "node scripts/audit.mjs", pattern: /node scripts\/audit\.mjs/ },
+  { name: "skills/ai-review-ui/capture.cjs", pattern: /skills\/ai-review-ui\/capture\.cjs/ },
+];
+
+describe("retired host paths stay retired in every shipped skill", () => {
+  test("no skill or template carries a retired reference", () => {
+    const offenders = [SKILLS, TEMPLATES]
+      .flatMap(listFiles)
+      .flatMap((file) =>
+        readFileSync(file, "utf8")
+          .split(/\r?\n/)
+          .flatMap((line, index) =>
+            RETIRED_REFERENCES.filter(({ pattern }) => pattern.test(line)).map(
+              ({ name }) => `${relative(ROOT, file)}:${index + 1}: ${name} in "${line.trim()}"`,
+            ),
+          ),
+      );
+
+    expect(offenders).toEqual([]);
+  });
+});

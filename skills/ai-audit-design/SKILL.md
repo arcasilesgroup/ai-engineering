@@ -6,8 +6,7 @@ description: >-
   touch targets, rendered contrast over gradients and images, text printing
   over text, Gestalt proximity, divider lines that should be space, and
   type-scale drift — measured in a real browser across widths, and proved
-  unchanged afterwards. Not for electing a lead or sequencing design work —
-  use /ai-design.
+  unchanged afterwards. Not for electing a lead or sequencing design work.
 license: LicenseRef-Attributed
 ---
 
@@ -18,11 +17,11 @@ A stylesheet is a claim. A painted pixel is the evidence. Everything here measur
 Serve the **built** output and point the audit at it. A dev server with hot reload measures a page nobody visits.
 
 ```bash
-node scripts/audit.mjs --base http://127.0.0.1:4399 \
+node <skill-dir>/scripts/audit.mjs --base http://127.0.0.1:4399 \
   --routes / /about /projects --widths 320 390 820 1440
 ```
 
-`--checks` selects passes (`geometry contrast collision proximity type interior a11y`); `--aa` relaxes the contrast target from AAA to AA; `--json out.json` writes findings and text anchors. Run it before touching anything.
+`<skill-dir>` is this skill's installed directory — wherever your host keeps skills, not a path in the project under audit. `--checks` selects passes (`geometry contrast collision proximity type interior a11y`); `--aa` relaxes the contrast target from AAA to AA; `--json out.json` writes findings and text anchors. Run it before touching anything.
 
 ## What each pass is asking
 
@@ -59,8 +58,8 @@ Downloadable documents — PDFs, Word files, PPTX decks — cannot be audited in
 
 ## The ai-engineering seam
 
-1. An executable anti-slop gate that ai-design routes to — never bundled, always
-   pointing at what is installed at runtime.
+1. An executable anti-slop gate — never bundled, always pointing at what is
+   installed at runtime.
 2. Result: `.ai-engineering/design/audits/NNN-{name}.html` — measurements, not
    opinions; the `NNN` prefix is never rewritten once issued. Render it with the
    artifact design system — [ai-brainstorm › references/artifact-design.md](../../skills/ai-brainstorm/references/artifact-design.md) — so the
@@ -79,5 +78,8 @@ Read by: the human, the milestone gate
 Dies: immune while a permanent governor cites it; doctor --gc after older_than when nothing cites it
 Next: none
 
-Source: community-installed skill, no license (upstream contacted, issue H4) —
-integrated with attribution until one arrives.
+Source: third-party skill, integrated with attribution. The upstream licence is unresolved, so
+`license: LicenseRef-Attributed` above is the honest record: `scripts/audit.mjs` is third-party code
+carried as it arrived and is **not** relicensed by this repository's Apache-2.0. The replacement is
+`@arcasiles/web-floor`, our own Apache-2.0 engine; it is not published yet, so until it ships this
+script is the only engine and nothing here claims otherwise.

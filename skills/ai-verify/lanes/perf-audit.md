@@ -144,7 +144,7 @@ an estimate as a measurement.
 ## 6. Report
 
 Follow the output contract in `CONVENTIONS.md`. Write to
-`.claude/reviews/perf-audit-<stamp>.md`.
+`.ai-engineering/reviews/perf-audit-<stamp>.md`.
 
 Each finding must quantify the cost, and say whether it is measured or estimated:
 
