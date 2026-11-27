@@ -5,13 +5,23 @@
 // Two layouts, two orders:
 //
 //   Dev checkout (scripts/build.ts is here; it is not in the published tarball):
-//     1. dist/ai-eng-<target> or dist/ai-eng from `bun run build`;
+//     1. dist/ai-eng-<target> or dist/ai-eng from `bun run build`, but only when
+//        the build stamp written beside that very binary still names the version
+//        in package.json;
 //     2. the TypeScript source, via bun.
 //
 //   Published install (npm / bun add, no scripts/build.ts):
-//     the TypeScript source under bun — the tarball ships src/ and no binary,
-//     and engines.bun names the runtime it needs (the v0.13.0 requires-python
-//     contract, in npm terms).
+//     the TypeScript source under bun, always — the tarball ships src/ and no
+//     binary, and engines.bun names the runtime it needs (the v0.13.0
+//     requires-python contract, in npm terms). A dist/ that a previous install
+//     left in the package root is never consulted.
+//
+// The version rule is the point: a compile freezes package.json into the
+// executable, so a binary built from older source reports the older version and
+// runs the older behaviour while the package around it says something newer.
+// That is a real incident (3.3.1 installed, every command answering 3.2.2), and
+// the stamp is what makes it impossible: bytes nobody can tie to this package's
+// package.json do not run, and the source — which reads package.json — does.
 //
 // Still plain Node-compatible JS on purpose: `node bin/ai-eng.js` (or a shim
 // that picks node) must keep working by handing the source to the bun on
@@ -19,8 +29,8 @@
 // anything from src/ statically — only bun can load the TypeScript source.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** Which dist binary this host wants: `bun run build --target` writes
@@ -31,6 +41,13 @@ export function resolveTarget(platform, arch, musl = false) {
   if (platform === "win32") return `windows-${arch}`;
   if (platform === "linux") return `linux-${musl ? "musl-" : ""}${arch}`;
   return null;
+}
+
+/** The names `bun run build --target` gives one host's artifact: Bun appends the
+ *  extension on Windows, so both spellings exist. Exported so scripts/build.ts
+ *  clears exactly the names the launcher prefers. */
+export function targetBinaryNames(target) {
+  return target ? [`ai-eng-${target}`, `ai-eng-${target}.exe`] : [];
 }
 
 /** musl vs glibc: the runtime report names the libc it was linked against; its
@@ -45,6 +62,12 @@ function isMusl() {
     /* no report: assume glibc */
   }
   return false;
+}
+
+/** This machine's target suffix, the one a `bun run build --target` here names. */
+export function hostTarget() {
+  const musl = process.platform === "linux" ? isMusl() : false;
+  return resolveTarget(process.platform, process.arch, musl);
 }
 
 /** Spawn one candidate binary and exit with its status. Never returns. */
@@ -67,16 +90,46 @@ function isDevCheckout(root) {
   return existsSync(join(root, "scripts", "build.ts"));
 }
 
-/** A local compile, if one exists. The target-named file is a `bun run build
- *  --target` for this host; `dist/ai-eng` is what a plain `bun run build` writes.
- *  Windows may add `.exe` to either name. */
+/** The version this package claims to be. Absent or unreadable manifest: null,
+ *  which no binary can match — the source runs and reports its own truth. */
+function packageVersion(root) {
+  try {
+    return JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Where `bun run build` records the version it compiled into one binary: the
+ *  stamp names the artifact it vouches for, so a build for another target can
+ *  never make older bytes look current. Exported because scripts/build.ts must
+ *  write exactly the file this module reads. */
+export function buildStampPath(binaryPath) {
+  const artifact = basename(binaryPath).replace(/\.exe$/, "");
+  return join(dirname(binaryPath), `BUILD-VERSION-${artifact}`);
+}
+
+/** The version that stamp names, or null when there is no stamp: unknown
+ *  provenance (a build from before this rule, a copy, an unpacked artifact), not
+ *  "probably fine". */
+function buildStamp(binaryPath) {
+  try {
+    return readFileSync(buildStampPath(binaryPath), "utf8").trim();
+  } catch {
+    return null;
+  }
+}
+
+/** A local compile, if one exists AND its own stamp says this package's version
+ *  built it. The target-named file is a `bun run build --target` for this host;
+ *  `dist/ai-eng` is what a plain `bun run build` writes. Windows may add `.exe`
+ *  to either name. */
 function localBinary(root, target) {
-  const names = [];
-  if (target) names.push(`ai-eng-${target}`, `ai-eng-${target}.exe`);
-  names.push("ai-eng", "ai-eng.exe");
-  for (const name of names) {
+  const version = packageVersion(root);
+  if (version === null) return null;
+  for (const name of [...targetBinaryNames(target), "ai-eng", "ai-eng.exe"]) {
     const path = join(root, "dist", name);
-    if (existsSync(path)) return path;
+    if (existsSync(path) && buildStamp(path) === version) return path;
   }
   return null;
 }
@@ -97,16 +150,14 @@ function runSource(root) {
 }
 
 async function main() {
-  const musl = process.platform === "linux" ? isMusl() : false;
-  const target = resolveTarget(process.platform, process.arch, musl);
   const root = packageRoot();
   if (isDevCheckout(root)) {
-    const local = localBinary(root, target);
+    const local = localBinary(root, hostTarget());
     if (local) runBinary(local);
     runSource(root);
   }
-  const local = localBinary(root, target);
-  if (local) runBinary(local);
+  // A published install runs the source and nothing else: the tarball ships no
+  // binary, so any dist/ here came from somewhere this package cannot vouch for.
   if (process.versions.bun) {
     await import(join(root, "src", "cli.ts"));
     return;

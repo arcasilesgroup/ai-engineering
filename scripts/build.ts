@@ -4,10 +4,11 @@
 // behind in the cwd and Bun never sweeps one from an earlier run (invisible
 // because .gitignore hides it). Sweep before and after: the scratch either gets
 // renamed away or it does not outlive this script.
-import { readdirSync, existsSync, rmSync, unlinkSync } from "node:fs";
+import { readdirSync, existsSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { PAYLOAD_FOLDERS } from "../src/embed.ts";
+import { buildStampPath, hostTarget, targetBinaryNames } from "../bin/ai-eng.js";
 import { buildChainBundle } from "./chain-bundle.ts";
 
 const args = process.argv.slice(2);
@@ -48,30 +49,42 @@ if (orphans > 0) console.log(`build: swept ${orphans} orphaned .bun-build scratc
 buildChainBundle();
 // The binary IS the payload (blueprint 07): every folder in PAYLOAD_FOLDERS travels inside
 // it at its own relative path, and src/embed.ts reads it back from there.
+const artifactPath = outfile(args);
+// The stamp bin/ai-eng.js demands before it runs anything out of dist/: the
+// version this compile freezes into the binary. Removed before the compile and
+// written only after it succeeds, so a failed or interrupted build leaves no
+// stamp and the launcher runs the source rather than bytes nobody can tie to
+// package.json.
+const stampPath = buildStampPath(artifactPath);
+const { version } = JSON.parse(readFileSync("package.json", "utf8")) as { version: string };
+rmSync(stampPath, { force: true });
 const assets = PAYLOAD_FOLDERS.flatMap((folder) => ["--asset", folder]);
 const done = spawnSync(
   process.execPath,
-  ["build", "src/cli.ts", "--compile", "--minify", "--sourcemap", "--bytecode", ...assets, "--outfile", outfile(args), ...args],
+  ["build", "src/cli.ts", "--compile", "--minify", "--sourcemap", "--bytecode", ...assets, "--outfile", artifactPath, ...args],
   { stdio: "inherit" },
 );
 
-const left = sweep();
+sweep();
 
-// A plain build (`bun run build`) emits dist/ai-eng. A leftover
-// dist/ai-eng-<this host> is from an older --target run and would win over the
+// A plain build (`bun run build`) emits dist/ai-eng. A target-named binary for
+// this host is from an older --target run, and bin/ai-eng.js prefers it over the
 // file this build just wrote, so a dev checkout would keep running stale code.
-// Removing it leaves dist/ai-eng, which bin/ai-eng.js runs. A --target build
-// never deletes: that file is the platform refresh.
+// Clearing every name the launcher tries before dist/ai-eng — the plain and
+// `.exe` spellings, musl included — leaves the binary this build just wrote. A
+// --target build never deletes: that file is the platform refresh.
 if (!args.includes("--target") && !args.some((flag) => flag.startsWith("--target="))) {
-  const target = process.platform === "darwin" ? `darwin-${process.arch}`
-    : process.platform === "win32" ? "windows-x64" : `${process.platform}-${process.arch}`;
-  const platformBin = join("dist", `ai-eng-${target}`);
-  if (existsSync(platformBin)) {
+  for (const name of targetBinaryNames(hostTarget())) {
+    const platformBin = join("dist", name);
+    if (!existsSync(platformBin)) continue;
     unlinkSync(platformBin);
+    rmSync(buildStampPath(platformBin), { force: true });
     console.log(`build: removed stale ${platformBin} — bin/ai-eng.js was preferring it over dist/ai-eng`);
   }
 }
 
-process.exit(done.status ?? 1);
+if ((done.status ?? 1) !== 0) process.exit(done.status ?? 1);
+writeFileSync(stampPath, `${version}\n`);
+process.exit(0);
 
 

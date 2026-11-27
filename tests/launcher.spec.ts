@@ -75,6 +75,11 @@ function addRealSource({ packageRoot }: Staged): void {
   copyFileSync(join(ROOT, "package.json"), join(packageRoot, "package.json"));
 }
 
+/** Just the manifest: the version `localBinary` compares the build stamp against. */
+function addManifest({ packageRoot }: Staged): void {
+  copyFileSync(join(ROOT, "package.json"), join(packageRoot, "package.json"));
+}
+
 /** A stand-in src/cli.ts whose output names the in-process import, so it can
  *  never be mistaken for a spawned bun or a dist binary. */
 function addMarkerSource({ packageRoot }: Staged): void {
@@ -88,6 +93,21 @@ function addMarkerSource({ packageRoot }: Staged): void {
 function markDevCheckout({ packageRoot }: Staged): void {
   mkdirSync(join(packageRoot, "scripts"), { recursive: true });
   writeFileSync(join(packageRoot, "scripts", "build.ts"), "// dev checkout marker\n");
+}
+
+/** What `bun run build` leaves beside the binary it wrote: the package version
+ *  the compile read, in a file named after the artifact it vouches for. The
+ *  launcher runs a dist binary only when its own stamp names the version in
+ *  package.json, so a default version here is the "this binary is current" case. */
+function plantDist(
+  { packageRoot }: Staged,
+  name: string,
+  output: string,
+  version: string | null = VERSION,
+): void {
+  writeFakeExecutable(join(packageRoot, "dist", name), output);
+  if (version === null) return;
+  writeFileSync(join(packageRoot, "dist", `BUILD-VERSION-${name.replace(/\.exe$/, "")}`), `${version}\n`);
 }
 
 function writeFakeExecutable(path: string, output: string): void {
@@ -183,29 +203,82 @@ describe.skipIf(IS_WINDOWS)("published install", () => {
     });
   });
 
-  test("a dist build for this host runs before the source", () => {
+  test("a dist build inside an installed package is never run — a tarball ships source only", () => {
     const staged = stageLauncher("ai-eng-launcher-dist-");
     addRealSource(staged);
-    writeFakeExecutable(join(staged.packageRoot, "dist", `ai-eng-${TARGET}`), "from-dist");
+    // A real 3.3.1 binary once sat here and answered every command while the
+    // package said 3.4.1. The tarball ships no binary, so anything under dist/ is
+    // bytes this install cannot vouch for — even stamped with this very version.
+    plantDist(staged, `ai-eng-${TARGET}`, "from-dist");
+    plantDist(staged, "ai-eng", "from-dist-plain");
 
-    expect(run(NODE, [staged.launcher, "--version"], "")).toEqual({
+    expect(run(NODE, [staged.launcher, "--version"], bunOnlyPath(staged))).toEqual({
       status: 0,
-      stdout: "from-dist --version\n",
+      stdout: `ai-eng ${VERSION}\n`,
       stderr: "",
     });
   });
 });
 
 describe.skipIf(IS_WINDOWS)("dev checkout", () => {
-  test("runs dist/ai-eng from `bun run build`", () => {
+  test("runs dist/ai-eng from `bun run build` when the build stamp names this version", () => {
     // `bun link` of this repo: scripts/build.ts is the marker the tarball lacks.
     const staged = stageLauncher("ai-eng-launcher-dev-");
     markDevCheckout(staged);
-    writeFakeExecutable(join(staged.packageRoot, "dist", "ai-eng"), "from-dist-plain");
+    addManifest(staged);
+    plantDist(staged, "ai-eng", "from-dist-plain");
 
     expect(run(NODE, [staged.launcher, "--version"], "")).toEqual({
       status: 0,
       stdout: "from-dist-plain --version\n",
+      stderr: "",
+    });
+  });
+
+  test("a dist binary stamped with another version is stale bytes: the source runs", () => {
+    const staged = stageLauncher("ai-eng-launcher-dev-stale-");
+    markDevCheckout(staged);
+    addRealSource(staged);
+    // The incident: binary built at 3.3.1, package.json now 3.4.1, every command
+    // answered 3.3.1 until the binary was moved out of the way.
+    plantDist(staged, "ai-eng", "from-stale-dist", "0.0.0");
+
+    expect(run(NODE, [staged.launcher, "--version"], bunOnlyPath(staged))).toEqual({
+      status: 0,
+      stdout: `ai-eng ${VERSION}\n`,
+      stderr: "",
+    });
+  });
+
+  test("a directory-wide stamp never vouches for binaries it did not write", () => {
+    const staged = stageLauncher("ai-eng-launcher-dev-foreign-stamp-");
+    markDevCheckout(staged);
+    addRealSource(staged);
+    // A `--target` build leaves the host-named binary alone (build.ts never
+    // deletes it), so a stamp that spoke for all of dist/ made those older bytes
+    // look current after any later cross-compile. Both names are planted
+    // unstamped, with only the shared stamp present.
+    const dist = join(staged.packageRoot, "dist");
+    writeFakeExecutable(join(dist, "ai-eng"), "from-stale-dist");
+    writeFakeExecutable(join(dist, `ai-eng-${TARGET}`), "from-stale-target-dist");
+    writeFileSync(join(dist, "BUILD-VERSION"), `${VERSION}\n`);
+
+    expect(run(NODE, [staged.launcher, "--version"], bunOnlyPath(staged))).toEqual({
+      status: 0,
+      stdout: `ai-eng ${VERSION}\n`,
+      stderr: "",
+    });
+  });
+
+  test("an unstamped dist build has unknown provenance: the source runs", () => {
+    const staged = stageLauncher("ai-eng-launcher-dev-unstamped-");
+    markDevCheckout(staged);
+    addRealSource(staged);
+    plantDist(staged, "ai-eng", "from-unstamped-dist", null);
+
+    expect(run(NODE, [staged.launcher, "--version"], bunOnlyPath(staged))).toEqual({
+      status: 0,
+      stdout: `ai-eng ${VERSION}\n`,
       stderr: "",
     });
   });
@@ -243,6 +316,9 @@ describe.skipIf(IS_WINDOWS)("under bun", () => {
   function stageUnderBun(prefix: string): { staged: Staged; fakeBin: string } {
     const staged = stageLauncher(prefix);
     addMarkerSource(staged);
+    // The manifest a published install carries: without it no planted dist/ could
+    // ever match, and the dist case below would pass for the wrong reason.
+    addManifest(staged);
     const fakeBin = join(staged.stagingRoot, "fake-bin");
     writeFakeExecutable(join(fakeBin, "bun"), "from-spawned-bun");
     return { staged, fakeBin };
@@ -269,13 +345,14 @@ describe.skipIf(IS_WINDOWS)("under bun", () => {
     });
   });
 
-  test("a published install runs a dist build for this host before the in-process source", () => {
+  test("a published install imports the source in-process and ignores a planted dist build", () => {
     const { staged, fakeBin } = stageUnderBun("ai-eng-launcher-bun-dist-");
-    writeFakeExecutable(join(staged.packageRoot, "dist", `ai-eng-${TARGET}`), "from-dist");
+    plantDist(staged, `ai-eng-${TARGET}`, "from-dist");
+    plantDist(staged, "ai-eng", "from-dist-plain");
 
     expect(run(process.execPath, [staged.launcher, "--version"], fakeBin)).toEqual({
       status: 0,
-      stdout: "from-dist --version\n",
+      stdout: "from-in-process-import --version\n",
       stderr: "",
     });
   });
@@ -285,7 +362,9 @@ test.skipIf(IS_WINDOWS)("argv through a symlink still launches (realpath invocat
   const staged = stageLauncher("ai-eng-launcher-symlink-");
   const link = join(staged.stagingRoot, "ai-eng-link.js");
   symlinkSync(staged.launcher, link);
-  writeFakeExecutable(join(staged.packageRoot, "dist", `ai-eng-${TARGET}`), "via-symlink");
+  markDevCheckout(staged);
+  addManifest(staged);
+  plantDist(staged, `ai-eng-${TARGET}`, "via-symlink");
 
   expect(run(NODE, [link, "--version"], "")).toEqual({
     status: 0,
