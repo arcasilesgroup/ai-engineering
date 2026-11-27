@@ -316,6 +316,9 @@ describe.skipIf(IS_WINDOWS)("under bun", () => {
   function stageUnderBun(prefix: string): { staged: Staged; fakeBin: string } {
     const staged = stageLauncher(prefix);
     addMarkerSource(staged);
+    // The manifest a published install carries: without it no planted dist/ could
+    // ever match, and the dist case below would pass for the wrong reason.
+    addManifest(staged);
     const fakeBin = join(staged.stagingRoot, "fake-bin");
     writeFakeExecutable(join(fakeBin, "bun"), "from-spawned-bun");
     return { staged, fakeBin };
