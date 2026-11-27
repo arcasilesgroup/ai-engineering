@@ -1,9 +1,11 @@
 # The git floor on every commit route
 
-A commit message is judged by the `commit-msg` hook, and that hook only runs where a commit
-is made by hand. Some commits are not: the validation pipeline makes its own fix commits and
-can assign a subject after the commit already exists. Those subjects used to reach the branch
-unjudged. The rule now runs again at the push, the one door every route crosses.
+A commit message is judged by the `commit-msg` hook, and that hook runs wherever a commit goes
+through `git commit` — a person at a keyboard, an agent, or the pipeline's own CI repair. Some
+commits are not: the validation pipeline makes its own fix commits and can assign a subject
+after the commit already exists. Those subjects used to reach the branch unjudged. The rule
+now runs again at the push, the door every route leaving this clone crosses, and the two
+bypasses that cross no door are named below.
 
 ## The rule
 
@@ -14,7 +16,7 @@ One predicate, asked by two hooks:
 | the eleven accepted types and the `type(scope): description` shape | [`src/floor/index.ts:167`](../src/floor/index.ts#L167) |
 | the verdict both hooks share | [`src/floor/index.ts:170`](../src/floor/index.ts#L170) |
 | asked when a commit message is written | [`src/floor/index.ts:185`](../src/floor/index.ts#L185) |
-| asked again over the commits a push introduces | [`src/floor/index.ts:314`](../src/floor/index.ts#L314) |
+| asked again over the commits a push introduces | [`src/floor/index.ts:313`](../src/floor/index.ts#L313) |
 
 The push asks about the commits that push introduces: the new tips, minus what the remote
 already has, minus the base the branch inherits, merge commits excepted. Judging the
