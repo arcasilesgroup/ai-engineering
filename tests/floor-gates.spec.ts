@@ -842,7 +842,8 @@ describe("floor gates — the commit rule follows every route to the push (check
     const restore = pushRefs("refs/heads/feature", sha, "refs/heads/feature", published);
     try {
       expect(prePush(repo)).toEqual({ ok: true, lines: [] });
-      // The scan still covers what the push sends: inherited base history is not re-scanned either.
+      // The scan still covers everything the push sends, the merge and the base's commits
+      // included: it is the subject gate, not the scan, that leaves them out.
       const { args } = JSON.parse(readFileSync(record, "utf8")) as { args: string[] };
       expect(args).toContain(`--log-opts=${sha} --not ${published}`);
     } finally {

@@ -24,7 +24,7 @@ rewrite.
 The shims that carry the hooks into a repository are
 [`templates/git-commit-msg.tpl:10`](../templates/git-commit-msg.tpl#L10) and its pre-push
 sibling; `ai-eng` installs all three from one list in
-[`src/floor/template.ts:8`](../src/floor/template.ts#L8).
+[`src/commands/init-shared.ts:115`](../src/commands/init-shared.ts#L115).
 
 ## The routes, and which ones run the rule
 
@@ -84,7 +84,8 @@ it turns on to that pin.
 A route that cannot be hooked is not excused from the rule, it is judged later. The only route
 this repository does not turn on is the evidence branch, and turning it on requires pinning
 `test.evidence.commit_message` to a subject the floor accepts; until then it is not a route
-here at all. Whichever route is added next, the push asks the question.
+here at all. Whichever route is added next, its commits reach the push and are asked the
+question there — merge commits aside, for the reason below.
 
 Syncing the base into a branch is where judging later has a limit, and the limit is ownership:
 a `git merge origin/main` pulls the base's commits into the branch, the pusher did not write
