@@ -5,6 +5,8 @@
 // It lives here rather than in cli.ts because cli.ts runs main() on import and so
 // cannot be a pure seam — and the suggestion is the part worth testing.
 
+import { CI_PROVIDERS } from "./env.ts";
+
 /** One flag a verb answers to, with the answer it gives. */
 export type VerbFlag = { readonly flag: string; readonly helps: string };
 
@@ -30,8 +32,8 @@ export const HUMAN_VERBS: readonly VerbEntry[] = [
     flags: [
       { flag: "--yes", helps: "take every default instead of asking" },
       { flag: "--global", helps: "repair this machine's canon and stop; the repo is untouched" },
-      { flag: "--surface", helps: "install these hosts only: claude-code, oh-my-pi, opencode, cursor, codex, copilot-cli, pi" },
-      { flag: "--ci", helps: "write the CI template for github-actions, azure-pipelines or none" },
+      { flag: "--surface", helps: "install these hosts only — an advisory host is refused" },
+      { flag: "--ci", helps: `write the CI template for one of ${CI_PROVIDERS.join(", ")}` },
     ],
     note: "Without --yes and --surface, the hosts detected in this repo start ticked and you confirm the list.",
   },
@@ -49,7 +51,7 @@ export const HUMAN_VERBS: readonly VerbEntry[] = [
     flags: [
       { flag: "--add", helps: "start governing this host too" },
       { flag: "--remove", helps: "stop governing this host" },
-      { flag: "--ci", helps: "switch the CI template to github-actions, azure-pipelines or none" },
+      { flag: "--ci", helps: `switch the CI template to one of ${CI_PROVIDERS.join(", ")}` },
     ],
     note: "With none of the three it asks, one question at a time.",
   },
