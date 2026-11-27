@@ -121,6 +121,18 @@ function stage(root: string, files: Record<string, string>): void {
   run("git", root, ["add", ...Object.keys(files)]);
 }
 
+const ZERO = "0".repeat(40);
+
+/** What git hands pre-push for one pushed ref, for the duration of the returned restore. */
+function pushRefs(localRef: string, sha: string, remoteRef: string, remoteSha = ZERO): () => void {
+  const previousRefs = process.env.AI_ENG_PUSH_REFS;
+  process.env.AI_ENG_PUSH_REFS = `${localRef} ${sha} ${remoteRef} ${remoteSha}`;
+  return () => {
+    if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
+    else process.env.AI_ENG_PUSH_REFS = previousRefs;
+  };
+}
+
 /** Path with git and no gitleaks: proves the "gitleaks missing" HARD FAIL. */
 function pathWithoutGitleaks(): void {
   process.env.PATH = pathWithOnlyGit();
@@ -646,17 +658,6 @@ describe("floor gates — the staged scan's exception is HEAD's allowlist paths,
 });
 
 describe("floor gates — pre-push fails closed on the base (checkpoint 24)", () => {
-  const ZERO = "0".repeat(40);
-
-  function pushRefs(localRef: string, sha: string, remoteRef: string): () => void {
-    const previousRefs = process.env.AI_ENG_PUSH_REFS;
-    process.env.AI_ENG_PUSH_REFS = `${localRef} ${sha} ${remoteRef} ${ZERO}`;
-    return () => {
-      if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
-      else process.env.AI_ENG_PUSH_REFS = previousRefs;
-    };
-  }
-
   /** A governed repo checked out on `branch` with one commit; `base` is written as [git] base when given. */
   function pushRepo(branch: string, base: string | null): { repo: string; sha: string } {
     const repo = tempRepo(true);
@@ -729,17 +730,6 @@ describe("floor gates — pre-push fails closed on the base (checkpoint 24)", ()
 });
 
 describe("floor gates — the commit rule follows every route to the push (checkpoint 26)", () => {
-  const ZERO = "0".repeat(40);
-
-  function pushRefs(localRef: string, sha: string, remoteRef: string, remoteSha = ZERO): () => void {
-    const previousRefs = process.env.AI_ENG_PUSH_REFS;
-    process.env.AI_ENG_PUSH_REFS = `${localRef} ${sha} ${remoteRef} ${remoteSha}`;
-    return () => {
-      if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
-      else process.env.AI_ENG_PUSH_REFS = previousRefs;
-    };
-  }
-
   /** A governed repo on `feature` whose `main` is already published: one commit the push
    *  sends, and nothing else in the range. The subject is the only variable. */
   function branchOverPublishedMain(subject: string): { repo: string; sha: string } {

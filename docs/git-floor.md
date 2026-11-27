@@ -16,7 +16,7 @@ One predicate, asked by two hooks:
 | the eleven accepted types and the `type(scope): description` shape | [`src/floor/index.ts:167`](../src/floor/index.ts#L167) |
 | the verdict both hooks share | [`src/floor/index.ts:170`](../src/floor/index.ts#L170) |
 | asked when a commit message is written | [`src/floor/index.ts:185`](../src/floor/index.ts#L185) |
-| asked again over the commits a push introduces | [`src/floor/index.ts:313`](../src/floor/index.ts#L313) |
+| asked again over the commits a push introduces | [`src/floor/index.ts:315`](../src/floor/index.ts#L315) |
 
 The push asks about the commits that push introduces: the new tips, minus what the remote
 already has, minus the base the branch inherits, merge commits excepted. Judging the
@@ -123,5 +123,8 @@ Two tests hold that:
   commits break the convention is pushed once the pusher's own commits keep it.
 - [`tests/pipeline-commit-routes.spec.ts`](../tests/pipeline-commit-routes.spec.ts) — every
   route this repository's `.no-mistakes.yaml` turns on renders a subject the floor accepts, for
-  every pipeline step, and a commit-subject template the suite does not know how to render
-  fails it.
+  every pipeline step, and any subject template declared under a message-named key (the
+  collector takes keys matching `/message/i`, such as `commit.fix_message` or
+  `test.evidence.commit_message`) that the suite cannot render fails it. A subject a route
+  declares under a key that does not name a message is not collected there; the pre-push gate
+  still holds it.

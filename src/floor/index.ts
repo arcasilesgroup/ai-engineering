@@ -245,9 +245,11 @@ function outgoingRevisions(cwd: string, tuples: PushTuple[]): { tips: string[]; 
 }
 
 /** `[sha, subject]` for every commit a revision list selects. A read that fails is not "no
- *  commits": the caller refuses rather than judging less than it was asked to. */
+ *  commits": the caller refuses rather than judging less than it was asked to. The buffer
+ *  is sized for a range of a quarter million commits: the default would turn a long-lived
+ *  branch's first push into a spawn failure the person cannot read as a subject problem. */
 function outgoingSubjects(cwd: string, revisions: string[]): Array<[string, string]> | { refused: string } {
-  const done = runGit(["log", "--format=%H%x1f%s", ...revisions], { cwd, isolated: true });
+  const done = runGit(["log", "--format=%H%x1f%s", ...revisions], { cwd, isolated: true, maxBuffer: 64 * 1024 * 1024 });
   if (done.status !== 0) return { refused: `pre-push: cannot read the commits this push sends: ${done.stderr.trim().slice(0, 200)}` };
   return done.stdout
     .split("\n")
