@@ -16,7 +16,7 @@ One predicate, asked by two hooks:
 | the eleven accepted types and the `type(scope): description` shape | [`src/floor/index.ts:167`](../src/floor/index.ts#L167) |
 | the verdict both hooks share | [`src/floor/index.ts:170`](../src/floor/index.ts#L170) |
 | asked when a commit message is written | [`src/floor/index.ts:185`](../src/floor/index.ts#L185) |
-| asked again over the commits a push introduces | [`src/floor/index.ts:315`](../src/floor/index.ts#L315) |
+| asked again over the commits a push introduces | [`src/floor/index.ts:316`](../src/floor/index.ts#L316) |
 
 The push asks about the commits that push introduces: the new tips, minus what the remote
 already has, minus the base the branch inherits, merge commits excepted. Judging the
