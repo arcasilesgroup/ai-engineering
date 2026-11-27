@@ -14,7 +14,11 @@ permissions:
   contents: read
 
 env:
-  AI_ENG_VERSION: v3.0.6
+  # Bumped by hand once the release is public: this copy is the repository's own gate, and
+  # pinning the version a Version Packages PR is about to ship would make that PR download
+  # a governor that does not exist yet. `ai-eng update` leaves it alone too — this copy
+  # carries `-c .gitleaksrc.toml`, so it is the project's file, not the template's bytes.
+  AI_ENG_VERSION: v3.4.2
 
 jobs:
   check:

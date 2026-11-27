@@ -105,6 +105,7 @@ tests/
   release-sbom.spec.ts         The SBOM lists only the installed runtime graph, deterministically
   release-workflow.spec.ts     release.yml builds from the dispatched SHA, packs once and publishes that tarball
   release-policy.spec.ts       Tag, signer and NOTICE.md refusals of the release policy
+  check-workflow.spec.ts       check.yml's update step syncs with this checkout's binary, never a release installed behind it
   chain-contract.spec.ts       Dispatcher receipts, repo resolution, verdict cache and malformed-payload denial
   checkpoint-guard-contract.spec.ts  Exact checkpoint-guard refusals and allowed writes
   self-protect-contract.spec.ts  Exact self-protect verdict per shell shape and the layer that gives it
