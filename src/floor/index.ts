@@ -218,10 +218,13 @@ function pushTuples(raw: string): PushTuple[] | { malformed: string } {
 /** The commits this push sends, as `git log` revisions: every new tip, minus what the
  *  remote already has — the old tip of a ref it moves, or the remote's base for a ref it
  *  creates. One revision list for every ref, so a commit two refs share is scanned once.
- *  A deletion sends nothing. Whatever cannot be measured refuses, never widens or skips. */
-function outgoingRevisions(cwd: string, tuples: PushTuple[]): { tips: string[]; known: string[] } | { refused: string } {
+ *  A deletion sends nothing. Whatever cannot be measured refuses, never widens or skips.
+ *  `base` is where the remote's base stands in this clone: everything it reaches was
+ *  authored on the base, whoever pushes here inherited it and cannot rewrite it. */
+function outgoingRevisions(cwd: string, tuples: PushTuple[]): { tips: string[]; known: string[]; base: string | null } | { refused: string } {
   const tips = new Set<string>();
   const known = new Set<string>();
+  const base = namedBaseTrackingRef(cwd);
   for (const tuple of tuples) {
     if (isZero(tuple.localSha)) continue;
     tips.add(tuple.localSha);
@@ -232,14 +235,13 @@ function outgoingRevisions(cwd: string, tuples: PushTuple[]): { tips: string[]; 
       known.add(tuple.remoteSha);
       continue;
     }
-    const base = namedBaseTrackingRef(cwd);
     if (base === null || base.commit === null) {
       const where = base === null ? "the remote's base branch" : base.ref;
       return { refused: `pre-push: ${tuple.remoteRef} is new on the remote and ${where} is not in this clone, so the outgoing commits cannot be told apart — git fetch, or set [git] base in .ai-engineering/config.toml, then push again.` };
     }
     known.add(base.commit);
   }
-  return { tips: [...tips], known: [...known] };
+  return { tips: [...tips], known: [...known], base: base?.commit ?? null };
 }
 
 /** `[sha, subject]` for every commit a revision list selects. A read that fails is not "no
@@ -301,10 +303,13 @@ export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   // The commit-msg hook only sees the routes that run hooks. The pipeline writes its fix
   // commits itself and rewrites their subjects afterwards, so a bad subject can enter with
   // no hook in sight (PR #823: three did). Every route still leaves through one door, so
-  // the same rule is asked again over exactly the commits this push sends (R6).
-  // One revision list for both questions: what is judged is what is scanned.
+  // the same rule is asked again over the commits this push introduces (R6).
   const revisions = [...outgoing.tips, "--not", ...outgoing.known];
-  const subjects = outgoingSubjects(cwd, revisions);
+  // Merging or rebasing onto an advanced base puts that base's own commits in the range:
+  // judged here they would refuse a push over history the pusher did not write. The base
+  // commit keeps it out, and merges are skipped because git writes them, not a person.
+  const judged = [...outgoing.tips, "--not", ...(outgoing.base === null ? outgoing.known : [...outgoing.known, outgoing.base]), "--no-merges"];
+  const subjects = outgoingSubjects(cwd, judged);
   if ("refused" in subjects) return { ok: false, lines: [subjects.refused] };
   const offender = subjects.find(([, subject]) => subjectProblem(subject) !== null);
   if (offender !== undefined) {

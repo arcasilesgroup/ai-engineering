@@ -14,7 +14,12 @@ One predicate, asked by two hooks:
 | the eleven accepted types and the `type(scope): description` shape | [`src/floor/index.ts:167`](../src/floor/index.ts#L167) |
 | the verdict both hooks share | [`src/floor/index.ts:170`](../src/floor/index.ts#L170) |
 | asked when a commit message is written | [`src/floor/index.ts:185`](../src/floor/index.ts#L185) |
-| asked again over the commits a push sends | [`src/floor/index.ts:309`](../src/floor/index.ts#L309) |
+| asked again over the commits a push introduces | [`src/floor/index.ts:314`](../src/floor/index.ts#L314) |
+
+The push asks about the commits that push introduces: the new tips, minus what the remote
+already has, minus the base the branch inherits, merge commits excepted. Judging the
+inherited history would refuse a push over commits the pusher did not write and cannot
+rewrite.
 
 The shims that carry the hooks into a repository are
 [`templates/git-commit-msg.tpl:10`](../templates/git-commit-msg.tpl#L10) and its pre-push
@@ -30,8 +35,9 @@ sibling; `ai-eng` installs all three from one list in
 | A pipeline subject rewrite | the pipeline, after the commit exists | no — the subject is assigned afterwards | `pre-push` |
 | The evidence branch | the pipeline | no | `pre-push`, and only when this repository enables `test.evidence.store_in_repo` |
 | A CI repair commit (`ci`) | the pipeline, through a plain `git commit` in the run worktree | yes | the `commit-msg` hook |
+| Syncing the base into a branch (`git merge origin/main`, or a rebase onto it) | the base's own authors, and `git` for the merge commit | for a merge made here, yes | `pre-push`, over the commits the push introduces: the base's history is out of range, and merges are excepted |
 
-The last row is the odd one out, and it is why the rule looked like it ran on some routes and
+The `ci` row is the odd one out, and it is why the rule looked like it ran on some routes and
 not others: the CI repair is the only pipeline route that hands the commit to `git` instead of
 assembling it. Everything else went around the hook.
 
@@ -73,12 +79,26 @@ this repository does not turn on is the evidence branch, and turning it on requi
 `test.evidence.commit_message` to a subject the floor accepts; until then it is not a route
 here at all. Whichever route is added next, the push asks the question.
 
+Syncing the base into a branch is the one route where judging later has a limit, and the limit
+is ownership rather than coverage. A `git merge origin/main` pulls the base's commits into the
+branch; the pusher did not write them and cannot rewrite them without rewriting published
+history that belongs to the base. So the push judges the commits it introduces — the pusher's
+own — and skips merge commits, which git writes rather than a person. The merge commit itself
+is the one commit that route creates, and it is one the `commit-msg` hook sees when the merge
+is made here. Nothing a pusher writes on that route leaves unjudged; the base's history was
+judged on the base.
+
+That exemption covers inherited history only: the three `no-mistakes(review):` and
+`no-mistakes(document):` commits in the record above are the pusher's own, so they stay
+refused.
+
 Two tests hold that:
 
 - [`tests/floor-gates.spec.ts`](../tests/floor-gates.spec.ts) — a commit whose subject the
   `commit-msg` hook would reject cannot be pushed even when no hook saw it, a conventional
-  subject on the same push still passes, and a push whose outgoing commits cannot be read is
-  refused instead of waved through.
+  subject on the same push still passes, a push whose outgoing commits cannot be read is
+  refused instead of waved through, and a branch that merges an advanced base whose own
+  commits break the convention is pushed once the pusher's own commits keep it.
 - [`tests/pipeline-commit-routes.spec.ts`](../tests/pipeline-commit-routes.spec.ts) — every
   route this repository's `.no-mistakes.yaml` turns on renders a subject the floor accepts, for
   every pipeline step, and a commit-subject template the suite does not know how to render

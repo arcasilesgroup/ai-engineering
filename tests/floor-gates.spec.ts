@@ -731,9 +731,9 @@ describe("floor gates — pre-push fails closed on the base (checkpoint 24)", ()
 describe("floor gates — the commit rule follows every route to the push (checkpoint 26)", () => {
   const ZERO = "0".repeat(40);
 
-  function pushRefs(localRef: string, sha: string, remoteRef: string): () => void {
+  function pushRefs(localRef: string, sha: string, remoteRef: string, remoteSha = ZERO): () => void {
     const previousRefs = process.env.AI_ENG_PUSH_REFS;
-    process.env.AI_ENG_PUSH_REFS = `${localRef} ${sha} ${remoteRef} ${ZERO}`;
+    process.env.AI_ENG_PUSH_REFS = `${localRef} ${sha} ${remoteRef} ${remoteSha}`;
     return () => {
       if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
       else process.env.AI_ENG_PUSH_REFS = previousRefs;
@@ -796,6 +796,73 @@ describe("floor gates — the commit rule follows every route to the push (check
       const result = prePush(repo);
       expect(result.ok).toBe(false);
       expect(result.lines[0]?.startsWith("pre-push: cannot read the commits this push sends:")).toBe(true);
+    } finally {
+      restore();
+    }
+  });
+
+  /** A governed repo whose `feature` is already published, whose `main` then moves ahead with
+   *  the history `main` really carries (`Version Packages`, which no feature branch can
+   *  rewrite), and whose `feature` merges that base back in — the workflow this repository uses.
+   *  The push sends the merge commit, and the pusher's own commit when `ownSubject` is given. */
+  function branchMergingAdvancedBase(ownSubject: string | null): { repo: string; sha: string; published: string } {
+    const repo = tempRepo(true);
+    declareBase(repo);
+    write(repo, "app.ts", "clean\n");
+    run("git", repo, ["add", "app.ts"]);
+    run("git", repo, ["commit", "-q", "-m", "test: publish the base"]);
+    run("git", repo, ["update-ref", "refs/remotes/origin/main", run("git", repo, ["rev-parse", "HEAD"]).stdout.trim()]);
+    run("git", repo, ["checkout", "-q", "-b", "feature"]);
+    write(repo, "pipeline.ts", "pipeline\n");
+    run("git", repo, ["add", "pipeline.ts"]);
+    run("git", repo, ["commit", "-q", "-m", "chore(review): publish the feature"]);
+    const published = run("git", repo, ["rev-parse", "HEAD"]).stdout.trim();
+    run("git", repo, ["update-ref", "refs/remotes/origin/feature", published]);
+    run("git", repo, ["checkout", "-q", "main"]);
+    write(repo, "release.txt", "release\n");
+    run("git", repo, ["add", "release.txt"]);
+    run("git", repo, ["commit", "-q", "--no-verify", "-m", "Version Packages"]);
+    run("git", repo, ["update-ref", "refs/remotes/origin/main", run("git", repo, ["rev-parse", "HEAD"]).stdout.trim()]);
+    run("git", repo, ["checkout", "-q", "feature"]);
+    // --no-verify on both: the base's history was written where this clone's hook never ran,
+    // and the merge gets git's own default subject, which is not a conventional one.
+    run("git", repo, ["merge", "-q", "--no-verify", "main"]);
+    if (ownSubject !== null) {
+      write(repo, "own.ts", "own\n");
+      run("git", repo, ["add", "own.ts"]);
+      run("git", repo, ["commit", "-q", "--no-verify", "-m", ownSubject]);
+    }
+    return { repo, sha: run("git", repo, ["rev-parse", "HEAD"]).stdout.trim(), published };
+  }
+
+  test("merging an advanced base whose own commits break the convention does not block the push", () => {
+    const { repo, sha, published } = branchMergingAdvancedBase(null);
+    const record = join(dirname(repo), "argv.json");
+    useGitleaksShim(shimDir, { mode: "history", record }, PATH_BEFORE);
+    const restore = pushRefs("refs/heads/feature", sha, "refs/heads/feature", published);
+    try {
+      expect(prePush(repo)).toEqual({ ok: true, lines: [] });
+      // The scan still covers what the push sends: inherited base history is not re-scanned either.
+      const { args } = JSON.parse(readFileSync(record, "utf8")) as { args: string[] };
+      expect(args).toContain(`--log-opts=${sha} --not ${published}`);
+    } finally {
+      restore();
+    }
+  });
+
+  test("a bad subject in the pusher's own commit is still refused after that merge", () => {
+    const subject = "no-mistakes(review): count the findings";
+    const { repo, sha, published } = branchMergingAdvancedBase(subject);
+    installStrictShim({ scanExit: 0 });
+    const restore = pushRefs("refs/heads/feature", sha, "refs/heads/feature", published);
+    try {
+      expect(prePush(repo)).toEqual({
+        ok: false,
+        lines: [
+          `pre-push: ${sha.slice(0, 12)} does not follow the Conventional Commits convention: "${subject}"`,
+          "Format: type(scope): description — rewrite that commit's subject before pushing.",
+        ],
+      });
     } finally {
       restore();
     }
