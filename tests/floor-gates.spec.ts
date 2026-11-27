@@ -727,3 +727,77 @@ describe("floor gates — pre-push fails closed on the base (checkpoint 24)", ()
     }
   });
 });
+
+describe("floor gates — the commit rule follows every route to the push (checkpoint 26)", () => {
+  const ZERO = "0".repeat(40);
+
+  function pushRefs(localRef: string, sha: string, remoteRef: string): () => void {
+    const previousRefs = process.env.AI_ENG_PUSH_REFS;
+    process.env.AI_ENG_PUSH_REFS = `${localRef} ${sha} ${remoteRef} ${ZERO}`;
+    return () => {
+      if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
+      else process.env.AI_ENG_PUSH_REFS = previousRefs;
+    };
+  }
+
+  /** A governed repo on `feature` whose `main` is already published: one commit the push
+   *  sends, and nothing else in the range. The subject is the only variable. */
+  function branchOverPublishedMain(subject: string): { repo: string; sha: string } {
+    const repo = tempRepo(true);
+    declareBase(repo);
+    write(repo, "app.ts", "clean\n");
+    run("git", repo, ["add", "app.ts"]);
+    run("git", repo, ["commit", "-q", "-m", "test: publish the base"]);
+    run("git", repo, ["update-ref", "refs/remotes/origin/main", run("git", repo, ["rev-parse", "HEAD"]).stdout.trim()]);
+    run("git", repo, ["checkout", "-q", "-b", "feature"]);
+    write(repo, "pipeline.ts", "pipeline\n");
+    run("git", repo, ["add", "pipeline.ts"]);
+    // --no-verify is the door every route the commit-msg hook never sees walks through:
+    // the pipeline writes its own commits and can assign the subject after the fact.
+    run("git", repo, ["commit", "-q", "--no-verify", "-m", subject]);
+    return { repo, sha: run("git", repo, ["rev-parse", "HEAD"]).stdout.trim() };
+  }
+
+  test("a subject the commit-msg hook would reject cannot be pushed, even with no hook in its way", () => {
+    const subject = "no-mistakes(review): count the findings";
+    const { repo, sha } = branchOverPublishedMain(subject);
+    installStrictShim({ scanExit: 0 });
+    const restore = pushRefs("refs/heads/feature", sha, "refs/heads/feature");
+    try {
+      expect(prePush(repo)).toEqual({
+        ok: false,
+        lines: [
+          `pre-push: ${sha.slice(0, 12)} does not follow the Conventional Commits convention: "${subject}"`,
+          "Format: type(scope): description — rewrite that commit's subject before pushing.",
+        ],
+      });
+    } finally {
+      restore();
+    }
+  });
+
+  test("the same push is allowed once the subject keeps the convention", () => {
+    const { repo, sha } = branchOverPublishedMain("chore(review): count the findings");
+    installStrictShim({ scanExit: 0 });
+    const restore = pushRefs("refs/heads/feature", sha, "refs/heads/feature");
+    try {
+      expect(prePush(repo)).toEqual({ ok: true, lines: [] });
+    } finally {
+      restore();
+    }
+  });
+
+  test("when the outgoing commits cannot be read the push is refused, never waved through", () => {
+    const { repo } = branchOverPublishedMain("chore(review): count the findings");
+    installStrictShim({ scanExit: 0 });
+    // A hook line naming a commit this clone does not have: nothing can be judged, so nothing passes.
+    const restore = pushRefs("refs/heads/feature", "1".repeat(40), "refs/heads/feature");
+    try {
+      const result = prePush(repo);
+      expect(result.ok).toBe(false);
+      expect(result.lines[0]?.startsWith("pre-push: cannot read the commits this push sends:")).toBe(true);
+    } finally {
+      restore();
+    }
+  });
+});

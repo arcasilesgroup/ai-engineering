@@ -424,7 +424,7 @@ ai-eng doctor
 
 </details>
 
-More: [install edge cases](docs/install.md) (from source, no administrator rights, Windows) · [CLI](docs/cli.md) · [lanes](docs/lanes.md) · [configuration](docs/configuration.md) · [troubleshooting](docs/troubleshooting.md) · [skills](docs/skills.md) (the triggers that send a change to a skill).
+More: [install edge cases](docs/install.md) (from source, no administrator rights, Windows) · [CLI](docs/cli.md) · [lanes](docs/lanes.md) · [configuration](docs/configuration.md) · [troubleshooting](docs/troubleshooting.md) · [skills](docs/skills.md) (the triggers that send a change to a skill) · [the commit rule on every route](docs/git-floor.md).
 
 <a name="build-with-us"></a>
 <h2 align="center"><a href="#build-with-us"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/heading-build-with-us-dark.webp"><img src=".github/assets/readme/heading-build-with-us-light.webp" alt="Found a way past it?" width="600"></picture></a></h2>
