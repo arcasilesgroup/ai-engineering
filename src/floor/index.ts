@@ -302,8 +302,9 @@ export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   if (outgoing.tips.length === 0) return { ok: true, lines };
   // The commit-msg hook only sees the routes that run hooks. The pipeline writes its fix
   // commits itself and rewrites their subjects afterwards, so a bad subject can enter with
-  // no hook in sight (PR #823: three did). Every route still leaves through one door, so
-  // the same rule is asked again over the commits this push introduces (R6).
+  // no hook in sight (PR #823: three did). The routes that commit in this clone leave through
+  // one door, so the same rule is asked again over the commits this push introduces (R6);
+  // `git push --no-verify`/`--no-hooks` and a commit written on the forge bypass that door.
   const revisions = [...outgoing.tips, "--not", ...outgoing.known];
   // Merging or rebasing onto an advanced base puts that base's own commits in the range:
   // judged here they would refuse a push over history the pusher did not write. The base

@@ -107,17 +107,20 @@ describe("CP26 pipeline commit routes", () => {
     // The pin the pipeline reads for its fix commits is the one this repository declares;
     // dropping it falls back to the pipeline default, which this test then has to reject.
     expect(active.map((route) => route.key)).toContain("commit.fix_message");
-    const accepted: string[] = [];
-    for (const route of active) {
+    const rendered = active.map((route) => {
       const pinned = declared.find((candidate) => candidate.key === route.key)?.template;
-      for (const subject of renderedSubjects(route, pinned ?? route.pipelineDefault)) {
+      return { route, subjects: renderedSubjects(route, pinned ?? route.pipelineDefault) };
+    });
+    // Coverage is counted per route, so enabling a second route adds subjects to judge instead
+    // of failing a total, and a route that renders nothing is a route nobody judged.
+    for (const { route, subjects } of rendered) {
+      expect({ route: route.key, judged: subjects.length > 0 }).toEqual({ route: route.key, judged: true });
+      for (const subject of subjects) {
         expect({ subject, problem: subjectProblem(subject) }).toEqual({ subject, problem: null });
-        accepted.push(subject);
       }
+      // One subject per step: a step that quietly reused another's would hide a route.
+      expect({ route: route.key, distinct: new Set(subjects).size }).toEqual({ route: route.key, distinct: subjects.length });
     }
-    expect(accepted.length).toBe(PIPELINE_STEPS.length);
-    // One subject per step: a step that quietly reused another's would hide a route.
-    expect(new Set(accepted).size).toBe(PIPELINE_STEPS.length);
   });
 
   test("a rendered subject also survives the real hook, trailer included", () => {

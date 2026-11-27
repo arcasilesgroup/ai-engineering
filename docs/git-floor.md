@@ -97,7 +97,7 @@ Merge commits are a wider exemption, and it is a bypass rather than coverage. Th
 every merge commit, whoever wrote its subject, because git writes that subject in the ordinary
 flow. A merge subject is judged only by `commit-msg`, and only when the merge is made in this
 clone with the hooks installed: a merge made elsewhere, or with `--no-verify`, reaches the
-branch with no judgement at all. That is the one hole in this rule, and it is named here so it
+branch with no judgement at all. That is a hole in this rule, and it is named here so it
 cannot be mistaken for a covered route.
 
 A bad subject is refused while the commit is still the pusher's own. Once it lands on the base
@@ -105,6 +105,12 @@ it is inherited history and falls out of range — which is why the three `no-mi
 and `no-mistakes(document):` commits in the record above, now on `main`, are no longer caught:
 the gate stops a bad subject on its first push, it does not clean up history that is already
 published.
+
+Two bypasses sit outside every route this table maps, and no local hook can see them: `git push
+--no-verify` (or `--no-hooks`) runs no hook at all, so every commit that push carries leaves
+unjudged, and a commit written on the forge — a web edit, a squash-merge that rewrites the PR
+title, a release bot's `Version Packages` — never crosses a local push. Branch protection and
+review are what cover those, not this floor.
 
 Two tests hold that:
 
