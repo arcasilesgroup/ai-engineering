@@ -9,11 +9,11 @@ import { archiveTip, closeLane, lanes, PARK_KEY, type Board, type Lane, type Lan
 import { runGit } from "../git/run.ts";
 import { worktreeStatus } from "../git/worktree.ts";
 import { readLease, releaseLease } from "../guards/lease.ts";
+import { verbUsage } from "../shared-verbs.ts";
 import { MARKS } from "../theme.ts";
 import { spinner } from "../ui.ts";
 
-const USAGE =
-  "usage: ai-eng work [--json] | tidy | park <branch> <reason> [--until YYYY-MM-DD] | resume <branch> | drop <branch> | release\n";
+const USAGE = verbUsage("work");
 
 const ORDER: LaneState[] = ["active", "ready", "parked", "landed", "orphan", "ghost"];
 

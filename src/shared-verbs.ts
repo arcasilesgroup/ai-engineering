@@ -87,9 +87,9 @@ export const MACHINE_VERBS: readonly VerbEntry[] = [
     verb: "chain",
     description: "hook decision, JSON in, JSON out",
     usage: "ai-eng chain <event> [--surface <host>] < payload.json",
-    flags: [{ flag: "--surface", helps: "the host whose payload dialect to read (default claude-code)" }],
+    flags: [{ flag: "--surface", helps: "the host whose payload dialect to read; a host that runs the chain in-process reads none (default claude-code)" }],
     note:
-      "Events: PreToolUse, Stop, PostToolUse, UserPromptSubmit, SessionStart, SessionEnd. Where the verdict lands depends on the host: claude-code reads the exit code, so a deny exits 2 and an allow says nothing; cursor, codex and copilot read the JSON on stdout and exit 0.",
+      "Events: PreToolUse, Stop, PostToolUse, UserPromptSubmit, SessionStart, SessionEnd. Where the verdict lands depends on the host: claude-code reads the exit code, so a deny exits 2 and an allow says nothing; the hosts that read a dialect — cursor, codex and copilot-cli, for example — read the JSON on stdout and exit 0.",
   },
   {
     verb: "git",
@@ -101,7 +101,7 @@ export const MACHINE_VERBS: readonly VerbEntry[] = [
   {
     verb: "wrap",
     description: "run tests, print failures only",
-    usage: "ai-eng wrap test --base64 <encoded command>",
+    usage: "ai-eng wrap test --base64 <encoded test command>",
     flags: [],
     note: "The guard rewrites a test command to this shape. Run it by hand only to reproduce what that rewrite ran.",
   },
@@ -128,17 +128,26 @@ export const MACHINE_VERBS: readonly VerbEntry[] = [
   },
 ];
 
+/** Every verb, in help order: the menu, the help and the refusal all read this list. */
+const ENTRIES: readonly VerbEntry[] = [...HUMAN_VERBS, ...MACHINE_VERBS];
+
 /** Every verb the binary answers to. */
-export const ALL_VERBS: readonly string[] = [
-  ...HUMAN_VERBS.map((entry) => entry.verb),
-  ...MACHINE_VERBS.map((entry) => entry.verb),
-];
+export const ALL_VERBS: readonly string[] = ENTRIES.map((entry) => entry.verb);
+
+/** The `usage:` line a command prints when its arguments do not fit. It is the same
+ *  string `--help` shows, so a renamed flag cannot be true in one place and stale in
+ *  the other. */
+export function verbUsage(verb: string): string {
+  const entry = ENTRIES.find((candidate) => candidate.verb === verb);
+  if (entry === undefined) throw new Error(`no usage line for ${verb}`);
+  return `usage: ${entry.usage}`;
+}
 
 /** `ai-eng <verb> --help`, or null for a verb this binary does not have. The caller
  *  falls back to the global menu only when nothing was named: someone who asked about
  *  `findings` is not asking what `ai-eng` is. */
 export function renderVerbHelp(verb: string): string | null {
-  const entry = [...HUMAN_VERBS, ...MACHINE_VERBS].find((candidate) => candidate.verb === verb);
+  const entry = ENTRIES.find((candidate) => candidate.verb === verb);
   if (entry === undefined) return null;
   const lines = [`ai-eng ${entry.verb} · ${entry.description}`, "", `usage: ${entry.usage}`];
   if (entry.flags.length > 0) {
