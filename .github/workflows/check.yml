@@ -65,8 +65,13 @@ jobs:
         run: echo "$PWD/dist" >> "$GITHUB_PATH"
       # One verb, not two: `update` restores the git floor (.git/hooks is not
       # versioned, so every clone starts without it — a state no contributor caused)
-      # AND installs the canon the contract runner reads.
+      # AND installs the canon the contract runner reads. Its registry half is off on
+      # purpose: the binary of this checkout is the dist above, already first on PATH,
+      # so a release installed here stays behind that dist and the launcher refuses to
+      # sync with the version PATH answers — a red step on every branch, by its own rule.
       - name: Make this checkout match the binary (canon + floor + lock)
+        env:
+          AI_ENG_NO_UPDATE_NOTICES: "1"
         run: ./dist/ai-eng update --yes
       - name: Doctor (canon drift · lock version · spec pin · receipts)
         run: ./dist/ai-eng doctor
