@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
   copyFileSync,
   mkdirSync,
   mkdtempSync,
@@ -32,6 +33,7 @@ type PackageConsumerResult = {
   bunInstall: CommandResult;
   npmCommand: CommandResult;
   bunOnlyCommand: CommandResult;
+  staleDistCommand: CommandResult;
   nodeProbe: CommandResult;
   runtimeDependencies: string[];
   tarballHashBefore: string;
@@ -157,6 +159,22 @@ function tarballFiles(tarballPath: string): string[] {
     .sort();
 }
 
+/** The incident, replayed on an installation that really exists: a dist/ from
+ *  another build left inside the installed package — what an upgrade that keeps
+ *  files, a copied artifact or a stray compile leaves behind. `bin/ai-eng.js`
+ *  must ignore it: a binary beside a package.json cannot be allowed to outvote
+ *  the manifest, or every command answers an older version while installs claim
+ *  the newer one. Returns what the installed command answers with it planted. */
+function plantStaleDistAndAskAgain(consumerRoot: string, packageRoot: string): CommandResult {
+  const dist = join(packageRoot, "dist");
+  mkdirSync(dist, { recursive: true });
+  writeFileSync(join(dist, "BUILD-VERSION"), "0.0.0\n");
+  writeFileSync(join(dist, "ai-eng"), "#!/bin/sh\necho ai-eng 0.0.0\n");
+  // Windows has no mode bits and no shebang: the file is planted, never run.
+  if (process.platform !== "win32") chmodSync(join(dist, "ai-eng"), 0o755);
+  return runCommand(installedCommandPath(consumerRoot, "npm"), ["--version"], consumerRoot);
+}
+
 function installPath(consumerRoot: string): string {
   return join(consumerRoot, "node_modules", "ai-engineering");
 }
@@ -228,6 +246,10 @@ export async function runPackageConsumerSmoke(
       bunConsumer,
       bunOnlyEnvironment,
     );
+    // Inventories before the drill below plants a dist/ in the installed package.
+    const npmInstalledFiles = listInstalledFiles(npmPackageRoot);
+    const bunInstalledFiles = listInstalledFiles(bunPackageRoot);
+    const staleDistCommand = plantStaleDistAndAskAgain(npmConsumer, npmPackageRoot);
     const tarballHashAfter = sha256File(tarballPath);
 
     if (bunManifest.version !== npmManifest.version) {
@@ -237,12 +259,13 @@ export async function runPackageConsumerSmoke(
     return {
       version: npmManifest.version,
       packedFiles: packed.files,
-      npmInstalledFiles: listInstalledFiles(npmPackageRoot),
-      bunInstalledFiles: listInstalledFiles(bunPackageRoot),
+      npmInstalledFiles,
+      bunInstalledFiles,
       npmInstall,
       bunInstall,
       npmCommand,
       bunOnlyCommand,
+      staleDistCommand,
       nodeProbe,
       runtimeDependencies: Object.keys(npmManifest.dependencies ?? {}).sort(),
       tarballHashBefore,
@@ -265,6 +288,15 @@ export function packageConsumerFailures(result: PackageConsumerResult): string[]
   for (const forbiddenFile of FORBIDDEN_PACKED_FILES) {
     if (packedFiles.has(forbiddenFile)) failures.push(`tarball unexpectedly contains ${forbiddenFile}`);
   }
+  // A compile freezes the package.json it read into the executable, so a dist/
+  // in the tarball is a version claim that can disagree with the manifest beside
+  // it — the 3.3.1-installs-answer-3.2.2 incident. The package is source-only by
+  // design; the launcher must be the only entry a consumer gets.
+  for (const path of result.packedFiles) {
+    if (path.startsWith("dist/")) {
+      failures.push(`tarball ships ${path}: a compiled binary must never travel beside a package.json it can outvote`);
+    }
+  }
   if (JSON.stringify(result.npmInstalledFiles) !== JSON.stringify(result.packedFiles)) {
     failures.push("npm consumer files do not exactly match the packed tarball inventory");
   }
@@ -280,6 +312,13 @@ export function packageConsumerFailures(result: PackageConsumerResult): string[]
     result.bunOnlyCommand.stderr !== ""
   ) {
     failures.push("Bun-only consumer command did not return the exact version output and status");
+  }
+  if (
+    result.staleDistCommand.status !== 0 ||
+    result.staleDistCommand.stdout !== expectedOutput ||
+    result.staleDistCommand.stderr !== ""
+  ) {
+    failures.push("a dist/ planted in the installed package changed the version the command answers");
   }
   if (result.nodeProbe.status === 0) failures.push("Node was available on the Bun-only PATH");
   if (result.runtimeDependencies.includes("smol-toml")) {

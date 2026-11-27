@@ -5,13 +5,22 @@
 // Two layouts, two orders:
 //
 //   Dev checkout (scripts/build.ts is here; it is not in the published tarball):
-//     1. dist/ai-eng-<target> or dist/ai-eng from `bun run build`;
+//     1. dist/ai-eng-<target> or dist/ai-eng from `bun run build`, but only when
+//        dist/BUILD-VERSION still names the version in package.json;
 //     2. the TypeScript source, via bun.
 //
 //   Published install (npm / bun add, no scripts/build.ts):
-//     the TypeScript source under bun — the tarball ships src/ and no binary,
-//     and engines.bun names the runtime it needs (the v0.13.0 requires-python
-//     contract, in npm terms).
+//     the TypeScript source under bun, always — the tarball ships src/ and no
+//     binary, and engines.bun names the runtime it needs (the v0.13.0
+//     requires-python contract, in npm terms). A dist/ that a previous install
+//     left in the package root is never consulted.
+//
+// The version rule is the point: a compile freezes package.json into the
+// executable, so a binary built from older source reports the older version and
+// runs the older behaviour while the package around it says something newer.
+// That is a real incident (3.3.1 installed, every command answering 3.2.2), and
+// the stamp is what makes it impossible: bytes nobody can tie to this package's
+// package.json do not run, and the source — which reads package.json — does.
 //
 // Still plain Node-compatible JS on purpose: `node bin/ai-eng.js` (or a shim
 // that picks node) must keep working by handing the source to the bun on
@@ -19,7 +28,7 @@
 // anything from src/ statically — only bun can load the TypeScript source.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -67,10 +76,34 @@ function isDevCheckout(root) {
   return existsSync(join(root, "scripts", "build.ts"));
 }
 
-/** A local compile, if one exists. The target-named file is a `bun run build
- *  --target` for this host; `dist/ai-eng` is what a plain `bun run build` writes.
- *  Windows may add `.exe` to either name. */
+/** The version this package claims to be. Absent or unreadable manifest: null,
+ *  which no binary can match — the source runs and reports its own truth. */
+function packageVersion(root) {
+  try {
+    return JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** What `bun run build` recorded about the binaries it left in dist/: the version
+ *  of the package.json that compile read. scripts/build.ts writes it, so its
+ *  absence means unknown provenance (a build from before this rule, a copy, an
+ *  unpacked artifact), not "probably fine". */
+function buildStamp(root) {
+  try {
+    return readFileSync(join(root, "dist", "BUILD-VERSION"), "utf8").trim();
+  } catch {
+    return null;
+  }
+}
+
+/** A local compile, if one exists AND it was built from this package's version.
+ *  The target-named file is a `bun run build --target` for this host; `dist/ai-eng`
+ *  is what a plain `bun run build` writes. Windows may add `.exe` to either name. */
 function localBinary(root, target) {
+  const version = packageVersion(root);
+  if (version === null || buildStamp(root) !== version) return null;
   const names = [];
   if (target) names.push(`ai-eng-${target}`, `ai-eng-${target}.exe`);
   names.push("ai-eng", "ai-eng.exe");
@@ -105,8 +138,8 @@ async function main() {
     if (local) runBinary(local);
     runSource(root);
   }
-  const local = localBinary(root, target);
-  if (local) runBinary(local);
+  // A published install runs the source and nothing else: the tarball ships no
+  // binary, so any dist/ here came from somewhere this package cannot vouch for.
   if (process.versions.bun) {
     await import(join(root, "src", "cli.ts"));
     return;

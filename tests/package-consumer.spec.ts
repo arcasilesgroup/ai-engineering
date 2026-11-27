@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   packageConsumerFailures,
   runPackageConsumerSmoke,
@@ -11,6 +11,7 @@ import {
 } from "../scripts/package-consumer-smoke.ts";
 
 const SMOKE_SCRIPT = join(import.meta.dir, "..", "scripts", "package-consumer-smoke.ts");
+const LAUNCHER = join(import.meta.dir, "..", "bin", "ai-eng.js");
 const DIGEST = "0123456789abcdef".repeat(4);
 const OTHER_DIGEST = "f".repeat(64);
 
@@ -102,4 +103,55 @@ test(
     expect(failures).toEqual([]);
   },
   { timeout: 180_000 },
+);
+
+/** A package built on purpose to be stale: its manifest says 9.9.9 while both the
+ *  binary it carries and the code it runs answer 3.2.2 — the shape of an install
+ *  whose binary outvoted its manifest. Never a real release; the release gate has
+ *  to refuse it all the same, which is what makes the gate worth trusting. */
+function stalePackageTarball(root: string): string {
+  const packageRoot = join(root, "package");
+  const shipped: Record<string, string> = {
+    "package.json": `${JSON.stringify(
+      { name: "ai-engineering", version: "9.9.9", type: "module", bin: { "ai-eng": "bin/ai-eng.js" } },
+      null,
+      2,
+    )}\n`,
+    "src/cli.ts": 'console.log("ai-eng 3.2.2");\n',
+    "dist/BUILD-VERSION": "3.2.2\n",
+    "dist/ai-eng": "#!/bin/sh\necho ai-eng 3.2.2\n",
+  };
+  for (const [path, contents] of Object.entries(shipped)) {
+    mkdirSync(dirname(join(packageRoot, path)), { recursive: true });
+    writeFileSync(join(packageRoot, path), contents);
+  }
+  mkdirSync(join(packageRoot, "bin"), { recursive: true });
+  cpSync(LAUNCHER, join(packageRoot, "bin", "ai-eng.js"));
+  for (const executable of ["bin/ai-eng.js", "dist/ai-eng"]) chmodSync(join(packageRoot, executable), 0o755);
+
+  const tarball = join(root, "ai-engineering-9.9.9.tgz");
+  const packed = spawnSync("tar", ["-czf", tarball, "-C", root, "package"], { encoding: "utf8" });
+  if (packed.status !== 0) throw new Error(`tar could not pack the stale package: ${packed.stderr}`);
+  return tarball;
+}
+
+// A shell-script binary only executes on a POSIX kernel; the Windows shim path is
+// covered by the fresh-install case, which the same version assertion guards.
+test.skipIf(process.platform === "win32")(
+  "the release gate fails on a package whose binary answers a version its manifest does not name",
+  async () => {
+    const root = mkdtempSync(join(tmpdir(), "package-consumer-stale-"));
+    scratchRoots.push(root);
+
+    const result = await runPackageConsumerSmoke({ tarball: stalePackageTarball(root) });
+    const failures = packageConsumerFailures(result);
+
+    expect(result.version).toBe("9.9.9");
+    expect(result.npmCommand.stdout).toBe("ai-eng 3.2.2\n");
+    expect(failures).toContain("npm consumer command did not return the exact version output and status");
+    expect(failures).toContain(
+      "tarball ships dist/ai-eng: a compiled binary must never travel beside a package.json it can outvote",
+    );
+  },
+  { timeout: 120_000 },
 );
