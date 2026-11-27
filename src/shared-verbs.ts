@@ -59,7 +59,7 @@ export const HUMAN_VERBS: readonly VerbEntry[] = [
     verb: "update",
     description: "install a newer binary, then sync this repo",
     usage: "ai-eng update [--yes]",
-    flags: [{ flag: "--yes", helps: "install the newer binary without asking" }],
+    flags: [{ flag: "--yes", helps: "answer every question: the binary install and the repo sync" }],
     note: "It asks the registry for a newer release, installs it, then syncs this machine and this repo to the files that binary carries.",
   },
   {
@@ -119,8 +119,8 @@ export const MACHINE_VERBS: readonly VerbEntry[] = [
     flags: [
       { flag: "--json", helps: "counts and per-finding verdicts as one JSON object" },
       { flag: "--round", helps: "read round n of a document that holds several" },
-      { flag: "--base", helps: "the commit the review started from; inferred when the document says" },
-      { flag: "--head", helps: "the commit the review looked at; defaults to HEAD" },
+      { flag: "--base", helps: "the commit the review started from; inferred from the document, else from the merge base with trunk" },
+      { flag: "--head", helps: "the commit the review looked at; the document's when it names one, else HEAD" },
     ],
     note:
       "It attaches the evidence a program can check to each finding of a review of a git diff: the file and line the finding cites, the lines the diff added, and the ids earlier rounds declined or later fixed. The annotation is a note, not a verdict: nothing is removed and a hit exits 0.\n\n" +
