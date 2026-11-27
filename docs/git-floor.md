@@ -108,11 +108,12 @@ and `no-mistakes(document):` commits in the record above, now on `main`, are no 
 the gate stops a bad subject on its first push, it does not clean up history that is already
 published.
 
-Two bypasses sit outside every route this table maps, and no local hook can see them: `git push
---no-verify` (or `--no-hooks`) runs no hook at all, so every commit that push carries leaves
-unjudged, and a commit written on the forge — a web edit, a squash-merge that rewrites the PR
-title, a release bot's `Version Packages` — never crosses a local push. Branch protection and
-review are what cover those, not this floor.
+Two bypasses sit outside every route this table maps, and no local hook can see them. The first
+runs the push without the hook: `git push --no-verify`, `git -c core.hooksPath=/dev/null push`,
+or a push from a clone where the shims were never installed, so every commit that push carries
+leaves unjudged. The second never crosses a local push at all: a commit written on the forge —
+a web edit, a squash-merge that rewrites the PR title, a release bot's `Version Packages`.
+Branch protection and review are what cover both, not this floor.
 
 Two tests hold that:
 

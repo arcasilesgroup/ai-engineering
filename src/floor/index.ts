@@ -306,7 +306,8 @@ export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   // commits itself and rewrites their subjects afterwards, so a bad subject can enter with
   // no hook in sight (PR #823: three did). The routes that commit in this clone leave through
   // one door, so the same rule is asked again over the commits this push introduces (R6);
-  // `git push --no-verify`/`--no-hooks` and a commit written on the forge bypass that door.
+  // `git push --no-verify`, `git -c core.hooksPath=/dev/null push` and a commit written on the
+  // forge bypass that door.
   const revisions = [...outgoing.tips, "--not", ...outgoing.known];
   // Merging or rebasing onto an advanced base puts that base's own commits in the range:
   // judged here they would refuse a push over history the pusher did not write. The base
