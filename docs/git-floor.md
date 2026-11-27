@@ -72,6 +72,13 @@ Format: type(scope): description — rewrite that commit's subject before pushin
 The commit is not lost and nothing is rewritten for you: `git commit --amend` on the tip, or an
 interactive rebase for a commit further back, then push again.
 
+Rewriting only works for a commit you made. On the pipeline routes — the fix commit and the
+subject rewrite — the pipeline writes the subject, so an amend does not stick: pin
+`commit.fix_message` in `.no-mistakes.yaml` to a subject the floor accepts, replacing the
+pipeline default `no-mistakes({{.Step}}): {{.Summary}}`. This repository pins
+`chore({{.Step}}): {{.Summary}}`, and `tests/pipeline-commit-routes.spec.ts` holds every route
+it turns on to that pin.
+
 ## No route is exempt
 
 A route that cannot be hooked is not excused from the rule, it is judged later. The only route
@@ -92,9 +99,11 @@ clone with the hooks installed: a merge made elsewhere, or with `--no-verify`, r
 branch with no judgement at all. That is the one hole in this rule, and it is named here so it
 cannot be mistaken for a covered route.
 
-None of that reaches the pusher's own commits: the three `no-mistakes(review):` and
-`no-mistakes(document):` commits in the record above are the pusher's own, so they stay
-refused.
+A bad subject is refused while the commit is still the pusher's own. Once it lands on the base
+it is inherited history and falls out of range — which is why the three `no-mistakes(review):`
+and `no-mistakes(document):` commits in the record above, now on `main`, are no longer caught:
+the gate stops a bad subject on its first push, it does not clean up history that is already
+published.
 
 Two tests hold that:
 
