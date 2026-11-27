@@ -17,6 +17,9 @@ export interface GitResult {
 export interface GitRunOptions {
   cwd: string;
   env?: NodeJS.ProcessEnv;
+  /** Bytes a run may print before the runtime kills it. Absent, the runtime's own ceiling
+   *  applies; a read whose legitimate output can exceed it sizes its own. */
+  maxBuffer?: number;
   /** Ignore the user's global and system config, config injected through the environment,
    *  and the repository-discovery variables (GIT_DIR, GIT_WORK_TREE, ...) a hook inherits,
    *  so cwd and the repository's own config alone decide what git sees (R8). `env` is
@@ -88,7 +91,7 @@ export function runGit(args: string[], opts: GitRunOptions): GitResult {
     // Isolation that cannot be established denies: the run never falls back to the ambient environment.
     if (baseEnv instanceof Error) return { status: 1, stdout: "", stderr: baseEnv.message };
     const env = { ...baseEnv, GIT_TERMINAL_PROMPT: "0" };
-    const done = spawnSync("git", args, { cwd: opts.cwd, encoding: "utf8", env });
+    const done = spawnSync("git", args, { cwd: opts.cwd, encoding: "utf8", env, ...(opts.maxBuffer === undefined ? {} : { maxBuffer: opts.maxBuffer }) });
     const stdout = done.stdout ?? "";
     const stderr = done.stderr ?? "";
     // A spawn failure (no git binary, missing cwd) or a signal leaves no exit status.

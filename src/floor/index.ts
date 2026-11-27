@@ -159,6 +159,18 @@ function stageSecrets(cwd: string): FloorResult {
     rmSync(scratch, { recursive: true, force: true });
   }
 }
+/** The eleven Conventional Commit types this repository's history is held to. One list, two
+ *  askers: commit-msg judges the subject a person or an agent writes, and pre-push re-judges
+ *  the subjects that arrive by a route the commit-msg hook never runs for — the pipeline
+ *  writes its own fix commits, and it rewrites subjects after the commit exists. Both read
+ *  the rule from here so the two doors can never disagree (R6). */
+const CONVENTIONAL_SUBJECT = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._/-]+\))?!?: \S/;
+
+/** Why a commit subject breaks the convention, or null when it keeps it. */
+export function subjectProblem(subject: string): string | null {
+  return CONVENTIONAL_SUBJECT.test(subject) ? null : `the message does not follow the Conventional Commits convention: "${subject.slice(0, 72)}"`;
+}
+
 /** commit-msg: convention + Receipt-Id trailer. No Override-Reason: the floor has no
  *  guard an override can excuse, so any stamped reason would be false history (T19). */
 export function commitMsg(msgFile: string, receiptId: string | (() => string)): FloorResult {
@@ -170,12 +182,8 @@ export function commitMsg(msgFile: string, receiptId: string | (() => string)): 
     return { ok: false, lines: ["commit-msg: cannot read the commit message."] };
   }
   const first = content.split("\n")[0] ?? "";
-  if (!/^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._/-]+\))?!?: \S/.test(first)) {
-    return {
-      ok: false,
-      lines: [`the message does not follow the Conventional Commits convention: "${first.slice(0, 72)}"`, "Format: type(scope): description"],
-    };
-  }
+  const problem = subjectProblem(first);
+  if (problem !== null) return { ok: false, lines: [problem, "Format: type(scope): description"] };
   // The Receipt-Id trailer is idempotent: an amend (or the hook firing twice) finds it
   // already there and leaves the message untouched.
   let next = content;
@@ -210,10 +218,13 @@ function pushTuples(raw: string): PushTuple[] | { malformed: string } {
 /** The commits this push sends, as `git log` revisions: every new tip, minus what the
  *  remote already has — the old tip of a ref it moves, or the remote's base for a ref it
  *  creates. One revision list for every ref, so a commit two refs share is scanned once.
- *  A deletion sends nothing. Whatever cannot be measured refuses, never widens or skips. */
-function outgoingRevisions(cwd: string, tuples: PushTuple[]): { tips: string[]; known: string[] } | { refused: string } {
+ *  A deletion sends nothing. Whatever cannot be measured refuses, never widens or skips.
+ *  `base` is where the remote's base stands in this clone: everything it reaches was
+ *  authored on the base, whoever pushes here inherited it and cannot rewrite it. */
+function outgoingRevisions(cwd: string, tuples: PushTuple[]): { tips: string[]; known: string[]; base: string | null } | { refused: string } {
   const tips = new Set<string>();
   const known = new Set<string>();
+  const base = namedBaseTrackingRef(cwd);
   for (const tuple of tuples) {
     if (isZero(tuple.localSha)) continue;
     tips.add(tuple.localSha);
@@ -224,20 +235,36 @@ function outgoingRevisions(cwd: string, tuples: PushTuple[]): { tips: string[]; 
       known.add(tuple.remoteSha);
       continue;
     }
-    const base = namedBaseTrackingRef(cwd);
     if (base === null || base.commit === null) {
       const where = base === null ? "the remote's base branch" : base.ref;
       return { refused: `pre-push: ${tuple.remoteRef} is new on the remote and ${where} is not in this clone, so the outgoing commits cannot be told apart — git fetch, or set [git] base in .ai-engineering/config.toml, then push again.` };
     }
     known.add(base.commit);
   }
-  return { tips: [...tips], known: [...known] };
+  return { tips: [...tips], known: [...known], base: base?.commit ?? null };
 }
 
-/** pre-push: block direct pushes to the detected base + gitleaks over exactly the commits
- *  this push sends. The branch protection rule (PR required) lives on the forge, but admins
- *  can bypass it — this local guard catches that. The whole history is CI's scan, not this
- *  hook's: unpublished refs (a stash, an archive ref) are not what a push sends. */
+/** `[sha, subject]` for every commit a revision list selects. A read that fails is not "no
+ *  commits": the caller refuses rather than judging less than it was asked to. The buffer
+ *  is sized for a range of a quarter million commits: the default would turn a long-lived
+ *  branch's first push into a spawn failure the person cannot read as a subject problem. */
+function outgoingSubjects(cwd: string, revisions: string[]): Array<[string, string]> | { refused: string } {
+  const done = runGit(["log", "--format=%H%x1f%s", ...revisions], { cwd, isolated: true, maxBuffer: 64 * 1024 * 1024 });
+  if (done.status !== 0) return { refused: `pre-push: cannot read the commits this push sends: ${done.stderr.trim().slice(0, 200)}` };
+  return done.stdout
+    .split("\n")
+    .filter((line) => line !== "")
+    .map((line) => {
+      const [sha, subject] = line.split("\x1f");
+      return [sha ?? "", subject ?? ""];
+    });
+}
+
+/** pre-push: block direct pushes to the detected base + hold the outgoing subjects to the
+ *  Conventional Commits rule + gitleaks over exactly the commits this push sends. The branch
+ *  protection rule (PR required) lives on the forge, but admins can bypass it — this local
+ *  guard catches that. The whole history is CI's scan, not this hook's: unpublished refs (a
+ *  stash, an archive ref) are not what a push sends. */
 export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   const lines: string[] = [];
   let baseRef: string;
@@ -275,8 +302,29 @@ export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   if ("refused" in outgoing) return { ok: false, lines: [outgoing.refused] };
   // Only deletions, or nothing at all: no commit leaves this clone.
   if (outgoing.tips.length === 0) return { ok: true, lines };
+  // The commit-msg hook only sees the routes that run hooks. The pipeline writes its fix
+  // commits itself and rewrites their subjects afterwards, so a bad subject can enter with
+  // no hook in sight (PR #823: three did). The routes that commit in this clone leave through
+  // one door, so the same rule is asked again over the commits this push introduces (R6);
+  // `git push --no-verify`, `git -c core.hooksPath=/dev/null push` and a commit written on the
+  // forge bypass that door.
+  const revisions = [...outgoing.tips, "--not", ...outgoing.known];
+  // Merging or rebasing onto an advanced base puts that base's own commits in the range:
+  // judged here they would refuse a push over history the pusher did not write. The base
+  // commit keeps it out, and merges are skipped because git writes them, not a person.
+  const judged = [...outgoing.tips, "--not", ...(outgoing.base === null ? outgoing.known : [...outgoing.known, outgoing.base]), "--no-merges"];
+  const subjects = outgoingSubjects(cwd, judged);
+  if ("refused" in subjects) return { ok: false, lines: [subjects.refused] };
+  const offender = subjects.find(([, subject]) => subjectProblem(subject) !== null);
+  if (offender !== undefined) {
+    const [sha, subject] = offender;
+    return {
+      ok: false,
+      lines: [`pre-push: ${sha.slice(0, 12)} does not follow the Conventional Commits convention: "${subject.slice(0, 72)}"`, "Format: type(scope): description — rewrite that commit's subject before pushing."],
+    };
+  }
   // Object ids only, handed to gitleaks as one argv element: no ref name reaches a shell.
-  const range = [...outgoing.tips, "--not", ...outgoing.known].join(" ");
+  const range = revisions.join(" ");
   // The project's allowlist when it has one. ai-eng never installs that file, and a -c (or
   // the shim's GITLEAKS_CONFIG) naming a missing one makes gitleaks exit 1 before scanning
   // — which this hook would report as a secret: gitleaks' own rules apply instead.

@@ -64,7 +64,9 @@ function run(bin: string, cwd: string, args: string[]): { status: number; stdout
 
 function tempRepo(governed: boolean): string {
   const dir = tempDir(governed ? "ai-eng-gates-repo-" : "ai-eng-gates-foreign-");
-  run("git", dir, ["init", "-q"]);
+  // Named explicitly: a fixture that later checks out `main` must not depend on the
+  // machine's init.defaultBranch (master on some runners, main on others).
+  run("git", dir, ["init", "-q", "-b", "main"]);
   run("git", dir, ["config", "user.email", "gates@example.com"]);
   run("git", dir, ["config", "user.name", "gates test"]);
   run("git", dir, ["config", "commit.gpgsign", "false"]);
@@ -119,6 +121,18 @@ function declareBase(root: string): void {
 function stage(root: string, files: Record<string, string>): void {
   for (const [name, content] of Object.entries(files)) write(root, name, content);
   run("git", root, ["add", ...Object.keys(files)]);
+}
+
+const ZERO = "0".repeat(40);
+
+/** What git hands pre-push for one pushed ref, for the duration of the returned restore. */
+function pushRefs(localRef: string, sha: string, remoteRef: string, remoteSha = ZERO): () => void {
+  const previousRefs = process.env.AI_ENG_PUSH_REFS;
+  process.env.AI_ENG_PUSH_REFS = `${localRef} ${sha} ${remoteRef} ${remoteSha}`;
+  return () => {
+    if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
+    else process.env.AI_ENG_PUSH_REFS = previousRefs;
+  };
 }
 
 /** Path with git and no gitleaks: proves the "gitleaks missing" HARD FAIL. */
@@ -646,17 +660,6 @@ describe("floor gates — the staged scan's exception is HEAD's allowlist paths,
 });
 
 describe("floor gates — pre-push fails closed on the base (checkpoint 24)", () => {
-  const ZERO = "0".repeat(40);
-
-  function pushRefs(localRef: string, sha: string, remoteRef: string): () => void {
-    const previousRefs = process.env.AI_ENG_PUSH_REFS;
-    process.env.AI_ENG_PUSH_REFS = `${localRef} ${sha} ${remoteRef} ${ZERO}`;
-    return () => {
-      if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
-      else process.env.AI_ENG_PUSH_REFS = previousRefs;
-    };
-  }
-
   /** A governed repo checked out on `branch` with one commit; `base` is written as [git] base when given. */
   function pushRepo(branch: string, base: string | null): { repo: string; sha: string } {
     const repo = tempRepo(true);
@@ -722,6 +725,137 @@ describe("floor gates — pre-push fails closed on the base (checkpoint 24)", ()
     const restore = pushRefs(`refs/heads/${branch}`, sha, `refs/heads/${branch}`);
     try {
       expect(prePush(repo)).toEqual({ ok: true, lines: [] });
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe("floor gates — the commit rule follows every route to the push (checkpoint 26)", () => {
+  /** A governed repo on `feature` whose `main` is already published: one commit the push
+   *  sends, and nothing else in the range. The subject is the only variable. */
+  function branchOverPublishedMain(subject: string): { repo: string; sha: string } {
+    const repo = tempRepo(true);
+    declareBase(repo);
+    write(repo, "app.ts", "clean\n");
+    run("git", repo, ["add", "app.ts"]);
+    run("git", repo, ["commit", "-q", "-m", "test: publish the base"]);
+    run("git", repo, ["update-ref", "refs/remotes/origin/main", run("git", repo, ["rev-parse", "HEAD"]).stdout.trim()]);
+    run("git", repo, ["checkout", "-q", "-b", "feature"]);
+    write(repo, "pipeline.ts", "pipeline\n");
+    run("git", repo, ["add", "pipeline.ts"]);
+    // --no-verify is the door every route the commit-msg hook never sees walks through:
+    // the pipeline writes its own commits and can assign the subject after the fact.
+    run("git", repo, ["commit", "-q", "--no-verify", "-m", subject]);
+    return { repo, sha: run("git", repo, ["rev-parse", "HEAD"]).stdout.trim() };
+  }
+
+  test("a subject the commit-msg hook would reject cannot be pushed, even with no hook in its way", () => {
+    const subject = "no-mistakes(review): count the findings";
+    const { repo, sha } = branchOverPublishedMain(subject);
+    installStrictShim({ scanExit: 0 });
+    const restore = pushRefs("refs/heads/feature", sha, "refs/heads/feature");
+    try {
+      expect(prePush(repo)).toEqual({
+        ok: false,
+        lines: [
+          `pre-push: ${sha.slice(0, 12)} does not follow the Conventional Commits convention: "${subject}"`,
+          "Format: type(scope): description — rewrite that commit's subject before pushing.",
+        ],
+      });
+    } finally {
+      restore();
+    }
+  });
+
+  test("the same push is allowed once the subject keeps the convention", () => {
+    const { repo, sha } = branchOverPublishedMain("chore(review): count the findings");
+    installStrictShim({ scanExit: 0 });
+    const restore = pushRefs("refs/heads/feature", sha, "refs/heads/feature");
+    try {
+      expect(prePush(repo)).toEqual({ ok: true, lines: [] });
+    } finally {
+      restore();
+    }
+  });
+
+  test("when the outgoing commits cannot be read the push is refused, never waved through", () => {
+    const { repo } = branchOverPublishedMain("chore(review): count the findings");
+    installStrictShim({ scanExit: 0 });
+    // A hook line naming a commit this clone does not have: nothing can be judged, so nothing passes.
+    const restore = pushRefs("refs/heads/feature", "1".repeat(40), "refs/heads/feature");
+    try {
+      const result = prePush(repo);
+      expect(result.ok).toBe(false);
+      expect(result.lines[0]?.startsWith("pre-push: cannot read the commits this push sends:")).toBe(true);
+    } finally {
+      restore();
+    }
+  });
+
+  /** A governed repo whose `feature` is already published, whose `main` then moves ahead with
+   *  the history `main` really carries (`Version Packages`, which no feature branch can
+   *  rewrite), and whose `feature` merges that base back in — the workflow this repository uses.
+   *  The push sends the merge commit, and the pusher's own commit when `ownSubject` is given. */
+  function branchMergingAdvancedBase(ownSubject: string | null): { repo: string; sha: string; published: string } {
+    const repo = tempRepo(true);
+    declareBase(repo);
+    write(repo, "app.ts", "clean\n");
+    run("git", repo, ["add", "app.ts"]);
+    run("git", repo, ["commit", "-q", "-m", "test: publish the base"]);
+    run("git", repo, ["update-ref", "refs/remotes/origin/main", run("git", repo, ["rev-parse", "HEAD"]).stdout.trim()]);
+    run("git", repo, ["checkout", "-q", "-b", "feature"]);
+    write(repo, "pipeline.ts", "pipeline\n");
+    run("git", repo, ["add", "pipeline.ts"]);
+    run("git", repo, ["commit", "-q", "-m", "chore(review): publish the feature"]);
+    const published = run("git", repo, ["rev-parse", "HEAD"]).stdout.trim();
+    run("git", repo, ["update-ref", "refs/remotes/origin/feature", published]);
+    run("git", repo, ["checkout", "-q", "main"]);
+    write(repo, "release.txt", "release\n");
+    run("git", repo, ["add", "release.txt"]);
+    run("git", repo, ["commit", "-q", "--no-verify", "-m", "Version Packages"]);
+    run("git", repo, ["update-ref", "refs/remotes/origin/main", run("git", repo, ["rev-parse", "HEAD"]).stdout.trim()]);
+    run("git", repo, ["checkout", "-q", "feature"]);
+    // --no-verify on both: the base's history was written where this clone's hook never ran,
+    // and the merge gets git's own default subject, which is not a conventional one.
+    run("git", repo, ["merge", "-q", "--no-verify", "main"]);
+    if (ownSubject !== null) {
+      write(repo, "own.ts", "own\n");
+      run("git", repo, ["add", "own.ts"]);
+      run("git", repo, ["commit", "-q", "--no-verify", "-m", ownSubject]);
+    }
+    return { repo, sha: run("git", repo, ["rev-parse", "HEAD"]).stdout.trim(), published };
+  }
+
+  test("merging an advanced base whose own commits break the convention does not block the push", () => {
+    const { repo, sha, published } = branchMergingAdvancedBase(null);
+    const record = join(dirname(repo), "argv.json");
+    useGitleaksShim(shimDir, { mode: "history", record }, PATH_BEFORE);
+    const restore = pushRefs("refs/heads/feature", sha, "refs/heads/feature", published);
+    try {
+      expect(prePush(repo)).toEqual({ ok: true, lines: [] });
+      // The scan still covers everything the push sends, the merge and the base's commits
+      // included: it is the subject gate, not the scan, that leaves them out.
+      const { args } = JSON.parse(readFileSync(record, "utf8")) as { args: string[] };
+      expect(args).toContain(`--log-opts=${sha} --not ${published}`);
+    } finally {
+      restore();
+    }
+  });
+
+  test("a bad subject in the pusher's own commit is still refused after that merge", () => {
+    const subject = "no-mistakes(review): count the findings";
+    const { repo, sha, published } = branchMergingAdvancedBase(subject);
+    installStrictShim({ scanExit: 0 });
+    const restore = pushRefs("refs/heads/feature", sha, "refs/heads/feature", published);
+    try {
+      expect(prePush(repo)).toEqual({
+        ok: false,
+        lines: [
+          `pre-push: ${sha.slice(0, 12)} does not follow the Conventional Commits convention: "${subject}"`,
+          "Format: type(scope): description — rewrite that commit's subject before pushing.",
+        ],
+      });
     } finally {
       restore();
     }
