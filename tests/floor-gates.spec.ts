@@ -64,7 +64,9 @@ function run(bin: string, cwd: string, args: string[]): { status: number; stdout
 
 function tempRepo(governed: boolean): string {
   const dir = tempDir(governed ? "ai-eng-gates-repo-" : "ai-eng-gates-foreign-");
-  run("git", dir, ["init", "-q"]);
+  // Named explicitly: a fixture that later checks out `main` must not depend on the
+  // machine's init.defaultBranch (master on some runners, main on others).
+  run("git", dir, ["init", "-q", "-b", "main"]);
   run("git", dir, ["config", "user.email", "gates@example.com"]);
   run("git", dir, ["config", "user.name", "gates test"]);
   run("git", dir, ["config", "commit.gpgsign", "false"]);
