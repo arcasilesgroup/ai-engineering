@@ -93,7 +93,10 @@ To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
   `AI_ENG_VERSION` pin in `templates/ci.yml.tpl` and `templates/azure-pipelines.yml.tpl`:
   `bun run version-packages` is `changeset version` followed by
   `scripts/sync-ci-template-pins.ts`, so the pin follows `package.json` without anyone
-  remembering a step.
+  remembering a step. This repository's own gate, `.github/workflows/ai-eng-check.yml`,
+  is the exception: nothing syncs it, so bump its `AI_ENG_VERSION` by hand once the
+  version is public — a Version PR that pinned it would download a governor that does
+  not exist yet.
 - Dispatch `.github/workflows/release.yml` with a channel: `integration` ships a
   candidate (GitHub prerelease + npm `next`), `production` ships the real one
   (GitHub release marked latest + npm `latest`). It gates the dispatched SHA (lint,
