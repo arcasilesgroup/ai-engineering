@@ -594,6 +594,13 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a versioned interpreter", `python3.11 -m json.tool ${FOLDER}/demo.json > /dev/null`],
     ["python -c, not json.tool", `python3 -c json.tool ${FOLDER}/demo.json > /dev/null`],
     ["another python module", `python3 -m pickletools ${FOLDER}/demo.json > /dev/null`],
+    // The one command model reads the wrapper and the writer, not the first word on the
+    // line: a shorter prefix list let every one of these through on the old splitter.
+    ["a wrapper the old prefix list did not carry", `cd ${FOLDER} && timeout 5 tee demo.json < /dev/null`],
+    ["a privileged wrapper the old prefix list did not carry", `cd ${FOLDER} && doas tee demo.json < /dev/null`],
+    ["xargs handing the name to a writer", `cd ${FOLDER} && echo demo.json | xargs rm`],
+    ["dd with its of= target", `cd ${FOLDER} && dd if=/dev/zero of=demo.json count=1`],
+    ["install with its destination operand", `cd ${FOLDER} && install ../../../base.txt demo.json`],
   ])("refuses %s", (_name, command) => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());

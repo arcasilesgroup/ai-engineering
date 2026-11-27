@@ -261,7 +261,9 @@ describe("writesTo — one shell command, judged", () => {
     expect(writesTo(paths, "echo x >> .ai-engineering")).toBe(".ai-engineering");
     expect(writesTo(paths, 'echo x > "/x/ai-eng.lock"')).toBe("/x/ai-eng.lock");
     expect(writesTo(paths, "echo x > /x/somewhere-else")).toBeNull();
-    expect(writesTo(paths, 'echo x > /x/"ai-eng.lock"')).toBeNull(); // a mid-quote belongs to the name: not the lock
+    // A quote in the middle of a word is not part of the name: the shell joins it, so this
+    // is a write to the lock and the reader must not read the quote as a character.
+    expect(writesTo(paths, 'echo x > /x/"ai-eng.lock"')).toBe("/x/ai-eng.lock");
     expect(writesTo(paths, 'echo x > ".ai-engineering"')).toBe(".ai-engineering"); // quotes are stripped before the judge
     expect(writesTo(paths, "echo a > /tmp/ok.txt > /x/ai-eng.lock")).toBe("/x/ai-eng.lock"); // every redirect is judged
     expect(writesTo(paths, "echo > /x/ai-eng.lock | b")).toBe("/x/ai-eng.lock"); // a redirect before a dead pipe is still judged

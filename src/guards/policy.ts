@@ -19,7 +19,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { join, posix } from "node:path";
 import { homedir, tmpdir } from "node:os";
-import { commandIndex, expandedSegments, inlineShellPrograms, normalizeRedirects, quotedSpanEnd, rawShellWords, shellWords, stripRedirectWords } from "./shell.ts";
+import { commandIndex, expandedSegments, inlineShellPrograms, normalizeRedirects, quotedSpanEnd, readCommandLenient, readCommands, shellWords, stripRedirectWords, type ShellCommand } from "./shell.ts";
 
 /** What every install and new project gets while config.toml says nothing. System read
  *  includes the paths this file calls sensitive (~/.ssh, .env, *.pem): reading them is
@@ -50,6 +50,9 @@ const RE_DEVICE_WRITE =
 // normalisation these are the spellings the POSIX root rules cannot name, so a
 // path carrying one is never silently read as the workspace.
 const RE_WIN32_ROOT = /^[a-z]:\/|^\/\//i;
+
+/** A descriptor copy or close: the shell reader respells `2>&1` as the file fd 1 is. */
+const DESCRIPTOR_TARGET = /^\/dev\/fd\/(?:\d+|-)$/;
 
 /** The original skips /tmp because temp files are not system state; on macOS
  *  the temp dir lives under /var/folders, which the system-path rule would
@@ -291,33 +294,6 @@ const WRITES = (segment: string): boolean =>
 const WRITES_MESSAGE_VERBS = (segment: string): boolean =>
   segment.startsWith("git commit") || segment.startsWith("git stash") || segment.startsWith("git add");
 
-/** A redirection, optionally fd-prefixed (`2>`, `{fd}>`): the operator and the target
- *  when it is attached. Heredocs (`<<`) and process substitution (`<(`, `>(`) are not
- *  file targets. `>&` comes before `>` so `>&1` reads as a descriptor copy. */
-const REDIRECT = /^(?:\d+|\{\w+\})?(&>>?|>&|>>?[|!]?|<>|<&|<)(?![<(])(.*)$/;
-
-/** `x>/etc/foo` and `"x">/etc/foo` are the word and a redirect to /etc/foo, as the shell
- *  reads them; a `>` inside quotes or after a backslash is text, so that word is left whole. */
-function splitAttachedRedirect(token: string): string[] {
-  const at = bareOperatorIndex(token, "<>");
-  if (at < 0) return [token];
-  const start = token[at - 1] === "&" ? at - 1 : at;
-  return start === 0 ? [token] : [token.slice(0, start), token.slice(start)];
-}
-
-/** Where the first of `operators` the shell reads as an operator sits, or -1: one inside
- *  quotes (`$'…'` included), `${…}` or after a backslash is a character. */
-function bareOperatorIndex(text: string, operators: string): number {
-  for (let at = 0; at < text.length; at++) {
-    const spanEnd = quotedSpanEnd(text, at);
-    if (spanEnd >= 0) at = spanEnd;
-    else if (operators.includes(text[at]!)) return at;
-  }
-  return -1;
-}
-
-const ASSIGNMENT = /^[a-z_]\w*\+?=/;
-
 /** The quoted spans of `text` that carry plain data — no `$`, no backtick, no way
  *  to expand into an argument — become one space: the shapes read the shell the
  *  command runs, not the prose a `-m` message quotes. Spans that could expand
@@ -353,10 +329,13 @@ function commandLead(written: string): string {
   return rest;
 }
 
-function scanSegment(mask: { value: number }, written: string, cwd: string, isExpanded = false): void {
+/** One command classified. The words and the redirections come from the one shell model,
+ *  so a construct another guard reads is a construct this classifier reads too. `line` is
+ *  the pipeline this command sits in: the shapes read `curl … | bash` as one shape. */
+function scanCommand(mask: { value: number }, command: ShellCommand, line: string, cwd: string, isExpanded: boolean): void {
+  const written = line.trim();
   const lead = commandLead(written);
-  const words = rawShellWords(written);
-  const verbAt = words.findIndex((word) => !ASSIGNMENT.test(word));
+  const verbAt = command.verbIndex;
   // The shapes read `git push` however it is spelled: `/usr/bin/git push` and
   // `TMPDIR=x git push` run the same program (policy.rs reads neither as git push).
   const segment = written.replace(/^(?:[a-z_]\w*\+?=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
@@ -395,10 +374,10 @@ function scanSegment(mask: { value: number }, written: string, cwd: string, isEx
     flags = 1;
   }
 
-  let pending: { permissions: number; isDuplicate: boolean } | null = null;
-  const judgeRedirect = (target: string, permissions: number, isDuplicate: boolean): void => {
-    // `2>&1`, `<&0` and `>&-` copy or close a descriptor: they name no file.
-    if (isDuplicate && /^(\d+|-)$/.test(target)) return;
+  const judgeRedirect = (target: string, permissions: number): void => {
+    // `2>&1`, `<&0` and `>&-` copy or close a descriptor, which the one reader respells
+    // as the file the descriptor is: they name no path to scope.
+    if (DESCRIPTOR_TARGET.test(target)) return;
     // A target the expansion could not resolve is not a known path: the name could have been
     // set in a branch the guards cannot read, so it is judged where it could land.
     if (isExpanded && /[$`]/.test(target)) {
@@ -409,23 +388,20 @@ function scanSegment(mask: { value: number }, written: string, cwd: string, isEx
     addPath(mask, target, permissions, cwd);
     flags = 3;
   };
-  // Running a program reads it and never writes it: `/usr/bin/git rm a` writes a, not git.
-  const tokens = words.flatMap((word, at) => splitAttachedRedirect(word).map((token) => ({ token, permissions: at === verbAt ? PERM_READ : pathPermissions })));
-  for (const { token, permissions: tokenPermissions } of tokens) {
-    if (pending !== null) {
-      judgeRedirect(token, pending.permissions, pending.isDuplicate);
-      pending = null;
-      continue;
-    }
-    const redirect = REDIRECT.exec(token);
-    if (redirect !== null) {
-      const operator = redirect[1]!;
-      const target = redirect[2]!;
-      const permissions = operator === "<>" ? PERM_READ | PERM_WRITE : operator.startsWith("<") ? PERM_READ : PERM_WRITE;
-      const isDuplicate = operator === ">&" || operator === "<&";
-      if (target.length === 0) pending = { permissions, isDuplicate };
-      else judgeRedirect(target, permissions, isDuplicate);
-    } else if (
+  // Every redirection the shell reads, judged by the permission its operator carries. The
+  // model reports them, so `x>/etc/foo`, `{fd}>f` and `<>f` need no pattern here.
+  for (const { operator, target } of command.redirects) {
+    // A heredoc or a here-string feeds a program text; it names no file to scope.
+    if (operator.startsWith("<<") || target === null || target.isOperator) continue;
+    const permissions = operator === "<>" ? PERM_READ | PERM_WRITE : operator.startsWith("<") ? PERM_READ : PERM_WRITE;
+    judgeRedirect(target.original, permissions);
+  }
+  // The paths the program names. Running a program reads it and never writes it:
+  // `/usr/bin/git rm a` writes a, not git.
+  for (const [at, word] of command.plain.entries()) {
+    const token = word.original;
+    const tokenPermissions = at === verbAt ? PERM_READ : pathPermissions;
+    if (
       token.startsWith("/") ||
       token.startsWith("./") ||
       token.startsWith("../") ||
@@ -469,21 +445,34 @@ function scanScript(script: string, cwd: string): number {
   const mask = { value: 0 };
   const joined = script.replace(/\\\n/g, " ");
   if (joined.includes("/dev/tcp")) addMode(mask, SCOPE_NETWORK, PERM_READ | PERM_WRITE);
-  // A command substitution runs a command of its own: its body is judged as one more
-  // segment, while the segment around it stays whole so its writer still sees every path.
-  const substitutions = [...joined.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)].map((match) => match[1] ?? match[2] ?? "");
+  // `bash -c "…"` and the body of a heredoc handed to a shell run commands of their own.
+  // The one reader already hands `$(…)` and backticks over as segments, so only the
+  // interpreter's program needs asking for.
   const expansions = expandedSegments(script);
   const bodies = expansions.flatMap((text) => inlineShellPrograms(text));
-  const written = [joined, ...substitutions];
-  const resolved = [...expansions, ...bodies, ...bodies.flatMap(expandedSegments)];
-  const pieces = (texts: string[], isExpanded: boolean): Array<{ text: string; isExpanded: boolean }> =>
-    texts
-      .flatMap((text) => text.replaceAll("&&", "\n").replaceAll("||", "\n").replaceAll(";", "\n").split("\n"))
-      .map((text) => ({ text: text.trim(), isExpanded }));
-  // Only the expanded pass knows which names the reader could not resolve; the text as
-  // written still carries every `$name` the shell may fill in.
-  for (const piece of [...pieces(written, false), ...pieces(resolved, true)]) {
-    if (piece.text.length > 0) scanSegment(mask, piece.text, cwd, piece.isExpanded);
+  // The line as written still carries every `$name` the shell may fill in; the expanded
+  // passes are the only ones that know which names the reader could not resolve.
+  const passes = [
+    { text: joined, isExpanded: false },
+    ...expansions.map((text) => ({ text, isExpanded: true })),
+    ...bodies.map((text) => ({ text, isExpanded: true })),
+    ...bodies.flatMap(expandedSegments).map((text) => ({ text, isExpanded: true })),
+  ];
+  for (const { text, isExpanded } of passes) {
+    if (text.trim().length === 0) continue;
+    // A line whose quoting cannot be read is still judged by the words it shows.
+    let pipeline = "";
+    for (const command of readCommands(text) ?? [readCommandLenient(text)]) {
+      // A pipeline is one shape for the classification (`curl … | bash` is the
+      // network-execute form); a `&&`, `||`, `;` or newline chain is not.
+      pipeline = command.segment.isAfterPipe ? `${pipeline} | ${command.segment.text}` : command.segment.text;
+      scanCommand(mask, command, pipeline, cwd, isExpanded);
+      // A heredoc's lines are judged as commands, whoever reads them: text alone cannot
+      // tell a commit message from a program.
+      for (const { body } of command.segment.heredocs) {
+        for (const inside of readCommands(body) ?? [readCommandLenient(body)]) scanCommand(mask, inside, body, cwd, isExpanded);
+      }
+    }
   }
   return mask.value;
 }

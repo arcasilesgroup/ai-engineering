@@ -109,7 +109,9 @@ describe("injection · readTargets — what a command line would print", () => {
 
   test("redirect targets are scanned, bare or attached, quoted or not", () => {
     expect(readTargets("wc -l < notes.txt")).toEqual(["notes.txt"]);
-    expect(readTargets("tr a-z A-Z <notes.txt")).toEqual(["notes.txt", "a-z", "A-Z", "<notes.txt"]);
+    // The attached form is the same redirection, so the file is `notes.txt` and the
+    // token `<notes.txt` is not a second, nonexistent path to scan.
+    expect(readTargets("tr a-z A-Z <notes.txt")).toEqual(["notes.txt", "a-z", "A-Z"]);
     expect(readTargets('cat "my file.txt"')).toEqual(["my file.txt"]);
   });
 

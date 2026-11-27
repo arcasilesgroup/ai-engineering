@@ -103,11 +103,11 @@ describe("ai-eng verbs: refused with the run-it-outside step before anything els
     expectCases([["bash -c bash -c bash -c bash -c bash -c bash -c ai-eng uninstall", AI_ENG_VERB]]);
   });
 
-  test("ai-eng behind a prefix the verb check does not know is caught by the shell reader", () => {
+  test("ai-eng behind a prefix is caught by the one parse the verb check and the shell reader share", () => {
     expectCases([
-      ["nice ai-eng uninstall", AI_ENG_VERB],
-      ["nice bun scripts/cli.ts uninstall", AI_ENG_VERB],
-      ["nice node scripts/cli.js uninstall", AI_ENG_VERB],
+      ["nice ai-eng uninstall", CLI],
+      ["nice bun scripts/cli.ts uninstall", CLI],
+      ["nice node scripts/cli.js uninstall", CLI],
       ["nice ai-eng status", null],
       // Only an xargs before ai-eng feeds it arguments; one after it is an argument.
       ["ai-eng status xargs", null],

@@ -367,3 +367,27 @@ One builder is resumed for tests, implementation, verify, and the single fix. It
 
 - **Keep a fresh agent per gate and a four-round debate:** measured at about 3.3 times the launches of one builder plus one review. Rejected.
 - **Drop the reviewer:** the builder would mark its own homework. Rejected.
+
+## D-017: One shell reader, and every guard is a predicate over its model
+
+Status: Accepted · Date: 2026-11-27
+
+### Context
+
+Three guards read the shell their own way. `shell.ts` owned the grammar, and `policy.ts`, `self-protect.ts` and `checkpoint.ts` each carried a copy: a redirection regular expression per module, a second command-separator splitter, a reader table and a command-prefix list that had already drifted (`checkpoint.ts` knew five prefixes fewer). Every critical hole an outside audit reproduced was that divergence doing its work: `bash -c "rm -rf /etc/nginx"` was denied by one guard and allowed by the classifier, and a `NAME=literal` expansion reached `/etc/hosts` the same way. The cost of the duplication is not the duplicated lines, it is that a guard's blindness is invisible to the guard next to it.
+
+### Decision
+
+`src/guards/shell.ts` owns the shell: one parse produces one typed command model (`readCommands`, plus `commandOf`/`withWords` for a caller that has already resolved variables), where each command carries its words as written and as the program receives them, its redirections, its verb past the wrappers, and the files it reads and writes. The guards ask predicates over that model and own no grammar of their own. The reader and prefix tables live there too, one table per question a guard asks (what prints a file, what only reads its operands). `tests/one-shell-reader.spec.ts` fails if a second redirection grammar, separator grammar, reader table or prefix table appears outside `shell.ts`.
+
+### Consequences
+
+- A construct one guard reads is a construct every guard reads; `-c` programs, heredoc bodies and `NAME=value` expansions reach the classifier and self-protect through the same words.
+- An allow-path can no longer be opened by editing one guard's copy of the grammar.
+- The classifier's cost stays where it was (10-40 ms per guarded call; no network, no subprocess).
+- A new command vocabulary is added once, in `shell.ts`, not in four modules.
+
+### Alternatives considered
+
+- **Fix the two allow-paths in the classifier and leave the copies:** that is what had already been done twice before the audit, and each fix moved the divergence rather than removing it. Rejected.
+- **A shared lint rule instead of a test:** an unused import is invisible to lint when the copy is still used inside its module. Only a test that reads the tree and fails on the declaration catches it. Rejected.

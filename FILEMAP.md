@@ -110,6 +110,7 @@ tests/
   checkpoint-guard-contract.spec.ts  Exact checkpoint-guard refusals and allowed writes
   self-protect-contract.spec.ts  Exact self-protect verdict per shell shape and the layer that gives it
   shell-guard-contract.spec.ts  The shared shell reader: segments, quoting, redirects and substitutions
+  one-shell-reader.spec.ts     No second shell reader: no grammar, reader or prefix table outside guards/shell.ts
   guards-contract.spec.ts      Exact verdicts of the smaller guards and the override switch
   floor-contract.spec.ts       Uninstall's git-template restore and pre-push through the hook entry
   findings-check.spec.ts       Both-sided signal checks, counter invariants, round selection and Git-fact contracts

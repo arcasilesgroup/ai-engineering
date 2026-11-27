@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import type { Payload } from "../payload.ts";
 import { collectStrings, evaluateLocalRules, localRuleReason, type LocalRule } from "./local-rules.ts";
 import { isNetworkPath } from "./self-protect.ts";
-import { inlineShellPrograms } from "./shell.ts";
+import { inlineShellPrograms, printsFileContent, readCommands } from "./shell.ts";
 
 
 /** The directory of THIS guard source, walked up to the package root (the one holding
@@ -165,40 +165,21 @@ export type GuardResult = { deny: true; reason: string } | { deny: false } | { r
  *  Read tool reads, so it gets the same pre-read scan. */
 const SHELL_TOOLS = /^(Bash|PowerShell|shell|command)$/;
 
-/** Commands that print their file arguments into the model's context. `sed`/`awk`
- *  read unless they carry -i, which writes instead — that case is skipped whole. */
-const READERS: Set<string> = new Set([
-  "cat", "bat", "tac", "nl", "head", "tail", "less", "more", "strings", "xxd", "od",
-  "sed", "awk", "grep", "rg", "zgrep", "zcat", "sort", "uniq", "cut", "tr", "column",
-  "diff", "jq", "yq",
-]);
-
 const MAX_TARGETS = 512;
 
-/** The paths a command line would print into context: a reader's non-flag arguments
- *  plus every `<` redirect target. Shell parsing is a bottomless pit — this covers the
- *  plain reads (`cat notes.txt`, `head -5 notes.txt`, `grep x notes.txt`, `wc -l <
- *  notes.txt`) and covers nothing computed (`cat $(ls)`, `python -c`, `git show`,
- *  `curl`): the guard reports what it actually scanned, never what it guessed. */
+/** The paths a command line would print into context: the operands of a printer and every
+ *  `<` redirect target, read from the one command model rather than a second tokenizer.
+ *  It covers the plain reads (`cat notes.txt`, `head -5 notes.txt`, `grep x notes.txt`,
+ *  `wc -l < notes.txt`) and covers nothing computed (`cat $(ls)`, `python -c`,
+ *  `git show`, `curl`): the guard reports what it actually scanned, never what it guessed. */
 function readTargetsIn(command: string, targets: Set<string>): void {
-  const unquote = (token: string): string => token.replace(/^["']|["']$/g, "");
-  for (const segment of command.split(/[|;\n]|&&|\|\||&/)) {
-    const tokens = (segment.match(/"[^"]*"|'[^']*'|\S+/g) ?? []).map(unquote);
-    for (let i = 0; i < tokens.length; i += 1) {
-      const token = tokens[i]!;
-      const redirect = /^<(.+)$/.exec(token);
-      if (redirect?.[1]) targets.add(redirect[1]);
-      else if (token === "<" && tokens[i + 1]) targets.add(tokens[i + 1]!);
-    }
-    const name = tokens.findIndex((token) => READERS.has(token.split("/").pop() ?? ""));
-    if (name < 0) continue;
-    const rest = tokens.slice(name + 1);
-    const verb = (tokens[name] ?? "").split("/").pop() ?? "";
-    // -i writes for sed and awk. grep -i and rg -i are case-insensitive reads.
-    if ((verb === "sed" || verb === "awk") && rest.some((token) => /^-[a-zA-Z]*i/.test(token))) continue;
-    for (const token of rest) {
-      if (token.startsWith("-") || token.length === 0) continue;
-      targets.add(token);
+  for (const read of readCommands(command) ?? []) {
+    for (const target of read.reads) targets.add(target.value);
+    const args = read.args.map((word) => word.value);
+    if (!printsFileContent(read.verb, args)) continue;
+    for (const arg of args) {
+      if (arg.startsWith("-") || arg.length === 0) continue;
+      targets.add(arg);
     }
   }
 }

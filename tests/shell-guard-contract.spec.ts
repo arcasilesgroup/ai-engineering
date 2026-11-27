@@ -5,7 +5,11 @@
 import { describe, expect, test } from "bun:test";
 import {
   commandIndex,
+  findRedirect,
   normalizeRedirects,
+  printsFileContent,
+  readCommands,
+  readsOperandsOnly,
   rawShellWords,
   resolveSubstitutions,
   shellSegments,
@@ -34,8 +38,10 @@ const segment = (text: string, extra: Partial<ShellSegment> = {}): ShellSegment 
   isConditional: false,
   ...extra,
 });
-const word = (value: string, isQuoted = false, unquoted = isQuoted ? "" : value) => ({ value, isQuoted, isOperator: false, unquoted });
-const operator = (value: string) => ({ value, isQuoted: false, isOperator: true, unquoted: value });
+/** `original` is the word as written; it differs from `value` only where quotes or escapes
+ *  were removed, so a row names it only when it has to. */
+const word = (value: string, isQuoted = false, unquoted = isQuoted ? "" : value, original = value) => ({ value, isQuoted, isOperator: false, unquoted, original });
+const operator = (value: string) => ({ value, isQuoted: false, isOperator: true, unquoted: value, original: value });
 const resolved = (command: string): string[] => shellSegments(command)!.map(resolveSubstitutions);
 
 describe("normalizeRedirects", () => {
@@ -239,18 +245,20 @@ describe("shellWords", () => {
   });
 
   test("escapes and single quotes are removed and mark the word quoted", () => {
-    expect(shellWords("\\-\\-x 'it s' a\\")).toEqual([word("--x", true, "x"), word("it s", true), word("a", true, "a")]);
-    expect(shellWords("'abc")).toEqual([word("abc", true)]);
-    expect(shellWords("'d\\' e")).toEqual([word("d\\", true), word("e")]);
+    expect(shellWords("\\-\\-x 'it s' a\\")).toEqual([
+      word("--x", true, "x", "\\-\\-x"), word("it s", true, "", "'it s'"), word("a", true, "a", "a\\"),
+    ]);
+    expect(shellWords("'abc")).toEqual([word("abc", true, "", "'abc")]);
+    expect(shellWords("'d\\' e")).toEqual([word("d\\", true, "", "'d\\'"), word("e")]);
   });
 
   test("$'…' decodes hex, octal, named and escaped quotes, and keeps unknown escapes' letter", () => {
-    expect(shellWords("$'\\x414\\1012\\n\\q\\'z'")).toEqual([word("A4A2\nq'z", true)]);
+    expect(shellWords("$'\\x414\\1012\\n\\q\\'z'")).toEqual([word("A4A2\nq'z", true, "", "$'\\x414\\1012\\n\\q\\'z'")]);
   });
 
   test("double quotes keep a backslash unless it escapes one of \" \\ $ `", () => {
-    expect(shellWords('"a\\"b\\$\\nc" $"d e"')).toEqual([word('a"b$\\nc', true), word("d e", true)]);
-    expect(shellWords('"ab')).toEqual([word("ab", true)]);
+    expect(shellWords('"a\\"b\\$\\nc" $"d e"')).toEqual([word('a"b$\\nc', true, "", '"a\\"b\\$\\nc"'), word("d e", true, "", '$"d e"')]);
+    expect(shellWords('"ab')).toEqual([word("ab", true, "", '"ab')]);
   });
 
   test("unquoteShell joins continued lines before removing quotes", () => {
@@ -258,7 +266,9 @@ describe("shellWords", () => {
   });
 
   test("a word records what the shell reads unquoted, where it expands", () => {
-    expect(shellWords('"fix "{a,b} ${x:-y} \'*\'$v')).toEqual([word("fix {a,b}", true, "{a,b}"), word("${x:-y}", false), word("*$v", true, "$v")]);
+    expect(shellWords('"fix "{a,b} ${x:-y} \'*\'$v')).toEqual([
+      word("fix {a,b}", true, "{a,b}", '"fix "{a,b}'), word("${x:-y}"), word("*$v", true, "$v", "'*'$v"),
+    ]);
   });
 });
 
@@ -337,5 +347,96 @@ describe("resolveSubstitutions", () => {
     for (const inner of ["printf", "cat x", "echo a > b", "echo $HOME", "echo 'a\"b'"]) {
       expect(resolved(`cp $(${inner}) d`).at(-1)).toBe(`cp ${SUBSTITUTION} d`);
     }
+  });
+});
+
+describe("the command model — one parse every guard is a predicate over", () => {
+  const command = (text: string) => readCommands(text)![0]!;
+
+  test("a redirect is the operator and the file it names, whatever the spelling", () => {
+    const spellings = [
+      "echo x > out",
+      "echo x >out",
+      'echo x > "out"',
+      "echo x 1> out",
+      "echo x >| out",
+      "echo x >> out",
+    ];
+    for (const text of spellings) {
+      expect(command(text).redirects.map(({ operator, target }) => [operator, target?.value]), text).toEqual([[">", "out"]]);
+      expect(command(text).plain.map((word) => word.value), text).toEqual(["echo", "x"]);
+    }
+    // A descriptor copy is respelled as the file the descriptor is; a device is no file.
+    expect(command("echo x 2>&1 2>/dev/null").redirects.map(({ target }) => target?.value)).toEqual(["/dev/fd/1", "/dev/null"]);
+    expect(command("echo x 2>&1 2>/dev/null").writes).toEqual([]);
+    expect(command("echo x > out").writes.map((word) => word.value)).toEqual(["out"]);
+  });
+
+  test("input redirects and here-strings are reads, never writes", () => {
+    const read = command("cat < notes.txt <<< 'done'");
+    expect(read.reads.map((word) => word.value)).toEqual(["notes.txt", "done"]);
+    expect(read.writes).toEqual([]);
+    // Closing a descriptor is respelled as the file it is, like every other fd form.
+    expect(command("cat 3<&-").redirects.map(({ target }) => target?.value)).toEqual(["/dev/fd/-"]);
+  });
+
+  test("the verb stands past NAME=value and every wrapper the reader knows", () => {
+    for (const [text, verb, args] of [
+      ["sudo -u root doas env FOO=1 git push origin", "git", ["push", "origin"]],
+      ["timeout -s KILL 5 stdbuf -oL nice -n 5 rm -rf x", "rm", ["-rf", "x"]],
+      ["{ git commit -m x; }", "git", ["commit", "-m", "x"]],
+      ["if git status; then echo ok; fi", "git", ["status"]],
+      ["xargs -n 1 git commit", "git", ["commit"]],
+    ] as const) {
+      // A compound command opens its own segment, so the row asks for the segment that runs.
+      const running = readCommands(text)!.find((parsed) => parsed.verb.length > 0)!;
+      expect(running.verb, text).toBe(verb);
+      expect(running.args.map((word) => word.value), text).toEqual([...args]);
+    }
+  });
+
+  test("a word keeps the spelling it was written with, which is what a path is judged on", () => {
+    const words = command("rm 'a b' \"c\" d\\ e $'f'").plain;
+    expect(words.map((word) => word.value)).toEqual(["rm", "a b", "c", "d e", "f"]);
+    expect(words.map((word) => word.original)).toEqual(["rm", "'a b'", '"c"', "d\\ e", "$'f'"]);
+  });
+
+  test("the pipeline, the substitution and the heredoc are the segment's own facts", () => {
+    const segments = readCommands("echo $(id) | grep x && sh <<'EOF'\nid\nEOF")!;
+    // The substitution is its own segment, first, and the command around it keeps a marker.
+    expect(segments.map((parsed) => parsed.segment.text.trim()).filter((text) => text.length > 0))
+      .toEqual(["id", "echo $__SUB__", "grep x", "sh <<'EOF'"]);
+    const outer = segments.find((parsed) => parsed.segment.substitutions.length > 0)!;
+    expect(outer.segment.substitutions).toEqual(["id"]);
+    const piped = segments.find((parsed) => parsed.segment.isAfterPipe)!;
+    expect(piped.verb).toBe("grep");
+    const heredoc = segments.find((parsed) => parsed.segment.heredocs.length > 0)!;
+    expect(heredoc.segment.heredocs).toEqual([{ body: "id\n", isLiteral: true }]);
+  });
+
+  test("findRedirect reads a redirect off a word a guard never parsed", () => {
+    expect(findRedirect("f>x")).toEqual({ index: 1, operator: ">", attached: "x" });
+    expect(findRedirect(">out")).toEqual({ index: 0, operator: ">", attached: "out" });
+    // The descriptor prefix belongs to the operator, as the shell reads it.
+    expect(findRedirect("2>>log")).toEqual({ index: 0, operator: "2>>", attached: "log" });
+    expect(findRedirect("plain")).toBeNull();
+  });
+});
+
+describe("the reader tables — one question each, answered here", () => {
+  test("what prints a file into context, and what only reads its operands", () => {
+    expect(printsFileContent("cat", ["notes.txt"])).toBe(true);
+    expect(printsFileContent("grep", ["-i", "x", "notes.txt"])).toBe(true);
+    // An in-place editor and an output option write instead of printing.
+    expect(printsFileContent("sed", ["-i", "s/a/b/", "notes.txt"])).toBe(false);
+    expect(printsFileContent("awk", ["-i", "inplace", "p", "notes.txt"])).toBe(false);
+    expect(printsFileContent("sort", ["-o", "notes.txt"])).toBe(false);
+    expect(printsFileContent("cat", ["--output=notes.txt"])).toBe(false);
+    // `ls` reads its operands without printing their bytes, so only the second question
+    // says yes to it: naming a governed path with it is not a write.
+    expect(printsFileContent("ls", ["src"])).toBe(false);
+    expect(readsOperandsOnly("ls", ["src"])).toBe(true);
+    expect(readsOperandsOnly("git", ["status"])).toBe(false);
+    expect(readsOperandsOnly("rm", ["x"])).toBe(false);
   });
 });
