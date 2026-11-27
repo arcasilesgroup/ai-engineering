@@ -22,6 +22,7 @@ docs/
   cli.md                       Every CLI verb, by who runs it, and how to read a findings check
   lanes.md                     One task, one lane: list, tidy, park, drop, worktrees
   configuration.md             config.toml tables, the command-scope policy, the surface tiers
+  git-floor.md                 Every commit route, which ones the Conventional Commits rule judges, and the bypasses it writes down
   troubleshooting.md           Symptom, cause, fix
   skills.md                    The build loop, its triggers and the catalogue of all 27 skills
   history/                     Records, never rewritten: the early blueprint, the recap, the learnings log

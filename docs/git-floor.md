@@ -35,7 +35,7 @@ sibling; `ai-eng` installs all three from one list in
 | A pipeline subject rewrite | the pipeline, after the commit exists | no — the subject is assigned afterwards | `pre-push` |
 | The evidence branch | the pipeline | no | `pre-push`, and only when this repository enables `test.evidence.store_in_repo` |
 | A CI repair commit (`ci`) | the pipeline, through a plain `git commit` in the run worktree | yes | the `commit-msg` hook |
-| Syncing the base into a branch (`git merge origin/main`, or a rebase onto it) | the base's own authors, and `git` for the merge commit | for a merge made here, yes | `pre-push`, over the commits the push introduces: the base's history is out of range, and merges are excepted |
+| Syncing the base into a branch (`git merge origin/main`, or a rebase onto it) | the base's own authors, and `git` for the merge commit | for a merge made here, yes | `pre-push`, over the commits the push introduces: the base's history is out of range, and merge commits are a bypass (below) |
 
 The `ci` row is the odd one out, and it is why the rule looked like it ran on some routes and
 not others: the CI repair is the only pipeline route that hands the commit to `git` instead of
@@ -79,16 +79,20 @@ this repository does not turn on is the evidence branch, and turning it on requi
 `test.evidence.commit_message` to a subject the floor accepts; until then it is not a route
 here at all. Whichever route is added next, the push asks the question.
 
-Syncing the base into a branch is the one route where judging later has a limit, and the limit
-is ownership rather than coverage. A `git merge origin/main` pulls the base's commits into the
-branch; the pusher did not write them and cannot rewrite them without rewriting published
-history that belongs to the base. So the push judges the commits it introduces — the pusher's
-own — and skips merge commits, which git writes rather than a person. The merge commit itself
-is the one commit that route creates, and it is one the `commit-msg` hook sees when the merge
-is made here. Nothing a pusher writes on that route leaves unjudged; the base's history was
-judged on the base.
+Syncing the base into a branch is where judging later has a limit, and the limit is ownership:
+a `git merge origin/main` pulls the base's commits into the branch, the pusher did not write
+them, and rewriting them would rewrite published history that belongs to the base. So the push
+judges the commits it introduces — the pusher's own — and keeps the base's history out of
+range.
 
-That exemption covers inherited history only: the three `no-mistakes(review):` and
+Merge commits are a wider exemption, and it is a bypass rather than coverage. The push skips
+every merge commit, whoever wrote its subject, because git writes that subject in the ordinary
+flow. A merge subject is judged only by `commit-msg`, and only when the merge is made in this
+clone with the hooks installed: a merge made elsewhere, or with `--no-verify`, reaches the
+branch with no judgement at all. That is the one hole in this rule, and it is named here so it
+cannot be mistaken for a covered route.
+
+None of that reaches the pusher's own commits: the three `no-mistakes(review):` and
 `no-mistakes(document):` commits in the record above are the pusher's own, so they stay
 refused.
 
