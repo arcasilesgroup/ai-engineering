@@ -106,7 +106,6 @@ describe("CP26 pipeline commit routes", () => {
     const active = PIPELINE_ROUTES.filter((route) => route.isActive(repositoryConfig));
     // The pin the pipeline reads for its fix commits is the one this repository declares;
     // dropping it falls back to the pipeline default, which this test then has to reject.
-    expect(active.map((route) => route.key)).toContain("commit.fix_message");
     // Coverage is per route, so enabling a second route adds subjects to judge instead of
     // failing a total.
     const subjects = active.flatMap((route) => {

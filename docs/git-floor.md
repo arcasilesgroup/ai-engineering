@@ -110,8 +110,9 @@ published.
 
 Two bypasses sit outside every route this table maps, and no local hook can see them. The first
 runs the push without the hook: `git push --no-verify`, `git -c core.hooksPath=/dev/null push`,
-or a push from a clone where the shims were never installed, so every commit that push carries
-leaves unjudged. The second never crosses a local push at all: a commit written on the forge —
+or a push from a clone where the shims were never installed. The push gate does not run then, so
+what it would have caught is judged only if `commit-msg` saw it, and a clone without the shims
+judges nothing at all. The second never crosses a local push: a commit written on the forge —
 a web edit, a squash-merge that rewrites the PR title, a release bot's `Version Packages`.
 Branch protection and review are what cover both, not this floor.
 
