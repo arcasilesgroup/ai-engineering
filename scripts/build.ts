@@ -65,7 +65,7 @@ const done = spawnSync(
   { stdio: "inherit" },
 );
 
-const left = sweep();
+sweep();
 
 // A plain build (`bun run build`) emits dist/ai-eng. A target-named binary for
 // this host is from an older --target run, and bin/ai-eng.js prefers it over the
