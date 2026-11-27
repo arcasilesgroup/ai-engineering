@@ -8,6 +8,7 @@ import { readdirSync, existsSync, readFileSync, rmSync, unlinkSync, writeFileSyn
 import { spawnSync } from "node:child_process";
 import { basename, dirname, join } from "node:path";
 import { PAYLOAD_FOLDERS } from "../src/embed.ts";
+import { hostTarget, targetBinaryNames } from "../bin/ai-eng.js";
 import { buildChainBundle } from "./chain-bundle.ts";
 
 const args = process.argv.slice(2);
@@ -56,7 +57,8 @@ const artifactPath = outfile(args);
 // only after it succeeds, so a failed or interrupted build leaves no stamp and
 // the launcher runs the source rather than bytes nobody can tie to package.json.
 function stampFor(binaryPath: string): string {
-  return join(dirname(binaryPath), `BUILD-VERSION-${basename(binaryPath)}`);
+  const artifact = basename(binaryPath).replace(/\.exe$/, "");
+  return join(dirname(binaryPath), `BUILD-VERSION-${artifact}`);
 }
 const stampPath = stampFor(artifactPath);
 const { version } = JSON.parse(readFileSync("package.json", "utf8")) as { version: string };
@@ -70,16 +72,16 @@ const done = spawnSync(
 
 const left = sweep();
 
-// A plain build (`bun run build`) emits dist/ai-eng. A leftover
-// dist/ai-eng-<this host> is from an older --target run and would win over the
+// A plain build (`bun run build`) emits dist/ai-eng. A target-named binary for
+// this host is from an older --target run, and bin/ai-eng.js prefers it over the
 // file this build just wrote, so a dev checkout would keep running stale code.
-// Removing it leaves dist/ai-eng, which bin/ai-eng.js runs. A --target build
-// never deletes: that file is the platform refresh.
+// Clearing every name the launcher tries before dist/ai-eng — the plain and
+// `.exe` spellings, musl included — leaves the binary this build just wrote. A
+// --target build never deletes: that file is the platform refresh.
 if (!args.includes("--target") && !args.some((flag) => flag.startsWith("--target="))) {
-  const target = process.platform === "darwin" ? `darwin-${process.arch}`
-    : process.platform === "win32" ? "windows-x64" : `${process.platform}-${process.arch}`;
-  const platformBin = join("dist", `ai-eng-${target}`);
-  if (existsSync(platformBin)) {
+  for (const name of targetBinaryNames(hostTarget())) {
+    const platformBin = join("dist", name);
+    if (!existsSync(platformBin)) continue;
     unlinkSync(platformBin);
     rmSync(stampFor(platformBin), { force: true });
     console.log(`build: removed stale ${platformBin} — bin/ai-eng.js was preferring it over dist/ai-eng`);

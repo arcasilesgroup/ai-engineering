@@ -43,6 +43,13 @@ export function resolveTarget(platform, arch, musl = false) {
   return null;
 }
 
+/** The names `bun run build --target` gives one host's artifact: Bun appends the
+ *  extension on Windows, so both spellings exist. Exported so scripts/build.ts
+ *  clears exactly the names the launcher prefers. */
+export function targetBinaryNames(target) {
+  return target ? [`ai-eng-${target}`, `ai-eng-${target}.exe`] : [];
+}
+
 /** musl vs glibc: the runtime report names the libc it was linked against; its
  *  absence on Linux is musl (Alpine and friends). Any runtime without a report
  *  falls through to glibc — the common case — and a wrong guess still gets the
@@ -55,6 +62,12 @@ function isMusl() {
     /* no report: assume glibc */
   }
   return false;
+}
+
+/** This machine's target suffix, the one a `bun run build --target` here names. */
+export function hostTarget() {
+  const musl = process.platform === "linux" ? isMusl() : false;
+  return resolveTarget(process.platform, process.arch, musl);
 }
 
 /** Spawn one candidate binary and exit with its status. Never returns. */
@@ -108,10 +121,7 @@ function buildStamp(binaryPath) {
 function localBinary(root, target) {
   const version = packageVersion(root);
   if (version === null) return null;
-  const names = [];
-  if (target) names.push(`ai-eng-${target}`, `ai-eng-${target}.exe`);
-  names.push("ai-eng", "ai-eng.exe");
-  for (const name of names) {
+  for (const name of [...targetBinaryNames(target), "ai-eng", "ai-eng.exe"]) {
     const path = join(root, "dist", name);
     if (existsSync(path) && buildStamp(path) === version) return path;
   }
@@ -134,11 +144,9 @@ function runSource(root) {
 }
 
 async function main() {
-  const musl = process.platform === "linux" ? isMusl() : false;
-  const target = resolveTarget(process.platform, process.arch, musl);
   const root = packageRoot();
   if (isDevCheckout(root)) {
-    const local = localBinary(root, target);
+    const local = localBinary(root, hostTarget());
     if (local) runBinary(local);
     runSource(root);
   }
