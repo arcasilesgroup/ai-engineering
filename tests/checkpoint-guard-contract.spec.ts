@@ -628,6 +628,7 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a heredoc body running an interpreter", `bash <<'EOF'\nnpx node -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'\nEOF`],
     ["a heredoc body that cannot be read writing the plan", `bash <<'EOF'\necho \${x:-> f}\nrm ${FOLDER}/demo.json\nEOF`],
     ["touch on a checkpoint", `cd ${FOLDER} && touch demo.json`],
+    ["a writer fed from stdin with no destination on the line", `cd ${FOLDER} && ls | xargs rm`],
     ["a link named as a checkpoint", `cd ${FOLDER} && ln -s ../../../base.txt demo.json`],
     ["a link created in the folder by -t", `ln -s ../../../base.txt -t ${FOLDER}`],
     ["a copy into the folder by -t", `cp -t ${FOLDER} ../../../base.txt`],
@@ -649,7 +650,8 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a versioned interpreter inside the folder", `cd ${FOLDER} && python3.11 -c 'open("demo.json","w")'`],
     ["a short-version interpreter inside the folder", `cd ${FOLDER} && node20 -c 'x'`],
     ["an interpreter only the cwd rule carried inside the folder", `cd ${FOLDER} && ruby -e 'File.write("demo.json","{}")'`],
-    ["a writer fed from stdin with no destination on the line", `cd ${FOLDER} && ls | xargs rm`],
+    ["a read-write open in the folder", `cd ${FOLDER} && exec 3<>demo.json && printf '{}' >&3`],
+    ["a read-write open by absolute path", `exec 3<>${FOLDER}/demo.json`],
     // A cd inside a substitution moves that subshell, not the shell the write runs in.
     ["a cd inside a substitution before the write", `cd ${FOLDER} && echo "$(cd /tmp; pwd)" > demo.json`],
   ])("refuses %s", (_name, command) => {
@@ -694,6 +696,7 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a copy into a target directory elsewhere by a combined short flag", `cp -rt /tmp/backup ../../../base.txt`],
     ["an awk read of the plan", `awk '{print}' ${FOLDER}/plan.json`],
     ["an awk read of the plan with a field separator", `awk -F, '{print $1}' ${FOLDER}/plan.json`],
+    ["a read redirect of the plan in the folder", `cd ${FOLDER} && cat < demo.json`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {

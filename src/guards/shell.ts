@@ -774,7 +774,8 @@ export type ShellCommand = {
   verb: string;
   /** The words the program receives after its name. */
   args: ShellWord[];
-  /** The files an output redirect creates: no descriptor copies, no devices. */
+  /** The files an output redirect creates, or a read-write `<>` opens and may rewrite: no
+   *  descriptor copies, no devices. */
   writes: ShellWord[];
   /** The files an input redirect reads: a heredoc's delimiter and a here-string's text
    *  name none, and a descriptor copy or a device is no file to read. */
@@ -799,7 +800,7 @@ export function commandOf(segment: ShellSegment, text: string = segment.text): S
 export function withWords(segment: ShellSegment, words: readonly ShellWord[]): ShellCommand {
   const { plain, redirects } = readRedirects(words);
   const verbIndex = commandIndex(plain.map((word) => word.value));
-  const writes = redirects.flatMap(({ operator, target }) => (operator.startsWith(">") && isFileTarget(target) ? [target] : []));
+  const writes = redirects.flatMap(({ operator, target }) => ((operator.startsWith(">") || operator === "<>") && isFileTarget(target) ? [target] : []));
   const reads = redirects.flatMap(({ operator, target }) => ((operator === "<" || operator === "<>") && isFileTarget(target) ? [target] : []));
   const args = plain.slice(verbIndex + 1);
   return {
