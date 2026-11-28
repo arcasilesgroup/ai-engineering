@@ -10,7 +10,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { gitFacts, parseAddedLines, resolveRevisions, findingsMain } from "../src/commands/findings.ts";
+import { gitFacts, parseAddedLines, resolveRevisions, findingsMain } from "../scripts/findings-check.ts";
 import { runGit } from "../src/git/run.ts";
 import {
   absenceTokens,
@@ -23,7 +23,7 @@ import {
   type CheckInput,
   type Finding,
   type RepoFacts,
-} from "../src/shared-findings.ts";
+} from "../scripts/findings-signals.ts";
 
 const FIXTURES = join(import.meta.dir, "fixtures", "findings");
 const HEAD = "b35f722fba2a49f8f9ea2c086ae6c85f5d98ec1a";
@@ -819,16 +819,16 @@ describe("lineCount", () => {
   });
 });
 
-describe("the verb", () => {
-  test("a missing subcommand is usage, not a failure", () => {
+describe("the script", () => {
+  test("a missing input is usage, not a failure", () => {
     expect(findingsMain([], {})).toBe(2);
   });
 
   test("input it cannot read exits 1 with a reason, because the count line would be a lie", () => {
-    expect(findingsMain(["check", join(tmpdir(), "ai-eng-findings-does-not-exist.json")], {})).toBe(1);
+    expect(findingsMain([join(tmpdir(), "ai-eng-findings-does-not-exist.json")], {})).toBe(1);
   });
 
   test("a round that is not a round number is refused before any git runs", () => {
-    expect(findingsMain(["check", join(FIXTURES, "rounds-hardening.json")], { round: "three" })).toBe(1);
+    expect(findingsMain([join(FIXTURES, "rounds-hardening.json")], { round: "three" })).toBe(1);
   });
 });

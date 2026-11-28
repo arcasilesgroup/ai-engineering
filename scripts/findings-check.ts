@@ -1,12 +1,24 @@
-// `ai-eng findings check` — read a run's review rounds, attach the evidence a program can
+// scripts/findings-check.ts — read a run's review rounds, attach the evidence a program can
 // check, and print one count line. It never removes a finding: the module that decides
-// which signals exist says why (src/shared-findings.ts), and the verb's only write is to
-// stdout. It is an instrument, not a gate, so a hit is not a failure.
+// which signals exist says why (scripts/findings-signals.ts), and the script's only write
+// is to stdout. It is an instrument, not a gate, so a hit is not a failure.
+//
+// A maintainer script, not a CLI verb: nothing shipped to a governed repository runs it.
+// It measures how precise each signal is on this repository's own review rounds.
+//
+// An annotation means the evidence for that signal was found and is printed under the
+// finding. It is not a verdict: no signal is provably false on its own and real findings
+// trip all of them. Read it as "a check against the diff or earlier rounds matched, and
+// here is where it looked", then judge the finding as you would without it.
+//
+// Usage: bun scripts/findings-check.ts <rounds.json|-> [--json] [--round <n>] [--base <rev>] [--head <rev>]
+//        no-mistakes axi rounds --step review --json | bun scripts/findings-check.ts -
 
 import { readFileSync } from "node:fs";
-import { repoRoot } from "../env.ts";
-import { namedBaseTrackingRef } from "../git/context.ts";
-import { runGit } from "../git/run.ts";
+import { parseArgs } from "node:util";
+import { repoRoot } from "../src/env.ts";
+import { namedBaseTrackingRef } from "../src/git/context.ts";
+import { runGit } from "../src/git/run.ts";
 import {
   checkFindings,
   formatCountLine,
@@ -17,10 +29,9 @@ import {
   type RepoFacts,
   type RoundDocument,
   type RoundSelection,
-} from "../shared-findings.ts";
-import { verbUsage } from "../shared-verbs.ts";
+} from "./findings-signals.ts";
 
-const USAGE = verbUsage("findings");
+const USAGE = "usage: bun scripts/findings-check.ts <rounds.json|-> [--json] [--round <n>] [--base <rev>] [--head <rev>]";
 
 export type FindingsFlags = { json?: boolean; round?: string; base?: string; head?: string };
 
@@ -151,12 +162,8 @@ function requestedRound(flags: FindingsFlags): number | undefined | string {
 }
 
 export function findingsMain(args: string[], flags: FindingsFlags): number {
-  if (args[0] !== "check" || args.length > 2) {
-    process.stderr.write(`${USAGE}\n`);
-    return 2;
-  }
-  const source = args[1];
-  if (source === undefined) {
+  const source = args[0];
+  if (source === undefined || args.length > 1) {
     process.stderr.write(`${USAGE}\n`);
     return 2;
   }
@@ -191,4 +198,13 @@ export function findingsMain(args: string[], flags: FindingsFlags): number {
   process.stdout.write(`${formatCountLine(result.counts)}\n`);
   if (annotated.length > 0) process.stdout.write(`${annotated.join("\n")}\n`);
   return 0; // An instrument: a hit is evidence, never a failing check.
+}
+
+if (import.meta.main) {
+  const { values, positionals } = parseArgs({
+    args: process.argv.slice(2),
+    allowPositionals: true,
+    options: { json: { type: "boolean" }, round: { type: "string" }, base: { type: "string" }, head: { type: "string" } },
+  });
+  process.exit(findingsMain(positionals, values));
 }

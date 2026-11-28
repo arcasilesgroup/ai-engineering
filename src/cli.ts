@@ -16,7 +16,6 @@ import { uninstallMain } from "./commands/uninstall.ts";
 import { configMain } from "./commands/config.ts";
 import { worktreeMain } from "./commands/worktree.ts";
 import { workMain } from "./commands/work.ts";
-import { findingsMain } from "./commands/findings.ts";
 import { wrapMain } from "./wrap/index.ts";
 import { floor } from "./floor/entry.ts";
 import { suggestVerb, renderVerbHelp, HUMAN_VERBS, MACHINE_VERBS, ALL_VERBS } from "./shared-verbs.ts";
@@ -60,7 +59,7 @@ if (flags.version && !isRefreshChild) {
   process.exit(0);
 }
 /** The whole map, on two labelled groups: who runs the verb is the first thing a reader
- *  needs and the one thing a flat list of eleven lines hides. */
+ *  needs and the one thing a flat list of ten lines hides. */
 function showMenu(): void {
   showLogo(VERSION);
   const nameWidth = Math.max(...[...HUMAN_VERBS, ...MACHINE_VERBS].map((entry) => entry.verb.length)) + 2;
@@ -85,7 +84,7 @@ if (!isRefreshChild && flags.help) {
     process.exit(0);
   }
   // An unknown verb keeps the unknown-verb error below: it names the nearest verb, and
-  // the menu would bury the typo under eleven lines nobody asked about.
+  // the menu would bury the typo under ten lines nobody asked about.
 }
 if (!isRefreshChild && verb === undefined) {
   showMenu();
@@ -159,13 +158,6 @@ const verbMain: Record<string, () => number | Promise<number>> = {
   },
   update: () => updateMain({ yes: flags.yes === true }),
   work: () => workMain(flags._.slice(1).map(String), { json: flags.json === true, ...(typeof flags.until === "string" ? { until: flags.until } : {}) }),
-  findings: () =>
-    findingsMain(flags._.slice(1).map(String), {
-      json: flags.json === true,
-      ...(typeof flags.round === "string" ? { round: flags.round } : {}),
-      ...(typeof flags.base === "string" ? { base: flags.base } : {}),
-      ...(typeof flags.head === "string" ? { head: flags.head } : {}),
-    }),
   uninstall: () => uninstallMain(),
 };
 const unhandledVerbs = ALL_VERBS.filter((name) => !(name in verbMain));
