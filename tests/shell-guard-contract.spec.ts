@@ -261,6 +261,16 @@ describe("shellWords", () => {
     expect(shellWords('"ab')).toEqual([word("ab", true, "", '"ab')]);
   });
 
+  test("a Windows path keeps its separators; the same backslash elsewhere is an escape", () => {
+    // A path is spelled with `\`, so `\` there is a character: removed as an escape the
+    // word names a file nobody wrote, and every guard downstream allows the write.
+    expect(shellWords("cat C:\\repo\\.ai-engineering\\config.toml").map((word) => word.value))
+      .toEqual(["cat", "C:\\repo\\.ai-engineering\\config.toml"]);
+    expect(shellWords(".\\rm ..\\x").map((word) => word.value)).toEqual([".\\rm", "..\\x"]);
+    // No drive and no leading `.`, so this is an ordinary word with an escape in it.
+    expect(shellWords("r\\m C:tools\\rm").map((word) => word.value)).toEqual(["rm", "C:toolsrm"]);
+  });
+
   test("unquoteShell joins continued lines before removing quotes", () => {
     expect(unquoteShell("git com\\\nmit 'x y'")).toBe("git commit x y");
   });

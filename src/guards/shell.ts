@@ -560,6 +560,13 @@ export type ShellWord = {
 /** A word the shell expands before the program sees it: an unquoted glob or brace. */
 export const GLOB_CHARS = /[*?[]/;
 
+/** A word spelled as a Windows path (`C:\…`, `.\…`, `..\…`): its `\` separates the segments
+ *  of one path, so it is a character and never an escape. Read as an escape the word names no
+ *  file at all — `C:\repo\.ai-engineering\config.toml` comes out as
+ *  `C:repo.ai-engineeringconfig.toml`, which no guard resolves to the governed file. The rule
+ *  the per-guard command name carried before the one reader took it over. */
+const WINDOWS_PATH_WORD = /^(?:[A-Za-z]:|\.{1,2})(?:\\|$)/;
+
 /** Commands that print the bytes of the files they name, so reading one is how a payload
  *  reaches the model. Every guard that asks "what does this command read" asks here. */
 const FILE_CONTENT_READERS = new Set([
@@ -655,10 +662,12 @@ export function shellWords(text: string): ShellWord[] {
       while (text[index + 1] === "<" || text[index + 1] === ">") operator += text[++index];
       words.push({ value: operator, isQuoted: false, isOperator: true, unquoted: operator, original: operator });
     } else if (char === "\\") {
-      value += next ?? "";
+      // A separator in a Windows path stays; anywhere else the shell removes it.
+      const isSeparator = WINDOWS_PATH_WORD.test(value);
+      value += isSeparator ? char : next ?? "";
       hasWord = true;
       isQuoted = true;
-      index++;
+      if (!isSeparator) index++;
     } else if (char === "$" && next === "{") {
       const close = Math.min(quotedSpanEnd(text, index), text.length - 1);
       value += text.slice(index, close + 1);

@@ -7,7 +7,7 @@
 // test, not a discovery three releases later.
 import { describe, expect, test } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { readCommands } from "../src/guards/shell.ts";
 
 const SRC = join(import.meta.dir, "..", "src");
@@ -23,7 +23,7 @@ function sourceFiles(directory: string): string[] {
   });
 }
 
-const FILES = sourceFiles(SRC).map((path) => ({ path, rel: relative(SRC, path), text: readFileSync(path, "utf8") }));
+const FILES = sourceFiles(SRC).map((path) => ({ path, rel: relative(SRC, path).split(sep).join("/"), text: readFileSync(path, "utf8") }));
 
 /** A declaration that is a second reader. Each entry is one of the duplications the audit
  *  found three of; the name says which question the copy was answering. */
