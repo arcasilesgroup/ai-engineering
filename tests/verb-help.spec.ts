@@ -2,7 +2,7 @@
 // global menu must say which group runs which verb.
 //
 // Both were false for every verb at once: cli.ts intercepted --help before dispatch, so
-// `ai-eng findings --help` printed the eleven-line menu and not one flag was discoverable
+// `ai-eng worktree --help` printed the ten-line menu and not one flag was discoverable
 // from the CLI. A unit test over the data would have stayed green while the dispatch kept
 // short-circuiting, so the gate for the first is the spawned binary, verb by verb.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
