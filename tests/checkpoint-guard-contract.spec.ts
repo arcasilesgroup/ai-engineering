@@ -636,6 +636,10 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a move into the folder by an attached -t", `mv -t${FOLDER} ../../../base.txt`],
     ["a link into the folder by an attached -t", `ln -s ../../../base.txt -t${FOLDER}`],
     ["an awk program that writes the plan", `awk '{print > "${FOLDER}/plan.json"}' x`],
+    ["a cp into the folder by a combined short flag", `cp -rt ${FOLDER} ../../../base.txt`],
+    ["an install into the folder by a combined short flag", `install -Dt ${FOLDER} ../../../base.txt`],
+    ["a link into the folder by a combined short flag", `ln -sft ${FOLDER} ../../../base.txt`],
+    ["an interpreter on a line the reader cannot resolve", `node -e 'require("fs").writeFileSync("${FOLDER}/demo.json","{}")' \${y:-> f}`],
     ["an install into the folder by an attached target directory", `install --target-directory=${FOLDER} ../../../base.txt`],
     ["an interpreter spelled as a Windows executable", `node.exe -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'`],
     ["a versioned interpreter spelled as a Windows executable", `python3.11.exe -m pickletools ${FOLDER}/demo.json > /dev/null`],
@@ -684,6 +688,7 @@ describe("Bash writes into the checkpoint folder", () => {
     ["an install out of the folder by a target directory", `cd ${FOLDER} && install -t /tmp/backup demo.json`],
     ["a link whose target is the folder into a target directory", `ln -s ${FOLDER}/demo.json -t /tmp`],
     ["a jq read of the plan", `jq . ${FOLDER}/plan.json`],
+    ["a copy into a target directory elsewhere by a combined short flag", `cp -rt /tmp/backup ../../../base.txt`],
     ["an awk read of the plan", `awk '{print}' ${FOLDER}/plan.json`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {

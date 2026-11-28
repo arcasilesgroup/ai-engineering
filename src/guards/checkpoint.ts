@@ -487,9 +487,9 @@ function commandWords(command: ShellCommand): string[] {
  *  it feeds, and the program each interpreter word runs, which is a command of its own. */
 function commandsOf(command: string): ShellCommand[] {
   const programs = inlineShellPrograms(command);
-  const commands = readCommands(command) ?? [];
+  const commands = readCommands(command) ?? readCommandsLenient(command);
   const bodies = commands.flatMap((parsed) => parsed.segment.heredocs.flatMap(({ body }) => readCommands(body) ?? readCommandsLenient(body)));
-  return [...commands, ...bodies, ...programs.flatMap((program) => readCommands(program) ?? [])];
+  return [...commands, ...bodies, ...programs.flatMap((program) => readCommands(program) ?? readCommandsLenient(program))];
 }
 
 /** Verbs whose every operand is a path they write. */
@@ -524,9 +524,9 @@ function writeTargetsOf(command: ShellCommand): string[] | null {
   // `dd if=… of=<file>` names its destination as an operand of its own.
   for (const operand of operands) if (operand.startsWith("of=")) named.push(operand.slice("of=".length));
   const targetDirectory = (): string | null => {
-    const flag = args.findIndex((arg) => arg === "-t" || arg === "--target-directory");
-    if (flag >= 0) return args[flag + 1] ?? "";
-    const attached = args.flatMap((arg) => [/^--target-directory=(.+)$/.exec(arg)?.[1], /^-t(.+)$/.exec(arg)?.[1]]);
+    const detached = args.findIndex((arg) => arg === "--target-directory" || /^-[A-Za-z]*t$/.test(arg));
+    if (detached >= 0) return args[detached + 1] ?? "";
+    const attached = args.flatMap((arg) => [/^--target-directory=(.+)$/.exec(arg)?.[1], /^-[A-Za-z]*t(.+)$/.exec(arg)?.[1]]);
     return attached.find((value) => value !== undefined) ?? null;
   };
   const directory = targetDirectory();
