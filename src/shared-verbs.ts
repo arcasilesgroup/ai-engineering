@@ -32,10 +32,10 @@ export const HUMAN_VERBS: readonly VerbEntry[] = [
     flags: [
       { flag: "--yes", helps: "take every default instead of asking" },
       { flag: "--global", helps: "repair this machine's canon and stop; the repo is untouched" },
-      { flag: "--surface", helps: "with --yes, install these hosts only — an advisory host is refused" },
+      { flag: "--surface", helps: "on a repo not yet governed, with --yes, install these hosts only — an advisory host is refused" },
       { flag: "--ci", helps: `write the CI template for one of ${CI_PROVIDERS.join(", ")}` },
     ],
-    note: "The host picker starts with the hosts detected in this repo ticked; --surface takes effect with --yes.",
+    note: "The host picker starts with the hosts detected in this repo ticked; --surface takes effect with --yes on a first install — on a governed repo use `ai-eng config --add`.",
   },
   {
     verb: "doctor",
