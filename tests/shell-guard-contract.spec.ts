@@ -368,6 +368,7 @@ describe("the command model — one parse every guard is a predicate over", () =
     }
     // A descriptor copy is respelled as the file the descriptor is; a device is no file.
     expect(command("echo x 2>&1 2>/dev/null").redirects.map(({ target }) => target?.value)).toEqual(["/dev/fd/1", "/dev/null"]);
+    expect(command("echo x >& 1").redirects.map(({ target }) => target?.value)).toEqual(["/dev/fd/1"]);
     expect(command("echo x 2>&1 2>/dev/null").writes).toEqual([]);
     expect(command("echo x > out").writes.map((word) => word.value)).toEqual(["out"]);
   });

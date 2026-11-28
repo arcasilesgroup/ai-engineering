@@ -685,6 +685,13 @@ describe("Bash writes into the checkpoint folder", () => {
     });
   });
 
+  test("a pipeline after a cd the guard cannot follow still reaches the folder", () => {
+    withFixture((fixture) => {
+      save(fixture.planPath, plan());
+      expect(run(fixture, bash(`X=docs; cd "$X" && cat /tmp/p | tee ../${FOLDER}/demo.json`))).toEqual(refused(SHELL_WRITE));
+    });
+  });
+
   test("a writer fed from stdin is judged by the folder it runs in", () => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());

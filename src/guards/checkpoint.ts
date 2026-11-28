@@ -590,7 +590,7 @@ function commandsWriteIntoCheckpoints(commands: readonly ShellCommand[], cwd: st
     if (known !== undefined) return known;
     let ancestor = parentScope;
     while (ancestor !== scope && ancestor !== 0 && !directories.has(ancestor)) ancestor = parents.get(ancestor) ?? 0;
-    const inherited = directories.get(ancestor) ?? cwd;
+    const inherited = directories.has(ancestor) ? directories.get(ancestor)! : cwd;
     directories.set(scope, inherited);
     return inherited;
   };
