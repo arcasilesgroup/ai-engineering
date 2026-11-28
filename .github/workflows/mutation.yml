@@ -3,6 +3,21 @@ name: mutation
 # that stopped denying. Off the fast path by construction: nightly, on demand, and on a
 # pull request that touches the governance core. Never on an ordinary push.
 #
+# Two jobs, because the two campaigns answer different questions and cannot share one
+# ceiling: a pull request asks "does the file I just changed still deny what it denied",
+# the nightly asks "does the whole core still score". They differ in the surface they
+# mutate and the ceiling they run under, and in nothing else.
+#
+# Every number here is measured on a hosted runner, and the measurement is what a
+# campaign actually executes: a run that reuses most of its mutants finishes fast and
+# proves nothing about the ones it runs. Three green nightlies (44730630181,
+# 44898202664, 45018016173) reused 5,671-5,764 of their 9,056-9,126 mutants and ran
+# 3,292-3,455 fresh ones in 27m35s-28m33s: 116-122 fresh mutants a minute, agreeing
+# within 2%. The 40-minute ceiling this tier shipped with was justified by no such
+# measurement, and by 2026-11-28 the set had grown to 12,033 and the ceiling was below
+# the work, so GitHub cancelled every run at the wall and a cancelled check read like
+# coverage while delivering none.
+#
 # Every action is GitHub-owned and pinned by SHA: a tag is mutable, a SHA is not.
 on:
   schedule:
@@ -19,15 +34,18 @@ permissions:
   contents: read
 
 jobs:
-  # One job serves nightly, on-demand, and governance PR runs.
-  campaign:
+  # The governance files a pull request touches, and only those. A full campaign here
+  # would cost the same 43 minutes for a three-line change, so the surface is the diff.
+  changed-files:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # The hard ceiling, not the estimate. Measured: this campaign took 4m29s on the
-    # first real run of the job (59.72% of 1,946 mutants, cold cache, ubuntu-latest)
-    # and 11m21s at `concurrency: 2` on the 8-core laptop that built the tier. The
-    # ceiling covers the slower of the two, with room for the plugin's known flake (one
-    # spurious dry-run failure in seven when the machine is loaded).
-    timeout-minutes: 40
+    # 60 minutes. At the measured 60 fresh mutants a minute (see scripts/mutation-plan.ts
+    # for why that is the planning rate and 120 the November measurement), the largest
+    # governance file, self-protect.ts at 2,489 mutants, estimates 46 minutes; the three
+    # largest together estimate 97 and are refused below, because a pull request that
+    # large is asking for a review slice this gate cannot answer. The preflight refuses
+    # anything the ceiling cannot hold, so a queued campaign is never killed here.
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -37,35 +55,111 @@ jobs:
         run: npm install -g bun@1.4.4
       - name: Dependencies
         run: bun install --frozen-lockfile
-      - name: Node the campaign runs on
-        run: node -v
+      # Restore only, never save: this run mutates a slice of the core and would write a
+      # report carrying that slice alone over the nightly's whole-core baseline.
+      - name: Restore the previous campaign's results
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: reports
+          key: stryker-incremental-${{ hashFiles('bun.lock') }}
+          restore-keys: stryker-incremental-
       - name: The governance files this pull request touches
-        if: github.event_name == 'pull_request'
+        id: surface
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
-          if ! CHANGED=$(git diff --name-only "origin/$BASE_REF...HEAD" -- src/guards src/chain src/floor); then
+          if ! CHANGED=$(git diff --name-only --diff-filter=d "origin/$BASE_REF...HEAD" -- src/guards src/chain src/floor); then
             echo "::error::cannot compute the diff against origin/$BASE_REF — the campaign would have no verdict to give, so it does not start."
             exit 1
           fi
           printf 'governance files in this pull request:\n%s\n' "$CHANGED"
+          echo "surface=$(printf '%s' "$CHANGED" | paste -sd, -)" >> "$GITHUB_OUTPUT"
+      # The estimate is arithmetic on measurement, not a second campaign: the rate and the
+      # dry run's cost were both measured, and the density of each file comes from the
+      # restored report. A campaign that cannot finish is refused here, with both numbers
+      # named, instead of being cancelled at the wall. It is deliberately pessimistic —
+      # it assumes every mutant runs, though the report lets a campaign reuse most.
+      - name: Will this campaign fit in the ceiling?
+        if: steps.surface.outputs.surface != ''
+        env:
+          MUTATION_CEILING: "60"
+        run: >-
+          bun scripts/mutation-plan.ts
+          --ceiling "$MUTATION_CEILING"
+          --report reports/stryker-incremental.json
+          "${{ steps.surface.outputs.surface }}"
+      - name: Nothing to mutate
+        if: steps.surface.outputs.surface == ''
+        run: echo "::notice::no governance file with mutants changed, so the campaign has no verdict to give and does not start."
+      # The exit code IS the gate: below thresholds.break the step fails and the
+      # clear-text report names the survivors. Nothing here re-reads the report to
+      # decide — a gate that parses its own output is a gate that can be wrong twice.
+      - name: Mutation campaign
+        if: steps.surface.outputs.surface != ''
+        run: bunx stryker run --mutate "${{ steps.surface.outputs.surface }}"
+      - name: Upload the report
+        if: always() && steps.surface.outputs.surface != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-report-pr
+          path: reports/
+          if-no-files-found: error
+
+  # The whole core, nightly and on demand. This is the run that keeps the ratchet honest.
+  full:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # 240 minutes, and its own number rather than the pull request's, because a cold
+    # campaign and a scoped one are not the same job. This is a bound, not a promise:
+    # run 46146987123 (2026-11-28) instrumented 12,033 mutants, reused 4,688, and had not
+    # finished 7,345 fresh ones after 87m39s, so the 90-minute ceiling that replaced 40
+    # was itself too low. At the 60-a-minute planning rate those 7,345 need 122 minutes
+    # and the whole core's 12,033 need 200, which the preflight below refuses above.
+    #
+    # The number should come DOWN once a run completes and writes its results to the
+    # incremental report: tonight's 7,345 fresh mutants are fresh only because the report
+    # was last written on 2026-11-22, and a green run re-bases it on 12,033. The levers
+    # after that are the runner's `concurrency` in stryker.conf.mjs, then a matrix over
+    # the three directories — neither of them belongs in this change.
+    timeout-minutes: 240
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Bun
+        run: npm install -g bun@1.4.4
+      - name: Dependencies
+        run: bun install --frozen-lockfile
+      # The whole-core baseline the pull-request job reads, and the reason it must never
+      # write to it: only this job knows the results for the files a pull request skips.
       - name: Restore the previous campaign's results
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: reports
           key: stryker-incremental-${{ hashFiles('bun.lock') }}
           restore-keys: stryker-incremental-
-      # The exit code IS the gate: below thresholds.break the step fails and the
-      # clear-text report names the survivors. Nothing here re-reads the report to
-      # decide — a gate that parses its own output is a gate that can be wrong twice.
+      - name: Every file the campaign mutates
+        id: surface
+        run: |
+          set -euo pipefail
+          SURFACE=$(git ls-files 'src/guards/*.ts' 'src/chain/*.ts' 'src/floor/*.ts' | paste -sd, -)
+          echo "surface=$SURFACE" >> "$GITHUB_OUTPUT"
+      - name: Will this campaign fit in the ceiling?
+        env:
+          MUTATION_CEILING: "240"
+        run: >-
+          bun scripts/mutation-plan.ts
+          --ceiling "$MUTATION_CEILING"
+          --report reports/stryker-incremental.json
+          "${{ steps.surface.outputs.surface }}"
       - name: Mutation campaign
         run: bunx stryker run
       - name: Upload the report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ${{ github.event_name == 'pull_request' && 'mutation-report-pr' || 'mutation-report' }}
+          name: mutation-report
           path: reports/
           if-no-files-found: error
-
