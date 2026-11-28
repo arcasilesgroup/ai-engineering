@@ -51,7 +51,11 @@ const CODE_WRITER = /(?:^|[-_])(?:python|node|perl)(?:\d+(?:\.\d+)*)?$/;
 // The cwd rule treats every program that can reach a file as opaque, as it always has.
 const OPAQUE_WRITER = /(?:^|[-_])(?:python|node|perl|ruby|bun|deno|jq|awk|gawk|mawk|nawk)(?:\d+(?:\.\d+)*)?$/;
 const AWK = new Set(["awk", "gawk", "mawk", "nawk"]);
-const AWK_WRITE = /\bprintf?\b[^;}]*[>|]|system\(/;
+// Every token that lets an awk program write or run something: a redirection or a pipe, a call
+// out to the shell, and the functions that touch a file or a stream. `$2 > 5` and `/a|b/` are
+// reads and are refused too — a documented narrow false positive that buys one rule instead of
+// an awk parser. jq and cat read checkpoint JSON.
+const AWK_EXECUTION = /[|>]|system\(|getline|close\(|fflush\(/;
 const AWK_PROGRAM_OPTION = /^(?:-e|--source(?:=|$))/;
 const AWK_VALUE_OPTION = /^(?:-f|--file(?:=|$)|-v|--assign(?:=|$)|-F|--field-separator(?:=|$))/;
 const AWK_FLAG = new Set([
@@ -581,12 +585,6 @@ function runsInterpreter(command: ShellCommand, isInterpreter: (name: string) =>
   return command.plain.some((word) => isInterpreter(programName(word.value)));
 }
 
-/** The program text minus what awk only prints: a `>` or `|` inside a string literal writes
- *  nothing, so the literal is blanked before the write test. */
-function awkCode(program: string): string {
-  return program.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, "");
-}
-
 /** Whether the shell replaces part of this word before awk sees it: a `$` or a backtick outside
  *  single quotes is expanded, so the program the guard reads is not the one that runs. */
 function isExpandedWord(word: ShellWord): boolean {
@@ -630,9 +628,9 @@ function awkSourcePrograms(args: readonly ShellWord[]): ShellWord[] {
   return programs;
 }
 
-/** Whether a program word writes or is a program the guard cannot read. */
+/** Whether a program word writes, runs a command, or is a program the guard cannot read. */
 function programWrites(program: ShellWord): boolean {
-  return isExpandedWord(program) || AWK_WRITE.test(awkCode(program.value));
+  return isExpandedWord(program) || AWK_EXECUTION.test(program.value);
 }
 
 /** Whether an awk option word is one the guard settles: a program it judges (`-e`/`--source`), a
@@ -644,9 +642,9 @@ function isSettledAwkOption(arg: string): boolean {
   return arg === "-" || AWK_PROGRAM_OPTION.test(arg) || AWK_VALUE_OPTION.test(arg) || AWK_FLAG.has(arg);
 }
 
-/** Whether awk's own program writes: a redirection or a pipe in a print, a system() call, a
- *  program read from a file or an expansion the guard cannot see. awk's own options take the
- *  word after them, so the program is the first word that is not one. */
+/** Whether awk's own program can write or run anything: it holds a redirection, a pipe, a shell
+ *  call or a file function, or it is a program the guard cannot read at all. awk's own options
+ *  take the word after them, so the program is the first word that is not one. */
 function awkProgramWrites(command: ShellCommand): boolean {
   const args = command.args;
   const words = args.map((word) => word.value);
@@ -668,12 +666,13 @@ function awkProgramWrites(command: ShellCommand): boolean {
   return false;
 }
 
-/** Whether one command that names a checkpoint runs an interpreter that could write it.
+/** Why one command that names a checkpoint could write it, or null when it only reads.
  *  json.tool with the checkpoint as its one operand only reads it. */
-function hasOpaqueWriteForm(command: ShellCommand): boolean {
-  if (isJsonToolRead(commandWords(command), (operand) => CHECKPOINT_TARGET.test(operand))) return false;
-  if (runsInterpreter(command, isCodeWriter)) return true;
-  return runsInterpreter(command, (name) => AWK.has(name)) && awkProgramWrites(command);
+function opaqueWriteForm(command: ShellCommand): "awk" | "code" | null {
+  if (isJsonToolRead(commandWords(command), (operand) => CHECKPOINT_TARGET.test(operand))) return null;
+  if (runsInterpreter(command, isCodeWriter)) return "code";
+  if (runsInterpreter(command, (name) => AWK.has(name)) && awkProgramWrites(command)) return "awk";
+  return null;
 }
 
 /** A path as the shell would resolve it from `cwd`, or null when it hangs off a variable,
@@ -780,8 +779,14 @@ function checkBash(payload: Payload, repoRoot: string): CheckpointGuardResult {
       return deny("Checkpoint", "shell gate", `does not accept a patch to ${gated}`, "use Edit or Write so checkpoint gates are validated");
     }
   }
-  const isNamedWrite = CHECKPOINT_TARGET.test(command) && commandsOf(command).some(hasOpaqueWriteForm);
-  if (!isNamedWrite && !shellWritesIntoCheckpoints(command, cwd, realRepo(repoRoot))) return undefined;
+  const writeForms = (CHECKPOINT_TARGET.test(command) ? commandsOf(command) : []).flatMap((parsed) => {
+    const form = opaqueWriteForm(parsed);
+    return form === null ? [] : [form];
+  });
+  if (writeForms.length === 0 && !shellWritesIntoCheckpoints(command, cwd, realRepo(repoRoot))) return undefined;
+  if (writeForms.length > 0 && writeForms.every((form) => form === "awk")) {
+    return deny("Checkpoint", "shell gate", "cannot tell an awk write from a read here", "read checkpoint JSON with jq or cat, and use Edit or Write to change it");
+  }
   return deny("Checkpoint", "shell gate", "does not allow direct Bash writes to checkpoint JSON", "use Edit or Write so checkpoint gates are validated");
 }
 

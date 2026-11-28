@@ -60,6 +60,7 @@ type Fixture = { root: string; slug: string; planPath: string; folder: string; b
 const FOLDER = ".ai-engineering/workflow/checkpoints";
 const ALLOWED = { deny: false } as const;
 const SHELL_WRITE = "Checkpoint cannot pass: shell gate does not allow direct Bash writes to checkpoint JSON. Next: use Edit or Write so checkpoint gates are validated.";
+const AWK_PROGRAM = "Checkpoint cannot pass: shell gate cannot tell an awk write from a read here. Next: read checkpoint JSON with jq or cat, and use Edit or Write to change it.";
 
 let fixtureRoot = "";
 let template = "";
@@ -636,6 +637,28 @@ describe("Bash writes into the checkpoint folder", () => {
     ["an install into the folder by an attached -t", `install -t${FOLDER} ../../../base.txt`],
     ["a move into the folder by an attached -t", `mv -t${FOLDER} ../../../base.txt`],
     ["a link into the folder by an attached -t", `ln -s ../../../base.txt -t${FOLDER}`],
+    ["a cp into the folder by a combined short flag", `cp -rt ${FOLDER} ../../../base.txt`],
+    ["an install into the folder by a combined short flag", `install -Dt ${FOLDER} ../../../base.txt`],
+    ["a link into the folder by a combined short flag", `ln -sft ${FOLDER} ../../../base.txt`],
+    ["an interpreter on a line the reader cannot resolve", `node -e 'require("fs").writeFileSync("${FOLDER}/demo.json","{}")' \${y:-> f}`],
+    ["an install into the folder by an attached target directory", `install --target-directory=${FOLDER} ../../../base.txt`],
+    ["an interpreter spelled as a Windows executable", `node.exe -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'`],
+    ["a versioned interpreter spelled as a Windows executable", `python3.11.exe -m pickletools ${FOLDER}/demo.json > /dev/null`],
+    ["a versioned interpreter inside the folder", `cd ${FOLDER} && python3.11 -c 'open("demo.json","w")'`],
+    ["a short-version interpreter inside the folder", `cd ${FOLDER} && node20 -c 'x'`],
+    ["an interpreter only the cwd rule carried inside the folder", `cd ${FOLDER} && ruby -e 'File.write("demo.json","{}")'`],
+    ["a read-write open in the folder", `cd ${FOLDER} && exec 3<>demo.json && printf '{}' >&3`],
+    ["a read-write open by absolute path", `exec 3<>${FOLDER}/demo.json`],
+    // A cd inside a substitution moves that subshell, not the shell the write runs in.
+    ["a cd inside a substitution before the write", `cd ${FOLDER} && echo "$(cd /tmp; pwd)" > demo.json`],
+  ])("refuses %s", (_name, command) => {
+    withFixture((fixture) => {
+      save(fixture.planPath, plan());
+      expect(run(fixture, bash(command))).toEqual(refused(SHELL_WRITE));
+    });
+  });
+
+  test.each([
     ["an awk program that writes the plan", `awk '{print > "${FOLDER}/plan.json"}' x`],
     ["an awk program behind an option value", `awk -v n=1 '{print "x" > "${FOLDER}/demo.json"}' /dev/null`],
     ["a packaged awk that writes the plan", `gawk '{print > "${FOLDER}/plan.json"}' x`],
@@ -656,24 +679,19 @@ describe("Bash writes into the checkpoint folder", () => {
     ["an awk redirection into a variable", `awk -v t=${FOLDER}/plan.json '{print > t}' x`],
     ["an awk in-place edit of the plan", `awk -i inplace '{$0="approved"}' ${FOLDER}/plan.json`],
     ["an awk print piped into a writer", `awk '{print | "tee -a ${FOLDER}/plan.json"}' x`],
-    ["a cp into the folder by a combined short flag", `cp -rt ${FOLDER} ../../../base.txt`],
-    ["an install into the folder by a combined short flag", `install -Dt ${FOLDER} ../../../base.txt`],
-    ["a link into the folder by a combined short flag", `ln -sft ${FOLDER} ../../../base.txt`],
-    ["an interpreter on a line the reader cannot resolve", `node -e 'require("fs").writeFileSync("${FOLDER}/demo.json","{}")' \${y:-> f}`],
-    ["an install into the folder by an attached target directory", `install --target-directory=${FOLDER} ../../../base.txt`],
-    ["an interpreter spelled as a Windows executable", `node.exe -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'`],
-    ["a versioned interpreter spelled as a Windows executable", `python3.11.exe -m pickletools ${FOLDER}/demo.json > /dev/null`],
-    ["a versioned interpreter inside the folder", `cd ${FOLDER} && python3.11 -c 'open("demo.json","w")'`],
-    ["a short-version interpreter inside the folder", `cd ${FOLDER} && node20 -c 'x'`],
-    ["an interpreter only the cwd rule carried inside the folder", `cd ${FOLDER} && ruby -e 'File.write("demo.json","{}")'`],
-    ["a read-write open in the folder", `cd ${FOLDER} && exec 3<>demo.json && printf '{}' >&3`],
-    ["a read-write open by absolute path", `exec 3<>${FOLDER}/demo.json`],
-    // A cd inside a substitution moves that subshell, not the shell the write runs in.
-    ["a cd inside a substitution before the write", `cd ${FOLDER} && echo "$(cd /tmp; pwd)" > demo.json`],
-  ])("refuses %s", (_name, command) => {
+    ["an awk program running a command through sh", `awk 'BEGIN{ "touch ${FOLDER}/plan.json" | getline }' /dev/null`],
+    ["an awk program calling system", `awk 'BEGIN{ system("touch ${FOLDER}/plan.json") }' /dev/null`],
+    ["an awk comparison read of the plan", `awk '$2 > 5' ${FOLDER}/plan.json`],
+    ["an awk comparison inside print", `awk '{print ($2 > 5)}' ${FOLDER}/plan.json`],
+    ["an awk regex alternation read of the plan", `awk '/approved|pending/' ${FOLDER}/plan.json`],
+    ["an awk regex alternation inside print", `awk '{print ($0 ~ /a|b/)}' ${FOLDER}/plan.json`],
+    ["an awk read printing a pipe character", `awk '{print $1 "|" $2}' ${FOLDER}/plan.json`],
+    ["an awk read printing a greater-than sign", `awk '{print $1 ">" $2}' ${FOLDER}/plan.json`],
+    ["an awk read through a source option printing a pipe", `gawk --source='{print $1 "|" $2}' ${FOLDER}/plan.json`],
+  ])("refuses %s, which awk cannot be judged for", (_name, command) => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());
-      expect(run(fixture, bash(command))).toEqual(refused(SHELL_WRITE));
+      expect(run(fixture, bash(command))).toEqual(refused(AWK_PROGRAM));
     });
   });
 
@@ -712,14 +730,9 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a copy into a target directory elsewhere by a combined short flag", `cp -rt /tmp/backup ../../../base.txt`],
     ["an awk read of the plan", `awk '{print}' ${FOLDER}/plan.json`],
     ["an awk read of the plan with a field separator", `awk -F, '{print $1}' ${FOLDER}/plan.json`],
-    ["an awk regex alternation read of the plan", `awk '/approved|pending/' ${FOLDER}/plan.json`],
     ["an awk read through an attached source option", `gawk --source='{print $1}' ${FOLDER}/plan.json`],
     ["an awk read through a detached short source option", `gawk -e '{print $1}' ${FOLDER}/plan.json`],
-    ["an awk comparison read of the plan", `awk '$2 > 5' ${FOLDER}/plan.json`],
     ["an awk read with a flag", `awk --posix '{print $1}' ${FOLDER}/plan.json`],
-    ["an awk read printing a pipe character", `awk '{print $1 "|" $2}' ${FOLDER}/plan.json`],
-    ["an awk read printing a greater-than sign", `awk '{print $1 ">" $2}' ${FOLDER}/plan.json`],
-    ["an awk read through a source option printing a pipe", `gawk --source='{print $1 "|" $2}' ${FOLDER}/plan.json`],
     ["a read redirect of the plan in the folder", `cd ${FOLDER} && cat < demo.json`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {
