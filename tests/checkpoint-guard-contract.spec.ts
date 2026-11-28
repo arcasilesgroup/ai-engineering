@@ -623,6 +623,8 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a heredoc body writing the plan after a cd", `cd ${FOLDER} && bash <<'EOF'\nprintf x > demo.json\nEOF`],
     ["a heredoc body running an interpreter", `bash <<'EOF'\nnpx node -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'\nEOF`],
     ["a heredoc body that cannot be read writing the plan", `bash <<'EOF'\necho \${x:-> f}\nrm ${FOLDER}/demo.json\nEOF`],
+    // A cd inside a substitution moves that subshell, not the shell the write runs in.
+    ["a cd inside a substitution before the write", `cd ${FOLDER} && echo "$(cd /tmp; pwd)" > demo.json`],
   ])("refuses %s", (_name, command) => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());
@@ -652,6 +654,7 @@ describe("Bash writes into the checkpoint folder", () => {
     ["an interpreter named as an operand of a reader", `grep python3 ${FOLDER}/demo.json`],
     ["a heredoc body writing outside the folder", `bash <<'EOF'\nprintf x > notes.txt\nEOF`],
     ["a commit message heredoc naming the plan", `git commit -F - <<'EOF'\nit's the plan at ${FOLDER}/demo.json\nEOF`],
+    ["a cd inside a substitution that only reads the folder", `cd /tmp && echo "$(cd ${FOLDER}; ls)" > demo.json`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {

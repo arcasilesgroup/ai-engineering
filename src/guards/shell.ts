@@ -820,7 +820,7 @@ export function readCommands(command: string): ShellCommand[] | null {
 /** One command read from text whose quoting the reader cannot resolve: the words it can
  *  see, judged as a single command. A guard that cannot read the line whole still judges
  *  what it can see rather than passing it. */
-export function readCommandLenient(text: string, isAfterPipe = false): ShellCommand {
+function readCommandLenient(text: string, isAfterPipe = false): ShellCommand {
   return commandOf({
     text,
     isAfterPipe,

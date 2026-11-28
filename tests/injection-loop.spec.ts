@@ -102,6 +102,11 @@ describe("injection · readTargets — what a command line would print", () => {
     expect(readTargets("jq . package.json")).toEqual([".", "package.json"]);
   });
 
+  test("a printer behind another verb still contributes its arguments", () => {
+    expect(readTargets("git diff notes.txt")).toEqual(["notes.txt"]);
+    expect(readTargets("git grep needle notes.txt")).toEqual(["needle", "notes.txt"]);
+  });
+
   test("readers are recognised by basename whatever path prefixes them", () => {
     expect(readTargets("/usr/bin/cat notes.txt")).toEqual(["notes.txt"]);
     expect(readTargets("./tail -3 log.txt")).toEqual(["log.txt"]);

@@ -557,10 +557,26 @@ function shellWritesIntoCheckpoints(command: string, cwd: string | null, repo: R
  *  stands, past the cd/pushd/popd this line runs before it. */
 function commandsWriteIntoCheckpoints(commands: readonly ShellCommand[], cwd: string | null, repo: RealRepo, mentions: boolean): boolean {
   let directory: string | null = cwd;
+  let scope = commands[0]?.segment.scope ?? 0;
+  const outer: Array<{ scope: number; directory: string | null }> = [];
   const stack: Array<string | null> = [];
   for (const shellCommand of commands) {
     const words = commandWords(shellCommand);
     const [name, ...rest] = words;
+    // A nested shell starts where its parent stands and moves only its own directory.
+    if (shellCommand.segment.scope !== scope) {
+      if (shellCommand.segment.scope > scope) outer.push({ scope, directory });
+      else {
+        while (outer.length > 0) {
+          const frame = outer.pop()!;
+          if (frame.scope === shellCommand.segment.scope) {
+            directory = frame.directory;
+            break;
+          }
+        }
+      }
+      scope = shellCommand.segment.scope;
+    }
     if (name === "cd" || name === "pushd") {
       const operand = rest.find((word) => !word.startsWith("-") || word === "-");
       if (name === "pushd") stack.push(directory);

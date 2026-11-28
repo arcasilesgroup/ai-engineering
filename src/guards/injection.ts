@@ -14,7 +14,7 @@
 
 import { readFileSync, existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Payload } from "../payload.ts";
 import { collectStrings, evaluateLocalRules, localRuleReason, type LocalRule } from "./local-rules.ts";
@@ -175,9 +175,14 @@ const MAX_TARGETS = 512;
 function readTargetsIn(command: string, targets: Set<string>): void {
   for (const read of readCommands(command) ?? readCommandsLenient(command)) {
     for (const target of read.reads) targets.add(target.value);
-    const args = read.args.map((word) => word.value);
-    if (!printsFileContent(read.verb, args)) continue;
-    for (const arg of args) {
+    const words = read.plain.map((word) => word.value);
+    // `git diff notes.txt` prints a file through a printer that is not the verb, so the
+    // printer is looked for among the words too, exactly as `git grep needle notes.txt` reads.
+    const at = printsFileContent(read.verb, read.args.map((word) => word.value))
+      ? read.verbIndex
+      : words.findIndex((word, index) => printsFileContent(basename(word), words.slice(index + 1)));
+    if (at < 0) continue;
+    for (const arg of words.slice(at + 1)) {
       if (arg.startsWith("-") || arg.length === 0) continue;
       targets.add(arg);
     }
