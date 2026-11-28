@@ -601,6 +601,15 @@ describe("Bash writes into the checkpoint folder", () => {
     ["xargs handing the name to a writer", `cd ${FOLDER} && echo demo.json | xargs rm`],
     ["dd with its of= target", `cd ${FOLDER} && dd if=/dev/zero of=demo.json count=1`],
     ["install with its destination operand", `cd ${FOLDER} && install ../../../base.txt demo.json`],
+    // A quoted program handed to an interpreter is that interpreter's command, not data:
+    // the same write is refused whether the shell runs it or a shell it starts runs it.
+    ["a program handed to bash", `bash -c 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to sh that cds first", `sh -c 'cd ${FOLDER} && printf x > demo.json'`],
+    ["an evaluated program", `eval 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to PowerShell", `pwsh -Command 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to cmd", `cmd /c 'printf x > ${FOLDER}/demo.json'`],
+    ["an interpreter inside a quoted program", `bash -c 'python3 -m pickletools ${FOLDER}/demo.json > /dev/null'`],
+    ["an interpreter inside an evaluated program", `eval 'python3 -m pickletools ${FOLDER}/demo.json > /dev/null'`],
   ])("refuses %s", (_name, command) => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());
@@ -625,6 +634,8 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a sed script containing -i", `cd ${FOLDER} && sed 's/a-i/b/' demo.json`],
     ["staging and committing the plan after writing a message elsewhere", `printf 'msg' > /tmp/msg.txt && git add -- ${FOLDER}/demo.json && git commit -F /tmp/msg.txt --only -- ${FOLDER}/demo.json`],
     ["staging the plan with its errors logged elsewhere", `git add -- ${FOLDER}/demo.json 2> git-errors.log`],
+    ["a quoted program writing outside the folder", `bash -c 'printf x > notes.txt'`],
+    ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());

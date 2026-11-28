@@ -18,7 +18,7 @@ import { isDeepStrictEqual } from "node:util";
 import { resolveContext } from "../git/context.ts";
 import { runGit } from "../git/run.ts";
 import { readNoFollowFile, writeNoFollowFile } from "../shared-project-fs.ts";
-import { jsonToolOperands, readCommands, type ShellCommand } from "./shell.ts";
+import { inlineShellPrograms, jsonToolOperands, readCommands, type ShellCommand } from "./shell.ts";
 import {
   assertCheckpointTransition,
   brainstormApprovalProblem,
@@ -477,6 +477,13 @@ function commandWords(command: ShellCommand): string[] {
   return [command.verb, ...command.args.map((word) => word.value)];
 }
 
+/** Every command a line runs: the segments the reader hands over, and the program each
+ *  interpreter word runs, which is a command of its own. */
+function commandsOf(command: string): ShellCommand[] {
+  const programs = inlineShellPrograms(command);
+  return [...(readCommands(command) ?? []), ...programs.flatMap((program) => readCommands(program) ?? [])];
+}
+
 /** Verbs whose every operand is a path they write. */
 const OPERAND_WRITERS = new Set(["tee", "mv", "rm", "truncate", "ln", "touch"]);
 /** Verbs that end their argument list with the one path they write (`cp a b`, `install a b`). */
@@ -569,6 +576,10 @@ function shellWritesIntoCheckpoints(command: string, cwd: string, repo: RealRepo
       if (absolute === null ? mentionsCheckpoints : landsInCheckpoints(repo, absolute)) return true;
     }
   }
+  // A program handed to an interpreter runs in the directory this line leaves the shell in.
+  for (const program of inlineShellPrograms(command)) {
+    if (shellWritesIntoCheckpoints(program, cwd, repo)) return true;
+  }
   return false;
 }
 
@@ -590,8 +601,7 @@ function checkBash(payload: Payload, repoRoot: string): CheckpointGuardResult {
       return deny("Checkpoint", "shell gate", `does not accept a patch to ${gated}`, "use Edit or Write so checkpoint gates are validated");
     }
   }
-  const commands = readCommands(command) ?? [];
-  const isNamedWrite = CHECKPOINT_TARGET.test(command) && commands.some(hasOpaqueWriteForm);
+  const isNamedWrite = CHECKPOINT_TARGET.test(command) && commandsOf(command).some(hasOpaqueWriteForm);
   if (!isNamedWrite && !shellWritesIntoCheckpoints(command, cwd, realRepo(repoRoot))) return undefined;
   return deny("Checkpoint", "shell gate", "does not allow direct Bash writes to checkpoint JSON", "use Edit or Write so checkpoint gates are validated");
 }

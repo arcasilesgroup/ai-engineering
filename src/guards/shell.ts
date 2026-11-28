@@ -882,10 +882,30 @@ function staticOutput(inner: string): string | null {
 }
 
 const INLINE_SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "mksh", "ash", "fish"]);
+/** Verbs whose words are a program of their own: PowerShell and cmd spell the flag their
+ *  own way, and `eval` takes its whole remainder as the program. */
+const PROGRAM_VERBS = new Set(["pwsh", "powershell", "cmd", "eval"]);
+const PROGRAM_FLAG = /^(?:-[A-Za-z]*c[A-Za-z]*|-[Cc]ommand|\/[ck])$/;
 
-/** Every `sh -c` / `bash -c` program in `command`, including ones nested inside those
- *  programs. The words come from the same reader the guards already share, so a quoted
- *  program is one word and not a second grammar. Empty when the line cannot be read. */
+/** The program one verb hands to an interpreter, or null when its words carry none. A
+ *  POSIX shell receives its program as a single word; PowerShell, cmd and eval receive
+ *  the rest of their line. */
+function inlineProgram(name: string, rest: readonly string[]): string | null {
+  if (name === "eval") {
+    const program = rest.filter((word) => word !== "--").join(" ");
+    return program.length === 0 ? null : program;
+  }
+  const flag = rest.findIndex((word) => PROGRAM_FLAG.test(word));
+  if (flag < 0) return null;
+  const after = rest.slice(flag + 1);
+  const program = INLINE_SHELLS.has(name) ? (after[0] === "--" ? after[1] : after[0]) : after.join(" ");
+  return program === undefined || program.length === 0 ? null : program;
+}
+
+/** Every program `command` hands to an interpreter (`sh -c '…'`, `pwsh -Command '…'`,
+ *  `cmd /c '…'`, `eval '…'`), including ones nested inside those programs. The words come
+ *  from the same reader the guards already share, so a quoted program is one word and not a
+ *  second grammar. Empty when the line cannot be read. */
 export function inlineShellPrograms(command: string): string[] {
   const found: string[] = [];
   const visit = (text: string, depth: number): void => {
@@ -896,11 +916,9 @@ export function inlineShellPrograms(command: string): string[] {
       const words = shellWords(segment.text).filter((word) => !word.isOperator).map((word) => word.value);
       const at = commandIndex(words);
       const name = basename(words[at] ?? "");
-      if (!INLINE_SHELLS.has(name)) continue;
-      const flag = words.findIndex((word, index) => index > at && /^-[A-Za-z]*c[A-Za-z]*$/.test(word));
-      const next = flag >= 0 ? words[flag + 1] : undefined;
-      const body = next === "--" ? words[flag + 2] : next;
-      if (body === undefined || body.length === 0) continue;
+      if (!INLINE_SHELLS.has(name) && !PROGRAM_VERBS.has(name)) continue;
+      const body = inlineProgram(name, words.slice(at + 1));
+      if (body === null) continue;
       found.push(body);
       visit(body, depth + 1);
     }
