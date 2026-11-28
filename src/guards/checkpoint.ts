@@ -487,7 +487,7 @@ function commandsOf(command: string): ShellCommand[] {
 }
 
 /** Verbs whose every operand is a path they write. */
-const OPERAND_WRITERS = new Set(["tee", "mv", "rm", "truncate", "ln", "touch"]);
+const OPERAND_WRITERS = new Set(["tee", "mv", "rm", "truncate", "touch"]);
 /** Verbs that end their argument list with the one path they write (`cp a b`, `install a b`). */
 const DESTINATION_LAST = new Set(["cp", "install"]);
 
@@ -514,9 +514,15 @@ function writeTargetsOf(command: ShellCommand): string[] | null {
   const prefix = command.plain.slice(0, command.verbIndex).map((word) => word.value);
   const isFedFromStdin = prefix.some((word) => basename(word) === "xargs");
   const named: string[] = [];
+  const args = command.args.map((word) => word.value);
   // `dd if=… of=<file>` names its destination as an operand of its own.
   for (const operand of operands) if (operand.startsWith("of=")) named.push(operand.slice("of=".length));
-  if (DESTINATION_LAST.has(command.verb)) named.push(...operands.slice(-1));
+  // `ln target linkname` creates the last operand, or the `-t` folder it is told to.
+  if (command.verb === "ln") {
+    const flag = args.findIndex((arg) => arg === "-t" || arg === "--target-directory");
+    const attached = args.flatMap((arg) => (/^--target-directory=(.+)$/.exec(arg) ?? []).slice(1));
+    named.push(...(flag >= 0 ? [args[flag + 1] ?? ""] : attached.length > 0 ? attached : operands.slice(-1)));
+  } else if (DESTINATION_LAST.has(command.verb)) named.push(...operands.slice(-1));
   else if (OPERAND_WRITERS.has(command.verb) || isInPlaceSed) named.push(...operands);
   const written = named.filter((target) => target.length > 0);
   // A writer fed from stdin leaves its destination unnamed only while the folder it lands in

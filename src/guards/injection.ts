@@ -175,6 +175,7 @@ const MAX_TARGETS = 512;
 function readTargetsIn(command: string, targets: Set<string>): void {
   for (const read of readCommands(command) ?? readCommandsLenient(command)) {
     for (const target of read.reads) targets.add(target.value);
+    for (const { body } of read.segment.heredocs) readTargetsIn(body, targets);
     const words = read.plain.map((word) => word.value);
     // `git diff notes.txt` prints a file through a printer that is not the verb, so the
     // printer is looked for among the words too, exactly as `git grep needle notes.txt` reads.

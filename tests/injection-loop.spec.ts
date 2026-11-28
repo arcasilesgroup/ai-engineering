@@ -113,6 +113,10 @@ describe("injection · readTargets — what a command line would print", () => {
     expect(readTargets("cat 3<&-")).toEqual([]);
   });
 
+  test("a heredoc body handed to a shell is scanned like the line that reads it", () => {
+    expect(readTargets("bash <<'EOF'\ncat notes.txt\nEOF")).toEqual(["notes.txt"]);
+  });
+
   test("readers are recognised by basename whatever path prefixes them", () => {
     expect(readTargets("/usr/bin/cat notes.txt")).toEqual(["notes.txt"]);
     expect(readTargets("./tail -3 log.txt")).toEqual(["log.txt"]);

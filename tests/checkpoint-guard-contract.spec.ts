@@ -608,6 +608,10 @@ describe("Bash writes into the checkpoint folder", () => {
     ["an evaluated program", `eval 'printf x > ${FOLDER}/demo.json'`],
     ["a program handed to PowerShell", `pwsh -Command 'printf x > ${FOLDER}/demo.json'`],
     ["a program handed to cmd", `cmd /c 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to cmd.exe", `cmd.exe /c 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to cmd with an upper-case switch", `CMD /C 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to cmd with Git Bash switches", `cmd //c 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to PowerShell by its full switch", `pwsh /Command 'printf x > ${FOLDER}/demo.json'`],
     ["an interpreter inside a quoted program", `bash -c 'python3 -m pickletools ${FOLDER}/demo.json > /dev/null'`],
     ["an interpreter inside an evaluated program", `eval 'python3 -m pickletools ${FOLDER}/demo.json > /dev/null'`],
     // The program runs where its command stands: the cd before it counts, the one after it does not.
@@ -625,6 +629,7 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a heredoc body that cannot be read writing the plan", `bash <<'EOF'\necho \${x:-> f}\nrm ${FOLDER}/demo.json\nEOF`],
     ["touch on a checkpoint", `cd ${FOLDER} && touch demo.json`],
     ["a link named as a checkpoint", `cd ${FOLDER} && ln -s ../../../base.txt demo.json`],
+    ["a link created in the folder by -t", `ln -s ../../../base.txt -t ${FOLDER}`],
     ["a writer fed from stdin with no destination on the line", `cd ${FOLDER} && ls | xargs rm`],
     // A cd inside a substitution moves that subshell, not the shell the write runs in.
     ["a cd inside a substitution before the write", `cd ${FOLDER} && echo "$(cd /tmp; pwd)" > demo.json`],
@@ -660,6 +665,8 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a cd inside a substitution that only reads the folder", `cd /tmp && echo "$(cd ${FOLDER}; ls)" > demo.json`],
     ["a stdin-fed copy whose destination is outside the folder", `cd ${FOLDER} && ls | xargs -I{} cp {} /tmp/backup/{}`],
     ["a stdin-fed remove whose destination names another folder", `cd ${FOLDER} && ls | xargs -I{} rm /tmp/backup/{}`],
+    ["a link whose target is the folder and whose name is elsewhere", `ln -s ${FOLDER}/demo.json /tmp/memos.txt`],
+    ["a link out of the folder", `cd ${FOLDER} && ln -s demo.json ../../../notes-link`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {

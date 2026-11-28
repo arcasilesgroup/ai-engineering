@@ -907,7 +907,7 @@ const INLINE_SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "mksh", "ash"
 /** Verbs whose words are a program of their own: PowerShell and cmd spell the flag their
  *  own way, and `eval` takes its whole remainder as the program. */
 const PROGRAM_VERBS = new Set(["pwsh", "powershell", "cmd", "eval"]);
-const PROGRAM_FLAG = /^(?:-[A-Za-z]*c[A-Za-z]*|-[Cc]ommand|\/[ck])$/;
+const PROGRAM_FLAG = /^(?:-[A-Za-z]*c[A-Za-z]*|\/{1,2}(?:command|[ck]))$/i;
 
 /** The program one verb hands to an interpreter, or null when its words carry none. A
  *  POSIX shell receives its program as a single word; PowerShell, cmd and eval receive
@@ -937,7 +937,7 @@ export function inlineShellPrograms(command: string): string[] {
     for (const segment of segments) {
       const words = shellWords(segment.text).filter((word) => !word.isOperator).map((word) => word.value);
       const at = commandIndex(words);
-      const name = basename(words[at] ?? "");
+      const name = basename(words[at] ?? "").replace(/\.exe$/i, "").toLowerCase();
       if (!INLINE_SHELLS.has(name) && !PROGRAM_VERBS.has(name)) continue;
       const body = inlineProgram(name, words.slice(at + 1));
       if (body === null) continue;
