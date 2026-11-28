@@ -579,7 +579,7 @@ function runsInterpreter(command: ShellCommand, isInterpreter: (name: string) =>
  *  so the program is the first word that is not one. */
 function awkProgramWrites(command: ShellCommand): boolean {
   const args = command.args.map((word) => word.value);
-  const isUnreadableProgram = args.some((arg) => arg === "-f" || arg === "--file" || /^--file=/.test(arg) || /^-f.+/.test(arg));
+  const isUnreadableProgram = args.some((arg) => arg === "-f" || arg === "--file" || arg.startsWith("--file=") || /^-f.+/.test(arg));
   const isInPlace = args.some((arg) => arg === "-i" || arg === "--inplace" || arg === "-iinplace");
   if (isUnreadableProgram || isInPlace) return true;
   for (let index = 0; index < args.length; index++) {
