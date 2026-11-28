@@ -51,7 +51,7 @@ const CODE_WRITER = /(?:^|[-_])(?:python|node|perl)(?:\d+(?:\.\d+)*)?$/;
 // The cwd rule treats every program that can reach a file as opaque, as it always has.
 const OPAQUE_WRITER = /(?:^|[-_])(?:python|node|perl|ruby|bun|deno|jq|awk|gawk|mawk|nawk)(?:\d+(?:\.\d+)*)?$/;
 const AWK = new Set(["awk", "gawk", "mawk", "nawk"]);
-const AWK_WRITE = />\s*["']|system\s*\(/;
+const AWK_WRITE = />|\||system\(/;
 const CHECKPOINTS_DIR = ".ai-engineering/workflow/checkpoints";
 const MAX_LINK_HOPS = 40;
 const isCodeWriter = (name: string): boolean => CODE_WRITER.test(name);
@@ -579,6 +579,7 @@ function runsInterpreter(command: ShellCommand, isInterpreter: (name: string) =>
  *  so the program is the first word that is not one. */
 function awkProgramWrites(command: ShellCommand): boolean {
   const args = command.args.map((word) => word.value);
+  if (args.some((arg) => arg === "-i" || arg === "--inplace" || arg === "-iinplace")) return true;
   for (let index = 0; index < args.length; index++) {
     const arg = args[index]!;
     if (arg === "-f" || arg === "--file" || /^--file=/.test(arg) || /^-f.+/.test(arg)) return true;
