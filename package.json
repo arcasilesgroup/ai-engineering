@@ -1,6 +1,6 @@
 {
   "name": "ai-engineering",
-  "version": "3.4.2",
+  "version": "4.0.0",
   "description": "Guardrails for the AI coding agents you already run",
   "license": "Apache-2.0",
   "type": "module",
