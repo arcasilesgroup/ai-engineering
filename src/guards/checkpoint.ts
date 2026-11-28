@@ -547,45 +547,44 @@ function shellPath(cwd: string, word: string): string | null {
  *  follow (cd $DIR, cd -) decides nothing — then any write that mentions the checkpoints
  *  folder by name is refused. */
 function shellWritesIntoCheckpoints(command: string, cwd: string | null, repo: RealRepo, mentions = /checkpoints/i.test(command)): boolean {
-  const commands = readCommands(command);
-  // A line this reader cannot read is one no guard can judge: it decides nothing.
-  if (commands === null) return mentions;
+  const commands = readCommands(command) ?? readCommandsLenient(command);
   return commandsWriteIntoCheckpoints(commands, cwd, repo, mentions);
 }
 
 /** The same question asked of commands the reader already produced: each written where it
- *  stands, past the cd/pushd/popd this line runs before it. */
+ *  stands, past the cd/pushd/popd the shell it runs in has run before it. */
 function commandsWriteIntoCheckpoints(commands: readonly ShellCommand[], cwd: string | null, repo: RealRepo, mentions: boolean): boolean {
-  let directory: string | null = cwd;
-  let scope = commands[0]?.segment.scope ?? 0;
-  const outer: Array<{ scope: number; directory: string | null }> = [];
-  const stack: Array<string | null> = [];
+  const directories = new Map<number, string | null>([[0, cwd]]);
+  const parents = new Map<number, number>();
+  const stacks = new Map<number, Array<string | null>>();
+  /** The directory one shell runs in: its own once a cd moved it, otherwise the one it
+   *  inherited from the shell that started it. A nested shell moves only its own. */
+  const directoryOf = (scope: number, parentScope: number): string | null => {
+    parents.set(scope, parentScope);
+    const known = directories.get(scope);
+    if (known !== undefined) return known;
+    let ancestor = parentScope;
+    while (ancestor !== scope && ancestor !== 0 && !directories.has(ancestor)) ancestor = parents.get(ancestor) ?? 0;
+    const inherited = directories.get(ancestor) ?? cwd;
+    directories.set(scope, inherited);
+    return inherited;
+  };
   for (const shellCommand of commands) {
     const words = commandWords(shellCommand);
     const [name, ...rest] = words;
-    // A nested shell starts where its parent stands and moves only its own directory.
-    if (shellCommand.segment.scope !== scope) {
-      if (shellCommand.segment.scope > scope) outer.push({ scope, directory });
-      else {
-        while (outer.length > 0) {
-          const frame = outer.pop()!;
-          if (frame.scope === shellCommand.segment.scope) {
-            directory = frame.directory;
-            break;
-          }
-        }
-      }
-      scope = shellCommand.segment.scope;
-    }
+    const { scope } = shellCommand.segment;
+    const directory = directoryOf(scope, shellCommand.segment.parentScope);
+    const stack = stacks.get(scope) ?? [];
+    stacks.set(scope, stack);
     if (name === "cd" || name === "pushd") {
       const operand = rest.find((word) => !word.startsWith("-") || word === "-");
       if (name === "pushd") stack.push(directory);
       const next: string | null = operand === undefined ? homedir() : operand === "-" || directory === null ? null : shellPath(directory, operand);
-      directory = next;
+      directories.set(scope, next);
       continue;
     }
     if (name === "popd") {
-      directory = stack.pop() ?? null;
+      directories.set(scope, stack.pop() ?? null);
       continue;
     }
     // A program handed to an interpreter runs where this command stands, in a shell of its own.

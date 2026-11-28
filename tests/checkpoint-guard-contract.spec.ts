@@ -663,6 +663,22 @@ describe("Bash writes into the checkpoint folder", () => {
     });
   });
 
+  test("a substitution that opens the line moves only its own shell", () => {
+    withFixture((fixture) => {
+      save(fixture.planPath, plan());
+      expect(run(fixture, bash('echo "$(cd /tmp; pwd)" > demo.json', fixture.folder))).toEqual(refused(SHELL_WRITE));
+      expect(run(fixture, bash(`echo "$(cd ${fixture.folder}; ls)" > demo.json`))).toBeUndefined();
+    });
+  });
+
+  test("a line the reader cannot read is judged by the pieces it shows", () => {
+    withFixture((fixture) => {
+      save(fixture.planPath, plan());
+      expect(run(fixture, bash("echo ${x:-> f} > demo.json", fixture.folder))).toEqual(refused(SHELL_WRITE));
+      expect(run(fixture, bash("echo ${x:-> f} > demo.json # checkpoints"))).toBeUndefined();
+    });
+  });
+
   test("json.tool inside the folder reads only checkpoint files", () => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());
