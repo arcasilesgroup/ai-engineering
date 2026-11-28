@@ -59,7 +59,7 @@ function h1Visibility(html: string): boolean[] {
       continue;
     }
     if (name === "h1") visible.push(hiddenDepth === 0);
-    if (VOID.has(name) || /\/>$/.test(whole)) continue;
+    if (VOID.has(name) || whole.endsWith("/>")) continue;
     const isHidden = /\shidden(?:\s|=|$)/i.test(attrs ?? "");
     stack.push({ name, isHidden });
     if (isHidden) hiddenDepth += 1;

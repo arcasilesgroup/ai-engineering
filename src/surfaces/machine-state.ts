@@ -7,7 +7,7 @@
 // machinery lives here too: an install or a removal must act on the exact bytes it read,
 // and refuse instead of guessing when the file changed, or the path could reach it.
 
-import { constants, closeSync, fstatSync, linkSync, lstatSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, statSync, symlinkSync, unlinkSync, writeFileSync, type BigIntStats, type Stats } from "node:fs";
+import { constants, closeSync, fstatSync, linkSync, lstatSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, statSync, symlinkSync, unlinkSync, writeFileSync, type BigIntStats } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
 import { basename, dirname, join } from "node:path";

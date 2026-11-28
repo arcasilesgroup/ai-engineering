@@ -278,7 +278,6 @@ describe("write gate refusals name the checkpoint, the gate and the next step", 
 
   test("a first plan must be approved for implementation against a fresh matching brainstorm", () => {
     withFixture((fixture) => {
-      const brainstormPath = join(fixture.root, ".ai-engineering", "brainstorm.html");
       // The refusal names the file and the next step, and never the machine path the read failed on.
       expect(run(fixture, write(fixture.planPath, plan()))).toEqual(refused(
         "Checkpoint demo cannot pass: plan approval cannot read the matching brainstorm (ENOENT: brainstorm.html is missing). Next: restore the approved brainstorm and retry the plan write.",

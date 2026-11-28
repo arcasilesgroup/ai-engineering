@@ -136,7 +136,7 @@ function checkpoint(
   };
 }
 
-function checkpointFile(repoPath: string, fileSlug: string, value: unknown | string): string {
+function checkpointFile(repoPath: string, fileSlug: string, value: unknown): string {
   const directory = join(repoPath, ".ai-engineering", "workflow", "checkpoints");
   mkdirSync(directory, { recursive: true });
   const path = join(directory, `${fileSlug}.json`);
@@ -146,7 +146,7 @@ function checkpointFile(repoPath: string, fileSlug: string, value: unknown | str
 
 function readPlan(
   gitFixture: GitFixture,
-  value: unknown | string,
+  value: unknown,
   fileSlug = gitFixture.slug,
 ): Checkpoint {
   return readCheckpoint(

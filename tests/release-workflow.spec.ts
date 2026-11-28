@@ -347,7 +347,9 @@ describe("release.yml — the existing release guards are preserved", () => {
     const outputs = requireJob("package").outputs ?? {};
     expect(outputs["tarball_sha256"]).toMatch(/steps\.pack\.outputs\.sha256/);
     const check = requireStep("publish", (step) => runsCommand(step, /sha256sum ai-engineering\.tgz/), "publish digest check");
-    expect(String(check.env?.["EXPECTED_SHA256"] ?? "")).toContain("needs.package.outputs.tarball_sha256");
+    const expectedSha = check.env?.["EXPECTED_SHA256"];
+    expect(typeof expectedSha).toBe("string");
+    expect(expectedSha).toContain("needs.package.outputs.tarball_sha256");
     expect(commandStepIndex("publish", /sha256sum ai-engineering\.tgz/)).toBeLessThan(commandStepIndex("publish", /npm publish/));
   });
   function guardRunsBeforePublication(step: Step): boolean {

@@ -181,9 +181,8 @@ function isSuccessShapedResult(result: unknown): boolean {
   return (
     resultFields.success === true ||
     resultFields.written === true ||
-    ["complete", "success", "written"].includes(
-      String(resultFields.status ?? "").toLowerCase(),
-    )
+    (typeof resultFields.status === "string" &&
+      ["complete", "success", "written"].includes(resultFields.status.toLowerCase()))
   );
 }
 

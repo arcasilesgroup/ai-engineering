@@ -533,7 +533,9 @@ describe("Azure backlog collection integration", () => {
       },
     });
 
-    await expect(
+    // Bun's `.rejects` matchers return void and report a mismatch through the runner
+    // themselves, so there is nothing to await: every rejection assertion here reads so.
+    expect(
       invoke({
         method: "GET",
         path: `/${scope.project}/_apis/wit/workItems/101/comments`,
@@ -555,7 +557,7 @@ describe("Azure backlog collection integration", () => {
       },
     });
 
-    await expect(
+    expect(
       invoke({
         method: "GET",
         path: backlogItemsPath,
@@ -577,7 +579,7 @@ describe("Azure backlog collection integration", () => {
       },
     });
 
-    await expect(
+    expect(
       invoke({
         method: "POST",
         path: workItemBatchPath,
@@ -774,7 +776,7 @@ describe("Azure backlog collection integration", () => {
     for (const capCase of capCases) {
       const fixture = createAzureFixture(capCase.options);
 
-      await expect(fixture.collect()).rejects.toThrow();
+      expect(fixture.collect()).rejects.toThrow();
       expect(fixture.calls.some((request) => request.method === "POST")).toBe(
         false,
       );
@@ -801,7 +803,7 @@ describe("Azure backlog collection integration", () => {
     for (const invalidResponse of invalidDetailResponses) {
       const fixture = createAzureFixture(invalidResponse);
 
-      await expect(fixture.collect()).rejects.toThrow();
+      expect(fixture.collect()).rejects.toThrow();
       expectOnlyAllowedReads(fixture.calls);
     }
   });
@@ -812,7 +814,7 @@ describe("Azure backlog collection integration", () => {
         ids.includes(901) ? details.slice(1) : details,
     });
 
-    await expect(fixture.collect()).rejects.toThrow();
+    expect(fixture.collect()).rejects.toThrow();
     expectOnlyAllowedReads(fixture.calls);
   });
 
@@ -821,7 +823,7 @@ describe("Azure backlog collection integration", () => {
       organization: "https://synthetic-server.invalid/tfs/collection",
     });
 
-    await expect(fixture.collect()).rejects.toThrow();
+    expect(fixture.collect()).rejects.toThrow();
     expect(fixture.calls).toEqual([]);
   });
 
@@ -846,7 +848,7 @@ describe("Azure backlog collection integration", () => {
     for (const failure of failures) {
       const fixture = createAzureFixture(failure);
 
-      await expect(fixture.collect()).rejects.toThrow();
+      expect(fixture.collect()).rejects.toThrow();
       expectOnlyAllowedReads(fixture.calls);
     }
   });

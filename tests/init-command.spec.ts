@@ -41,7 +41,6 @@ import {
   repoTemplateRoot,
   surfaceOptions,
 } from "../src/commands/init-shared.ts";
-import { SURFACES, type Surface } from "../src/surfaces/adapters.ts";
 import { parseLock, sha256 } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
@@ -161,12 +160,6 @@ afterEach(() => {
 afterAll(() => {
   stdin.restore();
 });
-
-const byId = (id: string): Surface => {
-  const found = SURFACES.find((s) => s.id === id);
-  if (!found) throw new Error(`surface ${id} is not declared in surfaces.json`);
-  return found;
-};
 
 const REPO_ROOT = resolve(import.meta.dir, "..");
 

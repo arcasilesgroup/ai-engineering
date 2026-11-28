@@ -12,9 +12,10 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import { doctorMain } from "../src/commands/doctor.ts";
 import { canonSkills, embeddedTemplate } from "../src/embed.ts";
-import { lockText, sha256 } from "../src/install.ts";
+import { lockText } from "../src/install.ts";
 import * as receiptsModule from "../src/receipts.ts";
 import { carrierDefinition, carrierFiles, carrierPath, machineCarrier, SURFACES, withLauncher } from "../src/surfaces/adapters.ts";
 import { installCanon } from "../src/surfaces/canon-install.ts";
@@ -49,6 +50,9 @@ afterEach(() => {
 
 type Run = { code: number; out: string };
 
+/** The words a reader sees, with the ANSI paint a real terminal would show taken off. */
+const plain = (text: string): string => stripVTControlCharacters(text);
+
 /** doctorMain writes through clack, which writes to process.stdout — so both the
  *  stream and console.log are captured, and the ANSI a real terminal would show is
  *  stripped: the assertion is about the words, not the paint. */
@@ -63,7 +67,7 @@ async function doctor(flags: { gc?: boolean; cwd?: string } = {}): Promise<Run> 
   }) as never);
   try {
     const code = await doctorMain(flags);
-    return { code, out: chunks.join("").replace(/\u001b\[[0-9;]*[A-Za-z]/g, "") };
+    return { code, out: plain(chunks.join("")) };
   } finally {
     stdout.mockRestore();
     log.mockRestore();
@@ -598,8 +602,8 @@ describe("doctor · receipts and overrides", () => {
       chunks.push(`${args.map(String).join(" ")}\n`);
     }) as never);
     try {
-      const code = await doctorMain({ cwd: root });
-      const out = chunks.join("").replace(/\u001b\[[0-9;]*[A-Za-z]/g, "");
+      await doctorMain({ cwd: root });
+      const out = plain(chunks.join(""));
       const canary = out.split("\n").filter((l) => l.includes("CANARY-injected-row"));
       expect(canary.length).toBe(1);
       expect(canary[0]).toContain("receipts ·");

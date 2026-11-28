@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mergeSharedText, sha256, stripSharedText } from "../../src/install.ts";
+import { mergeSharedText, stripSharedText } from "../../src/install.ts";
 import { carrierDefinition, carrierFiles } from "../../src/surfaces/adapters.ts";
 import { removeMachineCarriers } from "../../src/surfaces/carriers-install.ts";
 import { readMachineState } from "../../src/surfaces/machine-state.ts";

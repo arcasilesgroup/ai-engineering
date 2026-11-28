@@ -21,8 +21,8 @@ that are NOT deducible from the code; everything else, the code and
 bun install          # dependencies
 bun run build        # compile dist/ai-eng (skills/templates embedded)
 bun test             # unit + adversarial + gates + arch
-bun run lint         # oxlint
-bun run typecheck    # oxlint --type-aware --type-check
+bun run lint         # oxlint (warnings fail the run)
+bun run typecheck    # oxlint --type-aware --type-check (warnings fail the run)
 ```
 
 The binary is the payload: `skills/`, `agents/` and `templates/` travel inside it as
