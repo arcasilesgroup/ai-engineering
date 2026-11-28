@@ -470,7 +470,7 @@ function scanScript(script: string, cwd: string): number {
       // A heredoc's lines are judged as commands, whoever reads them: text alone cannot
       // tell a commit message from a program.
       for (const { body } of command.segment.heredocs) {
-        for (const inside of readCommands(body) ?? [readCommandLenient(body)]) scanCommand(mask, inside, body, cwd, isExpanded);
+        for (const inside of readCommands(body) ?? [readCommandLenient(body)]) scanCommand(mask, inside, inside.segment.text, cwd, isExpanded);
       }
     }
   }

@@ -18,7 +18,7 @@ import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
 import surfacesJson from "../surfaces/surfaces.json";
-import { applySegmentAssignments, applySegmentMutations, COMMAND_PREFIXES, commandOf, createVariableScope, findRedirect, jsonToolOperands, normalizeRedirects, readCommands, readsOperandsOnly, resolveSubstitutions, substituteVariables, variablesForSegment, withWords, type ShellCommand } from "./shell.ts";
+import { applySegmentAssignments, applySegmentMutations, COMMAND_PREFIXES, commandOf, createVariableScope, findRedirect, GLOB_CHARS, jsonToolOperands, normalizeRedirects, readCommands, readsOperandsOnly, resolveSubstitutions, substituteVariables, variablesForSegment, withWords, type ShellCommand } from "./shell.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
  *  `sed` joins them only with -i. The list may over-deny: that is a person told to
@@ -169,7 +169,6 @@ const TREE_WRITERS = new Set([
 /** Writers whose targets live in a file the guards never read. */
 const DIFF_APPLIERS = new Set(["patch", "ed", "ex"]);
 const GIT_TREE_WRITERS = new Set(["mv", "rm", "checkout", "restore", "clean"]);
-const GLOB_CHARS = /[*?[]/;
 
 /** Commands that only ever name the package, never run it as a bin. */
 const NAMES_THE_PACKAGE = new Set(["git", "gh", "npm", "pnpm", "yarn"]);

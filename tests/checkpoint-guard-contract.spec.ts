@@ -610,6 +610,11 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a program handed to cmd", `cmd /c 'printf x > ${FOLDER}/demo.json'`],
     ["an interpreter inside a quoted program", `bash -c 'python3 -m pickletools ${FOLDER}/demo.json > /dev/null'`],
     ["an interpreter inside an evaluated program", `eval 'python3 -m pickletools ${FOLDER}/demo.json > /dev/null'`],
+    // The program runs where its command stands: the cd before it counts, the one after it does not.
+    ["a cd before a program handed to bash", `cd ${FOLDER} && bash -c 'printf x > demo.json'`],
+    ["a pushd before a program handed to sh", `pushd ${FOLDER} && sh -c 'truncate -s 0 demo.json'`],
+    ["a cd before an evaluated program", `cd ${FOLDER} && eval 'printf x > demo.json'`],
+    ["an unknown cd before a program that names the folder", `cd "$X" && bash -c 'printf x > demo.json' && cat ${FOLDER}/demo.json`],
   ])("refuses %s", (_name, command) => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());
@@ -635,6 +640,7 @@ describe("Bash writes into the checkpoint folder", () => {
     ["staging and committing the plan after writing a message elsewhere", `printf 'msg' > /tmp/msg.txt && git add -- ${FOLDER}/demo.json && git commit -F /tmp/msg.txt --only -- ${FOLDER}/demo.json`],
     ["staging the plan with its errors logged elsewhere", `git add -- ${FOLDER}/demo.json 2> git-errors.log`],
     ["a quoted program writing outside the folder", `bash -c 'printf x > notes.txt'`],
+    ["a quoted program before the cd into the folder", `bash -c 'printf x > demo.json' && cd ${FOLDER}`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {

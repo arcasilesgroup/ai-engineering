@@ -535,13 +535,12 @@ function shellPath(cwd: string, word: string): string | null {
  *  Reads (cat, git diff, git add) are never write forms. A directory the guard cannot
  *  follow (cd $DIR, cd -) decides nothing — then any write that mentions the checkpoints
  *  folder by name is refused. */
-function shellWritesIntoCheckpoints(command: string, cwd: string, repo: RealRepo): boolean {
+function shellWritesIntoCheckpoints(command: string, cwd: string | null, repo: RealRepo, mentions = /checkpoints/i.test(command)): boolean {
   let directory: string | null = cwd;
   const stack: Array<string | null> = [];
-  const mentionsCheckpoints = /checkpoints/i.test(command);
   const commands = readCommands(command);
   // A line this reader cannot read is one no guard can judge: it decides nothing.
-  if (commands === null) return mentionsCheckpoints;
+  if (commands === null) return mentions;
   for (const shellCommand of commands) {
     const words = commandWords(shellCommand);
     const [name, ...rest] = words;
@@ -556,6 +555,10 @@ function shellWritesIntoCheckpoints(command: string, cwd: string, repo: RealRepo
       directory = stack.pop() ?? null;
       continue;
     }
+    // A program handed to an interpreter runs where this command stands, in a shell of its own.
+    for (const program of inlineShellPrograms(shellCommand.segment.text)) {
+      if (shellWritesIntoCheckpoints(program, directory, repo, mentions)) return true;
+    }
     if (directory !== null && name !== undefined && OPAQUE_WRITERS.has(basename(name)) && landsInCheckpoints(repo, directory)) {
       const here = directory;
       const isCheckpointFile = (operand: string): boolean => {
@@ -568,17 +571,13 @@ function shellWritesIntoCheckpoints(command: string, cwd: string, repo: RealRepo
     // A writer fed from stdin names no path on this line: the folder it runs in is all the
     // guard has, and a command that names the folder is refused rather than guessed at.
     if (targets === null) {
-      if (mentionsCheckpoints) return true;
+      if (mentions) return true;
       continue;
     }
     for (const target of targets) {
       const absolute = isAbsolute(target) || target.startsWith("~") ? shellPath("/", target) : directory === null ? null : shellPath(directory, target);
-      if (absolute === null ? mentionsCheckpoints : landsInCheckpoints(repo, absolute)) return true;
+      if (absolute === null ? mentions : landsInCheckpoints(repo, absolute)) return true;
     }
-  }
-  // A program handed to an interpreter runs in the directory this line leaves the shell in.
-  for (const program of inlineShellPrograms(command)) {
-    if (shellWritesIntoCheckpoints(program, cwd, repo)) return true;
   }
   return false;
 }
