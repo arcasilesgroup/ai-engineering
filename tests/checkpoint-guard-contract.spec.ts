@@ -623,6 +623,9 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a heredoc body writing the plan after a cd", `cd ${FOLDER} && bash <<'EOF'\nprintf x > demo.json\nEOF`],
     ["a heredoc body running an interpreter", `bash <<'EOF'\nnpx node -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'\nEOF`],
     ["a heredoc body that cannot be read writing the plan", `bash <<'EOF'\necho \${x:-> f}\nrm ${FOLDER}/demo.json\nEOF`],
+    ["touch on a checkpoint", `cd ${FOLDER} && touch demo.json`],
+    ["a link named as a checkpoint", `cd ${FOLDER} && ln -s ../../../base.txt demo.json`],
+    ["a writer fed from stdin with no destination on the line", `cd ${FOLDER} && ls | xargs rm`],
     // A cd inside a substitution moves that subshell, not the shell the write runs in.
     ["a cd inside a substitution before the write", `cd ${FOLDER} && echo "$(cd /tmp; pwd)" > demo.json`],
   ])("refuses %s", (_name, command) => {
@@ -655,6 +658,8 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a heredoc body writing outside the folder", `bash <<'EOF'\nprintf x > notes.txt\nEOF`],
     ["a commit message heredoc naming the plan", `git commit -F - <<'EOF'\nit's the plan at ${FOLDER}/demo.json\nEOF`],
     ["a cd inside a substitution that only reads the folder", `cd /tmp && echo "$(cd ${FOLDER}; ls)" > demo.json`],
+    ["a stdin-fed copy whose destination is outside the folder", `cd ${FOLDER} && ls | xargs -I{} cp {} /tmp/backup/{}`],
+    ["a stdin-fed remove whose destination names another folder", `cd ${FOLDER} && ls | xargs -I{} rm /tmp/backup/{}`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {

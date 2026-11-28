@@ -491,20 +491,45 @@ const OPERAND_WRITERS = new Set(["tee", "mv", "rm", "truncate", "ln", "touch"]);
 /** Verbs that end their argument list with the one path they write (`cp a b`, `install a b`). */
 const DESTINATION_LAST = new Set(["cp", "install"]);
 
+/** The word a stdin-fed writer substitutes each input for: `{}` unless xargs names another
+ *  with `-I`/`-J`/`--replace`, whose value follows it or is attached. */
+function stdinPlaceholder(prefix: readonly string[]): string {
+  for (const [index, word] of prefix.entries()) {
+    const attached = /^(?:-I|--replace=)(.+)$/.exec(word);
+    if (attached !== null) return attached[1]!;
+    if (["-I", "-J", "--replace"].includes(word)) return prefix[index + 1] ?? "{}";
+  }
+  return "{}";
+}
+
 /** The paths one command writes, unresolved: the files its redirections name, and the
- *  operands of the verbs that write them. Null when a wrapper feeds a writer from stdin
- *  (`echo demo.json | xargs rm`), so no path is on the line to judge. */
+ *  operands of the verbs that write them. Null when a wrapper feeds a writer from stdin and
+ *  the destination's folder comes from it too (`echo demo.json | xargs rm`), so no folder is
+ *  on the line to judge. */
 function writeTargetsOf(command: ShellCommand): string[] | null {
   const targets = command.writes.map((word) => word.value);
   const operands = command.args.map((word) => word.value).filter((word) => !word.startsWith("-"));
   const isInPlaceSed = command.verb === "sed" && command.args.some((word) => /^-[a-zA-Z]*i/.test(word.value) || word.value.startsWith("--in-place"));
   const writesOperand = OPERAND_WRITERS.has(command.verb) || DESTINATION_LAST.has(command.verb) || command.verb === "dd" || isInPlaceSed;
-  const isFedFromStdin = command.plain.slice(0, command.verbIndex).some((word) => basename(word.value) === "xargs");
-  if ((writesOperand || operands.some((operand) => operand.startsWith("of="))) && isFedFromStdin) return null;
+  const prefix = command.plain.slice(0, command.verbIndex).map((word) => word.value);
+  const isFedFromStdin = prefix.some((word) => basename(word) === "xargs");
+  const named: string[] = [];
   // `dd if=… of=<file>` names its destination as an operand of its own.
-  for (const operand of operands) if (operand.startsWith("of=")) targets.push(operand.slice("of=".length));
-  if (DESTINATION_LAST.has(command.verb)) targets.push(...operands.slice(-1));
-  else if (OPERAND_WRITERS.has(command.verb) || isInPlaceSed) targets.push(...operands);
+  for (const operand of operands) if (operand.startsWith("of=")) named.push(operand.slice("of=".length));
+  if (DESTINATION_LAST.has(command.verb)) named.push(...operands.slice(-1));
+  else if (OPERAND_WRITERS.has(command.verb) || isInPlaceSed) named.push(...operands);
+  const written = named.filter((target) => target.length > 0);
+  // A writer fed from stdin leaves its destination unnamed only while the folder it lands in
+  // is the input's: `/tmp/backup/{}` lands outside wherever that input came from.
+  if (isFedFromStdin && (writesOperand || operands.some((operand) => operand.startsWith("of=")))) {
+    const placeholder = stdinPlaceholder(prefix);
+    const isFolderUnknown = (target: string): boolean => {
+      const cut = target.lastIndexOf("/");
+      return cut < 0 ? target === placeholder : target.slice(0, cut).includes(placeholder);
+    };
+    if (written.length === 0 || written.some(isFolderUnknown)) return null;
+  }
+  targets.push(...written);
   return targets.filter((target) => target.length > 0);
 }
 
