@@ -640,6 +640,8 @@ describe("Bash writes into the checkpoint folder", () => {
     ["an awk program behind an option value", `awk -v n=1 '{print "x" > "${FOLDER}/demo.json"}' /dev/null`],
     ["a packaged awk that writes the plan", `gawk '{print > "${FOLDER}/plan.json"}' x`],
     ["an awk program read from a file, so unreadable", `awk -f /tmp/w.awk ${FOLDER}/plan.json`],
+    ["an awk program file named after the program", `awk '{print}' -f /tmp/w.awk ${FOLDER}/plan.json`],
+    ["an awk program file attached after the program", `awk '{print}' -f/tmp/w.awk ${FOLDER}/plan.json`],
     ["an awk redirection into an assignment", `awk '{print > out}' out=${FOLDER}/plan.json`],
     ["an awk redirection into a variable", `awk -v t=${FOLDER}/plan.json '{print > t}' x`],
     ["an awk in-place edit of the plan", `awk -i inplace '{$0="approved"}' ${FOLDER}/plan.json`],
