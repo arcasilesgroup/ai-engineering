@@ -3,6 +3,18 @@ name: mutation
 # that stopped denying. Off the fast path by construction: nightly, on demand, and on a
 # pull request that touches the governance core. Never on an ordinary push.
 #
+# Two jobs, because the two campaigns answer different questions and cannot share one
+# ceiling: a pull request asks "does the file I just changed still deny what it denied",
+# the nightly asks "does the whole core still score". They differ in the surface they
+# mutate and the ceiling they run under, and in nothing else.
+#
+# Every number here is measured on a hosted runner (runs 45018016173, 45999985299 and
+# 46138418750). The 40-minute ceiling this tier shipped with was justified by a partial
+# run and a local one, never by a full campaign on the runner that has to finish it: the
+# full campaign took 28m33s on 2026-11-22 and passed 40 minutes a week later, so GitHub
+# cancelled every run at the wall and a cancelled check reads like coverage while
+# delivering none.
+#
 # Every action is GitHub-owned and pinned by SHA: a tag is mutable, a SHA is not.
 on:
   schedule:
@@ -19,15 +31,16 @@ permissions:
   contents: read
 
 jobs:
-  # One job serves nightly, on-demand, and governance PR runs.
-  campaign:
+  # The governance files a pull request touches, and only those. A full campaign here
+  # would cost the same 43 minutes for a three-line change, so the surface is the diff.
+  changed-files:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # The hard ceiling, not the estimate. Measured: this campaign took 4m29s on the
-    # first real run of the job (59.72% of 1,946 mutants, cold cache, ubuntu-latest)
-    # and 11m21s at `concurrency: 2` on the 8-core laptop that built the tier. The
-    # ceiling covers the slower of the two, with room for the plugin's known flake (one
-    # spurious dry-run failure in seven when the machine is loaded).
-    timeout-minutes: 40
+    # 30 minutes. Measured with scripts/mutation-plan.ts against the restored report:
+    # the three largest governance files together estimate 24 minutes, one large file
+    # 13, one small file 5. The preflight below refuses anything the ceiling cannot hold,
+    # so a genuinely oversized pull request is told to split instead of being killed here.
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -37,35 +50,106 @@ jobs:
         run: npm install -g bun@1.4.4
       - name: Dependencies
         run: bun install --frozen-lockfile
-      - name: Node the campaign runs on
-        run: node -v
+      # Restore only, never save: this run mutates a slice of the core and would write a
+      # report carrying that slice alone over the nightly's whole-core baseline.
+      - name: Restore the previous campaign's results
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: reports
+          key: stryker-incremental-${{ hashFiles('bun.lock') }}
+          restore-keys: stryker-incremental-
       - name: The governance files this pull request touches
-        if: github.event_name == 'pull_request'
+        id: surface
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
-          if ! CHANGED=$(git diff --name-only "origin/$BASE_REF...HEAD" -- src/guards src/chain src/floor); then
+          if ! CHANGED=$(git diff --name-only --diff-filter=d "origin/$BASE_REF...HEAD" -- src/guards src/chain src/floor); then
             echo "::error::cannot compute the diff against origin/$BASE_REF — the campaign would have no verdict to give, so it does not start."
             exit 1
           fi
           printf 'governance files in this pull request:\n%s\n' "$CHANGED"
+          echo "surface=$(printf '%s' "$CHANGED" | paste -sd, -)" >> "$GITHUB_OUTPUT"
+      # The estimate is arithmetic on measurement, not a second campaign: mutants per
+      # minute and the dry run's cost were both measured, and the density of each file
+      # comes from the restored report. A campaign that cannot finish is refused here,
+      # with both numbers named, instead of being cancelled at the wall.
+      - name: Will this campaign fit in the ceiling?
+        if: steps.surface.outputs.surface != ''
+        env:
+          MUTATION_CEILING: "30"
+        run: >-
+          bun scripts/mutation-plan.ts
+          --ceiling "$MUTATION_CEILING"
+          --report reports/stryker-incremental.json
+          "${{ steps.surface.outputs.surface }}"
+      - name: Nothing to mutate
+        if: steps.surface.outputs.surface == ''
+        run: echo "::notice::no governance file with mutants changed, so the campaign has no verdict to give and does not start."
+      # The exit code IS the gate: below thresholds.break the step fails and the
+      # clear-text report names the survivors. Nothing here re-reads the report to
+      # decide — a gate that parses its own output is a gate that can be wrong twice.
+      - name: Mutation campaign
+        if: steps.surface.outputs.surface != ''
+        run: bunx stryker run --mutate "${{ steps.surface.outputs.surface }}"
+      - name: Upload the report
+        if: always() && steps.surface.outputs.surface != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-report-pr
+          path: reports/
+          if-no-files-found: error
+
+  # The whole core, nightly and on demand. This is the run that keeps the ratchet honest.
+  full:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # 90 minutes, 1.9x the real work. Measured: 8,009 mutants took 28m33s of mutation
+    # testing on 2026-11-22 (run 45018016173) — 280 a minute once rounded down. By
+    # 2026-11-28 the same set was 12,183 mutants (run 46138418750), about 43 minutes,
+    # which is why the 40-minute ceiling cancelled four nights running. The set grows
+    # about 600 mutants a day, so this ceiling is temporary by design: the preflight
+    # below says so loudly before it is ever hit. The levers when it does are the
+    # runner's `concurrency` in stryker.conf.mjs, then a matrix over the three
+    # directories — neither of them belongs in this change.
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Bun
+        run: npm install -g bun@1.4.4
+      - name: Dependencies
+        run: bun install --frozen-lockfile
+      # The whole-core baseline the pull-request job reads, and the reason it must never
+      # write to it: only this job knows the results for the files a pull request skips.
       - name: Restore the previous campaign's results
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: reports
           key: stryker-incremental-${{ hashFiles('bun.lock') }}
           restore-keys: stryker-incremental-
-      # The exit code IS the gate: below thresholds.break the step fails and the
-      # clear-text report names the survivors. Nothing here re-reads the report to
-      # decide — a gate that parses its own output is a gate that can be wrong twice.
+      - name: Every file the campaign mutates
+        id: surface
+        run: |
+          set -euo pipefail
+          SURFACE=$(git ls-files 'src/guards/*.ts' 'src/chain/*.ts' 'src/floor/*.ts' | paste -sd, -)
+          echo "surface=$SURFACE" >> "$GITHUB_OUTPUT"
+      - name: Will this campaign fit in the ceiling?
+        env:
+          MUTATION_CEILING: "90"
+        run: >-
+          bun scripts/mutation-plan.ts
+          --ceiling "$MUTATION_CEILING"
+          --report reports/stryker-incremental.json
+          "${{ steps.surface.outputs.surface }}"
       - name: Mutation campaign
         run: bunx stryker run
       - name: Upload the report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ${{ github.event_name == 'pull_request' && 'mutation-report-pr' || 'mutation-report' }}
+          name: mutation-report
           path: reports/
           if-no-files-found: error
-
