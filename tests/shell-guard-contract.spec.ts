@@ -372,12 +372,14 @@ describe("the command model — one parse every guard is a predicate over", () =
     expect(command("echo x > out").writes.map((word) => word.value)).toEqual(["out"]);
   });
 
-  test("input redirects and here-strings are reads, never writes", () => {
+  test("an input redirect reads a file, a here-string and a heredoc delimiter name none", () => {
     const read = command("cat < notes.txt <<< 'done'");
-    expect(read.reads.map((word) => word.value)).toEqual(["notes.txt", "done"]);
+    expect(read.reads.map((word) => word.value)).toEqual(["notes.txt"]);
     expect(read.writes).toEqual([]);
+    expect(command("bash <<'EOF'").reads).toEqual([]);
     // Closing a descriptor is respelled as the file it is, like every other fd form.
     expect(command("cat 3<&-").redirects.map(({ target }) => target?.value)).toEqual(["/dev/fd/-"]);
+    expect(command("cat 3<&-").reads).toEqual([]);
   });
 
   test("the verb stands past NAME=value and every wrapper the reader knows", () => {

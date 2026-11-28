@@ -107,6 +107,12 @@ describe("injection · readTargets — what a command line would print", () => {
     expect(readTargets("git grep needle notes.txt")).toEqual(["needle", "notes.txt"]);
   });
 
+  test("a here-string, a heredoc delimiter and a closed descriptor name no file", () => {
+    expect(readTargets("grep -i needl <<< 'notes.txt'")).toEqual(["needl"]);
+    expect(readTargets("cat < notes.txt <<EOF")).toEqual(["notes.txt"]);
+    expect(readTargets("cat 3<&-")).toEqual([]);
+  });
+
   test("readers are recognised by basename whatever path prefixes them", () => {
     expect(readTargets("/usr/bin/cat notes.txt")).toEqual(["notes.txt"]);
     expect(readTargets("./tail -3 log.txt")).toEqual(["log.txt"]);

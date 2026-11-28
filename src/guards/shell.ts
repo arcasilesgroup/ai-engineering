@@ -770,7 +770,8 @@ export type ShellCommand = {
   args: ShellWord[];
   /** The files an output redirect creates: no descriptor copies, no devices. */
   writes: ShellWord[];
-  /** The files an input redirect or a here-string reads. */
+  /** The files an input redirect reads: a heredoc's delimiter and a here-string's text
+   *  name none, and a descriptor copy or a device is no file to read. */
   reads: ShellWord[];
   /** Whether the shell expands each of `args`: an unquoted glob, brace or `$name`. */
   isArgExpanded: boolean[];
@@ -793,7 +794,7 @@ export function withWords(segment: ShellSegment, words: readonly ShellWord[]): S
   const { plain, redirects } = readRedirects(words);
   const verbIndex = commandIndex(plain.map((word) => word.value));
   const writes = redirects.flatMap(({ operator, target }) => (operator.startsWith(">") && isFileTarget(target) ? [target] : []));
-  const reads = redirects.flatMap(({ operator, target }) => (operator.startsWith("<") && target !== null && !target.isOperator ? [target] : []));
+  const reads = redirects.flatMap(({ operator, target }) => ((operator === "<" || operator === "<>") && isFileTarget(target) ? [target] : []));
   const args = plain.slice(verbIndex + 1);
   return {
     segment,
