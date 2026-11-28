@@ -214,7 +214,7 @@ async function reinitHandoff(
     if ("surfaces" in declared && requested.length > 0 && !sameSurfaces(requested, declared.surfaces)) {
       const governing = repoRoot(cwd);
       if (governing !== null && governing !== cwd) {
-        ui.fail(`--surface would change the repo that governs here, and this folder is not it: ${governing} governs, you are in ${cwd} — run ai-eng init from the repo root you mean.`);
+        ui.fail(`--surface is refused here: it would rewrite ${join(governing, ".ai-engineering", "config.toml")}, the declaration of ${governing}, which governs this folder — not ${join(cwd, ".ai-engineering", "config.toml")}, which the gate never reads and you edit by hand.`);
         return 2;
       }
       return configMain({ surfaces: requested, yes: flags.yes === true });
