@@ -44,11 +44,17 @@ const CHECKPOINT_TARGET = /\.ai-engineering\/workflow\/checkpoints\/[^\s/]+\.jso
 // (redirection, tee, sed -i, cp, mv, rm, truncate) is judged by its target in
 // shellWritesIntoCheckpoints.
 // A versioned spelling (`python3.11`), a packaged one (`my-python3`) and a Windows one
-// (`node.exe`) run the same program, so one predicate answers for all of them.
-const INTERPRETER = /(?:^|[-_])(?:python|node|perl|ruby|bun|deno|jq|awk)(?:\d+(?:\.\d+)*)?$/;
+// (`node.exe`) run the same program, so one predicate answers for all of them. Of the code
+// writers only these can name a file the reader cannot see; awk writes only through its own
+// program, judged below.
+const CODE_WRITER = /(?:^|[-_])(?:python|node|perl)(?:\d+(?:\.\d+)*)?$/;
+// The cwd rule treats every program that can reach a file as opaque, as it always has.
+const OPAQUE_WRITER = /(?:^|[-_])(?:python|node|perl|ruby|bun|deno|jq|awk)(?:\d+(?:\.\d+)*)?$/;
+const AWK_WRITE = />\s*["']|system\s*\(/;
 const CHECKPOINTS_DIR = ".ai-engineering/workflow/checkpoints";
 const MAX_LINK_HOPS = 40;
-const isInterpreterName = (name: string): boolean => INTERPRETER.test(name);
+const isCodeWriter = (name: string): boolean => CODE_WRITER.test(name);
+const isOpaqueWriter = (name: string): boolean => OPAQUE_WRITER.test(name);
 const MAX_STOP_BLOCKS = 3;
 
 function deny(checkpoint: string, gate: string, detail: string, next: string): CheckpointGuardResult {
@@ -520,14 +526,19 @@ function writeTargetsOf(command: ShellCommand): string[] | null {
   const targetDirectory = (): string | null => {
     const flag = args.findIndex((arg) => arg === "-t" || arg === "--target-directory");
     if (flag >= 0) return args[flag + 1] ?? "";
-    return args.flatMap((arg) => (/^--target-directory=(.+)$/.exec(arg) ?? []).slice(1))[0] ?? null;
+    const attached = args.flatMap((arg) => [/^--target-directory=(.+)$/.exec(arg)?.[1], /^-t(.+)$/.exec(arg)?.[1]]);
+    return attached.find((value) => value !== undefined) ?? null;
   };
+  const directory = targetDirectory();
   // `ln target linkname` and `cp a b` create their last operand; with `-t dir` the
   // destination is that folder, and every operand is a source it leaves alone.
   if (command.verb === "ln" || DESTINATION_LAST.has(command.verb)) {
-    const directory = targetDirectory();
     named.push(...(directory === null ? operands.slice(-1) : [directory]));
-  } else if (OPERAND_WRITERS.has(command.verb) || isInPlaceSed) named.push(...operands);
+  } else if (OPERAND_WRITERS.has(command.verb) || isInPlaceSed) {
+    named.push(...operands);
+    // `mv a b -t dir` both removes its operands and creates them inside dir.
+    if (command.verb === "mv" && directory !== null) named.push(directory);
+  }
   const written = named.filter((target) => target.length > 0);
   // A writer fed from stdin leaves its destination unnamed only while the folder it lands in
   // is the input's: `/tmp/backup/{}` lands outside wherever that input came from.
@@ -562,11 +573,18 @@ function runsInterpreter(command: ShellCommand, isInterpreter: (name: string) =>
   return command.plain.some((word) => isInterpreter(programName(word.value)));
 }
 
+/** Whether awk's own program writes: an output redirection inside it, or a system() call. */
+function awkProgramWrites(command: ShellCommand): boolean {
+  const program = command.args.map((word) => word.value).find((word) => !word.startsWith("-"));
+  return program !== undefined && AWK_WRITE.test(program);
+}
+
 /** Whether one command that names a checkpoint runs an interpreter that could write it.
  *  json.tool with the checkpoint as its one operand only reads it. */
 function hasOpaqueWriteForm(command: ShellCommand): boolean {
   if (isJsonToolRead(commandWords(command), (operand) => CHECKPOINT_TARGET.test(operand))) return false;
-  return runsInterpreter(command, isInterpreterName);
+  if (runsInterpreter(command, isCodeWriter)) return true;
+  return runsInterpreter(command, (name) => name === "awk") && awkProgramWrites(command);
 }
 
 /** A path as the shell would resolve it from `cwd`, or null when it hangs off a variable,
@@ -632,7 +650,7 @@ function commandsWriteIntoCheckpoints(commands: readonly ShellCommand[], cwd: st
     for (const { body } of shellCommand.segment.heredocs) {
       if (commandsWriteIntoCheckpoints(readCommands(body) ?? readCommandsLenient(body), directory, repo, mentions)) return true;
     }
-    if (directory !== null && runsInterpreter(shellCommand, isInterpreterName) && landsInCheckpoints(repo, directory)) {
+    if (directory !== null && runsInterpreter(shellCommand, isOpaqueWriter) && landsInCheckpoints(repo, directory)) {
       const here = directory;
       const isCheckpointFile = (operand: string): boolean => {
         const absolute = shellPath(here, operand);

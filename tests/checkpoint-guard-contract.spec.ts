@@ -631,12 +631,17 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a link named as a checkpoint", `cd ${FOLDER} && ln -s ../../../base.txt demo.json`],
     ["a link created in the folder by -t", `ln -s ../../../base.txt -t ${FOLDER}`],
     ["a copy into the folder by -t", `cp -t ${FOLDER} ../../../base.txt`],
+    ["a copy into the folder by an attached -t", `cp -t${FOLDER} ../../../base.txt`],
+    ["an install into the folder by an attached -t", `install -t${FOLDER} ../../../base.txt`],
+    ["a move into the folder by an attached -t", `mv -t${FOLDER} ../../../base.txt`],
+    ["a link into the folder by an attached -t", `ln -s ../../../base.txt -t${FOLDER}`],
+    ["an awk program that writes the plan", `awk '{print > "${FOLDER}/plan.json"}' x`],
     ["an install into the folder by an attached target directory", `install --target-directory=${FOLDER} ../../../base.txt`],
     ["an interpreter spelled as a Windows executable", `node.exe -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'`],
     ["a versioned interpreter spelled as a Windows executable", `python3.11.exe -m pickletools ${FOLDER}/demo.json > /dev/null`],
     ["a versioned interpreter inside the folder", `cd ${FOLDER} && python3.11 -c 'open("demo.json","w")'`],
     ["a short-version interpreter inside the folder", `cd ${FOLDER} && node20 -c 'x'`],
-    ["an interpreter only the cwd rule carried", `ruby -e 'File.write("${FOLDER}/demo.json","{}")'`],
+    ["an interpreter only the cwd rule carried inside the folder", `cd ${FOLDER} && ruby -e 'File.write("demo.json","{}")'`],
     ["a writer fed from stdin with no destination on the line", `cd ${FOLDER} && ls | xargs rm`],
     // A cd inside a substitution moves that subshell, not the shell the write runs in.
     ["a cd inside a substitution before the write", `cd ${FOLDER} && echo "$(cd /tmp; pwd)" > demo.json`],
@@ -678,6 +683,8 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a copy out of the folder by a target directory", `cd ${FOLDER} && cp -t /tmp/backup demo.json`],
     ["an install out of the folder by a target directory", `cd ${FOLDER} && install -t /tmp/backup demo.json`],
     ["a link whose target is the folder into a target directory", `ln -s ${FOLDER}/demo.json -t /tmp`],
+    ["a jq read of the plan", `jq . ${FOLDER}/plan.json`],
+    ["an awk read of the plan", `awk '{print}' ${FOLDER}/plan.json`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {
