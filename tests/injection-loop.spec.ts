@@ -117,6 +117,10 @@ describe("injection · readTargets — what a command line would print", () => {
     expect(readTargets("bash <<'EOF'\ncat notes.txt\nEOF")).toEqual(["notes.txt"]);
   });
 
+  test("a program on a line the reader cannot read is scanned too", () => {
+    expect(readTargets("echo ${x:-a b}; bash -c 'cat notes.txt'")).toEqual(["notes.txt"]);
+  });
+
   test("readers are recognised by basename whatever path prefixes them", () => {
     expect(readTargets("/usr/bin/cat notes.txt")).toEqual(["notes.txt"]);
     expect(readTargets("./tail -3 log.txt")).toEqual(["log.txt"]);

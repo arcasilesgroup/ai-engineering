@@ -176,6 +176,7 @@ function readTargetsIn(command: string, targets: Set<string>): void {
   for (const read of readCommands(command) ?? readCommandsLenient(command)) {
     for (const target of read.reads) targets.add(target.value);
     for (const { body } of read.segment.heredocs) readTargetsIn(body, targets);
+    for (const program of inlineShellPrograms(read.segment.text)) readTargetsIn(program, targets);
     const words = read.plain.map((word) => word.value);
     // `git diff notes.txt` prints a file through a printer that is not the verb, so the
     // printer is looked for among the words too, exactly as `git grep needle notes.txt` reads.
@@ -193,10 +194,6 @@ function readTargetsIn(command: string, targets: Set<string>): void {
 export function readTargets(command: string): string[] {
   const targets = new Set<string>();
   readTargetsIn(command, targets);
-  // A `bash -c "cat notes.txt"` reads exactly what a bare cat reads: judge the inner line too.
-  for (const inner of inlineShellPrograms(command)) {
-    readTargetsIn(inner, targets);
-  }
   return [...targets];
 }
 

@@ -34,6 +34,8 @@ const SCOPE_WORKSPACE = 1;
 const PERM_READ = 4;
 const PERM_WRITE = 2;
 const PERM_EXECUTE = 1;
+// Every scope at every permission: what a program the reader cannot read costs.
+const STRICT_MODE = 0o7777;
 
 const RE_ROOT_DELETE = /(^|[\s;|&])rm\s+-[^\s]*[rf][^\s]*\s+\/(\s|$|[*])/i;
 const RE_SYSTEM_PATH = /(^|[\s"'`])(\/etc|\/usr|\/bin|\/sbin|\/var|\/library|\/system|\/dev)(\/|[\s"'`]|$)/i;
@@ -471,21 +473,31 @@ function scanScript(script: string, cwd: string): number {
   ];
   for (const { text, isExpanded } of passes) {
     if (text.trim().length === 0) continue;
-    // A line whose quoting cannot be read is still judged by the words it shows.
-    let pipeline = "";
-    for (const command of readCommands(text) ?? readCommandsLenient(text)) {
-      // A pipeline is one shape for the classification (`curl … | bash` is the
-      // network-execute form); a `&&`, `||`, `;` or newline chain is not.
-      pipeline = command.segment.isAfterPipe ? `${pipeline} | ${command.segment.text}` : command.segment.text;
-      scanCommand(mask, command, pipeline, cwd, isExpanded);
-      // A heredoc's lines are judged as commands, whoever reads them: text alone cannot
-      // tell a commit message from a program.
-      for (const { body } of command.segment.heredocs) {
-        for (const inside of readCommands(body) ?? readCommandsLenient(body)) scanCommand(mask, inside, inside.segment.text, cwd, isExpanded);
-      }
-    }
+    scanCommands(mask, text, cwd, isExpanded);
   }
   return mask.value;
+}
+
+/** One text judged command by command, with the program each command hands to an interpreter
+ *  and the body of every heredoc it feeds judged the same way. A program the reader cannot
+ *  read costs every scope the mode has, never one opaque workspace token. */
+function scanCommands(mask: { value: number }, text: string, cwd: string, isExpanded: boolean, depth = 0): void {
+  // A line whose quoting cannot be read is still judged by the words it shows.
+  let pipeline = "";
+  for (const command of readCommands(text) ?? readCommandsLenient(text)) {
+    // A pipeline is one shape for the classification (`curl … | bash` is the
+    // network-execute form); a `&&`, `||`, `;` or newline chain is not.
+    pipeline = command.segment.isAfterPipe ? `${pipeline} | ${command.segment.text}` : command.segment.text;
+    scanCommand(mask, command, pipeline, cwd, isExpanded);
+    // A heredoc's lines are judged as commands, whoever reads them: text alone cannot
+    // tell a commit message from a program.
+    for (const { body } of command.segment.heredocs) scanCommands(mask, body, cwd, isExpanded, depth);
+    if (depth >= 3) continue;
+    for (const program of inlineShellPrograms(command.segment.text)) {
+      if (readCommands(program) === null) mask.value |= STRICT_MODE;
+      else scanCommands(mask, program, cwd, true, depth + 1);
+    }
+  }
 }
 
 function maskToMode(mask: number): string {
