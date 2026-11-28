@@ -645,6 +645,7 @@ describe("Bash writes into the checkpoint folder", () => {
     ["an awk redirection into an assignment", `awk '{print > out}' out=${FOLDER}/plan.json`],
     ["an awk redirection into a variable", `awk -v t=${FOLDER}/plan.json '{print > t}' x`],
     ["an awk in-place edit of the plan", `awk -i inplace '{$0="approved"}' ${FOLDER}/plan.json`],
+    ["an awk print piped into a writer", `awk '{print | "tee -a ${FOLDER}/plan.json"}' x`],
     ["a cp into the folder by a combined short flag", `cp -rt ${FOLDER} ../../../base.txt`],
     ["an install into the folder by a combined short flag", `install -Dt ${FOLDER} ../../../base.txt`],
     ["a link into the folder by a combined short flag", `ln -sft ${FOLDER} ../../../base.txt`],
@@ -701,6 +702,7 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a copy into a target directory elsewhere by a combined short flag", `cp -rt /tmp/backup ../../../base.txt`],
     ["an awk read of the plan", `awk '{print}' ${FOLDER}/plan.json`],
     ["an awk read of the plan with a field separator", `awk -F, '{print $1}' ${FOLDER}/plan.json`],
+    ["an awk regex alternation read of the plan", `awk '/approved|pending/' ${FOLDER}/plan.json`],
     ["a read redirect of the plan in the folder", `cd ${FOLDER} && cat < demo.json`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {

@@ -51,7 +51,7 @@ const CODE_WRITER = /(?:^|[-_])(?:python|node|perl)(?:\d+(?:\.\d+)*)?$/;
 // The cwd rule treats every program that can reach a file as opaque, as it always has.
 const OPAQUE_WRITER = /(?:^|[-_])(?:python|node|perl|ruby|bun|deno|jq|awk|gawk|mawk|nawk)(?:\d+(?:\.\d+)*)?$/;
 const AWK = new Set(["awk", "gawk", "mawk", "nawk"]);
-const AWK_WRITE = />|\||system\(/;
+const AWK_WRITE = />|system\(|\bprintf?\b[^;}]*\|/;
 const CHECKPOINTS_DIR = ".ai-engineering/workflow/checkpoints";
 const MAX_LINK_HOPS = 40;
 const isCodeWriter = (name: string): boolean => CODE_WRITER.test(name);
