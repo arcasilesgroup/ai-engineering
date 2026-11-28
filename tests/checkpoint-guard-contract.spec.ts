@@ -680,6 +680,14 @@ describe("Bash writes into the checkpoint folder", () => {
     });
   });
 
+  test("a writer fed from stdin is judged by the folder it runs in", () => {
+    withFixture((fixture) => {
+      save(fixture.planPath, plan());
+      expect(run(fixture, bash("echo demo.json | xargs rm", fixture.folder))).toEqual(refused(SHELL_WRITE));
+      expect(run(fixture, bash(`ls ${FOLDER} && echo ok | xargs rm`))).toBeUndefined();
+    });
+  });
+
   test("json.tool inside the folder reads only checkpoint files", () => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());

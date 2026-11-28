@@ -583,6 +583,11 @@ const OPERAND_READERS = new Set([
 /** A long output option always writes, whatever the command is. */
 const OUTPUT_OPTION = /^--(?:output|out|output-document|outfile|log-file)(?:=|$)/;
 
+/** Whether the arguments carry a long output option naming a file the program writes. */
+export function writesLongOutput(args: readonly string[]): boolean {
+  return args.some((arg) => OUTPUT_OPTION.test(arg));
+}
+
 /** The flags that turn a reader into a writer: `sed -i`, `awk -i inplace`, `sort -o`. */
 const WRITE_FLAGS: Record<string, RegExp> = { sed: /^-[A-Za-z]*i/, awk: /^-[A-Za-z]*i/, sort: /^-[A-Za-z]*o/ };
 
@@ -590,7 +595,7 @@ const WRITE_FLAGS: Record<string, RegExp> = { sed: /^-[A-Za-z]*i/, awk: /^-[A-Za
  *  rewrites the file instead, so an in-place `sed`/`awk` reads nothing. */
 export function printsFileContent(name: string, args: readonly string[]): boolean {
   if (!FILE_CONTENT_READERS.has(name)) return false;
-  return !(args.some((arg) => OUTPUT_OPTION.test(arg)) || args.some((arg) => WRITE_FLAGS[name]?.test(arg) ?? false));
+  return !(writesLongOutput(args) || args.some((arg) => WRITE_FLAGS[name]?.test(arg) ?? false));
 }
 
 /** Whether `name` only reads the paths it names, so a governed path in its arguments is
@@ -598,7 +603,7 @@ export function printsFileContent(name: string, args: readonly string[]): boolea
  *  subset of it, and both tables live here so a new command is added once. */
 export function readsOperandsOnly(name: string, args: readonly string[]): boolean {
   if (!OPERAND_READERS.has(name)) return false;
-  if (args.some((arg) => OUTPUT_OPTION.test(arg))) return false;
+  if (writesLongOutput(args)) return false;
   return !args.some((arg) => WRITE_FLAGS[name]?.test(arg) ?? false);
 }
 

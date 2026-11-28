@@ -18,7 +18,7 @@ import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
 import surfacesJson from "../surfaces/surfaces.json";
-import { applySegmentAssignments, applySegmentMutations, COMMAND_PREFIXES, commandOf, createVariableScope, findRedirect, GLOB_CHARS, jsonToolOperands, normalizeRedirects, readCommands, readsOperandsOnly, resolveSubstitutions, substituteVariables, variablesForSegment, withWords, type ShellCommand } from "./shell.ts";
+import { applySegmentAssignments, applySegmentMutations, COMMAND_PREFIXES, commandOf, createVariableScope, findRedirect, GLOB_CHARS, jsonToolOperands, normalizeRedirects, readCommands, readsOperandsOnly, resolveSubstitutions, substituteVariables, variablesForSegment, withWords, writesLongOutput, type ShellCommand } from "./shell.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
  *  `sed` joins them only with -i. The list may over-deny: that is a person told to
@@ -233,7 +233,7 @@ function gitWorkingDirIndexes(args: string[]): number[] {
 
 function isReader(verb: string, args: string[]): boolean {
   // `git diff --output=x` writes: a long output option is never a read, whatever runs.
-  if (args.some((arg) => /^--(?:output|out|output-document|outfile|log-file)(?:=|$)/.test(arg))) return false;
+  if (writesLongOutput(args)) return false;
   if (verb === "git") {
     const subcommand = gitSubcommand(args).name;
     return GIT_READERS.has(subcommand) || GIT_RECORDERS.has(subcommand);

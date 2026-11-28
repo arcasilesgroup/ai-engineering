@@ -608,7 +608,7 @@ function commandsWriteIntoCheckpoints(commands: readonly ShellCommand[], cwd: st
     // A writer fed from stdin names no path on this line: the folder it runs in is all the
     // guard has, and a command that names the folder is refused rather than guessed at.
     if (targets === null) {
-      if (mentions) return true;
+      if (directory === null ? mentions : landsInCheckpoints(repo, directory)) return true;
       continue;
     }
     for (const target of targets) {
