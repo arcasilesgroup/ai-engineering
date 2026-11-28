@@ -133,10 +133,12 @@ describe("mutation.yml — each job runs under the ceiling its preflight was tol
     }
   });
 
-  test("the nightly ceiling is the measured one, above what the campaign actually takes", () => {
-    // 12,183 mutants at the measured 280 a minute plus the dry run and the checkout.
-    expect(jobs[FULL_JOB]?.["timeout-minutes"]).toBe(90);
-    expect(jobs[PR_JOB]?.["timeout-minutes"]).toBe(30);
+  test("the ceilings are the measured ones, above what each campaign actually takes", () => {
+    // 12,033 mutants at the conservative 60-a-minute planning rate plus the dry run and
+    // the checkout is 204 minutes nightly; the largest governance file is 46 on a pull
+    // request. See scripts/mutation-plan.ts for the measurement behind the rate.
+    expect(jobs[FULL_JOB]?.["timeout-minutes"]).toBe(240);
+    expect(jobs[PR_JOB]?.["timeout-minutes"]).toBe(60);
   });
 
   test("the preflight runs after the results are restored and before the campaign, in both jobs", () => {
@@ -177,7 +179,9 @@ describe("mutation.yml — the pull request mutates its own surface, the nightly
 
 describe("mutation.yml — the comments carry measurements, not a calibration", () => {
   test("the measured runs are named and the laptop calibration is gone", () => {
-    for (const run of ["45018016173", "45999985299", "46138418750"]) expect(WORKFLOW).toContain(run);
+    // The three green nightlies the rate is measured from, and the run that proved the
+    // 90-minute ceiling too low.
+    for (const run of ["44730630181", "44898202664", "45018016173", "46146987123"]) expect(WORKFLOW).toContain(run);
     expect(WORKFLOW).not.toContain("laptop");
     expect(WORKFLOW).not.toContain("4m29s");
     expect(WORKFLOW).not.toContain("11m21s");

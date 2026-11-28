@@ -6,16 +6,32 @@
 // and no coverage was ever delivered. This script turns that silent kill into a
 // refusal that names the estimate, the ceiling and the way out.
 //
-// Every constant below is measured on a hosted runner, not calibrated on a laptop:
+// Every constant below is measured on a hosted runner, not calibrated on a laptop. The
+// one that decides everything is the rate, and it took a cancelled run to measure it
+// honestly: a campaign that reuses results is not a campaign that runs them.
 //
-//   run 45018016173 — 2026-11-22, schedule, green. 9,126 mutants instrumented, 8,009
-//     scored, the executor "Done in 28 minutes and 33 seconds", the whole job 28.8 min.
-//     That is 293 mutants a minute; MUTANTS_PER_MINUTE rounds it down to 280.
-//   run 45999985299 — 2026-11-27, schedule. The dry run took 2m05s over 2,703 tests
-//     (1m10s over 2,446 on 2026-11-22), so DRY_RUN_MINUTES is 3.
-//   run 46138418750 — 2026-11-28, pull request. 12,183 mutants instrumented, cancelled
-//     at the 40-minute ceiling: 12,183 / 280 = 43.5 minutes of mutation testing before
-//     the dry run and the checkout are counted.
+// The three green nightlies reused most of their mutants, so only the fresh ones were
+// executed, and only those cost time:
+//
+//   run 44730630181 — 2026-11-20, green. 9,056 instrumented, 5,764 reused, 3,292 fresh
+//     in 28m20s → 116 fresh mutants a minute.
+//   run 44898202664 — 2026-11-21, green. 9,126 instrumented, 5,752 reused, 3,374 fresh
+//     in 27m35s → 122 a minute.
+//   run 45018016173 — 2026-11-22, green. 9,126 instrumented, 5,671 reused, 3,455 fresh
+//     in 28m33s → 121 a minute.
+//
+// Three runs agreeing within 2% is the measurement: about 120 fresh mutants a minute in
+// November, on a 2,446-test suite.
+//
+//   run 46146987123 — 2026-11-28, workflow_dispatch, cancelled at 90 minutes. 12,033
+//     instrumented, 4,688 reused, 7,345 fresh, and the mutation phase had not finished
+//     after 87m39s of it. So the rate has fallen to at most 84 fresh mutants a minute:
+//     the suite it re-runs for every mutant grew to 2,750 tests, and per-mutant cost
+//     grows with the covering set. MUTANTS_PER_MINUTE takes the conservative 60, which
+//     is that ceiling divided by 1.4 — a campaign refused here is loud, a campaign
+//     cancelled at the wall is silent, so the estimate is allowed to be pessimistic.
+//   runs 45999985299 and 46146987123 — the dry run took 2m05s over 2,703 tests and 2m16s
+//     over 2,750, so DRY_RUN_MINUTES is 3.
 //
 // The density of a file is measured from the restored incremental report, whose entries
 // carry the file's source as well as its mutants. Reading it per file, and multiplying
@@ -27,9 +43,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-/** 8,009 mutants in 27m20s is 293 a minute (run 45018016173); rounded down to stay honest. */
-export const MUTANTS_PER_MINUTE = 280;
-/** 2m05s over 2,703 tests on 2026-11-27, 1m10s over 2,446 on 2026-11-22. */
+/** 120 fresh mutants a minute measured, degraded to 60 for the grown suite: see the header. */
+export const MUTANTS_PER_MINUTE = 60;
+/** 2m05s over 2,703 tests on 2026-11-27 and 2m16s over 2,750 on 2026-11-28. */
 export const DRY_RUN_MINUTES = 3;
 /** Checkout, Bun, dependencies and the artifact upload: about 15 seconds measured. */
 export const SETUP_MINUTES = 1;

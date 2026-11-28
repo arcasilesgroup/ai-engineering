@@ -46,19 +46,21 @@ function report(root: string, entries: Array<{ path: string; sourceLines: number
 
 describe("mutation-plan — the estimate comes from measurement, not from hope", () => {
   test("the campaign measured on 2026-11-28 does not fit the ceiling it was cancelled under, and does fit the nightly's", () => {
+    // 12,000 mutants at 60 a minute plus the dry run and the checkout is 204 minutes:
+    // over the 90 it was killed at, inside the 240 the nightly is given.
     const root = scratch();
     // 12,000 mutants over 6,000 measured lines: the size of the set that hit 40 minutes.
     const incremental = report(root, [{ path: "src/guards/big.ts", sourceLines: 6000, live: 12000 }]);
     sourceFile(root, "src/guards/big.ts", 6000);
 
-    const under = planCampaign({ root, files: ["src/guards/big.ts"], ceiling: 40, reportPath: incremental });
-    const nightly = planCampaign({ root, files: ["src/guards/big.ts"], ceiling: 90, reportPath: incremental });
+    const under = planCampaign({ root, files: ["src/guards/big.ts"], ceiling: 90, reportPath: incremental });
+    const nightly = planCampaign({ root, files: ["src/guards/big.ts"], ceiling: 240, reportPath: incremental });
 
     expect(under.mutants).toBe(12000);
     expect(under.fits).toBe(false);
     expect(nightly.mutants).toBe(12000);
     expect(nightly.fits).toBe(true);
-    expect(nightly.minutes).toBeLessThan(90);
+    expect(nightly.minutes).toBeLessThan(240);
   });
 
   test("a set twice that size no longer fits the nightly ceiling", () => {
@@ -66,7 +68,7 @@ describe("mutation-plan — the estimate comes from measurement, not from hope",
     const incremental = report(root, [{ path: "src/guards/big.ts", sourceLines: 13000, live: 26000 }]);
     sourceFile(root, "src/guards/big.ts", 13000);
 
-    const plan = planCampaign({ root, files: ["src/guards/big.ts"], ceiling: 90, reportPath: incremental });
+    const plan = planCampaign({ root, files: ["src/guards/big.ts"], ceiling: 240, reportPath: incremental });
 
     expect(plan.mutants).toBe(26000);
     expect(plan.fits).toBe(false);
@@ -125,7 +127,7 @@ describe("mutation-plan — the command CI runs", () => {
     const run = (ceiling: string) =>
       spawnSync(process.execPath, [SCRIPT, "--ceiling", ceiling, "src/guards/big.ts"], { cwd: root, encoding: "utf8" });
 
-    const fitting = run("90");
+    const fitting = run("240");
     const refused = run("5");
 
     expect(fitting.status).toBe(0);
