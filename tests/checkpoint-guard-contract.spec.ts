@@ -675,6 +675,7 @@ describe("Bash writes into the checkpoint folder", () => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());
       expect(run(fixture, bash("echo ${x:-> f} > demo.json", fixture.folder))).toEqual(refused(SHELL_WRITE));
+      expect(run(fixture, bash("echo ${x:-> f} >& demo.json", fixture.folder))).toEqual(refused(SHELL_WRITE));
       expect(run(fixture, bash("echo ${x:-> f} > demo.json # checkpoints"))).toBeUndefined();
     });
   });

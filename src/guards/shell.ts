@@ -840,7 +840,7 @@ function readCommandLenient(text: string, isAfterPipe = false): ShellCommand {
  *  shell cuts a command: a newline, `;`, `&&`, `||`, a background `&` end one, and a `|`
  *  starts the next stage of the pipeline. */
 export function readCommandsLenient(text: string): ShellCommand[] {
-  const pieces = text.split(/(\|\||&&|\|&|\||;|&|\r?\n)/);
+  const pieces = text.split(/(\|\||&&|\|&|\||;|(?<![<>])&(?!>)|\r?\n)/);
   const commands: ShellCommand[] = [];
   for (let index = 0; index < pieces.length; index += 2) {
     const piece = pieces[index]!;

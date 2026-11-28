@@ -329,18 +329,18 @@ function commandLead(written: string): string {
   return rest;
 }
 
-/** One command classified. The words and the redirections come from the one shell model,
- *  so a construct another guard reads is a construct this classifier reads too. `line` is
- *  the pipeline this command sits in: the shapes read `curl … | bash` as one shape. */
-function scanCommand(mask: { value: number }, command: ShellCommand, line: string, cwd: string, isExpanded: boolean): void {
-  const written = line.trim();
+/** The modes the shapes read off one line of shell text, as written: a program name, a URL,
+ *  a pipeline form or a destructive shape. A substitution, the command that holds it and
+ *  the shell a pipeline hands it to are one shape, though the reader hands them over as
+ *  separate commands, so this runs over the whole line as well as over each command. */
+function shapeMask(written: string): number {
+  const mask = { value: 0 };
   const lead = commandLead(written);
-  const verbAt = command.verbIndex;
   // The shapes read `git push` however it is spelled: `/usr/bin/git push` and
   // `TMPDIR=x git push` run the same program (policy.rs reads neither as git push).
   const segment = written.replace(/^(?:[a-z_]\w*\+?=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
   // The shapes judge the shell the command runs; quoted data (a `-m` message) is
-  // not shell. Path tokens below keep their raw words: `rm "~/.ssh/id"` stays a
+  // not shell. Path tokens elsewhere keep their raw words: `rm "~/.ssh/id"` stays a
   // sensitive write.
   const text = blankDataQuotedSpans(segment);
   if (SYSTEM_EXECUTE(text) || SYSTEM_EXECUTE(lead)) addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
@@ -351,10 +351,21 @@ function scanCommand(mask: { value: number }, command: ShellCommand, line: strin
   if (either(NETWORK_READ)) addMode(mask, SCOPE_NETWORK, PERM_READ);
   if (either(NETWORK_WRITE)) addMode(mask, SCOPE_NETWORK, PERM_WRITE);
   if (either(NETWORK_EXECUTE)) addMode(mask, SCOPE_NETWORK, PERM_EXECUTE);
-  if (RE_ROOT_DELETE.test(text) || RE_DEVICE_WRITE.test(text)) {
-    addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
-  }
+  if (RE_ROOT_DELETE.test(text) || RE_DEVICE_WRITE.test(text)) addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
   if (WORKSPACE_EXECUTE(text)) addMode(mask, SCOPE_WORKSPACE, PERM_EXECUTE);
+  return mask.value;
+}
+
+/** One command classified. The words and the redirections come from the one shell model,
+ *  so a construct another guard reads is a construct this classifier reads too. `line` is
+ *  the pipeline this command sits in: the shapes read `curl … | bash` as one shape. */
+function scanCommand(mask: { value: number }, command: ShellCommand, line: string, cwd: string, isExpanded: boolean): void {
+  const written = [line.trim(), ...command.segment.substitutions].join(" ").trim();
+  const lead = commandLead(written);
+  const verbAt = command.verbIndex;
+  const segment = written.replace(/^(?:[a-z_]\w*\+?=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
+  const text = blankDataQuotedSpans(segment);
+  mask.value |= shapeMask(written);
 
   let pathPermissions = PERM_READ;
   let flags = 0;
@@ -442,8 +453,8 @@ function scanCommand(mask: { value: number }, command: ShellCommand, line: strin
 }
 
 function scanScript(script: string, cwd: string): number {
-  const mask = { value: 0 };
   const joined = script.replace(/\\\n/g, " ");
+  const mask = { value: shapeMask(joined) };
   if (joined.includes("/dev/tcp")) addMode(mask, SCOPE_NETWORK, PERM_READ | PERM_WRITE);
   // `bash -c "…"` and the body of a heredoc handed to a shell run commands of their own.
   // The one reader already hands `$(…)` and backticks over as segments, so only the
