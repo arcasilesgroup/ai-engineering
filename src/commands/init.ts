@@ -270,15 +270,11 @@ async function pickSurfaces(
   return picked.map(canonicalSurfaceId);
 }
 
-/** Pick where the merge gate runs. The origin remote preselects; --ci and --yes skip the prompt. */
-async function pickCi(flags: InitFlags, cwd: string, input: NodeJS.ReadStream | PassThrough): Promise<number | CiProvider> {
-  if (flags.ci !== undefined) {
-    if (isCiProvider(flags.ci)) return flags.ci;
-    ui.fail(`--ci "${flags.ci}" is not a CI provider: use ${CI_PROVIDERS.join(", ")}.`);
-    return 2;
-  }
+/** Pick where the merge gate runs once no --ci was given: the origin remote preselects,
+ *  and --yes takes that suggestion. */
+async function pickCi(yes: boolean, cwd: string, input: NodeJS.ReadStream | PassThrough): Promise<number | CiProvider> {
   const detected = detectedCiProvider(cwd);
-  if (flags.yes === true) return detected;
+  if (yes) return detected;
   const answer = await select({
     message: CI_PICK_MESSAGE,
     options: ciOptions(),
@@ -409,19 +405,28 @@ async function resolvePhase(
 ): Promise<number | { picked: string[]; ci: CiProvider }> {
   const machineExit = resolveMachineSide(flags);
   if (machineExit !== null) return machineExit;
+  // Every flag value is checked before any question, so a typo is refused on every path —
+  // no repo created, nothing installed — and both the fresh picker and a governed repo's
+  // hand-off see canonical ids, each of them once.
+  if (flags.surface !== undefined && flags.surface.length > 0) {
+    const requested = [...new Set(flags.surface.map(canonicalSurfaceId))];
+    flags = { ...flags, surface: requested };
+    const refused = validateSurfaces(requested);
+    if (refused !== null) return refused;
+  }
+  let requestedCi: CiProvider | undefined;
+  if (flags.ci !== undefined) {
+    if (!isCiProvider(flags.ci)) {
+      ui.fail(`--ci "${flags.ci}" is not a CI provider: use ${CI_PROVIDERS.join(", ")}.`);
+      return 2;
+    }
+    requestedCi = flags.ci;
+  }
   // --ci writes the CI template on a first install and never on a re-init, so on a repo
   // that is already governed it is refused rather than accepted and dropped.
-  if (flags.ci !== undefined && existsSync(join(cwd, ".ai-engineering", "config.toml"))) {
+  if (requestedCi !== undefined && isGoverned(cwd)) {
     ui.fail(`--ci is not applied on a repo that is already governed — change the provider with \`ai-eng config --ci <provider>\` (${CI_PROVIDERS.join(", ")}).`);
     return 2;
-  }
-  // --surface is checked before any question, so a typo is refused on every path — no
-  // repo created, nothing installed — and both the fresh picker and a governed repo's
-  // hand-off see canonical ids.
-  if (flags.surface && flags.surface.length > 0) {
-    flags = { ...flags, surface: flags.surface.map(canonicalSurfaceId) };
-    const refused = validateSurfaces(flags.surface ?? []);
-    if (refused !== null) return refused;
   }
   const repoCode = await ensureRepo(flags, inRepo, cwd, confirmWithInput);
   if (repoCode !== null) return repoCode;
@@ -431,7 +436,7 @@ async function resolvePhase(
   if (typeof pickedResult === "number") return pickedResult;
   const invalid = validateSurfaces(pickedResult);
   if (invalid !== null) return invalid;
-  const ci = await pickCi(flags, cwd, input);
+  const ci = requestedCi !== undefined ? requestedCi : await pickCi(flags.yes === true, cwd, input);
   if (typeof ci === "number") return ci;
   return { picked: pickedResult, ci };
 }

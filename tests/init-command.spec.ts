@@ -1017,6 +1017,31 @@ describe("init · non-interactive default skill installation", () => {
     expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toBe(config);
   });
 
+  test("--ci naming no provider is refused before the repo is created", async () => {
+    const { cwd } = sandboxed();
+    const { result, out } = await capture(() => initMain({ ci: "jenkins" }));
+    expect(result).toBe(2);
+    expect(out).toContain('"jenkins" is not a CI provider');
+    expect(existsSync(join(cwd, ".git"))).toBe(false);
+    expect(existsSync(join(cwd, ".ai-engineering"))).toBe(false);
+  });
+
+  test("--surface lists a host once in the declaration however often it is passed", async () => {
+    const { cwd } = sandboxed();
+    expect(await initMain({ yes: true })).toBe(0);
+
+    expect((await capture(() => initMain({ yes: true, surface: ["cursor", "cursor"] }))).result).toBe(0);
+    const declaredSurfaces = (): unknown =>
+      (Bun.TOML.parse(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")) as { surfaces?: { enabled?: unknown } }).surfaces?.enabled;
+    expect(declaredSurfaces()).toEqual(["cursor"]);
+
+    // The declaration is the set the flag names, so passing it again changes no setting.
+    const again = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
+    expect(again.result).toBe(0);
+    expect(again.out).not.toContain("Surfaces changed");
+    expect(declaredSurfaces()).toEqual(["cursor"]);
+  });
+
   test("--surface on a config.toml that declares no surfaces never routes into config's refusal", async () => {
     const { cwd } = sandboxed();
     mkdirSync(join(cwd, ".git"));
