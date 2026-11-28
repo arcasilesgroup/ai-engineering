@@ -18,7 +18,7 @@ import { isDeepStrictEqual } from "node:util";
 import { resolveContext } from "../git/context.ts";
 import { runGit } from "../git/run.ts";
 import { readNoFollowFile, writeNoFollowFile } from "../shared-project-fs.ts";
-import { jsonToolOperands } from "./shell.ts";
+import { inlineShellPrograms, jsonToolOperands, readCommands, readCommandsLenient, readsOperandsOnly, type ShellCommand, type ShellWord } from "./shell.ts";
 import {
   assertCheckpointTransition,
   brainstormApprovalProblem,
@@ -43,19 +43,30 @@ const CHECKPOINT_TARGET = /\.ai-engineering\/workflow\/checkpoints\/[^\s/]+\.jso
 // Interpreters that can write any file their code names. Every other write form
 // (redirection, tee, sed -i, cp, mv, rm, truncate) is judged by its target in
 // shellWritesIntoCheckpoints.
-const OPAQUE_WRITE = /\bpython3?\b|\bnode\b|\bperl\b/;
+// A versioned spelling (`python3.11`), a packaged one (`my-python3`) and a Windows one
+// (`node.exe`) run the same program, so one predicate answers for all of them. Of the code
+// writers only these can name a file the reader cannot see; awk writes only through its own
+// program, judged below.
+const CODE_WRITER = /(?:^|[-_])(?:python|node|perl)(?:\d+(?:\.\d+)*)?$/;
+// The cwd rule treats every program that can reach a file as opaque, as it always has.
+const OPAQUE_WRITER = /(?:^|[-_])(?:python|node|perl|ruby|bun|deno|jq|awk|gawk|mawk|nawk)(?:\d+(?:\.\d+)*)?$/;
+const AWK = new Set(["awk", "gawk", "mawk", "nawk"]);
+// Every token that lets an awk program write or run something: a redirection or a pipe, a call
+// out to the shell, and the functions that touch a file or a stream. `$2 > 5` and `/a|b/` are
+// reads and are refused too — a documented narrow false positive that buys one rule instead of
+// an awk parser. jq and cat read checkpoint JSON.
+const AWK_EXECUTION = /[|>]|system\(|getline|close\(|fflush\(/;
+const AWK_PROGRAM_OPTION = /^(?:-e|--source(?:=|$))/;
+const AWK_VALUE_OPTION = /^(?:-f|--file(?:=|$)|-v|--assign(?:=|$)|-F|--field-separator(?:=|$))/;
+const AWK_FLAG = new Set([
+  "--", "-c", "-C", "--posix", "--traditional", "--re-interval", "--characters-as-bytes", "--non-decimal-data",
+  "--sandbox", "--bignum", "--use-lc-numeric", "--csv", "--gen-pot", "--lint", "--debug", "--version",
+  "--help", "--copyright",
+]);
 const CHECKPOINTS_DIR = ".ai-engineering/workflow/checkpoints";
 const MAX_LINK_HOPS = 40;
-// Command separators: `&&`, `||`, `;`, newlines, pipes and a background `&` — but not the
-// `|` of `>|` nor the `&` of `2>&1` / `&>`.
-const SHELL_SEGMENT = /&&|\|\||;|\n|(?<!>)\|&?|(?<![<>])&(?!>)/;
-// A redirection target: `>f`, `> f`, `>>f`, `2>f`, `&>f`, `>|f`; never an fd copy like `>&1`.
-const REDIRECTION = /(?:^|[^<>&\d])(?:\d*|&)>{1,2}\|?\s*([^\s;&|<>()]+)/g;
-// Redirections that write no file: into /dev/null, or onto another descriptor (`2>&1`, `>&2`).
-const DISCARD_REDIRECTION = /(?:\d*|&)>{1,2}\|?\s*(['"]?)\/dev\/null\1(?![^\s;&|<>()])|\d*>&\d+(?![^\s;&|<>()])/g;
-const COMMAND_PREFIXES = new Set(["sudo", "command", "builtin", "exec", "env", "time", "nohup", "nice"]);
-// Writers whose target cannot be read off the command line.
-const OPAQUE_WRITERS = new Set(["python", "python3", "node", "perl", "ruby", "bun", "deno", "jq", "awk"]);
+const isCodeWriter = (name: string): boolean => CODE_WRITER.test(name);
+const isOpaqueWriter = (name: string): boolean => OPAQUE_WRITER.test(name);
 const MAX_STOP_BLOCKS = 3;
 
 function deny(checkpoint: string, gate: string, detail: string, next: string): CheckpointGuardResult {
@@ -478,27 +489,80 @@ function checkMarker(payload: Payload, repoRoot: string): CheckpointGuardResult 
   return { deny: false };
 }
 
-function unquote(word: string): string {
-  return word.replace(/^(['"])(.*)\1$/s, "$2");
+/** The words one command runs: its program and its arguments, past `NAME=value` and the
+ *  wrappers that run the next word, as the one shell model reads them. */
+function commandWords(command: ShellCommand): string[] {
+  return [command.verb, ...command.args.map((word) => word.value)];
 }
 
-/** The words of one shell segment, quotes removed, with leading `VAR=value` and
- *  wrapper commands (sudo, env, …) dropped so the first word is the real command. */
-function commandWords(segment: string): string[] {
-  const words = (segment.replace(/^[\s({]+|[\s)}]+$/g, "").match(/"[^"]*"|'[^']*'|\S+/g) ?? []).map(unquote);
-  while (words.length > 0 && (/^\w+=/.test(words[0]!) || COMMAND_PREFIXES.has(words[0]!))) words.shift();
-  return words;
+/** Every command a line runs: the segments the reader hands over, the body of every heredoc
+ *  it feeds, and the program each interpreter word runs, which is a command of its own. */
+function commandsOf(command: string): ShellCommand[] {
+  const programs = inlineShellPrograms(command);
+  const commands = readCommands(command) ?? readCommandsLenient(command);
+  const bodies = commands.flatMap((parsed) => parsed.segment.heredocs.flatMap(({ body }) => readCommands(body) ?? readCommandsLenient(body)));
+  return [...commands, ...bodies, ...programs.flatMap((program) => readCommands(program) ?? readCommandsLenient(program))];
 }
 
-/** The paths one segment writes, unresolved: redirection targets, and the operands of
- *  tee, sed -i, cp (destination), mv, rm and truncate. */
-function writeTargets(segment: string, words: readonly string[]): string[] {
-  const targets = [...segment.matchAll(REDIRECTION)].map((match) => unquote(match[1] ?? ""));
-  const [name, ...rest] = words;
-  const operands = rest.filter((word) => !word.startsWith("-"));
-  const isInPlaceSed = name === "sed" && rest.some((word) => /^-[a-zA-Z]*i/.test(word) || word.startsWith("--in-place"));
-  if (name === "cp") targets.push(...operands.slice(-1));
-  if (name === "tee" || name === "mv" || name === "rm" || name === "truncate" || isInPlaceSed) targets.push(...operands);
+/** Verbs whose every operand is a path they write. */
+const OPERAND_WRITERS = new Set(["tee", "mv", "rm", "truncate", "touch"]);
+/** Verbs that end their argument list with the one path they write (`cp a b`, `install a b`). */
+const DESTINATION_LAST = new Set(["cp", "install"]);
+
+/** The word a stdin-fed writer substitutes each input for: `{}` unless xargs names another
+ *  with `-I`/`-J`/`--replace`, whose value follows it or is attached. */
+function stdinPlaceholder(prefix: readonly string[]): string {
+  for (const [index, word] of prefix.entries()) {
+    const attached = /^(?:-I|--replace=)(.+)$/.exec(word);
+    if (attached !== null) return attached[1]!;
+    if (["-I", "-J", "--replace"].includes(word)) return prefix[index + 1] ?? "{}";
+  }
+  return "{}";
+}
+
+/** The paths one command writes, unresolved: the files its redirections name, and the
+ *  operands of the verbs that write them. Null when a wrapper feeds a writer from stdin and
+ *  the destination's folder comes from it too (`echo demo.json | xargs rm`), so no folder is
+ *  on the line to judge. */
+function writeTargetsOf(command: ShellCommand): string[] | null {
+  const targets = command.writes.map((word) => word.value);
+  const operands = command.args.map((word) => word.value).filter((word) => !word.startsWith("-"));
+  const isInPlaceSed = command.verb === "sed" && command.args.some((word) => /^-[a-zA-Z]*i/.test(word.value) || word.value.startsWith("--in-place"));
+  const writesOperand = OPERAND_WRITERS.has(command.verb) || DESTINATION_LAST.has(command.verb) || command.verb === "dd" || isInPlaceSed;
+  const prefix = command.plain.slice(0, command.verbIndex).map((word) => word.value);
+  const isFedFromStdin = prefix.some((word) => basename(word) === "xargs");
+  const named: string[] = [];
+  const args = command.args.map((word) => word.value);
+  // `dd if=… of=<file>` names its destination as an operand of its own.
+  for (const operand of operands) if (operand.startsWith("of=")) named.push(operand.slice("of=".length));
+  const targetDirectory = (): string | null => {
+    const detached = args.findIndex((arg) => arg === "--target-directory" || /^-[A-Za-z]*t$/.test(arg));
+    if (detached >= 0) return args[detached + 1] ?? "";
+    const attached = args.flatMap((arg) => [/^--target-directory=(.+)$/.exec(arg)?.[1], /^-[A-Za-z]*t(.+)$/.exec(arg)?.[1]]);
+    return attached.find((value) => value !== undefined) ?? null;
+  };
+  const directory = targetDirectory();
+  // `ln target linkname` and `cp a b` create their last operand; with `-t dir` the
+  // destination is that folder, and every operand is a source it leaves alone.
+  if (command.verb === "ln" || DESTINATION_LAST.has(command.verb)) {
+    named.push(...(directory === null ? operands.slice(-1) : [directory]));
+  } else if (OPERAND_WRITERS.has(command.verb) || isInPlaceSed) {
+    named.push(...operands);
+    // `mv a b -t dir` both removes its operands and creates them inside dir.
+    if (command.verb === "mv" && directory !== null) named.push(directory);
+  }
+  const written = named.filter((target) => target.length > 0);
+  // A writer fed from stdin leaves its destination unnamed only while the folder it lands in
+  // is the input's: `/tmp/backup/{}` lands outside wherever that input came from.
+  if (isFedFromStdin && (writesOperand || operands.some((operand) => operand.startsWith("of=")))) {
+    const placeholder = stdinPlaceholder(prefix);
+    const isFolderUnknown = (target: string): boolean => {
+      const cut = target.lastIndexOf("/");
+      return cut < 0 ? target === placeholder : target.slice(0, cut).includes(placeholder);
+    };
+    if (written.length === 0 || written.some(isFolderUnknown)) return null;
+  }
+  targets.push(...written);
   return targets.filter((target) => target.length > 0);
 }
 
@@ -511,12 +575,104 @@ function isJsonToolRead(words: readonly string[], isCheckpointFile: (operand: st
   return operand !== "-" && isCheckpointFile(operand);
 }
 
-/** Whether one segment of a command that names a checkpoint runs an interpreter that could
- *  write it. json.tool with the checkpoint as its one operand only reads it. */
-function hasOpaqueWriteForm(segment: string): boolean {
-  const kept = segment.replace(DISCARD_REDIRECTION, " ");
-  if (isJsonToolRead(commandWords(kept), (operand) => CHECKPOINT_TARGET.test(operand))) return false;
-  return OPAQUE_WRITE.test(kept);
+/** Whether a command runs an interpreter that can write any path its code names: its verb,
+ *  or a word a launcher outside the reader's prefixes runs (`npx node -e`, `uv run python3`).
+ *  A command that only reads its operands runs nothing: `grep python3 plan.json` searches. */
+function runsInterpreter(command: ShellCommand, isInterpreter: (name: string) => boolean): boolean {
+  const programName = (word: string): string => basename(word).replace(/\.exe$/i, "");
+  if (isInterpreter(programName(command.verb))) return true;
+  if (readsOperandsOnly(command.verb, command.args.map((word) => word.value))) return false;
+  return command.plain.some((word) => isInterpreter(programName(word.value)));
+}
+
+/** Whether the shell replaces part of this word before awk sees it: a `$` or a backtick outside
+ *  single quotes is expanded, so the program the guard reads is not the one that runs. */
+function isExpandedWord(word: ShellWord): boolean {
+  let inSingleQuotes = false;
+  for (let index = 0; index < word.original.length; index++) {
+    const char = word.original[index]!;
+    if (inSingleQuotes) {
+      if (char === "'") inSingleQuotes = false;
+      continue;
+    }
+    if (char === "\\") {
+      index += 1;
+      continue;
+    }
+    if (char === "'" || (char === "$" && word.original[index + 1] === "'")) {
+      inSingleQuotes = true;
+      if (char === "$") index += 1;
+      continue;
+    }
+    if (char === "$" || char === "`") return true;
+  }
+  return false;
+}
+
+/** Whether the program text awk takes from `-e`/`--source`, attached (`-e{...}`, `--source={...}`), as
+ *  the next word, or not at all (an empty value awk itself rejects). When one of these is given
+ *  every free word is a data file, so it is the only program there is to judge. */
+function awkSourcePrograms(args: readonly ShellWord[]): ShellWord[] {
+  const programs: ShellWord[] = [];
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]!;
+    if (arg.value === "-e" || arg.value === "--source") {
+      const next = args[index + 1];
+      if (next) programs.push(next);
+      index += 1;
+      continue;
+    }
+    const attached = /^--source=([\s\S]*)$/.exec(arg.value) ?? /^-e([\s\S]+)$/.exec(arg.value);
+    if (attached) programs.push({ ...arg, value: attached[1]! });
+  }
+  return programs;
+}
+
+/** Whether a program word writes, runs a command, or is a program the guard cannot read. */
+function programWrites(program: ShellWord): boolean {
+  return isExpandedWord(program) || AWK_EXECUTION.test(program.value);
+}
+
+/** Whether an awk option word is one the guard settles: a program it judges (`-e`/`--source`), a
+ *  value that touches no file (`-f`/`--file`, `-v`/`--assign`, `-F`/`--field-separator`), or a
+ *  flag. Any other option word — an abbreviation of a long option, `--profile`/`--dump-variables`
+ *  writing a file of their own, `-W exec=`, the in-place modes — may carry a program or a write
+ *  the guard cannot see, so it is refused at the strictest level rather than read one by one. */
+function isSettledAwkOption(arg: string): boolean {
+  return arg === "-" || AWK_PROGRAM_OPTION.test(arg) || AWK_VALUE_OPTION.test(arg) || AWK_FLAG.has(arg);
+}
+
+/** Whether awk's own program can write or run anything: it holds a redirection, a pipe, a shell
+ *  call or a file function, or it is a program the guard cannot read at all. awk's own options
+ *  take the word after them, so the program is the first word that is not one. */
+function awkProgramWrites(command: ShellCommand): boolean {
+  const args = command.args;
+  const words = args.map((word) => word.value);
+  const isUnreadableProgram = words.some((arg) => arg === "-f" || arg === "--file" || arg.startsWith("--file=") || /^-f.+/.test(arg));
+  const isUnknownOption = words.some((arg) => arg.startsWith("-") && !isSettledAwkOption(arg));
+  if (isUnreadableProgram || isUnknownOption) return true;
+  const sourcePrograms = awkSourcePrograms(args);
+  if (sourcePrograms.length > 0) return sourcePrograms.some(programWrites);
+  for (let index = 0; index < args.length; index++) {
+    const arg = words[index]!;
+    if (arg === "-v" || arg === "-F" || arg === "--assign" || arg === "--field-separator") {
+      index += 1;
+      continue;
+    }
+    if (/^-(?:v|F).+/.test(arg) || /^--(?:assign|field-separator)=/.test(arg)) continue;
+    if (arg.startsWith("-")) continue;
+    return programWrites(args[index]!);
+  }
+  return false;
+}
+
+/** Why one command that names a checkpoint could write it, or null when it only reads.
+ *  json.tool with the checkpoint as its one operand only reads it. */
+function opaqueWriteForm(command: ShellCommand): "awk" | "code" | null {
+  if (isJsonToolRead(commandWords(command), (operand) => CHECKPOINT_TARGET.test(operand))) return null;
+  if (runsInterpreter(command, isCodeWriter)) return "code";
+  if (runsInterpreter(command, (name) => AWK.has(name)) && awkProgramWrites(command)) return "awk";
+  return null;
 }
 
 /** A path as the shell would resolve it from `cwd`, or null when it hangs off a variable,
@@ -532,35 +688,74 @@ function shellPath(cwd: string, word: string): string | null {
  *  Reads (cat, git diff, git add) are never write forms. A directory the guard cannot
  *  follow (cd $DIR, cd -) decides nothing — then any write that mentions the checkpoints
  *  folder by name is refused. */
-function shellWritesIntoCheckpoints(command: string, cwd: string, repo: RealRepo): boolean {
-  let directory: string | null = cwd;
-  const stack: Array<string | null> = [];
-  const mentionsCheckpoints = /checkpoints/i.test(command);
-  for (const segment of command.split(SHELL_SEGMENT)) {
-    const words = commandWords(segment);
+function shellWritesIntoCheckpoints(command: string, cwd: string | null, repo: RealRepo, mentions = /checkpoints/i.test(command)): boolean {
+  const commands = readCommands(command) ?? readCommandsLenient(command);
+  return commandsWriteIntoCheckpoints(commands, cwd, repo, mentions);
+}
+
+/** The same question asked of commands the reader already produced: each written where it
+ *  stands, past the cd/pushd/popd the shell it runs in has run before it. */
+function commandsWriteIntoCheckpoints(commands: readonly ShellCommand[], cwd: string | null, repo: RealRepo, mentions: boolean): boolean {
+  const directories = new Map<number, string | null>([[0, cwd]]);
+  const parents = new Map<number, number>();
+  const stacks = new Map<number, Array<string | null>>();
+  /** The directory one shell runs in: its own once a cd moved it, otherwise the one it
+   *  inherited from the shell that started it. A nested shell moves only its own. */
+  const directoryOf = (scope: number, parentScope: number): string | null => {
+    parents.set(scope, parentScope);
+    const known = directories.get(scope);
+    if (known !== undefined) return known;
+    let ancestor = parentScope;
+    while (ancestor !== scope && ancestor !== 0 && !directories.has(ancestor)) ancestor = parents.get(ancestor) ?? 0;
+    const inherited = directories.has(ancestor) ? directories.get(ancestor)! : cwd;
+    directories.set(scope, inherited);
+    return inherited;
+  };
+  for (const shellCommand of commands) {
+    const words = commandWords(shellCommand);
     const [name, ...rest] = words;
+    const { scope } = shellCommand.segment;
+    const directory = directoryOf(scope, shellCommand.segment.parentScope);
+    const stack = stacks.get(scope) ?? [];
+    stacks.set(scope, stack);
     if (name === "cd" || name === "pushd") {
       const operand = rest.find((word) => !word.startsWith("-") || word === "-");
       if (name === "pushd") stack.push(directory);
       const next: string | null = operand === undefined ? homedir() : operand === "-" || directory === null ? null : shellPath(directory, operand);
-      directory = next;
+      directories.set(scope, next);
       continue;
     }
     if (name === "popd") {
-      directory = stack.pop() ?? null;
+      directories.set(scope, stack.pop() ?? null);
       continue;
     }
-    if (directory !== null && name !== undefined && OPAQUE_WRITERS.has(basename(name)) && landsInCheckpoints(repo, directory)) {
+    // A program handed to an interpreter runs where this command stands, in a shell of its own.
+    for (const program of inlineShellPrograms(shellCommand.segment.text)) {
+      if (shellWritesIntoCheckpoints(program, directory, repo, mentions)) return true;
+    }
+    // So does the body of a heredoc this command feeds: text alone cannot tell a program from
+    // a commit message, so every body is judged as the commands it holds.
+    for (const { body } of shellCommand.segment.heredocs) {
+      if (commandsWriteIntoCheckpoints(readCommands(body) ?? readCommandsLenient(body), directory, repo, mentions)) return true;
+    }
+    if (directory !== null && runsInterpreter(shellCommand, isOpaqueWriter) && landsInCheckpoints(repo, directory)) {
       const here = directory;
       const isCheckpointFile = (operand: string): boolean => {
         const absolute = shellPath(here, operand);
         return absolute !== null && landsInCheckpoints(repo, absolute);
       };
-      if (!isJsonToolRead(commandWords(segment.replace(DISCARD_REDIRECTION, " ")), isCheckpointFile)) return true;
+      if (!isJsonToolRead(commandWords(shellCommand), isCheckpointFile)) return true;
     }
-    for (const target of writeTargets(segment, words)) {
+    const targets = writeTargetsOf(shellCommand);
+    // A writer fed from stdin names no path on this line: the folder it runs in is all the
+    // guard has, and a command that names the folder is refused rather than guessed at.
+    if (targets === null) {
+      if (directory === null ? mentions : landsInCheckpoints(repo, directory)) return true;
+      continue;
+    }
+    for (const target of targets) {
       const absolute = isAbsolute(target) || target.startsWith("~") ? shellPath("/", target) : directory === null ? null : shellPath(directory, target);
-      if (absolute === null ? mentionsCheckpoints : landsInCheckpoints(repo, absolute)) return true;
+      if (absolute === null ? mentions : landsInCheckpoints(repo, absolute)) return true;
     }
   }
   return false;
@@ -584,8 +779,14 @@ function checkBash(payload: Payload, repoRoot: string): CheckpointGuardResult {
       return deny("Checkpoint", "shell gate", `does not accept a patch to ${gated}`, "use Edit or Write so checkpoint gates are validated");
     }
   }
-  const isNamedWrite = CHECKPOINT_TARGET.test(command) && command.split(SHELL_SEGMENT).some(hasOpaqueWriteForm);
-  if (!isNamedWrite && !shellWritesIntoCheckpoints(command, cwd, realRepo(repoRoot))) return undefined;
+  const writeForms = (CHECKPOINT_TARGET.test(command) ? commandsOf(command) : []).flatMap((parsed) => {
+    const form = opaqueWriteForm(parsed);
+    return form === null ? [] : [form];
+  });
+  if (writeForms.length === 0 && !shellWritesIntoCheckpoints(command, cwd, realRepo(repoRoot))) return undefined;
+  if (writeForms.length > 0 && writeForms.every((form) => form === "awk")) {
+    return deny("Checkpoint", "shell gate", "cannot tell an awk write from a read here", "read checkpoint JSON with jq or cat, and use Edit or Write to change it");
+  }
   return deny("Checkpoint", "shell gate", "does not allow direct Bash writes to checkpoint JSON", "use Edit or Write so checkpoint gates are validated");
 }
 

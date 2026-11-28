@@ -60,6 +60,7 @@ type Fixture = { root: string; slug: string; planPath: string; folder: string; b
 const FOLDER = ".ai-engineering/workflow/checkpoints";
 const ALLOWED = { deny: false } as const;
 const SHELL_WRITE = "Checkpoint cannot pass: shell gate does not allow direct Bash writes to checkpoint JSON. Next: use Edit or Write so checkpoint gates are validated.";
+const AWK_PROGRAM = "Checkpoint cannot pass: shell gate cannot tell an awk write from a read here. Next: read checkpoint JSON with jq or cat, and use Edit or Write to change it.";
 
 let fixtureRoot = "";
 let template = "";
@@ -278,7 +279,6 @@ describe("write gate refusals name the checkpoint, the gate and the next step", 
 
   test("a first plan must be approved for implementation against a fresh matching brainstorm", () => {
     withFixture((fixture) => {
-      const brainstormPath = join(fixture.root, ".ai-engineering", "brainstorm.html");
       // The refusal names the file and the next step, and never the machine path the read failed on.
       expect(run(fixture, write(fixture.planPath, plan()))).toEqual(refused(
         "Checkpoint demo cannot pass: plan approval cannot read the matching brainstorm (ENOENT: brainstorm.html is missing). Next: restore the approved brainstorm and retry the plan write.",
@@ -594,10 +594,103 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a versioned interpreter", `python3.11 -m json.tool ${FOLDER}/demo.json > /dev/null`],
     ["python -c, not json.tool", `python3 -c json.tool ${FOLDER}/demo.json > /dev/null`],
     ["another python module", `python3 -m pickletools ${FOLDER}/demo.json > /dev/null`],
+    // The one command model reads the wrapper and the writer, not the first word on the
+    // line: a shorter prefix list let every one of these through on the old splitter.
+    ["a wrapper the old prefix list did not carry", `cd ${FOLDER} && timeout 5 tee demo.json < /dev/null`],
+    ["a privileged wrapper the old prefix list did not carry", `cd ${FOLDER} && doas tee demo.json < /dev/null`],
+    ["xargs handing the name to a writer", `cd ${FOLDER} && echo demo.json | xargs rm`],
+    ["dd with its of= target", `cd ${FOLDER} && dd if=/dev/zero of=demo.json count=1`],
+    ["install with its destination operand", `cd ${FOLDER} && install ../../../base.txt demo.json`],
+    // A quoted program handed to an interpreter is that interpreter's command, not data:
+    // the same write is refused whether the shell runs it or a shell it starts runs it.
+    ["a program handed to bash", `bash -c 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to sh that cds first", `sh -c 'cd ${FOLDER} && printf x > demo.json'`],
+    ["an evaluated program", `eval 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to PowerShell", `pwsh -Command 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to cmd", `cmd /c 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to cmd.exe", `cmd.exe /c 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to cmd with an upper-case switch", `CMD /C 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to cmd with Git Bash switches", `cmd //c 'printf x > ${FOLDER}/demo.json'`],
+    ["a program handed to PowerShell by its full switch", `pwsh /Command 'printf x > ${FOLDER}/demo.json'`],
+    ["an interpreter inside a quoted program", `bash -c 'python3 -m pickletools ${FOLDER}/demo.json > /dev/null'`],
+    ["an interpreter inside an evaluated program", `eval 'python3 -m pickletools ${FOLDER}/demo.json > /dev/null'`],
+    // The program runs where its command stands: the cd before it counts, the one after it does not.
+    ["a cd before a program handed to bash", `cd ${FOLDER} && bash -c 'printf x > demo.json'`],
+    ["a pushd before a program handed to sh", `pushd ${FOLDER} && sh -c 'truncate -s 0 demo.json'`],
+    ["a cd before an evaluated program", `cd ${FOLDER} && eval 'printf x > demo.json'`],
+    ["an unknown cd before a program that names the folder", `cd "$X" && bash -c 'printf x > demo.json' && cat ${FOLDER}/demo.json`],
+    // A launcher the reader does not unwrap still runs the interpreter its words name.
+    ["an interpreter behind a launcher", `npx node -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'`],
+    ["an interpreter behind a launcher after a cd", `cd ${FOLDER} && uv run python3 -c 'open("demo.json", "w")'`],
+    // A heredoc body is the commands it holds, whoever reads it.
+    ["a heredoc body writing the plan", `bash <<'EOF'\nprintf x > ${FOLDER}/demo.json\nEOF`],
+    ["a heredoc body writing the plan after a cd", `cd ${FOLDER} && bash <<'EOF'\nprintf x > demo.json\nEOF`],
+    ["a heredoc body running an interpreter", `bash <<'EOF'\nnpx node -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'\nEOF`],
+    ["a heredoc body that cannot be read writing the plan", `bash <<'EOF'\necho \${x:-> f}\nrm ${FOLDER}/demo.json\nEOF`],
+    ["touch on a checkpoint", `cd ${FOLDER} && touch demo.json`],
+    ["a writer fed from stdin with no destination on the line", `cd ${FOLDER} && ls | xargs rm`],
+    ["a link named as a checkpoint", `cd ${FOLDER} && ln -s ../../../base.txt demo.json`],
+    ["a link created in the folder by -t", `ln -s ../../../base.txt -t ${FOLDER}`],
+    ["a copy into the folder by -t", `cp -t ${FOLDER} ../../../base.txt`],
+    ["a copy into the folder by an attached -t", `cp -t${FOLDER} ../../../base.txt`],
+    ["an install into the folder by an attached -t", `install -t${FOLDER} ../../../base.txt`],
+    ["a move into the folder by an attached -t", `mv -t${FOLDER} ../../../base.txt`],
+    ["a link into the folder by an attached -t", `ln -s ../../../base.txt -t${FOLDER}`],
+    ["a cp into the folder by a combined short flag", `cp -rt ${FOLDER} ../../../base.txt`],
+    ["an install into the folder by a combined short flag", `install -Dt ${FOLDER} ../../../base.txt`],
+    ["a link into the folder by a combined short flag", `ln -sft ${FOLDER} ../../../base.txt`],
+    ["an interpreter on a line the reader cannot resolve", `node -e 'require("fs").writeFileSync("${FOLDER}/demo.json","{}")' \${y:-> f}`],
+    ["an install into the folder by an attached target directory", `install --target-directory=${FOLDER} ../../../base.txt`],
+    ["an interpreter spelled as a Windows executable", `node.exe -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'`],
+    ["a versioned interpreter spelled as a Windows executable", `python3.11.exe -m pickletools ${FOLDER}/demo.json > /dev/null`],
+    ["a versioned interpreter inside the folder", `cd ${FOLDER} && python3.11 -c 'open("demo.json","w")'`],
+    ["a short-version interpreter inside the folder", `cd ${FOLDER} && node20 -c 'x'`],
+    ["an interpreter only the cwd rule carried inside the folder", `cd ${FOLDER} && ruby -e 'File.write("demo.json","{}")'`],
+    ["a read-write open in the folder", `cd ${FOLDER} && exec 3<>demo.json && printf '{}' >&3`],
+    ["a read-write open by absolute path", `exec 3<>${FOLDER}/demo.json`],
+    // A cd inside a substitution moves that subshell, not the shell the write runs in.
+    ["a cd inside a substitution before the write", `cd ${FOLDER} && echo "$(cd /tmp; pwd)" > demo.json`],
   ])("refuses %s", (_name, command) => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());
       expect(run(fixture, bash(command))).toEqual(refused(SHELL_WRITE));
+    });
+  });
+
+  test.each([
+    ["an awk program that writes the plan", `awk '{print > "${FOLDER}/plan.json"}' x`],
+    ["an awk program behind an option value", `awk -v n=1 '{print "x" > "${FOLDER}/demo.json"}' /dev/null`],
+    ["a packaged awk that writes the plan", `gawk '{print > "${FOLDER}/plan.json"}' x`],
+    ["an awk program read from a file, so unreadable", `awk -f /tmp/w.awk ${FOLDER}/plan.json`],
+    ["an awk program attached to a long source option", `gawk --source='{print > "${FOLDER}/plan.json"}' x`],
+    ["an awk program attached to a short source option", `gawk -e'{print > "${FOLDER}/plan.json"}' x`],
+    ["an awk program in a detached source option", `gawk --source '{print > "${FOLDER}/plan.json"}' x`],
+    ["an awk program in a detached short source option", `gawk -e '{print > "${FOLDER}/plan.json"}' x`],
+    ["an awk program in an abbreviated source option", `gawk --sour='{print > "${FOLDER}/plan.json"}' x`],
+    ["an awk program file in an abbreviated file option", `gawk --fil=/tmp/w.awk ${FOLDER}/plan.json`],
+    ["a program file an awk option writes itself", `gawk --profile=${FOLDER}/plan.json '{print}' /dev/null`],
+    ["an awk program handed over by a variable", `P='{print > "${FOLDER}/plan.json"}'; awk "$P" x`],
+    ["an awk program handed over by a variable the guard never saw", `awk "$PROG" ${FOLDER}/plan.json`],
+    ["an awk program handed over by a variable in a source option", `gawk --source="$PROG" ${FOLDER}/plan.json`],
+    ["an awk program file named after the program", `awk '{print}' -f /tmp/w.awk ${FOLDER}/plan.json`],
+    ["an awk program file attached after the program", `awk '{print}' -f/tmp/w.awk ${FOLDER}/plan.json`],
+    ["an awk redirection into an assignment", `awk '{print > out}' out=${FOLDER}/plan.json`],
+    ["an awk redirection into a variable", `awk -v t=${FOLDER}/plan.json '{print > t}' x`],
+    ["an awk in-place edit of the plan", `awk -i inplace '{$0="approved"}' ${FOLDER}/plan.json`],
+    ["an awk print piped into a writer", `awk '{print | "tee -a ${FOLDER}/plan.json"}' x`],
+    ["an awk program running a command through sh", `awk 'BEGIN{ "touch ${FOLDER}/plan.json" | getline }' /dev/null`],
+    ["an awk program calling system", `awk 'BEGIN{ system("touch ${FOLDER}/plan.json") }' /dev/null`],
+    ["an awk comparison read of the plan", `awk '$2 > 5' ${FOLDER}/plan.json`],
+    ["an awk comparison inside print", `awk '{print ($2 > 5)}' ${FOLDER}/plan.json`],
+    ["an awk regex alternation read of the plan", `awk '/approved|pending/' ${FOLDER}/plan.json`],
+    ["an awk regex alternation inside print", `awk '{print ($0 ~ /a|b/)}' ${FOLDER}/plan.json`],
+    ["an awk read printing a pipe character", `awk '{print $1 "|" $2}' ${FOLDER}/plan.json`],
+    ["an awk read printing a greater-than sign", `awk '{print $1 ">" $2}' ${FOLDER}/plan.json`],
+    ["an awk read through a source option printing a pipe", `gawk --source='{print $1 "|" $2}' ${FOLDER}/plan.json`],
+  ])("refuses %s, which awk cannot be judged for", (_name, command) => {
+    withFixture((fixture) => {
+      save(fixture.planPath, plan());
+      expect(run(fixture, bash(command))).toEqual(refused(AWK_PROGRAM));
     });
   });
 
@@ -618,10 +711,65 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a sed script containing -i", `cd ${FOLDER} && sed 's/a-i/b/' demo.json`],
     ["staging and committing the plan after writing a message elsewhere", `printf 'msg' > /tmp/msg.txt && git add -- ${FOLDER}/demo.json && git commit -F /tmp/msg.txt --only -- ${FOLDER}/demo.json`],
     ["staging the plan with its errors logged elsewhere", `git add -- ${FOLDER}/demo.json 2> git-errors.log`],
+    ["a quoted program writing outside the folder", `bash -c 'printf x > notes.txt'`],
+    ["a quoted program before the cd into the folder", `bash -c 'printf x > demo.json' && cd ${FOLDER}`],
+    ["an interpreter named as an operand of a reader", `grep python3 ${FOLDER}/demo.json`],
+    ["a heredoc body writing outside the folder", `bash <<'EOF'\nprintf x > notes.txt\nEOF`],
+    ["a commit message heredoc naming the plan", `git commit -F - <<'EOF'\nit's the plan at ${FOLDER}/demo.json\nEOF`],
+    ["a cd inside a substitution that only reads the folder", `cd /tmp && echo "$(cd ${FOLDER}; ls)" > demo.json`],
+    ["a stdin-fed copy whose destination is outside the folder", `cd ${FOLDER} && ls | xargs -I{} cp {} /tmp/backup/{}`],
+    ["a stdin-fed remove whose destination names another folder", `cd ${FOLDER} && ls | xargs -I{} rm /tmp/backup/{}`],
+    ["a link whose target is the folder and whose name is elsewhere", `ln -s ${FOLDER}/demo.json /tmp/memos.txt`],
+    ["a link out of the folder", `cd ${FOLDER} && ln -s demo.json ../../../notes-link`],
+    ["a copy into a target directory elsewhere", `cp -t /tmp/backup ../../../base.txt`],
+    ["a copy out of the folder by a target directory", `cd ${FOLDER} && cp -t /tmp/backup demo.json`],
+    ["an install out of the folder by a target directory", `cd ${FOLDER} && install -t /tmp/backup demo.json`],
+    ["a link whose target is the folder into a target directory", `ln -s ${FOLDER}/demo.json -t /tmp`],
+    ["a jq read of the plan", `jq . ${FOLDER}/plan.json`],
+    ["a copy into a target directory elsewhere by a combined short flag", `cp -rt /tmp/backup ../../../base.txt`],
+    ["an awk read of the plan", `awk '{print}' ${FOLDER}/plan.json`],
+    ["an awk read of the plan with a field separator", `awk -F, '{print $1}' ${FOLDER}/plan.json`],
+    ["an awk read through an attached source option", `gawk --source='{print $1}' ${FOLDER}/plan.json`],
+    ["an awk read through a detached short source option", `gawk -e '{print $1}' ${FOLDER}/plan.json`],
+    ["an awk read with a flag", `awk --posix '{print $1}' ${FOLDER}/plan.json`],
+    ["a read redirect of the plan in the folder", `cd ${FOLDER} && cat < demo.json`],
+    ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());
       expect(run(fixture, bash(command))).toBeUndefined();
+    });
+  });
+
+  test("a substitution that opens the line moves only its own shell", () => {
+    withFixture((fixture) => {
+      save(fixture.planPath, plan());
+      expect(run(fixture, bash('echo "$(cd /tmp; pwd)" > demo.json', fixture.folder))).toEqual(refused(SHELL_WRITE));
+      expect(run(fixture, bash(`echo "$(cd ${fixture.folder}; ls)" > demo.json`))).toBeUndefined();
+    });
+  });
+
+  test("a line the reader cannot read is judged by the pieces it shows", () => {
+    withFixture((fixture) => {
+      save(fixture.planPath, plan());
+      expect(run(fixture, bash("echo ${x:-> f} > demo.json", fixture.folder))).toEqual(refused(SHELL_WRITE));
+      expect(run(fixture, bash("echo ${x:-> f} >& demo.json", fixture.folder))).toEqual(refused(SHELL_WRITE));
+      expect(run(fixture, bash("echo ${x:-> f} > demo.json # checkpoints"))).toBeUndefined();
+    });
+  });
+
+  test("a pipeline after a cd the guard cannot follow still reaches the folder", () => {
+    withFixture((fixture) => {
+      save(fixture.planPath, plan());
+      expect(run(fixture, bash(`X=docs; cd "$X" && cat /tmp/p | tee ../${FOLDER}/demo.json`))).toEqual(refused(SHELL_WRITE));
+    });
+  });
+
+  test("a writer fed from stdin is judged by the folder it runs in", () => {
+    withFixture((fixture) => {
+      save(fixture.planPath, plan());
+      expect(run(fixture, bash("echo demo.json | xargs rm", fixture.folder))).toEqual(refused(SHELL_WRITE));
+      expect(run(fixture, bash(`ls ${FOLDER} && echo ok | xargs rm`))).toBeUndefined();
     });
   });
 

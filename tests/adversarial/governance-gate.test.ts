@@ -368,6 +368,15 @@ describe("adversarial · self-protect: the session writes its own artifacts, not
       // like any other.
       expect(bash(`rm -rf ${join(repo, ".ai-engineering", "brainstorm.html")}`)?.deny ?? false).toBe(false);
       expect(bash(`mv ${join(repo, ".ai-engineering", "brainstorm.html")} /tmp/x`)?.deny ?? false).toBe(false);
+      // On Windows every native path is `\`-spelled, so the reader must treat a `\`-spelled
+      // path as one path whatever host judges it: a scan that stops at the separator sees
+      // only the `.ai-engineering` fragment before it, resolves it to this repo's directory
+      // and denies the child the session owns. The directory itself stays denied.
+      expect(bash(String.raw`rm -rf 'C:\repo\.ai-engineering\brainstorm.html'`)?.deny ?? false).toBe(false);
+      expect(bash(String.raw`rm -rf 'C:\repo\.ai-engineering'`)?.deny).toBe(true);
+      // Off Windows that backslash is the shell's escape: bash deletes `.ai-engineering` when
+      // it runs `.\ai-engineering`, so the governed directory must stay denied.
+      expect(bash(String.raw`rm -rf .\ai-engineering`)?.deny).toBe(true);
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }
