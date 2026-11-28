@@ -255,6 +255,17 @@ function canonPacks(config: string): unknown[] | null {
   return Array.isArray(packs) ? packs : [packs];
 }
 
+/** The commands Cursor's hook file declares for one event, read as the JSON Cursor
+ *  consumes: a hook spelled in another shape is not a hook that runs. */
+function cursorHookCommands(cwd: string, event = "preToolUse"): string[] {
+  const document = JSON.parse(readFileSync(join(cwd, ".cursor", "hooks.json"), "utf8")) as { hooks?: Record<string, unknown> };
+  const entries = document.hooks?.[event];
+  if (!Array.isArray(entries)) return [];
+  return entries
+    .map((entry) => (typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>)["command"] : undefined))
+    .filter((command): command is string => typeof command === "string");
+}
+
 /** The [surfaces].enabled set the declaration itself reads, so a duplicate entry or a
  *  second [surfaces] table — which TOML rejects — cannot pass as the set a run asked for. */
 function declaredSurfaces(cwd: string): string[] | null {
@@ -561,7 +572,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     const { result, out } = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
     expect(result).toBe(0);
     expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
-    expect(readFileSync(join(cwd, ".cursor", "hooks.json"), "utf8")).toContain("ai-eng chain");
+    expect(cursorHookCommands(cwd)).toContain("ai-eng chain PreToolUse --surface cursor");
     expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(agents);
     expect(out).toContain("Surfaces changed");
   });
@@ -979,7 +990,7 @@ describe("init · non-interactive default skill installation", () => {
     ]);
     expect(result).toBe(0);
     expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
-    expect(readFileSync(join(cwd, ".cursor", "hooks.json"), "utf8")).toContain("ai-eng chain");
+    expect(cursorHookCommands(cwd)).toContain("ai-eng chain PreToolUse --surface cursor");
   });
 
   test("--surface alone on a governed repo goes straight to the surface picker, ticked with those hosts", async () => {
@@ -991,7 +1002,7 @@ describe("init · non-interactive default skill installation", () => {
     expect(result).toBe(0);
     expect(out).not.toContain("already governed. What do you want to do?");
     expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
-    expect(readFileSync(join(cwd, ".cursor", "hooks.json"), "utf8")).toContain("ai-eng chain");
+    expect(cursorHookCommands(cwd)).toContain("ai-eng chain PreToolUse --surface cursor");
     expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(agents);
   });
 
@@ -1050,23 +1061,29 @@ describe("init · non-interactive default skill installation", () => {
     expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
   });
 
-  test("--surface in a nested governed repo never rewrites the repo around it", async () => {
-    const { cwd: outer, machine } = sandboxed();
-    expect(await initMain({ yes: true })).toBe(0); // the outer repo governs claude-code
+  test("--surface in a nested governed repo refuses instead of changing the repo around it", async () => {
+    const { cwd: outer } = sandboxed();
+    expect(await initMain({ yes: true, surface: ["cursor"] })).toBe(0); // the outer repo governs cursor
+    const outerConfig = readFileSync(join(outer, ".ai-engineering", "config.toml"), "utf8");
+    const outerHooks = readFileSync(join(outer, ".cursor", "hooks.json"), "utf8");
+    const outerLock = readFileSync(join(outer, ".ai-engineering", "ai-eng.lock"), "utf8");
 
     const inner = join(outer, "packages", "app");
     mkdirSync(inner, { recursive: true });
     process.chdir(inner);
-    expect(await initMain({ yes: true, surface: ["cursor"] })).toBe(0); // the nested one governs cursor
-    expect(declaredSurfaces(inner)).toEqual(["cursor"]);
+    expect(await initMain({ yes: true })).toBe(0); // the nested repo governs claude-code
+    expect(declaredSurfaces(inner)).toEqual(["claude-code"]);
 
-    const outerCarrier = join(machine, ".claude", "settings.json");
-    const carrier = readFileSync(outerCarrier, "utf8");
-    expect((await capture(() => initMain({ yes: true, surface: ["cursor"] }))).result).toBe(0);
+    // A set that differs from the nested declaration: it would rewrite the repo that governs.
+    const { result, out } = await capture(() => initMain({ yes: true, surface: ["opencode"] }));
+    expect(result).toBe(2);
+    expect(out).toContain(realpathSync(outer));
+    expect(out).toContain(realpathSync(inner));
 
-    expect(declaredSurfaces(outer)).toEqual(["claude-code"]);
-    expect(readFileSync(outerCarrier, "utf8")).toBe(carrier);
-    expect(declaredSurfaces(inner)).toEqual(["cursor"]);
+    expect(readFileSync(join(outer, ".ai-engineering", "config.toml"), "utf8")).toBe(outerConfig);
+    expect(readFileSync(join(outer, ".cursor", "hooks.json"), "utf8")).toBe(outerHooks);
+    expect(readFileSync(join(outer, ".ai-engineering", "ai-eng.lock"), "utf8")).toBe(outerLock);
+    expect(declaredSurfaces(inner)).toEqual(["claude-code"]);
   });
 
   test("--surface on a config.toml that declares no surfaces never routes into config's refusal", async () => {
