@@ -574,6 +574,24 @@ function runsInterpreter(command: ShellCommand, isInterpreter: (name: string) =>
   return command.plain.some((word) => isInterpreter(programName(word.value)));
 }
 
+/** The program text awk takes from `-e`/`--source`, attached (`-e{...}`, `--source={...}`), as
+ *  the next word, or not at all (an empty value awk itself rejects). When one of these is given
+ *  every free word is a data file, so it is the only program there is to judge. */
+function awkSourcePrograms(args: readonly string[]): string[] {
+  const programs: string[] = [];
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]!;
+    if (arg === "-e" || arg === "--source") {
+      programs.push(args[index + 1] ?? "");
+      index += 1;
+      continue;
+    }
+    const attached = /^--source=([\s\S]*)$/.exec(arg) ?? /^-e([\s\S]+)$/.exec(arg);
+    if (attached) programs.push(attached[1]!);
+  }
+  return programs;
+}
+
 /** Whether awk's own program writes: an output redirection inside it, a system() call, or a
  *  program read from a file the guard cannot see. awk's own options take the word after them,
  *  so the program is the first word that is not one. */
@@ -582,6 +600,8 @@ function awkProgramWrites(command: ShellCommand): boolean {
   const isUnreadableProgram = args.some((arg) => arg === "-f" || arg === "--file" || arg.startsWith("--file=") || /^-f.+/.test(arg));
   const isInPlace = args.some((arg) => arg === "-i" || arg === "--inplace" || arg === "-iinplace");
   if (isUnreadableProgram || isInPlace) return true;
+  const sourcePrograms = awkSourcePrograms(args);
+  if (sourcePrograms.length > 0) return sourcePrograms.some((program) => AWK_WRITE.test(program));
   for (let index = 0; index < args.length; index++) {
     const arg = args[index]!;
     if (arg === "-v" || arg === "-F" || arg === "--assign" || arg === "--field-separator") {
