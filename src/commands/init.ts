@@ -17,7 +17,7 @@ import { installMachineCarriers } from "../surfaces/carriers-install.ts";
 import { SURFACES, surfaceCanGovern, machineCarrier, retireNpmPowerShellShim } from "../surfaces/adapters.ts";
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
-import { canonicalSurfaceId, enabledSurfaces, home, isCiProvider, CI_PROVIDERS, type CiProvider } from "../env.ts";
+import { canonicalSurfaceId, enabledSurfaces, home, isCiProvider, isGoverned, CI_PROVIDERS, type CiProvider } from "../env.ts";
 import { planEntries, contractEntries, hasAdapter, advisoryRefusal, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine, refuseText, AZURE_PORTAL_STEPS, CI_PICK_MESSAGE, ciOptions, isLegacyHooksPath } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
@@ -207,8 +207,10 @@ async function reinitHandoff(
   if (existsSync(join(cwd, ".ai-engineering", "config.toml"))) {
     // --surface naming other hosts than the declared ones is a settings change: it goes
     // straight to config's surface step — ticked with those hosts, or applied with --yes.
+    // Only a parsed declaration can answer "the same as declared": without one,
+    // enabledSurfaces() guesses, and a guess must not route into config's own refusal.
     const requested = flags.surface ?? [];
-    if (requested.length > 0 && !sameSurfaces(requested, enabledSurfaces())) {
+    if (isGoverned(cwd) && requested.length > 0 && !sameSurfaces(requested, enabledSurfaces())) {
       return configMain({ surfaces: requested, yes: flags.yes === true });
     }
     // --yes resolves the hand-off question: rewrite ours, never yours. Without
@@ -407,15 +409,22 @@ async function resolvePhase(
 ): Promise<number | { picked: string[]; ci: CiProvider }> {
   const machineExit = resolveMachineSide(flags);
   if (machineExit !== null) return machineExit;
-  const repoCode = await ensureRepo(flags, inRepo, cwd, confirmWithInput);
-  if (repoCode !== null) return repoCode;
-  // --surface is checked before any question, so a typo is refused on every path, and
-  // both the fresh picker and a governed repo's hand-off see canonical ids.
+  // --ci writes the CI template on a first install and never on a re-init, so on a repo
+  // that is already governed it is refused rather than accepted and dropped.
+  if (flags.ci !== undefined && existsSync(join(cwd, ".ai-engineering", "config.toml"))) {
+    ui.fail(`--ci is not applied on a repo that is already governed — change the provider with \`ai-eng config --ci <provider>\` (${CI_PROVIDERS.join(", ")}).`);
+    return 2;
+  }
+  // --surface is checked before any question, so a typo is refused on every path — no
+  // repo created, nothing installed — and both the fresh picker and a governed repo's
+  // hand-off see canonical ids.
   if (flags.surface && flags.surface.length > 0) {
     flags = { ...flags, surface: flags.surface.map(canonicalSurfaceId) };
     const refused = validateSurfaces(flags.surface ?? []);
     if (refused !== null) return refused;
   }
+  const repoCode = await ensureRepo(flags, inRepo, cwd, confirmWithInput);
+  if (repoCode !== null) return repoCode;
   const handoff = await reinitHandoff(flags, cwd, input);
   if (handoff !== null) return handoff;
   const pickedResult = await pickSurfaces(flags, cwd, input);

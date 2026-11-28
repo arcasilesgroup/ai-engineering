@@ -33,9 +33,9 @@ export const HUMAN_VERBS: readonly VerbEntry[] = [
       { flag: "--yes", helps: "take every default instead of asking" },
       { flag: "--global", helps: "repair this machine's canon and stop; the repo is untouched" },
       { flag: "--surface", helps: "govern on these hosts: they start ticked in the picker, and --yes takes them as given — an advisory host is refused" },
-      { flag: "--ci", helps: `write the CI template for one of ${CI_PROVIDERS.join(", ")}` },
+      { flag: "--ci", helps: `write the CI template for one of ${CI_PROVIDERS.join(", ")} — a first install only; on a governed repo, \`ai-eng config --ci <provider>\`` },
     ],
-    note: "The host picker starts with the hosts detected in this repo ticked, or the --surface ones. On a governed repo, --surface naming other hosts goes straight to the surface picker (with --yes, it becomes the declared set); `ai-eng config --add` adds one host.",
+    note: "The host picker starts with the hosts detected in this repo ticked, or the --surface ones. On a governed repo, --surface naming other hosts goes straight to the surface picker (with --yes, it becomes the declared set); `ai-eng config --add` adds one host, and `ai-eng config --ci <provider>` changes the CI provider — init writes it on a first install only.",
   },
   {
     verb: "doctor",

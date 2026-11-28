@@ -977,7 +977,7 @@ describe("init · non-interactive default skill installation", () => {
     expect(await initMain({ yes: true })).toBe(0);
     const agents = readFileSync(join(cwd, "AGENTS.md"), "utf8");
 
-    const { result, out } = await driven({ surface: ["cursor"] }, [["governed on", "\n"]]);
+    const { result, out } = await driven({ surface: ["cursor"] }, [["surfaces", "\n"]]);
     expect(result).toBe(0);
     expect(out).not.toContain("already governed. What do you want to do?");
     expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toContain('enabled = ["cursor"]');
@@ -987,16 +987,48 @@ describe("init · non-interactive default skill installation", () => {
 
   test("an unknown --surface id is refused before any question, governed or not", async () => {
     const { cwd } = sandboxed();
-    mkdirSync(join(cwd, ".git"));
     const fresh = await capture(() => initMain({ surface: ["claud-code"] }));
     expect(fresh.result).toBe(2);
     expect(fresh.out).toContain('"claud-code" is not a surface this release knows');
+    expect(existsSync(join(cwd, ".git"))).toBe(false);
     expect(existsSync(join(cwd, ".ai-engineering"))).toBe(false);
 
     expect(await initMain({ yes: true })).toBe(0);
     const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
     const governed = await capture(() => initMain({ surface: ["claud-code"] }));
     expect(governed.result).toBe(2);
+    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toBe(config);
+  });
+
+  test("--ci is refused on an already-governed repo and changes nothing", async () => {
+    const { cwd } = sandboxed();
+    // A first install still honours --ci: only a re-init has nowhere to write it.
+    expect((await capture(() => initMain({ yes: true, ci: "azure-pipelines" }))).result).toBe(0);
+    expect(existsSync(join(cwd, ".azure-pipelines", "ai-eng-check.yml"))).toBe(true);
+    const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
+
+    const alone = await capture(() => initMain({ ci: "github-actions" }));
+    const withSurface = await capture(() => initMain({ surface: ["cursor"], ci: "github-actions" }));
+    for (const run of [alone, withSurface]) {
+      expect(run.result).toBe(2);
+      expect(run.out).toContain("ai-eng config --ci");
+    }
+    expect(existsSync(join(cwd, ".cursor"))).toBe(false);
+    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toBe(config);
+  });
+
+  test("--surface on a config.toml that declares no surfaces never routes into config's refusal", async () => {
+    const { cwd } = sandboxed();
+    mkdirSync(join(cwd, ".git"));
+    mkdirSync(join(cwd, ".ai-engineering"));
+    const config = 'version = "one"\n';
+    writeFileSync(join(cwd, ".ai-engineering", "config.toml"), config);
+
+    const { result, out } = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
+    expect(result).toBe(2);
+    expect(out).not.toContain("you are not in a governed repo");
+    expect(out).toContain("not in a governed repo — nothing written");
+    expect(existsSync(join(cwd, ".cursor"))).toBe(false);
     expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toBe(config);
   });
 
