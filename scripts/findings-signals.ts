@@ -1,4 +1,4 @@
-// src/shared-findings.ts — the review-finding filter, shrunk to its honest form:
+// scripts/findings-signals.ts — the review-finding filter, shrunk to its honest form:
 // annotate and count, never drop.
 //
 // Why it does not drop: the replay over 120 real review findings from this pipeline found

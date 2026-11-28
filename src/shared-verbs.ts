@@ -112,20 +112,6 @@ export const MACHINE_VERBS: readonly VerbEntry[] = [
     flags: [{ flag: "--force", helps: "on rm: also permanently delete ignored files inside the checkout" }],
     note: "A lane is one branch in its own checkout. merge lands it; rm removes the checkout, never the branch.",
   },
-  {
-    verb: "findings",
-    description: "annotate the findings of a git diff review",
-    usage: "ai-eng findings check <rounds.json|-> [--json] [--round <n>] [--base <rev>] [--head <rev>]",
-    flags: [
-      { flag: "--json", helps: "counts and per-finding verdicts as one JSON object" },
-      { flag: "--round", helps: "read round n of a document that holds several" },
-      { flag: "--base", helps: "the commit the review started from; inferred from the document, else from the merge base with trunk" },
-      { flag: "--head", helps: "the commit the review looked at; the document's when it names one, else HEAD" },
-    ],
-    note:
-      "It attaches the evidence a program can check to each finding of a review of a git diff: the file and line the finding cites, the lines the diff added, and the ids earlier rounds declined or later fixed. The annotation is a note, not a verdict: nothing is removed and a hit exits 0.\n\n" +
-      "The generic input is a `{findings: [...]}` file plus --base and --head. A review tool that prints its rounds as JSON can be piped in instead: `no-mistakes` is a review pipeline whose `axi` command does it, as in `no-mistakes axi rounds --step review --json` (that is the worked example, not a requirement).",
-  },
 ];
 
 /** Every verb, in help order: the menu, the help and the refusal all read this list. */
@@ -145,7 +131,7 @@ export function verbUsage(verb: string): string {
 
 /** `ai-eng <verb> --help`, or null for a verb this binary does not have. The caller
  *  falls back to the global menu only when nothing was named: someone who asked about
- *  `findings` is not asking what `ai-eng` is. */
+ *  `worktree` is not asking what `ai-eng` is. */
 export function renderVerbHelp(verb: string): string | null {
   const entry = ENTRIES.find((candidate) => candidate.verb === verb);
   if (entry === undefined) return null;
