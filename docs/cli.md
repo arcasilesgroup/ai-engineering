@@ -22,10 +22,15 @@ Five commands for hooks, CI and agents:
 ```bash
 echo "$PAYLOAD" | ai-eng chain PreToolUse   # judge one tool call: JSON in, JSON out
 ai-eng git pre-commit                       # the pre-commit, commit-msg and pre-push checks
-ai-eng wrap test -- <command>               # run tests, print only the failures
+ai-eng wrap test --base64 <encoded command> # run tests, print only the failures
 ai-eng worktree new <branch>                # start a lane checkout (also: list, merge, rm, request-changes)
 ai-eng findings check <rounds.json|->       # annotate the review findings a program can check
 ```
+
+Only the `wrap` guard writes its form: it encodes a recognised test command and hands the agent
+`ai-eng wrap test --base64 <encoded test command>`, which runs the real runner and prints the
+failures. The encoded form is the whole command as one shell-safe token, so nothing is re-quoted and
+nothing is escaped twice.
 
 ### Reading a findings check
 
