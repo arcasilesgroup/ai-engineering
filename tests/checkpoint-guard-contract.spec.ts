@@ -618,6 +618,10 @@ describe("Bash writes into the checkpoint folder", () => {
     // A launcher the reader does not unwrap still runs the interpreter its words name.
     ["an interpreter behind a launcher", `npx node -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'`],
     ["an interpreter behind a launcher after a cd", `cd ${FOLDER} && uv run python3 -c 'open("demo.json", "w")'`],
+    // A heredoc body is the commands it holds, whoever reads it.
+    ["a heredoc body writing the plan", `bash <<'EOF'\nprintf x > ${FOLDER}/demo.json\nEOF`],
+    ["a heredoc body writing the plan after a cd", `cd ${FOLDER} && bash <<'EOF'\nprintf x > demo.json\nEOF`],
+    ["a heredoc body running an interpreter", `bash <<'EOF'\nnpx node -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'\nEOF`],
   ])("refuses %s", (_name, command) => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());
@@ -645,6 +649,8 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a quoted program writing outside the folder", `bash -c 'printf x > notes.txt'`],
     ["a quoted program before the cd into the folder", `bash -c 'printf x > demo.json' && cd ${FOLDER}`],
     ["an interpreter named as an operand of a reader", `grep python3 ${FOLDER}/demo.json`],
+    ["a heredoc body writing outside the folder", `bash <<'EOF'\nprintf x > notes.txt\nEOF`],
+    ["a commit message heredoc naming the plan", `git commit -F - <<'EOF'\nit's the plan at ${FOLDER}/demo.json\nEOF`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {

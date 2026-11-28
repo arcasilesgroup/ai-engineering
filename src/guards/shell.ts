@@ -835,13 +835,14 @@ export function readCommandLenient(text: string): ShellCommand {
   }, text);
 }
 
-/** One lenient command per line of a text the reader could not read whole. A newline is not
- *  a quoting construct, so a shape anchored at the start of a line still sees every line. */
+/** One lenient command per piece of a text the reader could not read whole: a newline, `;`,
+ *  `&&` and `||` separate commands whatever the quoting, so a shape anchored at the start of
+ *  a command still sees every command it could write. */
 export function readCommandsLenient(text: string): ShellCommand[] {
   return text
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0)
-    .map((line) => readCommandLenient(line));
+    .split(/\r?\n|&&|\|\||;/)
+    .filter((piece) => piece.trim().length > 0)
+    .map((piece) => readCommandLenient(piece));
 }
 
 /** The argument words of one normalized segment, with redirections and their targets stripped. */

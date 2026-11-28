@@ -477,11 +477,13 @@ function commandWords(command: ShellCommand): string[] {
   return [command.verb, ...command.args.map((word) => word.value)];
 }
 
-/** Every command a line runs: the segments the reader hands over, and the program each
- *  interpreter word runs, which is a command of its own. */
+/** Every command a line runs: the segments the reader hands over, the body of every heredoc
+ *  it feeds, and the program each interpreter word runs, which is a command of its own. */
 function commandsOf(command: string): ShellCommand[] {
   const programs = inlineShellPrograms(command);
-  return [...(readCommands(command) ?? []), ...programs.flatMap((program) => readCommands(program) ?? [])];
+  const commands = readCommands(command) ?? [];
+  const bodies = commands.flatMap((parsed) => parsed.segment.heredocs.flatMap(({ body }) => readCommands(body) ?? []));
+  return [...commands, ...bodies, ...programs.flatMap((program) => readCommands(program) ?? [])];
 }
 
 /** Verbs whose every operand is a path they write. */
@@ -545,11 +547,17 @@ function shellPath(cwd: string, word: string): string | null {
  *  follow (cd $DIR, cd -) decides nothing — then any write that mentions the checkpoints
  *  folder by name is refused. */
 function shellWritesIntoCheckpoints(command: string, cwd: string | null, repo: RealRepo, mentions = /checkpoints/i.test(command)): boolean {
-  let directory: string | null = cwd;
-  const stack: Array<string | null> = [];
   const commands = readCommands(command);
   // A line this reader cannot read is one no guard can judge: it decides nothing.
   if (commands === null) return mentions;
+  return commandsWriteIntoCheckpoints(commands, cwd, repo, mentions);
+}
+
+/** The same question asked of commands the reader already produced: each written where it
+ *  stands, past the cd/pushd/popd this line runs before it. */
+function commandsWriteIntoCheckpoints(commands: readonly ShellCommand[], cwd: string | null, repo: RealRepo, mentions: boolean): boolean {
+  let directory: string | null = cwd;
+  const stack: Array<string | null> = [];
   for (const shellCommand of commands) {
     const words = commandWords(shellCommand);
     const [name, ...rest] = words;
@@ -567,6 +575,13 @@ function shellWritesIntoCheckpoints(command: string, cwd: string | null, repo: R
     // A program handed to an interpreter runs where this command stands, in a shell of its own.
     for (const program of inlineShellPrograms(shellCommand.segment.text)) {
       if (shellWritesIntoCheckpoints(program, directory, repo, mentions)) return true;
+    }
+    // So does the body of a heredoc this command feeds: text alone cannot tell a program from
+    // a commit message, so every body is judged as the commands it holds.
+    for (const { body } of shellCommand.segment.heredocs) {
+      const bodyCommands = readCommands(body);
+      // A body this reader cannot read is data it cannot tell from code: it decides nothing.
+      if (bodyCommands !== null && commandsWriteIntoCheckpoints(bodyCommands, directory, repo, mentions)) return true;
     }
     if (directory !== null && runsInterpreter(shellCommand, (verb) => OPAQUE_WRITERS.has(verb)) && landsInCheckpoints(repo, directory)) {
       const here = directory;
