@@ -81,7 +81,7 @@ Each guard runs only for the tools it governs, in this order, and the first refu
 | 6 | `loop` | the same call repeated, or the same failure retried with small changes |
 | 7 | `checkpoint` | phase and gate writes that break the active workflow checkpoint. It is the workflow gate, not a protection guard |
 | 8 | `lease` | a write in a folder another session wrote in during the last 15 minutes. The second session goes to a worktree; `ai-eng work release` frees the folder |
-| 9 | `wrap` | nothing. It rewrites a recognized test command to `ai-eng wrap test -- <command>`, which prints only the failures and a summary |
+| 9 | `wrap` | nothing. It rewrites a recognized test command to `ai-eng wrap test --base64 <encoded command>`, which prints only the failures and a summary |
 
 `spoken-secret` checks each prompt you submit, on agents with a prompt hook. It refuses a prompt that seems to contain a credential, and it never prints the value it found.
 

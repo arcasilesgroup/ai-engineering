@@ -375,6 +375,24 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(statSync(lockPath).mtimeMs).toBe(mtime);
   });
 
+  test("a repo governed before the reviews folder moved gains its self-ignore on the next update", async () => {
+    const repo = governedRepo("repo-reviews-ignore");
+    const userIgnore = "# my rules\n*.tmp\n";
+    writeFileSync(join(repo, ".gitignore"), userIgnore);
+    const report = join(repo, ".ai-engineering", "reviews", "042-security.html");
+    mkdirSync(dirname(report), { recursive: true });
+    writeFileSync(report, "<p>a report that quotes the vulnerable code it found</p>\n");
+    const isIgnored = (): boolean => spawnSync("git", ["check-ignore", "-q", ".ai-engineering/reviews/042-security.html"], { cwd: repo }).status === 0;
+    expect(isIgnored()).toBe(false);
+    process.chdir(repo);
+
+    const run = await captured(() => updateMain({ yes: true }));
+    expect(run.value).toBe(0);
+    expect(readFileSync(join(repo, ".ai-engineering", "reviews", ".gitignore"), "utf8")).toBe("*\n");
+    expect(isIgnored()).toBe(true);
+    expect(readFileSync(join(repo, ".gitignore"), "utf8")).toBe(userIgnore);
+  });
+
   test("a fresh machine gets the missing settings carriers doctor sends it here for", async () => {
     // The CI runner's shape: no ~/.claude/settings.json, no ~/.codex, no ~/.copilot.
     const freshHome = join(SANDBOX, "home-fresh-settings");

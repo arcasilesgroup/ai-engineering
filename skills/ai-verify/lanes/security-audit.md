@@ -152,7 +152,7 @@ enabled in production config.
 ## 5. Report
 
 Follow the output contract in `CONVENTIONS.md`. Write to
-`.claude/reviews/security-audit-<stamp>.md`.
+`.ai-engineering/reviews/security-audit-<stamp>.md`.
 
 Each finding uses the standard fields, with **Trigger** written as the attack:
 

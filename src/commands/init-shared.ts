@@ -165,6 +165,9 @@ export function planEntries(surfaces: string[], ci: CiProvider): PlanEntry[] {
         ci,
       }),
     },
+    // A review report quotes the vulnerable code it found, and templates/gitignore.tpl is the
+    // person's file once init has written it: the folder ignores itself instead.
+    { path: ".ai-engineering/reviews/.gitignore", ours: "*\n" },
     ...ciEntries(ci),
     ...gitHookEntries(),
     ...surfaces.flatMap(surfaceEntries),

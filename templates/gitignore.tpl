@@ -75,6 +75,6 @@ target/
 .ai-engineering/cache/
 .ai-engineering/research-cache/
 .ai-engineering/workflow/playwright/
-.claude/reviews/
+.ai-engineering/reviews/
 # A person's own Claude Code settings for this repo: never shared.
 .claude/settings.local.json

@@ -354,7 +354,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(readFileSync(join(cwd, ".ai-engineering", "spec", "plan.md"), "utf8")).toBe(plan);
     expect(existsSync(join(cwd, ".ai-engineering"))).toBe(true); // the spec keeps it alive
     expect(out).toContain("✓ removed    .cursor/hooks.json · still the template ai-eng installed");
-    expect(out).toContain("✓ removed    ai-eng.lock · 7 owned files swept");
+    expect(out).toContain("✓ removed    ai-eng.lock · 8 owned files swept");
     expect(out).toContain("ai-eng is out of this repo. Contract files remain.");
   });
 

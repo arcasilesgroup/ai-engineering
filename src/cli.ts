@@ -19,7 +19,7 @@ import { workMain } from "./commands/work.ts";
 import { findingsMain } from "./commands/findings.ts";
 import { wrapMain } from "./wrap/index.ts";
 import { floor } from "./floor/entry.ts";
-import { suggestVerb, HUMAN_VERBS, MACHINE_VERBS, ALL_VERBS } from "./shared-verbs.ts";
+import { suggestVerb, renderVerbHelp, HUMAN_VERBS, MACHINE_VERBS, ALL_VERBS } from "./shared-verbs.ts";
 
 
 // The detached child a session start spawns to refresh the version cache: its arguments
@@ -59,17 +59,37 @@ if (flags.version && !isRefreshChild) {
   process.stdout.write(`ai-eng ${VERSION}\n`);
   process.exit(0);
 }
-if (!isRefreshChild && (flags.help || !verb)) {
+/** The whole map, on two labelled groups: who runs the verb is the first thing a reader
+ *  needs and the one thing a flat list of eleven lines hides. */
+function showMenu(): void {
   showLogo(VERSION);
-  process.stdout.write("\n");
-  const listed = [...HUMAN_VERBS, ...MACHINE_VERBS];
-  const nameWidth = Math.max(...listed.map((entry) => entry.verb.length)) + 2;
+  const nameWidth = Math.max(...[...HUMAN_VERBS, ...MACHINE_VERBS].map((entry) => entry.verb.length)) + 2;
+  process.stdout.write("\nFor people:\n");
   for (const { verb: name, description } of HUMAN_VERBS)
     process.stdout.write(`  ai-eng ${name.padEnd(nameWidth)}${description}\n`);
-  process.stdout.write("\n");
+  process.stdout.write("\nFor hooks, CI and agents:\n");
   for (const { verb: name, description } of MACHINE_VERBS)
     process.stdout.write(`  ai-eng ${name.padEnd(nameWidth)}${description}\n`);
-  process.exit(flags.help ? 0 : 2);
+  process.stdout.write("\nRun 'ai-eng <command> --help' for flags.\n");
+}
+
+if (!isRefreshChild && flags.help) {
+  // The verb's own answer first; the global menu is the last resort, not the first.
+  const own = verb === undefined ? null : renderVerbHelp(verb);
+  if (own !== null) {
+    process.stdout.write(own);
+    process.exit(0);
+  }
+  if (verb === undefined) {
+    showMenu();
+    process.exit(0);
+  }
+  // An unknown verb keeps the unknown-verb error below: it names the nearest verb, and
+  // the menu would bury the typo under eleven lines nobody asked about.
+}
+if (!isRefreshChild && verb === undefined) {
+  showMenu();
+  process.exit(2);
 }
 
 /** The hook payload. Not `Bun.stdin.text()`: on Windows (Bun 1.4) that read, awaited after

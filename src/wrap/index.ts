@@ -10,6 +10,7 @@ import { receiptsDir, repoRoot } from "../env.ts";
 import { judgeWrappedCommand } from "../chain/mod.ts";
 import { isTestCommand } from "../guards/wrap.ts";
 import { writeReceipt, receiptId, type Receipt } from "../receipts.ts";
+import { verbUsage } from "../shared-verbs.ts";
 import { detectRunner, paint, paintVitestJson, countSummary } from "./paint.ts";
 
 /** A hung runner must not hang the agent's context forever. */
@@ -48,7 +49,7 @@ function saveFullOutput(receipt: Receipt | null, output: string): string | null 
 export function wrapMain(args: string[]): number {
   const command = decodeCommand(args);
   if (command === null || command.trim().length === 0) {
-    process.stderr.write("usage: ai-eng wrap test --base64 <encoded test command>\n");
+    process.stderr.write(`${verbUsage("wrap")}\n`);
     return 2;
   }
   // The wrapper is not a second way to run code: only a test command, and only one the

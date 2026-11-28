@@ -7,10 +7,9 @@ import {
   worktreeRm,
 } from "../git/shared-worktree.ts";
 import { worktreeMerge } from "../git/merge.ts";
+import { verbUsage } from "../shared-verbs.ts";
 
-const USAGE =
-  "usage: ai-eng worktree new <branch> | list [<slug>] | merge <slug> | request-changes <slug> <pending-checkpoint-commit-sha> | " +
-  "rm <slug> [--force] (force also permanently deletes ignored files)\n";
+const USAGE = `${verbUsage("worktree")}\n`;
 
 export function worktreeMain(args: string[], force = false): number {
   const [action, slug, ...files] = args;

@@ -33,7 +33,7 @@ override rather than editing the generated files — they're regenerated on each
 ## Overriding command and port
 
 ```bash
-bash scripts/setup_harness.sh /path/to/repo --port 4321 --cmd "pnpm dev --host"
+bash <skill>/scripts/setup_harness.sh /path/to/repo --port 4321 --cmd "pnpm dev --host"
 ```
 
 ## What the run directory contains
@@ -146,7 +146,7 @@ Run the setup script with the app package as `<repo>` so `puppeteer-core` resolv
 detection matches, and start the dev server from there:
 
 ```bash
-bash scripts/setup_harness.sh /abs/path/to/repo/apps/web --cmd "pnpm --filter web dev"
+bash <skill>/scripts/setup_harness.sh /abs/path/to/repo/apps/web --cmd "pnpm --filter web dev"
 ```
 
 `blast_radius.ts` should run from a root that contains both the app and any shared packages,

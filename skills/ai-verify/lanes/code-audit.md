@@ -120,7 +120,7 @@ skip it, and do not compress it into "looks right".
 ## Report
 
 Follow the output contract in `CONVENTIONS.md`. Write to
-`.claude/reviews/code-audit-<stamp>.md`.
+`.ai-engineering/reviews/code-audit-<stamp>.md`.
 
 Every finding needs a **Fix** that names the specific change — "move the
 allocation above the early return at line 30 so the deferred close always runs",

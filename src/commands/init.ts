@@ -230,7 +230,9 @@ async function reinitHandoff(
   return null;
 }
 
-/** Pick which surfaces govern this project. Detected hosts start ticked; --yes and --surface skip the prompt. */
+/** Pick which surfaces govern this project. Detected hosts start ticked; on a first
+ *  install --yes takes the list as given (`--surface` included) and skips the prompt.
+ *  A governed repo is handed off in reinitHandoff() and never reaches here. */
 async function pickSurfaces(
   flags: InitFlags,
   cwd: string,

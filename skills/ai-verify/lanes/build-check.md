@@ -95,7 +95,7 @@ than no fix at all.
 
 ## 4. Report
 
-Short and factual. Write to `.claude/reviews/build-check-<stamp>.md` and print
+Short and factual. Write to `.ai-engineering/reviews/build-check-<stamp>.md` and print
 the path.
 
 ```markdown

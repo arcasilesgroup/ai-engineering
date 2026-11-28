@@ -8,7 +8,7 @@
 //
 // Usage:
 //     score.ts --run ~/.claude/evals/myrepo-20260728-101500/manifest.json
-//     score.ts --run MANIFEST --reports .claude/reviews --window 8
+//     score.ts --run MANIFEST --reports .ai-engineering/reviews --window 8
 //     score.ts --run MANIFEST --adjudicate   # recompute after editing triage.json
 //
 // Port of the Python scorer this replaces. The flags, the report/manifest
@@ -312,7 +312,7 @@ type Args = { run: string; reports: string; window: number; adjudicate: boolean 
 
 function parseArgs(argv: string[]): Args {
   let run: string | null = null;
-  const args: Args = { run: "", reports: ".claude/reviews", window: 8, adjudicate: false };
+  const args: Args = { run: "", reports: ".ai-engineering/reviews", window: 8, adjudicate: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i] ?? "";
     let name = arg;

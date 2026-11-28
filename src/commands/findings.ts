@@ -18,9 +18,9 @@ import {
   type RoundDocument,
   type RoundSelection,
 } from "../shared-findings.ts";
+import { verbUsage } from "../shared-verbs.ts";
 
-const USAGE =
-  "usage: ai-eng findings check <rounds.json|-> [--json] [--round <n>] [--base <rev>] [--head <rev>]";
+const USAGE = verbUsage("findings");
 
 export type FindingsFlags = { json?: boolean; round?: string; base?: string; head?: string };
 

@@ -65,8 +65,10 @@ Never compare a prototype in one state with the live page in another, like an em
 
 Run from the repo root:
 ```bash
-npx -y -p playwright sh -c 'NODE_PATH="$(dirname "$(command -v playwright)")/.." node skills/ai-review-ui/capture.cjs <name> <web URL> [--scope a,b]'
+npx -y -p playwright sh -c 'NODE_PATH="$(dirname "$(command -v playwright)")/.." node <skill-dir>/capture.cjs <name> <web URL> [--scope a,b]'
 ```
+
+`<skill-dir>` is this skill's installed directory, wherever your host keeps skills — not a path inside the project under review.
 
 The script writes `.ai-engineering/workflow/playwright/review/<name>/<state>-<width>-{proto,live}.png`, plus `states.json`.
 
@@ -79,7 +81,7 @@ Before taking each pair of screenshots, it **fingerprints the UI state on both s
 
 Hand the comparison to reviewers with fresh context, so they judge the screenshots and not your memory of building them.
 
-**Default: two agents in parallel.** Launch `ui-visual-reviewer` and `ui-behavior-reviewer` in a single message. Their method, output format and rules are in their agent definitions (`.claude/agents/`), which also:
+**Default: two agents in parallel.** Launch `ui-visual-reviewer` and `ui-behavior-reviewer` in a single message. Their method, output format and rules are in their agent definitions (installed in `~/.ai-engineering/agents/`, mirrored for hosts that read their own agent folder), which also:
 - give them a fixed model (visual: `opus`; behavior: `sonnet`);
 - tell them to ignore `AGENTS.md`, so they judge against the prototype and `.ai-engineering/DESIGN.md` without the implementer's reasoning. Don't pass them the checkpoint's goal, tasks or implementation notes either.
 
