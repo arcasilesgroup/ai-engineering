@@ -19,7 +19,7 @@ docs/
   global-carriers.md           Host carrier paths and their machine/repository scope
   surface-capability-matrix.md What each host can enforce, measured; the table doctor and the README follow
   install.md                   Install edge cases: from source, no administrator rights, the Windows gitleaks fallback
-  cli.md                       Every CLI verb, by who runs it, and how to read a findings check
+  cli.md                       Every CLI verb, by who runs it
   lanes.md                     One task, one lane: list, tidy, park, drop, worktrees
   configuration.md             config.toml tables, the command-scope policy, the surface tiers
   git-floor.md                 Every commit route, which ones the Conventional Commits rule judges, and the bypasses it writes down
@@ -41,7 +41,6 @@ docs/
 src/
   payload.ts                   Normalized tool payloads and shared call fingerprints
   commands/
-    findings.ts                CLI parser and Git-backed runner for `ai-eng findings check`
     worktree.ts                CLI parser for new, list, merge, request-changes and rm
   git/
     run.ts                     The one Git runner: status, raw stdout/stderr, optional global/system-config isolation, commit identity
@@ -53,7 +52,6 @@ src/
     checkpoint.ts              Checkpoint schema, lifecycle transitions, legacy normalization and brainstorm approval
   guards/
     checkpoint.ts              Checkpoint schema, lifecycle, gate order and Stop enforcement in the chain
-  shared-findings.ts           Pure review-finding signal checks, tallies and round parsing
   shared-hash.ts               Shared SHA-256 file hashing helper
   shared-project-fs.ts         Guarded project-path reads and writes: refuse links and paths that leave the repository
 tests/
@@ -80,6 +78,8 @@ scripts/
   release-sbom.ts              Runtime-only CycloneDX SBOM for a packed tarball, named by its sha256
   release-policy.ts            Release gate: signed annotated tag on the dispatched SHA by an allowlisted key, verified NOTICE.md rights
   sync-ci-template-pins.ts     `bun run version-packages` step: rewrite AI_ENG_VERSION in both CI templates from package.json
+  findings-check.ts            Maintainer instrument: annotate a review round's findings with the evidence Git can check; never a gate
+  findings-signals.ts          Pure review-finding signal checks, tallies and round parsing for findings-check.ts
 skills/                        Installed skill canon
   ai-brainstorm/SKILL.md       Interview, classify and record approved feature intent
   ai-orchestrator/SKILL.md     Gated feature workflow in the selected checkout

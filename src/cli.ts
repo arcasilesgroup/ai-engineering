@@ -16,7 +16,6 @@ import { uninstallMain } from "./commands/uninstall.ts";
 import { configMain } from "./commands/config.ts";
 import { worktreeMain } from "./commands/worktree.ts";
 import { workMain } from "./commands/work.ts";
-import { findingsMain } from "./commands/findings.ts";
 import { wrapMain } from "./wrap/index.ts";
 import { floor } from "./floor/entry.ts";
 import { suggestVerb, renderVerbHelp, HUMAN_VERBS, MACHINE_VERBS, ALL_VERBS } from "./shared-verbs.ts";
@@ -159,13 +158,6 @@ const verbMain: Record<string, () => number | Promise<number>> = {
   },
   update: () => updateMain({ yes: flags.yes === true }),
   work: () => workMain(flags._.slice(1).map(String), { json: flags.json === true, ...(typeof flags.until === "string" ? { until: flags.until } : {}) }),
-  findings: () =>
-    findingsMain(flags._.slice(1).map(String), {
-      json: flags.json === true,
-      ...(typeof flags.round === "string" ? { round: flags.round } : {}),
-      ...(typeof flags.base === "string" ? { base: flags.base } : {}),
-      ...(typeof flags.head === "string" ? { head: flags.head } : {}),
-    }),
   uninstall: () => uninstallMain(),
 };
 const unhandledVerbs = ALL_VERBS.filter((name) => !(name in verbMain));
