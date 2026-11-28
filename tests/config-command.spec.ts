@@ -51,7 +51,7 @@ const plain = (text: string): string => stripVTControlCharacters(text);
  *  plus what it returned. */
 async function capture<T>(fn: () => Promise<T> | T): Promise<{ result: T; out: string; raw: string }> {
   const chunks: string[] = [];
-  const original = process.stdout.write;
+  const original = process.stdout.write.bind(process.stdout);
   process.stdout.write = ((chunk: string | Uint8Array): boolean => {
     chunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
     return true;

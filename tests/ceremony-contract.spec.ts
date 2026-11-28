@@ -12,7 +12,7 @@
 // and frameworks, which is noise for a contract about this ceremony. The skills the
 // level-one skills name are still checked to exist and ship; only their text is not read.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, posix } from "node:path";
 import { embeddedChainBundle, embeddedTemplate } from "../src/embed.ts";

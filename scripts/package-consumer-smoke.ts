@@ -82,8 +82,14 @@ export function runCommand(
     status: result.status,
     stdout: result.stdout ?? "",
     stderr: result.stderr ?? "",
-    errorCode: result.error?.code ?? null,
+    errorCode: errorCodeOf(result.error),
   };
+}
+
+/** spawnSync's error carries the failure's `code` (ENOENT, ETIMEDOUT); a bare Error does not. */
+function errorCodeOf(error: Error | undefined): string | null {
+  if (error === undefined) return null;
+  return "code" in error && typeof error.code === "string" ? error.code : null;
 }
 
 function requireCommandSuccess(label: string, result: CommandResult): void {
@@ -389,7 +395,7 @@ async function main(): Promise<void> {
         }
       }
     }
-    const result = await runPackageConsumerSmoke({ tarball });
+    const result = await runPackageConsumerSmoke(tarball === undefined ? {} : { tarball });
     const failures = packageConsumerFailures(result);
     if (tarballSha256 !== undefined && result.tarballHashBefore !== tarballSha256) {
       failures.push("the tarball changed between its digest check and the consumer installation");

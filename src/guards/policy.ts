@@ -71,7 +71,7 @@ function isTempPath(resolved: string): boolean {
  *  falls open, because a typo in config must not become a silent policy hole. */
 export function normalizeMode(mode: string | undefined, fallback: string = DEFAULT_MODE): string {
   const value = mode !== undefined && mode.length > 0 ? mode : fallback;
-  if (value.length === 4 && [...value].every((c) => c >= "0" && c <= "7")) return value;
+  if (/^[0-7]{4}$/.test(value)) return value;
   return "0000";
 }
 

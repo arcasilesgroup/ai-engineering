@@ -16,6 +16,6 @@
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true
   },
-  "include": ["src", "tests"],
+  "include": ["src", "tests", "scripts"],
   "exclude": ["skills", "templates", "node_modules", "dist"]
 }

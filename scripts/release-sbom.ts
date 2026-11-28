@@ -173,7 +173,7 @@ export function buildRuntimeSbom(options: { consumerRoot: string; packageName: s
     const runtime = Object.keys(manifest.dependencies ?? {});
     const optional = new Set(Object.keys(manifest.optionalDependencies ?? {}));
     const dependsOn = new Set<string>();
-    for (const name of [...new Set([...runtime, ...optional])]) {
+    for (const name of new Set([...runtime, ...optional])) {
       const directory = resolveDependency(next.directory, name, consumerRoot);
       if (!directory) {
         if (optional.has(name)) continue;

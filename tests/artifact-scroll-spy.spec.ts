@@ -11,6 +11,7 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { runInThisContext } from "node:vm";
 
 const ROOT = join(import.meta.dir, "..");
 
@@ -93,7 +94,9 @@ function install(script: string, tops: Map<string, number>, check: (links: SpyLi
   try {
     // The listener reads `document` when scroll fires, so the fake stays up
     // for the whole check. Restoring it first is what made the spy a no-op.
-    new Function(script)();
+    // The page script runs the way a classic script does, at function scope, so
+    // two runs of the same bytes cannot collide on a top-level declaration.
+    runInThisContext(`(function () {\n${script}\n})()`);
     check(links, onScroll);
   } finally {
     Object.assign(globalThis, { document: previousDocument, window: previousWindow });

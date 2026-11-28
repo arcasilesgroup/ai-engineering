@@ -68,8 +68,8 @@ afterAll(() => {
 async function captured<T>(run: () => Promise<T>): Promise<{ value: T; out: string; err: string }> {
   const out: string[] = [];
   const err: string[] = [];
-  const stdout = process.stdout.write;
-  const stderr = process.stderr.write;
+  const stdout = process.stdout.write.bind(process.stdout);
+  const stderr = process.stderr.write.bind(process.stderr);
   process.stdout.write = ((chunk: string | Uint8Array) => (out.push(String(chunk)), true)) as never;
   process.stderr.write = ((chunk: string | Uint8Array) => (err.push(String(chunk)), true)) as never;
   try {

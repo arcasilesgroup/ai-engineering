@@ -393,8 +393,8 @@ function genCss(t: Tokens): string {
       line('gutter', t.space['gutter']!),
       line('section-y', t.space['section-y']!),
       ...Object.entries(r)
-        .filter(([step]) => step !== 'map')
-        .map(([step, value]) => line(`radius-${step}`, String(value))),
+        .filter((entry): entry is [string, string] => entry[0] !== 'map' && typeof entry[1] === 'string')
+        .map(([step, value]) => line(`radius-${step}`, value)),
     ].join('\n'),
     [
       '/* Motion — one easing vocabulary, one reveal. */',
@@ -525,7 +525,9 @@ function genDesignJson(t: Tokens, breakpoints: readonly string[]): string {
       })),
       motion: Object.entries(t.motion).map(([name, value]) => ({ name, value })),
       radius: Object.fromEntries(
-        Object.entries(t.radius).filter(([k]) => k !== 'map').map(([k, v]) => [k, String(v)]),
+        Object.entries(t.radius)
+          .filter((entry): entry is [string, string] => entry[0] !== 'map' && typeof entry[1] === 'string')
+          .map(([k, v]) => [k, v]),
       ),
       typography: t.typography,
       breakpoints: {

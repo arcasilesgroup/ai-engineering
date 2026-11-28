@@ -108,7 +108,7 @@
     "Whether every colour pair a component uses is declared is checked by name (U29) and by axe's rendered contrast (B1), not derived from components.css selectors, because a selector-to-pair mapper would be a second CSS engine.",
     "The website import of components.css and the published gallery: deferred to the ai-engineering-web pull request.",
     "Page weight over about 30 KB only informs (U45); no case fails on it.",
-    "`bun run typecheck` and `bun run lint` cover src and tests only; scripts/brand.ts and scripts/artifact-a11y.ts are type-checked through the tests that import them, and scripts/artifact-axe.ts is not imported by any test.",
+    "`bun run typecheck` and `bun run lint` cover src, tests and scripts and fail on warnings; scripts/artifact-axe.ts is still not imported by any test.",
     "B5 and B6 assume scripts/artifact-axe.ts accepts file paths as arguments (the glob stays the default) and two fixtures under tests/fixtures/axe/; neither is in checkpoint 6's file list yet."
   ]
 }

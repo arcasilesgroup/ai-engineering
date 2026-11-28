@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { runInThisContext } from "node:vm";
 
 const root = join(import.meta.dir, "..");
 const templatePath = join(root, "templates/viewer.html.tpl");
@@ -225,7 +226,9 @@ async function withViewer(
   });
 
   try {
-    const api = new Function(`${body}\nreturn { load, servedInit };`)() as ViewerApi;
+    // The page's own script, run the way its browser would run it: at function
+    // scope, with the fakes above standing in for the globals it reaches for.
+    const api = runInThisContext(`(function () {\n${body}\nreturn { load, servedInit };\n})()`) as ViewerApi;
     await run({
       api,
       nodes,
