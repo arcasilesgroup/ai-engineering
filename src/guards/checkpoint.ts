@@ -43,12 +43,12 @@ const CHECKPOINT_TARGET = /\.ai-engineering\/workflow\/checkpoints\/[^\s/]+\.jso
 // Interpreters that can write any file their code names. Every other write form
 // (redirection, tee, sed -i, cp, mv, rm, truncate) is judged by its target in
 // shellWritesIntoCheckpoints.
-// A versioned spelling (`python3.11`) and a packaged one (`my-python3`) run the same program.
-const OPAQUE_WRITE = /(?:^|[-_])(?:python|node|perl)(?:\d+(?:\.\d+)*)?$/;
+// A versioned spelling (`python3.11`), a packaged one (`my-python3`) and a Windows one
+// (`node.exe`) run the same program, so one predicate answers for all of them.
+const INTERPRETER = /(?:^|[-_])(?:python|node|perl|ruby|bun|deno|jq|awk)(?:\d+(?:\.\d+)*)?$/;
 const CHECKPOINTS_DIR = ".ai-engineering/workflow/checkpoints";
 const MAX_LINK_HOPS = 40;
-// Writers whose target cannot be read off the command line.
-const OPAQUE_WRITERS = new Set(["python", "python3", "node", "perl", "ruby", "bun", "deno", "jq", "awk"]);
+const isInterpreterName = (name: string): boolean => INTERPRETER.test(name);
 const MAX_STOP_BLOCKS = 3;
 
 function deny(checkpoint: string, gate: string, detail: string, next: string): CheckpointGuardResult {
@@ -522,11 +522,11 @@ function writeTargetsOf(command: ShellCommand): string[] | null {
     if (flag >= 0) return args[flag + 1] ?? "";
     return args.flatMap((arg) => (/^--target-directory=(.+)$/.exec(arg) ?? []).slice(1))[0] ?? null;
   };
-  // `ln target linkname` and `cp a b` create their last operand; `-t dir` writes every operand into dir.
+  // `ln target linkname` and `cp a b` create their last operand; with `-t dir` the
+  // destination is that folder, and every operand is a source it leaves alone.
   if (command.verb === "ln" || DESTINATION_LAST.has(command.verb)) {
     const directory = targetDirectory();
-    if (directory === null) named.push(...operands.slice(-1));
-    else named.push(directory, ...operands);
+    named.push(...(directory === null ? operands.slice(-1) : [directory]));
   } else if (OPERAND_WRITERS.has(command.verb) || isInPlaceSed) named.push(...operands);
   const written = named.filter((target) => target.length > 0);
   // A writer fed from stdin leaves its destination unnamed only while the folder it lands in
@@ -566,7 +566,7 @@ function runsInterpreter(command: ShellCommand, isInterpreter: (name: string) =>
  *  json.tool with the checkpoint as its one operand only reads it. */
 function hasOpaqueWriteForm(command: ShellCommand): boolean {
   if (isJsonToolRead(commandWords(command), (operand) => CHECKPOINT_TARGET.test(operand))) return false;
-  return runsInterpreter(command, (name) => OPAQUE_WRITE.test(name));
+  return runsInterpreter(command, isInterpreterName);
 }
 
 /** A path as the shell would resolve it from `cwd`, or null when it hangs off a variable,
@@ -632,7 +632,7 @@ function commandsWriteIntoCheckpoints(commands: readonly ShellCommand[], cwd: st
     for (const { body } of shellCommand.segment.heredocs) {
       if (commandsWriteIntoCheckpoints(readCommands(body) ?? readCommandsLenient(body), directory, repo, mentions)) return true;
     }
-    if (directory !== null && runsInterpreter(shellCommand, (verb) => OPAQUE_WRITERS.has(verb)) && landsInCheckpoints(repo, directory)) {
+    if (directory !== null && runsInterpreter(shellCommand, isInterpreterName) && landsInCheckpoints(repo, directory)) {
       const here = directory;
       const isCheckpointFile = (operand: string): boolean => {
         const absolute = shellPath(here, operand);

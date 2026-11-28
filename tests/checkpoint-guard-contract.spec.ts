@@ -634,6 +634,9 @@ describe("Bash writes into the checkpoint folder", () => {
     ["an install into the folder by an attached target directory", `install --target-directory=${FOLDER} ../../../base.txt`],
     ["an interpreter spelled as a Windows executable", `node.exe -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'`],
     ["a versioned interpreter spelled as a Windows executable", `python3.11.exe -m pickletools ${FOLDER}/demo.json > /dev/null`],
+    ["a versioned interpreter inside the folder", `cd ${FOLDER} && python3.11 -c 'open("demo.json","w")'`],
+    ["a short-version interpreter inside the folder", `cd ${FOLDER} && node20 -c 'x'`],
+    ["an interpreter only the cwd rule carried", `ruby -e 'File.write("${FOLDER}/demo.json","{}")'`],
     ["a writer fed from stdin with no destination on the line", `cd ${FOLDER} && ls | xargs rm`],
     // A cd inside a substitution moves that subshell, not the shell the write runs in.
     ["a cd inside a substitution before the write", `cd ${FOLDER} && echo "$(cd /tmp; pwd)" > demo.json`],
@@ -672,6 +675,9 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a link whose target is the folder and whose name is elsewhere", `ln -s ${FOLDER}/demo.json /tmp/memos.txt`],
     ["a link out of the folder", `cd ${FOLDER} && ln -s demo.json ../../../notes-link`],
     ["a copy into a target directory elsewhere", `cp -t /tmp/backup ../../../base.txt`],
+    ["a copy out of the folder by a target directory", `cd ${FOLDER} && cp -t /tmp/backup demo.json`],
+    ["an install out of the folder by a target directory", `cd ${FOLDER} && install -t /tmp/backup demo.json`],
+    ["a link whose target is the folder into a target directory", `ln -s ${FOLDER}/demo.json -t /tmp`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {
