@@ -255,6 +255,16 @@ function canonPacks(config: string): unknown[] | null {
   return Array.isArray(packs) ? packs : [packs];
 }
 
+/** The [surfaces].enabled set the declaration itself reads, so a duplicate entry or a
+ *  second [surfaces] table — which TOML rejects — cannot pass as the set a run asked for. */
+function declaredSurfaces(cwd: string): string[] | null {
+  const document = Bun.TOML.parse(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")) as Record<string, unknown>;
+  const surfaces = document["surfaces"];
+  if (typeof surfaces !== "object" || surfaces === null) return null;
+  const enabled = (surfaces as Record<string, unknown>)["enabled"];
+  return Array.isArray(enabled) ? enabled.filter((id): id is string => typeof id === "string") : null;
+}
+
 function assertCanon(home: string): void {
   const sourceSkills = join(REPO_ROOT, "skills");
   const installedSkills = join(home, "skills");
@@ -550,7 +560,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
 
     const { result, out } = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
     expect(result).toBe(0);
-    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toContain('enabled = ["cursor"]');
+    expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
     expect(readFileSync(join(cwd, ".cursor", "hooks.json"), "utf8")).toContain("ai-eng chain");
     expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(agents);
     expect(out).toContain("Surfaces changed");
@@ -968,7 +978,7 @@ describe("init · non-interactive default skill installation", () => {
       ["CI run", "\n"],
     ]);
     expect(result).toBe(0);
-    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toContain('enabled = ["cursor"]');
+    expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
     expect(readFileSync(join(cwd, ".cursor", "hooks.json"), "utf8")).toContain("ai-eng chain");
   });
 
@@ -980,7 +990,7 @@ describe("init · non-interactive default skill installation", () => {
     const { result, out } = await driven({ surface: ["cursor"] }, [["surfaces", "\n"]]);
     expect(result).toBe(0);
     expect(out).not.toContain("already governed. What do you want to do?");
-    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toContain('enabled = ["cursor"]');
+    expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
     expect(readFileSync(join(cwd, ".cursor", "hooks.json"), "utf8")).toContain("ai-eng chain");
     expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(agents);
   });
@@ -1031,15 +1041,32 @@ describe("init · non-interactive default skill installation", () => {
     expect(await initMain({ yes: true })).toBe(0);
 
     expect((await capture(() => initMain({ yes: true, surface: ["cursor", "cursor"] }))).result).toBe(0);
-    const declaredSurfaces = (): unknown =>
-      (Bun.TOML.parse(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")) as { surfaces?: { enabled?: unknown } }).surfaces?.enabled;
-    expect(declaredSurfaces()).toEqual(["cursor"]);
+    expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
 
     // The declaration is the set the flag names, so passing it again changes no setting.
     const again = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
     expect(again.result).toBe(0);
     expect(again.out).not.toContain("Surfaces changed");
-    expect(declaredSurfaces()).toEqual(["cursor"]);
+    expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
+  });
+
+  test("--surface in a nested governed repo never rewrites the repo around it", async () => {
+    const { cwd: outer, machine } = sandboxed();
+    expect(await initMain({ yes: true })).toBe(0); // the outer repo governs claude-code
+
+    const inner = join(outer, "packages", "app");
+    mkdirSync(inner, { recursive: true });
+    process.chdir(inner);
+    expect(await initMain({ yes: true, surface: ["cursor"] })).toBe(0); // the nested one governs cursor
+    expect(declaredSurfaces(inner)).toEqual(["cursor"]);
+
+    const outerCarrier = join(machine, ".claude", "settings.json");
+    const carrier = readFileSync(outerCarrier, "utf8");
+    expect((await capture(() => initMain({ yes: true, surface: ["cursor"] }))).result).toBe(0);
+
+    expect(declaredSurfaces(outer)).toEqual(["claude-code"]);
+    expect(readFileSync(outerCarrier, "utf8")).toBe(carrier);
+    expect(declaredSurfaces(inner)).toEqual(["cursor"]);
   });
 
   test("--surface on a config.toml that declares no surfaces never routes into config's refusal", async () => {

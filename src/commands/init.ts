@@ -17,7 +17,7 @@ import { installMachineCarriers } from "../surfaces/carriers-install.ts";
 import { SURFACES, surfaceCanGovern, machineCarrier, retireNpmPowerShellShim } from "../surfaces/adapters.ts";
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
-import { canonicalSurfaceId, enabledSurfaces, home, isCiProvider, isGoverned, CI_PROVIDERS, type CiProvider } from "../env.ts";
+import { canonicalSurfaceId, declaration, home, isCiProvider, isGoverned, CI_PROVIDERS, type CiProvider } from "../env.ts";
 import { planEntries, contractEntries, hasAdapter, advisoryRefusal, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine, refuseText, AZURE_PORTAL_STEPS, CI_PICK_MESSAGE, ciOptions, isLegacyHooksPath } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
@@ -207,10 +207,12 @@ async function reinitHandoff(
   if (existsSync(join(cwd, ".ai-engineering", "config.toml"))) {
     // --surface naming other hosts than the declared ones is a settings change: it goes
     // straight to config's surface step — ticked with those hosts, or applied with --yes.
-    // Only a parsed declaration can answer "the same as declared": without one,
-    // enabledSurfaces() guesses, and a guess must not route into config's own refusal.
+    // The declaration compared here is this folder's own: enabledSurfaces() resolves the
+    // outermost governed ancestor, so pairing it with a cwd-local gate would let a request
+    // that matched a nested repo rewrite the repo around it.
+    const declared = declaration(cwd);
     const requested = flags.surface ?? [];
-    if (isGoverned(cwd) && requested.length > 0 && !sameSurfaces(requested, enabledSurfaces())) {
+    if ("surfaces" in declared && requested.length > 0 && !sameSurfaces(requested, declared.surfaces)) {
       return configMain({ surfaces: requested, yes: flags.yes === true });
     }
     // --yes resolves the hand-off question: rewrite ours, never yours. Without
