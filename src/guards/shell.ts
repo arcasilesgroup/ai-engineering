@@ -936,7 +936,7 @@ export function inlineShellPrograms(command: string): string[] {
     const segments = shellSegments(text);
     if (segments === null) return;
     for (const segment of segments) {
-      const words = shellWords(segment.text).filter((word) => !word.isOperator).map((word) => word.value);
+      const words = commandOf(segment).plain.map((word) => word.value);
       const at = commandIndex(words);
       const name = basename(words[at] ?? "").replace(/\.exe$/i, "").toLowerCase();
       if (!INLINE_SHELLS.has(name) && !PROGRAM_VERBS.has(name)) continue;

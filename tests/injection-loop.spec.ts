@@ -119,6 +119,7 @@ describe("injection · readTargets — what a command line would print", () => {
 
   test("a program on a line the reader cannot read is scanned too", () => {
     expect(readTargets("echo ${x:-a b}; bash -c 'cat notes.txt'")).toEqual(["notes.txt"]);
+    expect(readTargets("2>/dev/null bash -c 'cat notes.txt'")).toEqual(["notes.txt"]);
   });
 
   test("readers are recognised by basename whatever path prefixes them", () => {
