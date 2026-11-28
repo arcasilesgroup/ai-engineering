@@ -644,6 +644,9 @@ describe("Bash writes into the checkpoint folder", () => {
     ["an awk program attached to a short source option", `gawk -e'{print > "${FOLDER}/plan.json"}' x`],
     ["an awk program in a detached source option", `gawk --source '{print > "${FOLDER}/plan.json"}' x`],
     ["an awk program in a detached short source option", `gawk -e '{print > "${FOLDER}/plan.json"}' x`],
+    ["an awk program in an abbreviated source option", `gawk --sour='{print > "${FOLDER}/plan.json"}' x`],
+    ["an awk program file in an abbreviated file option", `gawk --fil=/tmp/w.awk ${FOLDER}/plan.json`],
+    ["a program file an awk option writes itself", `gawk --profile=${FOLDER}/plan.json '{print}' /dev/null`],
     ["an awk program file named after the program", `awk '{print}' -f /tmp/w.awk ${FOLDER}/plan.json`],
     ["an awk program file attached after the program", `awk '{print}' -f/tmp/w.awk ${FOLDER}/plan.json`],
     ["an awk redirection into an assignment", `awk '{print > out}' out=${FOLDER}/plan.json`],
@@ -709,6 +712,8 @@ describe("Bash writes into the checkpoint folder", () => {
     ["an awk regex alternation read of the plan", `awk '/approved|pending/' ${FOLDER}/plan.json`],
     ["an awk read through an attached source option", `gawk --source='{print $1}' ${FOLDER}/plan.json`],
     ["an awk read through a detached short source option", `gawk -e '{print $1}' ${FOLDER}/plan.json`],
+    ["an awk comparison read of the plan", `awk '$2 > 5' ${FOLDER}/plan.json`],
+    ["an awk read with a flag", `awk --posix '{print $1}' ${FOLDER}/plan.json`],
     ["a read redirect of the plan in the folder", `cd ${FOLDER} && cat < demo.json`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {

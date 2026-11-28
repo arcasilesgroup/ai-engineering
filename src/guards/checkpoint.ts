@@ -51,7 +51,14 @@ const CODE_WRITER = /(?:^|[-_])(?:python|node|perl)(?:\d+(?:\.\d+)*)?$/;
 // The cwd rule treats every program that can reach a file as opaque, as it always has.
 const OPAQUE_WRITER = /(?:^|[-_])(?:python|node|perl|ruby|bun|deno|jq|awk|gawk|mawk|nawk)(?:\d+(?:\.\d+)*)?$/;
 const AWK = new Set(["awk", "gawk", "mawk", "nawk"]);
-const AWK_WRITE = />|system\(|\bprintf?\b[^;}]*\|/;
+const AWK_WRITE = /\bprintf?\b[^;}]*[>|]|system\(/;
+const AWK_PROGRAM_OPTION = /^(?:-e|--source(?:=|$))/;
+const AWK_VALUE_OPTION = /^(?:-f|--file(?:=|$)|-v|--assign(?:=|$)|-F|--field-separator(?:=|$))/;
+const AWK_FLAG = new Set([
+  "--", "-c", "-C", "--posix", "--traditional", "--re-interval", "--characters-as-bytes", "--non-decimal-data",
+  "--sandbox", "--bignum", "--use-lc-numeric", "--csv", "--gen-pot", "--lint", "--debug", "--version",
+  "--help", "--copyright",
+]);
 const CHECKPOINTS_DIR = ".ai-engineering/workflow/checkpoints";
 const MAX_LINK_HOPS = 40;
 const isCodeWriter = (name: string): boolean => CODE_WRITER.test(name);
@@ -592,14 +599,23 @@ function awkSourcePrograms(args: readonly string[]): string[] {
   return programs;
 }
 
-/** Whether awk's own program writes: an output redirection inside it, a system() call, or a
+/** Whether an awk option word is one the guard settles: a program it judges (`-e`/`--source`), a
+ *  value that touches no file (`-f`/`--file`, `-v`/`--assign`, `-F`/`--field-separator`), or a
+ *  flag. Any other option word — an abbreviation of a long option, `--profile`/`--dump-variables`
+ *  writing a file of their own, `-W exec=`, the in-place modes — may carry a program or a write
+ *  the guard cannot see, so it is refused at the strictest level rather than read one by one. */
+function isSettledAwkOption(arg: string): boolean {
+  return arg === "-" || AWK_PROGRAM_OPTION.test(arg) || AWK_VALUE_OPTION.test(arg) || AWK_FLAG.has(arg);
+}
+
+/** Whether awk's own program writes: a redirection or a pipe in a print, a system() call, or a
  *  program read from a file the guard cannot see. awk's own options take the word after them,
  *  so the program is the first word that is not one. */
 function awkProgramWrites(command: ShellCommand): boolean {
   const args = command.args.map((word) => word.value);
   const isUnreadableProgram = args.some((arg) => arg === "-f" || arg === "--file" || arg.startsWith("--file=") || /^-f.+/.test(arg));
-  const isInPlace = args.some((arg) => arg === "-i" || arg === "--inplace" || arg === "-iinplace");
-  if (isUnreadableProgram || isInPlace) return true;
+  const isUnknownOption = args.some((arg) => arg.startsWith("-") && !isSettledAwkOption(arg));
+  if (isUnreadableProgram || isUnknownOption) return true;
   const sourcePrograms = awkSourcePrograms(args);
   if (sourcePrograms.length > 0) return sourcePrograms.some((program) => AWK_WRITE.test(program));
   for (let index = 0; index < args.length; index++) {
