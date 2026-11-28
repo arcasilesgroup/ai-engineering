@@ -535,11 +535,25 @@ describe("init · initMain, phase 1 and phase 2", () => {
     const agents = readFileSync(join(cwd, "AGENTS.md"), "utf8");
     const decisions = readFileSync(join(cwd, "DECISIONS.md"), "utf8");
 
-    const { result, out } = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
+    // --surface naming exactly what is declared changes no setting, so the run is an update.
+    const { result, out } = await capture(() => initMain({ yes: true, surface: ["claude-code"] }));
     expect(result).toBe(0);
     expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(agents);
     expect(readFileSync(join(cwd, "DECISIONS.md"), "utf8")).toBe(decisions);
     expect(out).toMatch(/nothing to sync|nothing written/); // the declared surfaces are already current or patches kept
+  });
+
+  test("--yes --surface on a governed repo makes those hosts the declared set, with no question", async () => {
+    const { cwd } = sandboxed();
+    expect(await initMain({ yes: true })).toBe(0);
+    const agents = readFileSync(join(cwd, "AGENTS.md"), "utf8");
+
+    const { result, out } = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
+    expect(result).toBe(0);
+    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toContain('enabled = ["cursor"]');
+    expect(readFileSync(join(cwd, ".cursor", "hooks.json"), "utf8")).toContain("ai-eng chain");
+    expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(agents);
+    expect(out).toContain("Surfaces changed");
   });
 
   test("--yes keeps an AGENTS.md the project already had, byte for byte", async () => {
@@ -943,6 +957,46 @@ describe("init · non-interactive default skill installation", () => {
     expect(result).toBe(0);
     expect(out).toContain("Nothing changed.");
     expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(agents);
+    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toBe(config);
+  });
+
+  test("--surface alone ticks those hosts in the picker of a first install", async () => {
+    const { cwd } = sandboxed();
+    const { result } = await driven({ surface: ["cursor"] }, [
+      ["Create", "y"],
+      ["governed", "\n"], // Enter accepts the hosts --surface ticked
+      ["CI run", "\n"],
+    ]);
+    expect(result).toBe(0);
+    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toContain('enabled = ["cursor"]');
+    expect(readFileSync(join(cwd, ".cursor", "hooks.json"), "utf8")).toContain("ai-eng chain");
+  });
+
+  test("--surface alone on a governed repo goes straight to the surface picker, ticked with those hosts", async () => {
+    const { cwd } = sandboxed();
+    expect(await initMain({ yes: true })).toBe(0);
+    const agents = readFileSync(join(cwd, "AGENTS.md"), "utf8");
+
+    const { result, out } = await driven({ surface: ["cursor"] }, [["governed on", "\n"]]);
+    expect(result).toBe(0);
+    expect(out).not.toContain("already governed. What do you want to do?");
+    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toContain('enabled = ["cursor"]');
+    expect(readFileSync(join(cwd, ".cursor", "hooks.json"), "utf8")).toContain("ai-eng chain");
+    expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(agents);
+  });
+
+  test("an unknown --surface id is refused before any question, governed or not", async () => {
+    const { cwd } = sandboxed();
+    mkdirSync(join(cwd, ".git"));
+    const fresh = await capture(() => initMain({ surface: ["claud-code"] }));
+    expect(fresh.result).toBe(2);
+    expect(fresh.out).toContain('"claud-code" is not a surface this release knows');
+    expect(existsSync(join(cwd, ".ai-engineering"))).toBe(false);
+
+    expect(await initMain({ yes: true })).toBe(0);
+    const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
+    const governed = await capture(() => initMain({ surface: ["claud-code"] }));
+    expect(governed.result).toBe(2);
     expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toBe(config);
   });
 

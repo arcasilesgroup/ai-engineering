@@ -17,7 +17,7 @@ import { installMachineCarriers } from "../surfaces/carriers-install.ts";
 import { SURFACES, surfaceCanGovern, machineCarrier, retireNpmPowerShellShim } from "../surfaces/adapters.ts";
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
-import { canonicalSurfaceId, home, isCiProvider, CI_PROVIDERS, type CiProvider } from "../env.ts";
+import { canonicalSurfaceId, enabledSurfaces, home, isCiProvider, CI_PROVIDERS, type CiProvider } from "../env.ts";
 import { planEntries, contractEntries, hasAdapter, advisoryRefusal, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine, refuseText, AZURE_PORTAL_STEPS, CI_PICK_MESSAGE, ciOptions, isLegacyHooksPath } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
@@ -205,6 +205,12 @@ async function reinitHandoff(
 ): Promise<number | null> {
   // ── Phase 2: the repo is governed — idempotent re-init never tramples your work.
   if (existsSync(join(cwd, ".ai-engineering", "config.toml"))) {
+    // --surface naming other hosts than the declared ones is a settings change: it goes
+    // straight to config's surface step — ticked with those hosts, or applied with --yes.
+    const requested = flags.surface ?? [];
+    if (requested.length > 0 && !sameSurfaces(requested, enabledSurfaces())) {
+      return configMain({ surfaces: requested, yes: flags.yes === true });
+    }
     // --yes resolves the hand-off question: rewrite ours, never yours. Without
     // it, a non-TTY stdin cancels the select and init exits having installed
     // nothing — the recovery path for a half-uninstalled repo has to exist
@@ -230,8 +236,12 @@ async function reinitHandoff(
   return null;
 }
 
-/** Pick which surfaces govern this project. Detected hosts start ticked; on a first
- *  install --yes takes the list as given (`--surface` included) and skips the prompt.
+function sameSurfaces(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((id) => right.includes(id));
+}
+
+/** Pick which surfaces govern this project. The --surface hosts start ticked, else the
+ *  detected ones; --yes takes that list as given and skips the prompt.
  *  A governed repo is handed off in reinitHandoff() and never reaches here. */
 async function pickSurfaces(
   flags: InitFlags,
@@ -245,7 +255,7 @@ async function pickSurfaces(
     const answer = await multiselect({
       message: SURFACE_PICK_MESSAGE,
       options: surfaceOptions().map((s) => ({ value: s.id, label: s.label })),
-      initialValues: detectedSurfaces(cwd),
+      initialValues: flags.surface && flags.surface.length > 0 ? flags.surface : detectedSurfaces(cwd),
       required: true,
       input: input as never,
     });
@@ -399,6 +409,13 @@ async function resolvePhase(
   if (machineExit !== null) return machineExit;
   const repoCode = await ensureRepo(flags, inRepo, cwd, confirmWithInput);
   if (repoCode !== null) return repoCode;
+  // --surface is checked before any question, so a typo is refused on every path, and
+  // both the fresh picker and a governed repo's hand-off see canonical ids.
+  if (flags.surface && flags.surface.length > 0) {
+    flags = { ...flags, surface: flags.surface.map(canonicalSurfaceId) };
+    const refused = validateSurfaces(flags.surface ?? []);
+    if (refused !== null) return refused;
+  }
   const handoff = await reinitHandoff(flags, cwd, input);
   if (handoff !== null) return handoff;
   const pickedResult = await pickSurfaces(flags, cwd, input);

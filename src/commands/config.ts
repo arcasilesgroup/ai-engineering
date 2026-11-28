@@ -17,6 +17,9 @@ import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
 import { VERSION } from "../version.ts";
 
+/** `surfaces` and `yes` are init's: a governed repo's `init --surface` lands here. */
+type ConfigFlags = { add?: string; remove?: string; ci?: string; surfaces?: string[]; yes?: boolean };
+
 type ResolveResult =
   | { kind: "continue"; current: string[]; addedNow: string | null; removing: string[] }
   | { kind: "exit"; code: number };
@@ -28,7 +31,7 @@ type ResolveResult =
  *  has been written, so a refused rewrite leaves the repo exactly as it was. */
 async function resolveSurfaces(
   input: NodeJS.ReadStream | PassThrough,
-  flags: { add?: string; remove?: string },
+  flags: ConfigFlags,
   surfacesBefore: string[],
 ): Promise<ResolveResult> {
   let addedNow: string | null = null;
@@ -58,7 +61,9 @@ async function resolveSurfaces(
     current = current.filter((id) => id !== flags.remove);
     removing = [flags.remove];
   } else {
-    const picked = await pickSurfaces(input, current);
+    // `surfaces` comes from init --surface, already validated there: --yes takes it as
+    // the new set, otherwise it is what the picker starts ticked.
+    const picked = flags.surfaces && flags.yes === true ? flags.surfaces : await pickSurfaces(input, flags.surfaces ?? current);
     if (picked === null) return { kind: "exit", code: 0 };
     removing = current.filter((id) => !picked.includes(id));
     current = picked;
@@ -70,12 +75,12 @@ async function resolveSurfaces(
  *  (the cancellation message is printed here, exactly as before). */
 async function pickSurfaces(
   input: NodeJS.ReadStream | PassThrough,
-  current: string[],
+  ticked: string[],
 ): Promise<string[] | null> {
   const picked = await multiselect({
     message: SURFACE_PICK_MESSAGE,
     options: surfaceOptions().map((s) => ({ value: s.id, label: s.label })),
-    initialValues: current.filter((id) => SURFACES.some((s) => s.id === id)),
+    initialValues: ticked.filter((id) => SURFACES.some((s) => s.id === id)),
     required: true,
     input: input as never,
   });
@@ -181,7 +186,7 @@ async function pickSetting(input: NodeJS.ReadStream | PassThrough): Promise<"sur
   return isCancel(answer) ? null : answer;
 }
 
-export async function configMain(flags: { add?: string; remove?: string; ci?: string }): Promise<number> {
+export async function configMain(flags: ConfigFlags): Promise<number> {
   const input = scriptedInput();
   const root = repoRoot();
   ui.frame(ui.frameTitle("config", root === null ? "this folder" : basename(root), VERSION));
@@ -193,7 +198,7 @@ export async function configMain(flags: { add?: string; remove?: string; ci?: st
     return 2;
   }
   if (flags.ci !== undefined) return changeCiFromFlag(root, flags.ci);
-  if (flags.add === undefined && flags.remove === undefined) {
+  if (flags.add === undefined && flags.remove === undefined && flags.surfaces === undefined) {
     const setting = await pickSetting(input);
     if (setting === null) {
       ui.cancelled("Nothing changed.");
