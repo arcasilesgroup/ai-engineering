@@ -412,8 +412,8 @@ async function resolvePhase(
   const machineExit = resolveMachineSide(flags);
   if (machineExit !== null) return machineExit;
   // Every flag value is checked before any question, so a typo is refused on every path —
-  // no repo created, nothing installed — and both the fresh picker and a governed repo's
-  // hand-off see canonical ids, each of them once.
+  // no repo created, no repo files installed — and both the fresh picker and a governed
+  // repo's hand-off see canonical ids, each of them once.
   if (flags.surface !== undefined && flags.surface.length > 0) {
     const requested = [...new Set(flags.surface.map(canonicalSurfaceId))];
     flags = { ...flags, surface: requested };
