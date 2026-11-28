@@ -11,7 +11,7 @@ import { basename } from "node:path";
 
 /** A redirection operator starting at `lastIndex`. `>(` is process substitution, not a redirect. */
 const REDIRECT_OPERATOR = /(?:\{\w+\}|\d+)?(?:&>>?|>>?[|!&]?|<>|<&)(?!\()/y;
-const asOperator = (operator: string): string => (operator.includes("<&") ? " < " : " > ");
+const asOperator = (operator: string): string => (operator.includes("<&") ? " < " : operator.includes("<>") ? " <> " : " > ");
 function redirectAt(text: string, at: number): string | null {
   REDIRECT_OPERATOR.lastIndex = at;
   return REDIRECT_OPERATOR.exec(text)?.[0] ?? null;
@@ -22,7 +22,29 @@ function redirectAt(text: string, at: number): string | null {
  *  command separators. Only where the shell reads an operator: a quoted or escaped `>` is
  *  a character, and spacing it out would turn `\>` into an escaped space and a redirect. */
 export function normalizeRedirects(command: string): string {
-  return readShell(command).normalized ?? command.replace(new RegExp(REDIRECT_OPERATOR.source, "g"), asOperator);
+  const read = readShell(command);
+  if (read.normalized !== null) return read.normalized;
+  // The quoting cannot be read, so the operators are found without it: a `>` inside a
+  // quoted span, a `${…}` or after a backslash is a character, never a redirection.
+  let out = "";
+  let at = 0;
+  while (at < command.length) {
+    const spanEnd = quotedSpanEnd(command, at);
+    if (spanEnd >= 0) {
+      out += command.slice(at, spanEnd + 1);
+      at = spanEnd + 1;
+      continue;
+    }
+    const operator = redirectAt(command, at);
+    if (operator === null) {
+      out += command[at];
+      at += 1;
+      continue;
+    }
+    out += asOperator(operator);
+    at += operator.length;
+  }
+  return out;
 }
 
 export type ShellSegment = {
@@ -330,9 +352,10 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
       // `2>&1` copies a descriptor. Respelled ` > 1` it would read as a write to a file named
       // 1, so the descriptor is spelled as the file it is: /dev/fd/1. A redirect right after
       // it (`2>&1>file`) is a redirect of its own, so `<` and `>` end the descriptor too.
-      const descriptor = operator.endsWith("&") ? /^(?:\d+|-)(?=$|[\s;&|)<>])/.exec(source.slice(index + operator.length))?.[0] : undefined;
-      normalized += source.slice(copiedUpTo, index) + asOperator(operator) + (descriptor === undefined ? "" : `/dev/fd/${descriptor}`);
-      copiedUpTo = index + operator.length + (descriptor?.length ?? 0);
+      const descriptor = operator.endsWith("&") ? /^(\s*)((?:\d+|-)(?=$|[\s;&|)<>]))/.exec(source.slice(index + operator.length)) : null;
+      const name = descriptor?.[2];
+      normalized += source.slice(copiedUpTo, index) + asOperator(operator) + (name === undefined ? "" : `/dev/fd/${name}`);
+      copiedUpTo = index + operator.length + (descriptor === null ? 0 : descriptor[0].length);
       // Read whole, so the `|` of `>|` or the `&` of `>&` never cuts the command.
       current += operator;
       isWordStart = true;
@@ -529,7 +552,79 @@ export type ShellWord = {
   isOperator: boolean;
   /** The characters the shell reads unquoted: where `$x`, `*` and `{a,b}` split or expand. */
   unquoted: string;
+  /** The word exactly as written, quotes and escapes kept: a path token keeps the spelling
+   *  the guard has to judge, and the verb word keeps the spelling it cannot decode. */
+  original: string;
 };
+
+/** A word the shell expands before the program sees it: an unquoted glob or brace. */
+export const GLOB_CHARS = /[*?[]/;
+
+/** A word rooted on a drive (`C:\…`): a path only Windows can spell, so its `\` separates
+ *  the segments of one path and is a character, never an escape. Read as an escape the word
+ *  names no file at all — `C:\repo\.ai-engineering\config.toml` comes out as
+ *  `C:repo.ai-engineeringconfig.toml`, which no guard resolves to the governed file.
+ *
+ *  No other spelling is Windows-only. `\` is this reader's escape wherever the word could also
+ *  be read by a POSIX shell, and the words the model judges are the ones a shell already
+ *  unquoted: `bash` runs `.\ai-engineering` as `.ai-engineering` on every host, so keeping that
+ *  `\` names `./ai-engineering` and lets the governed directory be deleted unjudged. */
+const DRIVE_PATH_WORD = /^[A-Za-z]:(?:\\|$)/;
+
+/** Whether a word is spelled as a Windows path, so its `\` separates segments. `shellWords` asks
+ *  here while it decodes, so the decoded word every guard resolves a path from was read by this
+ *  one rule. */
+export function isWindowsPathWord(word: string): boolean {
+  return DRIVE_PATH_WORD.test(word);
+}
+
+/** Commands that print the bytes of the files they name, so reading one is how a payload
+ *  reaches the model. Every guard that asks "what does this command read" asks here. */
+const FILE_CONTENT_READERS = new Set([
+  "cat", "bat", "tac", "nl", "head", "tail", "less", "more", "strings", "xxd", "od",
+  "sed", "awk", "grep", "rg", "zgrep", "zcat", "sort", "uniq", "cut", "tr", "column",
+  "diff", "jq", "yq",
+]);
+
+/** Commands whose operands they only read. Wider than the printers above because naming a
+ *  governed path with `test`, `cd` or `stat` writes nothing either. A command here that can
+ *  also write through a flag is not a reader; `WRITE_FLAGS` holds those flags. */
+const OPERAND_READERS = new Set([
+  "cat", "less", "more", "head", "tail", "grep", "egrep", "fgrep", "rg", "ag", "wc", "diff", "cmp", "ls", "stat",
+  "file", "sha256sum", "sha1sum", "sha512sum", "shasum", "md5", "md5sum", "cksum", "test", "[", "[[", "echo",
+  "printf", "realpath", "readlink", "basename", "dirname", "jq", "nl", "od", "hexdump", "strings", "du", "bat",
+  "tree", "cd", "pushd", "popd",
+  // PowerShell readers (case-insensitive: names are compared lowercased)
+  "get-content", "gc", "type", "select-string", "sls", "test-path", "get-item", "gi", "get-childitem", "gci",
+  "dir", "resolve-path", "write-output", "write-host",
+]);
+
+/** A long output option always writes, whatever the command is. */
+const OUTPUT_OPTION = /^--(?:output|out|output-document|outfile|log-file)(?:=|$)/;
+
+/** Whether the arguments carry a long output option naming a file the program writes. */
+export function writesLongOutput(args: readonly string[]): boolean {
+  return args.some((arg) => OUTPUT_OPTION.test(arg));
+}
+
+/** The flags that turn a reader into a writer: `sed -i`, `awk -i inplace`, `sort -o`. */
+const WRITE_FLAGS: Record<string, RegExp> = { sed: /^-[A-Za-z]*i/, awk: /^-[A-Za-z]*i/, sort: /^-[A-Za-z]*o/ };
+
+/** Whether `name` prints the bytes of its file arguments into the reader's context. `-i`
+ *  rewrites the file instead, so an in-place `sed`/`awk` reads nothing. */
+export function printsFileContent(name: string, args: readonly string[]): boolean {
+  if (!FILE_CONTENT_READERS.has(name)) return false;
+  return !(writesLongOutput(args) || args.some((arg) => WRITE_FLAGS[name]?.test(arg) ?? false));
+}
+
+/** Whether `name` only reads the paths it names, so a governed path in its arguments is
+ *  not a write to it. The guard that judges writes asks this; the printers above are a
+ *  subset of it, and both tables live here so a new command is added once. */
+export function readsOperandsOnly(name: string, args: readonly string[]): boolean {
+  if (!OPERAND_READERS.has(name)) return false;
+  if (writesLongOutput(args)) return false;
+  return !args.some((arg) => WRITE_FLAGS[name]?.test(arg) ?? false);
+}
 
 const ANSI_ESCAPES: Record<string, string> = { n: "\n", t: "\t", r: "\r", "\\": "\\", "'": "'", '"': '"', e: "\x1b", a: "\x07", "0": "\0" };
 
@@ -558,8 +653,9 @@ export function shellWords(text: string): ShellWord[] {
   let unquoted = "";
   let isQuoted = false;
   let hasWord = false;
-  const end = (): void => {
-    if (hasWord) words.push({ value, isQuoted, isOperator: false, unquoted });
+  let start = 0;
+  const end = (stop: number): void => {
+    if (hasWord) words.push({ value, isQuoted, isOperator: false, unquoted, original: text.slice(start, stop) });
     value = "";
     unquoted = "";
     isQuoted = false;
@@ -568,18 +664,21 @@ export function shellWords(text: string): ShellWord[] {
   for (let index = 0; index < text.length; index++) {
     const char = text[index]!;
     const next = text[index + 1];
+    if (!hasWord) start = index;
     if (/\s/.test(char)) {
-      end();
+      end(index);
     } else if (char === "<" || char === ">") {
-      end();
+      end(index);
       let operator = char;
       while (text[index + 1] === "<" || text[index + 1] === ">") operator += text[++index];
-      words.push({ value: operator, isQuoted: false, isOperator: true, unquoted: operator });
+      words.push({ value: operator, isQuoted: false, isOperator: true, unquoted: operator, original: operator });
     } else if (char === "\\") {
-      value += next ?? "";
+      // A separator in a Windows path stays; anywhere else the shell removes it.
+      const isSeparator = isWindowsPathWord(value);
+      value += isSeparator ? char : next ?? "";
       hasWord = true;
       isQuoted = true;
-      index++;
+      if (!isSeparator) index++;
     } else if (char === "$" && next === "{") {
       const close = Math.min(quotedSpanEnd(text, index), text.length - 1);
       value += text.slice(index, close + 1);
@@ -613,7 +712,7 @@ export function shellWords(text: string): ShellWord[] {
       hasWord = true;
     }
   }
-  end();
+  end(text.length);
   return words;
 }
 
@@ -628,6 +727,155 @@ export function stripRedirectWords(words: readonly ShellWord[]): ShellWord[] {
     kept.push(words[at]!);
   }
   return kept;
+}
+
+/** Every redirection form, one spelling. `<>`, `<<<`, `<<-`, `&>>`, `2>f`, `{fd}>`, `>|`
+ *  and `>&` are all this grammar, and a guard that has a word it never parsed asks here
+ *  instead of carrying a regular expression of its own. */
+const REDIRECT_FORM = /(?:\{\w+\}|\d+)?(?:&>>?|>>?[|!&]?|<>|<{1,3}|<&)(?!\()/;
+
+/** Where a redirection starts in `word` the guard has not parsed, and the part of the word
+ *  it covers: `f>x` is a word and a redirect, `>f` is an operator and its file. */
+export function findRedirect(word: string): { index: number; operator: string; attached: string } | null {
+  const found = REDIRECT_FORM.exec(word);
+  if (found === null) return null;
+  return { index: found.index, operator: found[0], attached: word.slice(found.index + found[0].length) };
+}
+
+/** One redirection the shell reads: the operator as written, and the word naming the file
+ *  it reads or writes (`null` when nothing follows, as in `echo x >`). */
+export type ShellRedirect = { operator: string; target: ShellWord | null };
+
+/** Whether a redirection target names a file this session creates: not a descriptor copy
+ *  (`&1`, `&-`), not a bare descriptor number, and not a device. */
+function isFileTarget(target: ShellWord | null): target is ShellWord {
+  return target !== null
+    && !target.isOperator
+    && target.value !== "-"
+    && !/^\d+$/.test(target.value)
+    && !target.value.startsWith("&")
+    && !target.value.startsWith("/dev/");
+}
+
+/** The words a program receives, and every redirection read out as operator + target. One
+ *  pass over one word list, so a guard never needs a redirection regex of its own. */
+function readRedirects(words: readonly ShellWord[]): { plain: ShellWord[]; redirects: ShellRedirect[] } {
+  const plain: ShellWord[] = [];
+  const redirects: ShellRedirect[] = [];
+  for (let at = 0; at < words.length; at++) {
+    const word = words[at]!;
+    if (!word.isOperator) {
+      plain.push(word);
+      continue;
+    }
+    // The word after an operator belongs to it, exactly as stripRedirectWords reads it.
+    const next = words[at + 1];
+    redirects.push({ operator: word.value, target: next ?? null });
+    at++;
+  }
+  return { plain, redirects };
+}
+
+/** One command as the shell runs it: the single model every guard is a predicate over.
+ *  Where the program name stands, the words it receives, the files its redirections name,
+ *  and whether the shell expands each argument. */
+export type ShellCommand = {
+  /** The segment this command came from: pipes, substitutions, heredocs and scope. */
+  segment: ShellSegment;
+  /** Every word of the segment, redirection operators included, as the shell hands them over. */
+  words: ShellWord[];
+  /** `words` without the redirection operators and the words they name. */
+  plain: ShellWord[];
+  redirects: ShellRedirect[];
+  /** Where the program name stands in `plain`, past `NAME=value` and wrappers like `sudo`.
+   *  Equal to `plain.length` when the segment runs no program. */
+  verbIndex: number;
+  /** The program's name, the basename of its word, or "" when nothing runs. */
+  verb: string;
+  /** The words the program receives after its name. */
+  args: ShellWord[];
+  /** The files an output redirect creates, or a read-write `<>` opens and may rewrite: no
+   *  descriptor copies, no devices. */
+  writes: ShellWord[];
+  /** The files an input redirect reads: a heredoc's delimiter and a here-string's text
+   *  name none, and a descriptor copy or a device is no file to read. */
+  reads: ShellWord[];
+  /** Whether the shell expands each of `args`: an unquoted glob, brace or `$name`. */
+  isArgExpanded: boolean[];
+};
+
+/** One segment as a typed command. `text` is the segment as the shell would hand it over:
+ *  the caller passes a substitution-resolved or variable-expanded form when it wants the
+ *  program's own view rather than the line as written. */
+export function commandOf(segment: ShellSegment, text: string = segment.text): ShellCommand {
+  // Nothing to respell: a segment with no redirection and no continued line reaches the
+  // program exactly as the reader handed it over, so it is not parsed a second time.
+  const words = /[<>]/.test(text) || /\\\r?\n/.test(text) ? shellWords(normalizeRedirects(text)) : shellWords(text);
+  return withWords(segment, words);
+}
+
+/** One segment as a typed command over a word list the caller has already resolved: the
+ *  guard that follows `$name` through a line substitutes each word and asks again, instead
+ *  of tokenising the line a second time. */
+export function withWords(segment: ShellSegment, words: readonly ShellWord[]): ShellCommand {
+  const { plain, redirects } = readRedirects(words);
+  const verbIndex = commandIndex(plain.map((word) => word.value));
+  const writes = redirects.flatMap(({ operator, target }) => ((operator.startsWith(">") || operator === "<>") && isFileTarget(target) ? [target] : []));
+  const reads = redirects.flatMap(({ operator, target }) => ((operator === "<" || operator === "<>") && isFileTarget(target) ? [target] : []));
+  const args = plain.slice(verbIndex + 1);
+  return {
+    segment,
+    words: [...words],
+    plain,
+    redirects,
+    verbIndex,
+    verb: basename(plain[verbIndex]?.value ?? ""),
+    args,
+    writes,
+    reads,
+    isArgExpanded: args.map((word) => GLOB_CHARS.test(word.unquoted) || /\{[^}]*,/.test(word.unquoted)),
+  };
+}
+
+/** One parse of the whole line into typed commands, or null when the quoting cannot be
+ *  read. Every guard reads a command through this and judges the model; none of them
+ *  tokenises the line a second time. */
+export function readCommands(command: string): ShellCommand[] | null {
+  const segments = shellSegments(command);
+  return segments === null ? null : segments.map((segment) => commandOf(segment));
+}
+
+/** One command read from text whose quoting the reader cannot resolve: the words it can
+ *  see, judged as a single command. A guard that cannot read the line whole still judges
+ *  what it can see rather than passing it. */
+function readCommandLenient(text: string, isAfterPipe = false): ShellCommand {
+  return commandOf({
+    text,
+    isAfterPipe,
+    opensSubstitution: false,
+    isInSubstitution: false,
+    isProcessSubstitution: false,
+    heredocs: [],
+    substitutions: [],
+    scope: 0,
+    parentScope: 0,
+    isConditional: false,
+  }, text);
+}
+
+/** One lenient command per piece of a text the reader could not read whole, cut where the
+ *  shell cuts a command: a newline, `;`, `&&`, `||`, a background `&` end one, and a `|`
+ *  starts the next stage of the pipeline. */
+export function readCommandsLenient(text: string): ShellCommand[] {
+  const pieces = text.split(/(\|\||&&|\|&|\||;|(?<![<>])&(?!>)|\r?\n)/);
+  const commands: ShellCommand[] = [];
+  for (let index = 0; index < pieces.length; index += 2) {
+    const piece = pieces[index]!;
+    if (piece.trim().length === 0) continue;
+    const separator = pieces[index - 1];
+    commands.push(readCommandLenient(piece, separator === "|" || separator === "|&"));
+  }
+  return commands;
 }
 
 /** The argument words of one normalized segment, with redirections and their targets stripped. */
@@ -677,10 +925,30 @@ function staticOutput(inner: string): string | null {
 }
 
 const INLINE_SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "mksh", "ash", "fish"]);
+/** Verbs whose words are a program of their own: PowerShell and cmd spell the flag their
+ *  own way, and `eval` takes its whole remainder as the program. */
+const PROGRAM_VERBS = new Set(["pwsh", "powershell", "cmd", "eval"]);
+const PROGRAM_FLAG = /^(?:-[A-Za-z]*c[A-Za-z]*|\/{1,2}(?:command|[ck]))$/i;
 
-/** Every `sh -c` / `bash -c` program in `command`, including ones nested inside those
- *  programs. The words come from the same reader the guards already share, so a quoted
- *  program is one word and not a second grammar. Empty when the line cannot be read. */
+/** The program one verb hands to an interpreter, or null when its words carry none. A
+ *  POSIX shell receives its program as a single word; PowerShell, cmd and eval receive
+ *  the rest of their line. */
+function inlineProgram(name: string, rest: readonly string[]): string | null {
+  if (name === "eval") {
+    const program = rest.filter((word) => word !== "--").join(" ");
+    return program.length === 0 ? null : program;
+  }
+  const flag = rest.findIndex((word) => PROGRAM_FLAG.test(word));
+  if (flag < 0) return null;
+  const after = rest.slice(flag + 1);
+  const program = INLINE_SHELLS.has(name) ? (after[0] === "--" ? after[1] : after[0]) : after.join(" ");
+  return program === undefined || program.length === 0 ? null : program;
+}
+
+/** Every program `command` hands to an interpreter (`sh -c '…'`, `pwsh -Command '…'`,
+ *  `cmd /c '…'`, `eval '…'`), including ones nested inside those programs. The words come
+ *  from the same reader the guards already share, so a quoted program is one word and not a
+ *  second grammar. Empty when the line cannot be read. */
 export function inlineShellPrograms(command: string): string[] {
   const found: string[] = [];
   const visit = (text: string, depth: number): void => {
@@ -688,14 +956,12 @@ export function inlineShellPrograms(command: string): string[] {
     const segments = shellSegments(text);
     if (segments === null) return;
     for (const segment of segments) {
-      const words = shellWords(segment.text).filter((word) => !word.isOperator).map((word) => word.value);
+      const words = commandOf(segment).plain.map((word) => word.value);
       const at = commandIndex(words);
-      const name = basename(words[at] ?? "");
-      if (!INLINE_SHELLS.has(name)) continue;
-      const flag = words.findIndex((word, index) => index > at && /^-[A-Za-z]*c[A-Za-z]*$/.test(word));
-      const next = flag >= 0 ? words[flag + 1] : undefined;
-      const body = next === "--" ? words[flag + 2] : next;
-      if (body === undefined || body.length === 0) continue;
+      const name = basename(words[at] ?? "").replace(/\.exe$/i, "").toLowerCase();
+      if (!INLINE_SHELLS.has(name) && !PROGRAM_VERBS.has(name)) continue;
+      const body = inlineProgram(name, words.slice(at + 1));
+      if (body === null) continue;
       found.push(body);
       visit(body, depth + 1);
     }

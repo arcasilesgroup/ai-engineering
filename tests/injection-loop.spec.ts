@@ -102,14 +102,44 @@ describe("injection · readTargets — what a command line would print", () => {
     expect(readTargets("jq . package.json")).toEqual([".", "package.json"]);
   });
 
+  test("a printer behind another verb still contributes its arguments", () => {
+    expect(readTargets("git diff notes.txt")).toEqual(["notes.txt"]);
+    expect(readTargets("git grep needle notes.txt")).toEqual(["needle", "notes.txt"]);
+  });
+
+  test("a here-string, a heredoc delimiter and a closed descriptor name no file", () => {
+    expect(readTargets("grep -i needl <<< 'notes.txt'")).toEqual(["needl"]);
+    expect(readTargets("cat < notes.txt <<EOF")).toEqual(["notes.txt"]);
+    expect(readTargets("cat 3<&-")).toEqual([]);
+  });
+
+  test("a heredoc body handed to a shell is scanned like the line that reads it", () => {
+    expect(readTargets("bash <<'EOF'\ncat notes.txt\nEOF")).toEqual(["notes.txt"]);
+  });
+
+  test("a program on a line the reader cannot read is scanned too", () => {
+    expect(readTargets("echo ${x:-a b}; bash -c 'cat notes.txt'")).toEqual(["notes.txt"]);
+    expect(readTargets("2>/dev/null bash -c 'cat notes.txt'")).toEqual(["notes.txt"]);
+  });
+
   test("readers are recognised by basename whatever path prefixes them", () => {
     expect(readTargets("/usr/bin/cat notes.txt")).toEqual(["notes.txt"]);
     expect(readTargets("./tail -3 log.txt")).toEqual(["log.txt"]);
   });
 
+  test("a line the reader cannot read loses no other piece's targets", () => {
+    expect(readTargets("echo ${x:-> f}\ncat notes.txt")).toEqual(["notes.txt"]);
+    expect(readTargets("echo ${x:-> f}; cat notes.txt")).toEqual(["notes.txt"]);
+    expect(readTargets("echo ${x:-> f} && tail -3 log.txt")).toEqual(["log.txt"]);
+    expect(readTargets("echo ${x:-> f} | cat notes.txt")).toEqual(["notes.txt"]);
+    expect(readTargets("echo ${x:-> f} & cat notes.txt")).toEqual(["notes.txt"]);
+  });
+
   test("redirect targets are scanned, bare or attached, quoted or not", () => {
     expect(readTargets("wc -l < notes.txt")).toEqual(["notes.txt"]);
-    expect(readTargets("tr a-z A-Z <notes.txt")).toEqual(["notes.txt", "a-z", "A-Z", "<notes.txt"]);
+    // The attached form is the same redirection, so the file is `notes.txt` and the
+    // token `<notes.txt` is not a second, nonexistent path to scan.
+    expect(readTargets("tr a-z A-Z <notes.txt")).toEqual(["notes.txt", "a-z", "A-Z"]);
     expect(readTargets('cat "my file.txt"')).toEqual(["my file.txt"]);
   });
 

@@ -17,7 +17,7 @@ import { installMachineCarriers } from "../surfaces/carriers-install.ts";
 import { SURFACES, surfaceCanGovern, machineCarrier, retireNpmPowerShellShim } from "../surfaces/adapters.ts";
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
-import { canonicalSurfaceId, home, isCiProvider, CI_PROVIDERS, type CiProvider } from "../env.ts";
+import { canonicalSurfaceId, declaration, home, isCiProvider, isGoverned, repoRoot, CI_PROVIDERS, type CiProvider } from "../env.ts";
 import { planEntries, contractEntries, hasAdapter, advisoryRefusal, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine, refuseText, AZURE_PORTAL_STEPS, CI_PICK_MESSAGE, ciOptions, isLegacyHooksPath } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
@@ -205,6 +205,20 @@ async function reinitHandoff(
 ): Promise<number | null> {
   // ── Phase 2: the repo is governed — idempotent re-init never tramples your work.
   if (existsSync(join(cwd, ".ai-engineering", "config.toml"))) {
+    // --surface naming other hosts than the declared ones is a settings change: it goes
+    // straight to config's surface step — ticked with those hosts, or applied with --yes.
+    // The declaration compared here is this folder's own, and config would write the repo
+    // that governs, so a folder the governing repo does not cover is refused instead.
+    const declared = declaration(cwd);
+    const requested = flags.surface ?? [];
+    if ("surfaces" in declared && requested.length > 0 && !sameSurfaces(requested, declared.surfaces)) {
+      const governing = repoRoot(cwd);
+      if (governing !== null && governing !== cwd) {
+        ui.fail(`--surface is refused here: it would rewrite ${join(governing, ".ai-engineering", "config.toml")}, the declaration of ${governing}, which governs this folder — not ${join(cwd, ".ai-engineering", "config.toml")}, which the gate never reads and you edit by hand.`);
+        return 2;
+      }
+      return configMain({ surfaces: requested, yes: flags.yes === true });
+    }
     // --yes resolves the hand-off question: rewrite ours, never yours. Without
     // it, a non-TTY stdin cancels the select and init exits having installed
     // nothing — the recovery path for a half-uninstalled repo has to exist
@@ -230,8 +244,12 @@ async function reinitHandoff(
   return null;
 }
 
-/** Pick which surfaces govern this project. Detected hosts start ticked; on a first
- *  install --yes takes the list as given (`--surface` included) and skips the prompt.
+function sameSurfaces(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((id) => right.includes(id));
+}
+
+/** Pick which surfaces govern this project. The --surface hosts start ticked, else the
+ *  detected ones; --yes takes that list as given and skips the prompt.
  *  A governed repo is handed off in reinitHandoff() and never reaches here. */
 async function pickSurfaces(
   flags: InitFlags,
@@ -245,7 +263,7 @@ async function pickSurfaces(
     const answer = await multiselect({
       message: SURFACE_PICK_MESSAGE,
       options: surfaceOptions().map((s) => ({ value: s.id, label: s.label })),
-      initialValues: detectedSurfaces(cwd),
+      initialValues: flags.surface && flags.surface.length > 0 ? flags.surface : detectedSurfaces(cwd),
       required: true,
       input: input as never,
     });
@@ -258,15 +276,11 @@ async function pickSurfaces(
   return picked.map(canonicalSurfaceId);
 }
 
-/** Pick where the merge gate runs. The origin remote preselects; --ci and --yes skip the prompt. */
-async function pickCi(flags: InitFlags, cwd: string, input: NodeJS.ReadStream | PassThrough): Promise<number | CiProvider> {
-  if (flags.ci !== undefined) {
-    if (isCiProvider(flags.ci)) return flags.ci;
-    ui.fail(`--ci "${flags.ci}" is not a CI provider: use ${CI_PROVIDERS.join(", ")}.`);
-    return 2;
-  }
+/** Pick where the merge gate runs once no --ci was given: the origin remote preselects,
+ *  and --yes takes that suggestion. */
+async function pickCi(yes: boolean, cwd: string, input: NodeJS.ReadStream | PassThrough): Promise<number | CiProvider> {
   const detected = detectedCiProvider(cwd);
-  if (flags.yes === true) return detected;
+  if (yes) return detected;
   const answer = await select({
     message: CI_PICK_MESSAGE,
     options: ciOptions(),
@@ -397,6 +411,29 @@ async function resolvePhase(
 ): Promise<number | { picked: string[]; ci: CiProvider }> {
   const machineExit = resolveMachineSide(flags);
   if (machineExit !== null) return machineExit;
+  // Every flag value is checked before any question, so a typo is refused on every path —
+  // no repo created, no repo files installed — and both the fresh picker and a governed
+  // repo's hand-off see canonical ids, each of them once.
+  if (flags.surface !== undefined && flags.surface.length > 0) {
+    const requested = [...new Set(flags.surface.map(canonicalSurfaceId))];
+    flags = { ...flags, surface: requested };
+    const refused = validateSurfaces(requested);
+    if (refused !== null) return refused;
+  }
+  let requestedCi: CiProvider | undefined;
+  if (flags.ci !== undefined) {
+    if (!isCiProvider(flags.ci)) {
+      ui.fail(`--ci "${flags.ci}" is not a CI provider: use ${CI_PROVIDERS.join(", ")}.`);
+      return 2;
+    }
+    requestedCi = flags.ci;
+  }
+  // --ci writes the CI template on a first install and never on a re-init, so on a repo
+  // that is already governed it is refused rather than accepted and dropped.
+  if (requestedCi !== undefined && isGoverned(cwd)) {
+    ui.fail(`--ci is not applied on a repo that is already governed — change the provider with \`ai-eng config --ci <provider>\` (${CI_PROVIDERS.join(", ")}).`);
+    return 2;
+  }
   const repoCode = await ensureRepo(flags, inRepo, cwd, confirmWithInput);
   if (repoCode !== null) return repoCode;
   const handoff = await reinitHandoff(flags, cwd, input);
@@ -405,7 +442,7 @@ async function resolvePhase(
   if (typeof pickedResult === "number") return pickedResult;
   const invalid = validateSurfaces(pickedResult);
   if (invalid !== null) return invalid;
-  const ci = await pickCi(flags, cwd, input);
+  const ci = requestedCi !== undefined ? requestedCi : await pickCi(flags.yes === true, cwd, input);
   if (typeof ci === "number") return ci;
   return { picked: pickedResult, ci };
 }

@@ -18,7 +18,7 @@ import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
 import surfacesJson from "../surfaces/surfaces.json";
-import { applySegmentAssignments, applySegmentMutations, commandIndex, createVariableScope, jsonToolOperands, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, substituteVariables, variablesForSegment } from "./shell.ts";
+import { applySegmentAssignments, applySegmentMutations, COMMAND_PREFIXES, commandOf, createVariableScope, findRedirect, GLOB_CHARS, isWindowsPathWord, jsonToolOperands, normalizeRedirects, readCommands, readsOperandsOnly, resolveSubstitutions, substituteVariables, variablesForSegment, withWords, writesLongOutput, type ShellCommand } from "./shell.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
  *  `sed` joins them only with -i. The list may over-deny: that is a person told to
@@ -29,9 +29,6 @@ const WRITERS: Record<string, true> = {
   ruby: true, node: true, sh: true, bash: true, zsh: true, bun: true,
 };
 
-const REDIRECT = /\d*>>?\s*("[^"]*"|'[^']*'|[^\s;|&]+)/g;
-const SEPARATORS = /[\n;|&]+/;
-const REDIRECTION = /^(?:\{[\w]+\})?\d*(?:&>>?|>>?[|!&]?|<>|<{1,3}|<&)(.*)$/;
 /** A path-shaped token with at least one `/` and no leading `/` — the form the
  *  absolute-path rewrite cannot see, and therefore the form that evaded it. */
 const RELATIVE_PATH = /(^|[\s"'=<>|;&(])((?:\.\.?\/)?[\w.@+-]+(?:\/[\w.@+-]+)+)/g;
@@ -57,39 +54,20 @@ const RUNTIMES = new Set(["bun", "node", "npx", "bunx", "pnpx"]);
 const PACKAGE_MANAGERS = new Set(["npm", "pnpm", "yarn"]);
 /** Verbs that copy, move or link a tree: what lets the package folder run under another name. */
 const COPIERS = new Set(["cp", "mv", "ln", "rsync", "tar", "ditto", "install", "zip", "pax", "scp", "copy-item", "cpi", "move-item", "mi", "rename-item", "rni"]);
-/** Words that run the next word as the program, as `find -exec sudo cp …` does. */
-const EXEC_WRAPPERS = new Set(["sudo", "env", "nice", "nohup", "command", "doas"]);
-const CLI_WRAPPERS = new Set(["bunx", "command", "env", "exec", "nohup", "npx", "npm", "pnpm", "script", "sudo", "time", "timeout", "xargs", "yarn"]);
+/** Words that run the next word as the program (`find -exec sudo cp …`) are the reader's
+ *  own prefix table; a package runner starts the program its arguments name. */
+const CLI_WRAPPERS = new Set([...COMMAND_PREFIXES, ...PACKAGE_MANAGERS, "bunx", "npx", "pnpx", "script"]);
 
 function commandName(word: string): string {
   const unquoted = word.replace(/['"]/g, "").replace(/^[()]+|[()]+$/g, "");
   const isQuoted = /^['"].*['"]$/.test(word);
-  const withoutRedirect = isQuoted
-    ? unquoted
-    : unquoted.replace(/(?:\{[\w]+\})?\d*(?:&>>?|>>?[|!&]?|<>|<{1,3}|<&).*$/, "");
+  const redirect = isQuoted ? null : findRedirect(unquoted);
+  const withoutRedirect = redirect === null ? unquoted : unquoted.slice(0, redirect.index);
   const isWindowsPath = /^(?:[A-Za-z]:|\.{1,2})\\/.test(withoutRedirect);
   const normalized = isWindowsPath || withoutRedirect.includes("/")
     ? withoutRedirect.replace(/\\/g, "/")
     : withoutRedirect.replace(/\\(.)/g, "$1");
   return basename(normalized);
-}
-
-function stripRedirections(args: string[]): string[] {
-  const kept: string[] = [];
-  for (let index = 0; index < args.length; index++) {
-    const word = args[index]!;
-    if (/^['"].*['"]$/.test(word)) {
-      kept.push(word);
-      continue;
-    }
-    const redirect = REDIRECTION.exec(word);
-    if (!redirect) {
-      kept.push(word);
-      continue;
-    }
-    if (redirect[1] === "" && index + 1 < args.length) index++;
-  }
-  return kept;
 }
 
 function isCliEntrypoint(word: string): boolean {
@@ -105,31 +83,12 @@ function startsEntrypoint(before: string[]): boolean {
 }
 
 /** A verb word anywhere in the arguments counts: flags and their values are not parsed,
- *  because `-y`, `--color`, `--` and unknown value flags all shift a positional reading. */
-function restrictedAiEngArgs(args: string[]): boolean {
-  const words = stripRedirections(args);
+ *  because `-y`, `--color`, `--` and unknown value flags all shift a positional reading.
+ *  The words come from the command model, which already dropped every redirection. */
+function restrictedAiEngArgs(words: string[]): boolean {
   const has = (word: string): boolean => words.includes(word);
   return has("uninstall") || has("wrap")
     || (has("config") && words.some((word) => /^--remove(?:=|$)/.test(word)));
-}
-
-const SHELL_KEYWORDS = new Set(["", "(", ")", ...RESERVED_WORDS]);
-
-/** Where the command word sits: past keywords, `NAME=value` and redirections, which the
- *  shell lets come BEFORE the verb (`>/dev/null ai-eng uninstall`, `2>&1 rm x`). */
-function commandStart(words: string[]): number {
-  let index = 0;
-  while (index < words.length) {
-    const word = words[index]!;
-    if (SHELL_KEYWORDS.has(word) || /^[A-Za-z_][A-Za-z0-9_]*\+?=/.test(word)) {
-      index++;
-      continue;
-    }
-    const redirect = /^['"]/.test(word) ? null : REDIRECTION.exec(word);
-    if (redirect === null) return index;
-    index += redirect[1] === "" ? 2 : 1;
-  }
-  return index;
 }
 
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "mksh", "ash", "fish", "csh", "tcsh", "pwsh", "powershell"]);
@@ -139,12 +98,6 @@ const NON_SHELL_INLINE = /^(?:-[A-Za-z]*[ceEp][A-Za-z]*|--(?:eval|print|command)
 
 function inlineCodeFlag(name: string): RegExp {
   return SHELLS.has(name) ? /^-[A-Za-z]*c[A-Za-z]*$/ : NON_SHELL_INLINE;
-}
-
-/** The verb a segment runs, past redirections and run-it-for-me prefixes (`command rm`). */
-function verbOf(words: string[]): { index: number; name: string } {
-  const index = commandIndex(words, commandName, commandStart(words));
-  return { index, name: commandName(words[index] ?? "") };
 }
 
 const INFO_FLAGS = /^(?:--version|--help|-V|-v|-h)$/;
@@ -200,15 +153,6 @@ function readOperands(name: string, args: readonly string[]): number[] {
   });
 }
 
-const READERS = new Set([
-  "cat", "less", "more", "head", "tail", "grep", "egrep", "fgrep", "rg", "ag", "wc", "diff", "cmp", "ls", "stat",
-  "file", "sha256sum", "sha1sum", "sha512sum", "shasum", "md5", "md5sum", "cksum", "test", "[", "[[", "echo",
-  "printf", "realpath", "readlink", "basename", "dirname", "jq", "nl", "od", "hexdump", "strings", "du", "bat",
-  "tree", "cd", "pushd", "popd",
-  // PowerShell readers (case-insensitive: names are compared lowercased)
-  "get-content", "gc", "type", "select-string", "sls", "test-path", "get-item", "gi", "get-childitem", "gci",
-  "dir", "resolve-path", "write-output", "write-host",
-]);
 const GIT_READERS = new Set(["diff", "log", "show", "status", "blame", "ls-files", "cat-file", "grep", "check-ignore", "rev-parse", "shortlog", "describe"]);
 /** git subcommands that record what is on disk without changing a byte of it. An agent may
  *  stage and commit governance files ai-eng wrote (the lock after `ai-eng update`): the
@@ -225,7 +169,6 @@ const TREE_WRITERS = new Set([
 /** Writers whose targets live in a file the guards never read. */
 const DIFF_APPLIERS = new Set(["patch", "ed", "ex"]);
 const GIT_TREE_WRITERS = new Set(["mv", "rm", "checkout", "restore", "clean"]);
-const GLOB_CHARS = /[*?[]/;
 
 /** Commands that only ever name the package, never run it as a bin. */
 const NAMES_THE_PACKAGE = new Set(["git", "gh", "npm", "pnpm", "yarn"]);
@@ -289,14 +232,15 @@ function gitWorkingDirIndexes(args: string[]): number[] {
 }
 
 function isReader(verb: string, args: string[]): boolean {
-  // `git diff --output=x` writes: a long output option is never a read.
-  if (args.some((arg) => /^--(?:output|out|output-document|outfile|log-file)(?:=|$)/.test(arg))) return false;
+  // `git diff --output=x` writes: a long output option is never a read, whatever runs.
+  if (writesLongOutput(args)) return false;
   if (verb === "git") {
     const subcommand = gitSubcommand(args).name;
     return GIT_READERS.has(subcommand) || GIT_RECORDERS.has(subcommand);
   }
   if (verb === "find") return !args.some((arg) => FIND_ACTIONS.test(arg));
-  return READERS.has(verb);
+  // The reader table and the write-flag rule live in shell.ts, beside the command model.
+  return readsOperandsOnly(verb, args);
 }
 
 function isTreeWriter(verb: string, args: string[]): boolean {
@@ -317,6 +261,14 @@ const EMBEDDED_PATH = /(?:~|\.{1,2})?\/?[\w.@+-]*(?:\/[\w.@+-]+)+|\.ai-engineeri
  *  resolved path separates with `\`, and `(?:^|/)\.git/hooks` would never see it. */
 function slashed(path: string): string {
   return sep === "\\" ? path.replaceAll("\\", "/") : path;
+}
+
+/** Text read as path tokens. A drive-spelled Windows path keeps its separators here whatever
+ *  host reads it: read as escapes, `C:\repo\.ai-engineering\brainstorm.html` ends at the
+ *  fragment `.ai-engineering`, which resolves to this repo's governed directory and denies a
+ *  child the session owns. The rule is the reader's own, the one that decoded the word. */
+function pathScanText(text: string): string {
+  return isWindowsPathWord(text) ? text.replaceAll("\\", "/") : slashed(text);
 }
 
 /** On Windows `//host/share` — the tail of every URL, `https://example.com/i.sh` — resolves
@@ -446,36 +398,39 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
     if (unreadable !== null) return unreadable;
   }
   if (/\b(?:pwsh|powershell)(?:\.exe)?\b/i.test(command) && POWERSHELL_ENCODED.test(command)) return "an encoded PowerShell command hides what it runs";
-  const expanded = command.replace(/\$\(\s*(?:which|command\s+-v)\s+([^)\s]+)\s*\)/g, "$1");
-  const segments = shellSegments(normalizeRedirects(expanded));
-  if (segments === null) return "its quoting cannot be read, so neither can what it runs";
+  // One parse of the line, the reader every guard shares: a guard never tokenises the
+  // shell a second time, so it cannot read a construct the next guard reads differently.
+  const commands = readCommands(command.replace(/\$\(\s*(?:which|command\s+-v)\s+([^)\s]+)\s*\)/g, "$1"));
+  if (commands === null) return "its quoting cannot be read, so neither can what it runs";
   const scopes = createVariableScope([["HOME", machineBase()]]);
   const bases = [...context.bases];
-  const parsed = segments.map((segment) => {
+  const parsed = commands.map((command) => {
+    const { segment } = command;
     const variables = variablesForSegment(scopes, segment);
-    const words = shellWords(resolveSubstitutions(segment)).map((word) => ({ ...word, original: word.value, value: substituteVariables(word.value, variables) }));
+    // The substitution-resolved text is what the program receives; `original` keeps the
+    // word as the line spelt it, which is what a computed verb or glob is judged on.
+    const written = commandOf(segment, resolveSubstitutions(segment));
+    const words = written.words.map((word) => ({ ...word, original: word.value, value: substituteVariables(word.value, variables) }));
     applySegmentAssignments(segment.text, variables, false, segment.isConditional);
     applySegmentMutations(segment.text, variables, false, segment.isConditional);
-    const plain: string[] = [];
-    // Whether the shell expands each plain word: a glob or brace it reads unquoted.
-    const isExpanded: boolean[] = [];
-    const writeTargets: string[] = [];
-    // Here-strings: text the verb reads on stdin (`at now <<< '…'`).
-    const inputs: string[] = [];
-    for (let index = 0; index < words.length; index++) {
-      const word = words[index]!;
-      if (!word.isOperator) {
-        plain.push(word.value);
-        isExpanded.push(GLOB_CHARS.test(word.unquoted) || /\{[^}]*,/.test(word.unquoted));
-        continue;
-      }
-      const target = words[index + 1];
-      if (word.value.includes(">") && target !== undefined) writeTargets.push(target.value);
-      if (word.value === "<<<" && target !== undefined) inputs.push(target.value);
-      index++;
-    }
-    const verb = verbOf(plain);
-    return { segment, words, plain, writeTargets, inputs, verb, name: verb.name.toLowerCase(), args: plain.slice(verb.index + 1), argIsExpanded: isExpanded.slice(verb.index + 1) };
+    const resolved = withWords(segment, words);
+    const plain = resolved.plain.map((word) => word.value);
+    // The name is read off the word as written: `r\m`, `.\rm` and `C:\tools\rm` all run rm,
+    // and the escapes that make them rm are gone from `value`.
+    const verb = { index: resolved.verbIndex, name: commandName(resolved.plain[resolved.verbIndex]?.original ?? "") };
+    return {
+      segment,
+      words,
+      plain,
+      verbWord: resolved.plain[resolved.verbIndex],
+      writeTargets: resolved.redirects.flatMap(({ operator, target }) => (operator.includes(">") && target !== null ? [target.value] : [])),
+      // Here-strings: text the verb reads on stdin (`at now <<< '…'`).
+      inputs: resolved.redirects.flatMap(({ operator, target }) => (operator === "<<<" && target !== null ? [target.value] : [])),
+      verb,
+      name: verb.name.toLowerCase(),
+      args: plain.slice(verb.index + 1),
+      argIsExpanded: resolved.isArgExpanded,
+    };
   });
   // Track `for <var> in <items...>` headers so non-reader body commands referencing `$var`
   // are still judged against the paths the loop iterates over.
@@ -505,9 +460,8 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
     return hit ?? (isLiteral ? null : globNamesProtected(word, bases, context.paths));
   };
   const isRelative = (word: string): boolean => !isAbsolute(expandTilde(word)) && !word.startsWith("-");
-  for (const [segmentIndex, { segment, words, plain, writeTargets, inputs, verb, name, args, argIsExpanded }] of parsed.entries()) {
+  for (const [segmentIndex, { segment, plain, verbWord, writeTargets, inputs, verb, name, args, argIsExpanded }] of parsed.entries()) {
     // Judged as written, before substitution: `IFS=,; c=rm,x; $c` is still a computed verb.
-    const verbWord = words.find((word) => !word.isOperator && word.value === plain[verb.index]);
     const rawVerb = verbWord?.original ?? "";
     if (segment.isProcessSubstitution) return "process substitution runs a command whose text is not on the line";
     // In PowerShell a leading `$x` is an expression, not a call; `& $x` is caught above.
@@ -570,10 +524,10 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
     const isWriter = isTreeWriter(name, args);
     if (plain.slice(0, verb.index).some((before) => commandName(before) === "xargs")) {
       const prefixes = plain.slice(0, verb.index).map(commandName);
-      const lastPrefix = prefixes.filter((word) => word === "xargs" || EXEC_WRAPPERS.has(word)).at(-1);
+      const lastPrefix = prefixes.filter((word) => word === "xargs" || COMMAND_PREFIXES.has(word)).at(-1);
       // Bare xargs is echo. A prefix after xargs leaves the real program on stdin.
       if (name.length === 0 && lastPrefix !== undefined && lastPrefix !== "xargs") return "xargs feeds a command the guards cannot read";
-      if (isWriter || EXEC_WRAPPERS.has(name)) return `${name || "xargs"} acts on paths read from stdin`;
+      if (isWriter || COMMAND_PREFIXES.has(name)) return `${name || "xargs"} acts on paths read from stdin`;
       if (name === "sed") {
         const hasScript = args.some((arg) => !arg.startsWith("-"));
         const inplace = args.some((arg) => /^-[A-Za-z]*i/.test(arg));
@@ -582,7 +536,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       }
       const producer = segment.isAfterPipe ? parsed[segmentIndex - 1] : undefined;
       const producerTexts = producer === undefined ? [] : [...producer.plain, ...producer.inputs, ...producer.segment.heredocs.map(({ body }) => body)];
-      const feedsGoverned = producerTexts.map(collapseStringConcat).some((text) => [text, ...(text.match(EMBEDDED_PATH) ?? [])].some((path) => names(path) !== null));
+      const feedsGoverned = producerTexts.map(collapseStringConcat).some((text) => [text, ...(pathScanText(text).match(EMBEDDED_PATH) ?? [])].some((path) => names(path) !== null));
       if (INTERPRETERS.has(name) && (args.some((arg) => inline.test(arg)) || feedsGoverned)) return "xargs feeds paths or code to an interpreter the guards cannot see";
     }
     if (DIFF_APPLIERS.has(name) || (name === "git" && ["apply", "am"].includes(gitSubcommand(args).name))) {
@@ -605,7 +559,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
     const copiesBytesToFile = BINARY_BYTE_READERS.has(name) && (hasRealWriteTarget(writeTargets) || hasDownstreamWriter || hasEnclosingWrite);
     // `find … -exec cp {} …` copies whatever find matched, so the package name counts there too.
     // The program -exec runs, past a wrapper such as `sudo` or `env`.
-    const execProgram = (index: number): string => commandName(args.slice(index + 1).find((word) => !EXEC_WRAPPERS.has(commandName(word)) && !word.startsWith("-")) ?? "");
+    const execProgram = (index: number): string => commandName(args.slice(index + 1).find((word) => !COMMAND_PREFIXES.has(commandName(word)) && !word.startsWith("-")) ?? "");
     const execCopies = name === "find" && args.some((arg, index) => /^-(?:exec|execdir|ok|okdir)$/.test(arg) && COPIERS.has(execProgram(index)));
     const copiesPackage = (COPIERS.has(name) || execCopies) && args.some((arg) => AI_ENG_PACKAGE.test(commandName(arg)));
     const copiesBinary = args.some((arg) => AI_ENG_COMMANDS.has(commandName(arg))) || copiesPackage;
@@ -640,8 +594,9 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
         const isLiteral = !isWriter && argIsExpanded[index] === false;
         const joinsStrings = INTERPRETERS.has(name) || name === "awk";
         const scanned = joinsStrings ? collapseStringConcat(arg) : arg;
-        const embedded = isProse ? [] : [...scanned.matchAll(EMBEDDED_PATH)]
-          .filter((match) => match[0] !== scanned && !(isLiteral && GLOB_CHARS.test(scanned[(match.index ?? 0) + match[0].length] ?? "")))
+        const scannedAsPath = pathScanText(scanned);
+        const embedded = isProse ? [] : [...scannedAsPath.matchAll(EMBEDDED_PATH)]
+          .filter((match) => match[0] !== scannedAsPath && !(isLiteral && GLOB_CHARS.test(scannedAsPath[(match.index ?? 0) + match[0].length] ?? "")))
           .map((match) => match[0]);
         const fromLoop = loopVariableValues(scanned, loopVariables);
         for (const path of [scanned, ...embedded, ...fromLoop]) {
@@ -657,7 +612,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       if (!SHELLS.has(name) && !isProse) {
         for (const text of [...segment.heredocs.map(({ body }) => body), ...inputs]) {
           if (RESTRICTED_TEXT.test(text)) return `${name} reads input that invokes a governance-changing ai-eng verb`;
-          const hit = (text.match(EMBEDDED_PATH) ?? []).map((path) => names(path)).find((found) => found !== null);
+          const hit = (pathScanText(text).match(EMBEDDED_PATH) ?? []).map((path) => names(path)).find((found) => found !== null);
           if (hit) return `${name} reads input that names ${hit}, which governs this session`;
         }
         // Programs that take code as an argument (osascript -e, expect -c, tmux, xonsh -c).
@@ -669,7 +624,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
     // named after it may start ai-eng's package, so it is judged as starting ai-eng.
     const xargsAt = plain.findIndex((word) => commandName(word) === "xargs");
     if (xargsAt >= 0) {
-      const xargsArgs = stripRedirections(plain.slice(xargsAt + 1));
+      const xargsArgs = plain.slice(xargsAt + 1);
       // `-I {}` (or `-I{}`, `--replace=x`) names a placeholder stdin fills in.
       // GNU `-i` and a bare `--replace` take no word: their placeholder is `{}`.
       const replaceFlag = xargsArgs.findIndex((word) => ["-I", "-J"].includes(word));
@@ -864,27 +819,26 @@ function powerShellUnreadable(command: string): string | null {
   return null;
 }
 
-function restrictedCommandWords(words: string[], depth: number): boolean {
-  if (depth > 4 || words.length === 0) return false;
-  const index = commandStart(words);
-
-  const executable = commandName(words[index] ?? "");
-  if (AI_ENG_COMMANDS.has(executable) || AI_ENG_PACKAGE.test(executable)) return restrictedAiEngArgs(words.slice(index + 1));
+/** Whether one parsed command starts ai-eng with a governance-changing verb, directly or
+ *  through a wrapper, a runtime, a package runner or a shell's `-c` program. */
+function restrictedCommand(command: ShellCommand, depth: number): boolean {
+  if (depth > 4) return false;
+  const executable = commandName(command.plain[command.verbIndex]?.original ?? "");
+  const args = command.args.map((word) => word.value);
+  if (AI_ENG_COMMANDS.has(executable) || AI_ENG_PACKAGE.test(executable)) return restrictedAiEngArgs(args);
   if (executable === "bun" || executable === "node") {
-    const entrypoint = words.findIndex((word, position) => position > index && isCliEntrypoint(word));
-    if (entrypoint >= 0) return restrictedAiEngArgs(words.slice(entrypoint + 1));
+    const entrypoint = args.findIndex((word) => isCliEntrypoint(word));
+    if (entrypoint >= 0) return restrictedAiEngArgs(args.slice(entrypoint + 1));
   }
   if (["sh", "bash", "zsh", "pwsh", "powershell", "cmd"].includes(executable)) {
-    const commandIndex = words.findIndex((word, position) =>
-      position > index && ["-c", "-lc", "-Command", "/c", "/k"].includes(word),
-    );
-    if (commandIndex >= 0) return isRestrictedCliCommand(words.slice(commandIndex + 1).join(" "), depth + 1);
+    const flag = args.findIndex((word) => ["-c", "-lc", "-Command", "/c", "/k"].includes(word));
+    if (flag >= 0) return isRestrictedCliCommand(args.slice(flag + 1).join(" "), depth + 1);
   }
   if (CLI_WRAPPERS.has(executable)) {
-    const invocation = words.findIndex((word, position) => position > index && AI_ENG_COMMANDS.has(commandName(word)));
-    if (invocation >= 0) return restrictedAiEngArgs(words.slice(invocation + 1));
-    const entrypoint = words.findIndex((word, position) => position > index && isCliEntrypoint(word));
-    if (entrypoint >= 0) return restrictedAiEngArgs(words.slice(entrypoint + 1));
+    const invocation = args.findIndex((word) => AI_ENG_COMMANDS.has(commandName(word)));
+    if (invocation >= 0) return restrictedAiEngArgs(args.slice(invocation + 1));
+    const entrypoint = args.findIndex((word) => isCliEntrypoint(word));
+    if (entrypoint >= 0) return restrictedAiEngArgs(args.slice(entrypoint + 1));
   }
   return false;
 }
@@ -892,9 +846,7 @@ function restrictedCommandWords(words: string[], depth: number): boolean {
 // ponytail: this catches direct CLI calls and common wrappers; arbitrary shell code needs an OS sandbox, not more denylist shapes.
 function isRestrictedCliCommand(command: string, depth = 0): boolean {
   const expanded = command.replace(/\$\(\s*(?:which|command\s+-v)\s+([^)\s]+)\s*\)/g, "$1");
-  const words = expanded.trim().split(/\s+/)
-    .map((word) => word.replace(/['"]/g, "").replace(/^[()]+|[()]+$/g, ""));
-  return restrictedCommandWords(words, depth);
+  return (readCommands(expanded) ?? []).some((parsed) => restrictedCommand(parsed, depth));
 }
 
 /** The carriers the registry declares for one scope, from the one table that knows where
@@ -1046,31 +998,34 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
 }
 
 
-/** The protected path this ONE shell command writes to, or null. A redirect is
- *  judged by where it points; a pipe target (tee, xargs rm) is judged as a write
- *  when its receiver is a writer verb and the payload names a protected path. */
-export function writesTo(paths: ProtectedPaths, command: string): string | null {
-  const words = command.trim().split(/\s+/).filter((w) => w.length > 0);
-  if (words.length === 0) return null;
-  const { index: verbIndex, name: verb } = verbOf(words);
-  if (WRITERS[verb] === true || (verb === "sed" && words.includes("-i"))) {
-    // What the command only reads (the script it runs, the folder it serves) is not written:
-    // judge the rest of the command.
-    const reads = readOperands(verb, words.slice(verbIndex + 1)).map((index) => verbIndex + 1 + index);
-    return offendingPath(paths, reads.length === 0 ? command : words.filter((_word, index) => !reads.includes(index)).join(" "));
+/** The governed path one parsed command writes, or null: a redirect by where it points, a
+ *  writer (`tee`, `rm`, a shell handed a script) by the paths it names, a heredoc by what
+ *  its body says. */
+function writesIn(paths: ProtectedPaths, shellCommand: ShellCommand): string | null {
+  const verb = commandName(shellCommand.plain[shellCommand.verbIndex]?.original ?? "");
+  const args = shellCommand.args.map((word) => word.value);
+  if (WRITERS[verb] === true || (verb === "sed" && args.includes("-i"))) {
+    // What the command only reads (the script it runs, the folder it serves) is not
+    // written: judge the rest of the command.
+    const reads = readOperands(verb, args).map((index) => index + shellCommand.verbIndex + 1);
+    const found = offendingPath(paths, shellCommand.plain.filter((_word, index) => !reads.includes(index)).map((word) => word.value).join(" "));
+    if (found) return found;
   }
-  // A writer downstream of a pipe (echo x | tee <path>): its arguments carry the
-  // destination. Judge the writer verb's own words, not the whole pipeline.
-  for (let i = 1; i < words.length; i++) {
-    if (words[i] === "|" && i + 1 < words.length) {
-      const rest = words.slice(i + 1).join(" ");
-      const downstream = writesTo(paths, rest);
-      if (downstream) return downstream;
-      break;
-    }
+  for (const target of shellCommand.writes) {
+    const found = offendingPath(paths, target.value);
+    if (found) return found;
   }
-  for (const match of command.matchAll(REDIRECT)) {
-    const found = offendingPath(paths, match[1]!.replace(/^["']|["']$/g, ""));
+  // A heredoc body is data here, not a command: `judgeShell` is what runs a body handed to
+  // a shell, and a PR body that names a carrier is prose, not a write.
+  return null;
+}
+
+/** The protected path this ONE shell command writes to, or null. Every command comes from
+ *  the one parse, so a pipeline stage is its own command and needs no second split here. */
+export function writesTo(paths: ProtectedPaths, command: string | ShellCommand): string | null {
+  const parsed = typeof command === "string" ? readCommands(command) ?? [] : [command];
+  for (const shellCommand of parsed) {
+    const found = writesIn(paths, shellCommand);
     if (found) return found;
   }
   return null;
@@ -1276,18 +1231,16 @@ export function runSelfProtect(payload: Payload, repoRoot: string | null): Guard
     };
     for (const base of bases) {
       const expandedCommand = canon(normalizeRedirects(command), base);
-      const pieces = expandedCommand.split(SEPARATORS).filter((p) => p.trim().length > 0);
-      for (let index = 0; index < pieces.length; index++) {
-        const one = pieces[index]!;
-        // A heredoc is one command spanning lines; what it writes is in the body below.
-        const judged = one.includes("<<") ? pieces.slice(index).join(" ") : one;
-        if (isRestrictedCliCommand(judged)) {
+      // Heredoc bodies come with their command in this one parse, so the text below needs
+      // no second splitter and no re-joining of the lines a heredoc spans.
+      for (const shellCommand of readCommands(expandedCommand) ?? []) {
+        if (restrictedCommand(shellCommand, 0)) {
           return {
             deny: true,
             reason: "this command invokes a governance-changing or internal ai-eng verb. Run it from outside the governed agent session.",
           };
         }
-        const found = writesTo(canonicalPaths, judged);
+        const found = writesTo(canonicalPaths, shellCommand);
         if (found) {
           return {
             deny: true,
