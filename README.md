@@ -293,6 +293,8 @@ Some limits are not on the host list at all. ai-eng does not read test content, 
   <br/><sub><b>Figure 5.</b> One parse, many guards. Each guard asks a question of the same typed model, so none reads a command differently from the shell. The dashed box is a test, not a step.</sub>
 </p>
 
+<p align="center">The workflow gate, <code>checkpoint</code>, reads that same command model too.</p>
+
 <details>
 <summary>Text version of figure 5</summary>
 
