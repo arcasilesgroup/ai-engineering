@@ -24,7 +24,7 @@ echo "$PAYLOAD" | ai-eng chain PreToolUse   # judge one tool call: JSON in, JSON
 ai-eng git pre-commit                       # the pre-commit, commit-msg and pre-push checks
 ai-eng wrap test -- <command>               # run tests, print only the failures
 ai-eng worktree new <branch>                # start a lane checkout (also: list, merge, rm, request-changes)
-ai-eng findings check <rounds.json|->       # annotate the review findings a program can disprove
+ai-eng findings check <rounds.json|->       # annotate the review findings a program can check
 ```
 
 ### Reading a findings check
@@ -37,12 +37,12 @@ annotated ones, how many were selected for fixing in that round or a later one.
 
 It reads that review from one of two inputs:
 
-- **A `{findings: […]}` file**, with `--base` and `--head` naming the diff the review covered. This is
-the generic shape and it needs nothing else to exist.
+- **A `{findings: […]}` file**, with `--base` and `--head` naming the diff the review covered. This
+  is the generic shape and it needs nothing else to exist.
 - **Review rounds as JSON**, printed by a review tool. `no-mistakes` is one: a review pipeline that
-runs automated reviews in rounds, whose `axi` command prints them
-(`no-mistakes axi rounds --step review --json`). That command is the worked example, not a
-requirement.
+  runs automated reviews in rounds, whose `axi` command prints them
+  (`no-mistakes axi rounds --step review --json`). That command is the worked example, not a
+  requirement.
 
 An annotation means the evidence for that signal was found and is printed under the finding; it is a
 note attached to a finding, not a verdict about it, and it never removes one. It does not mean the
