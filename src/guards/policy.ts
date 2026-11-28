@@ -19,7 +19,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { join, posix } from "node:path";
 import { homedir, tmpdir } from "node:os";
-import { commandIndex, expandedSegments, inlineShellPrograms, normalizeRedirects, quotedSpanEnd, readCommandLenient, readCommands, shellWords, stripRedirectWords, type ShellCommand } from "./shell.ts";
+import { commandIndex, expandedSegments, inlineShellPrograms, normalizeRedirects, quotedSpanEnd, readCommands, readCommandsLenient, shellWords, stripRedirectWords, type ShellCommand } from "./shell.ts";
 
 /** What every install and new project gets while config.toml says nothing. System read
  *  includes the paths this file calls sensitive (~/.ssh, .env, *.pem): reading them is
@@ -462,7 +462,7 @@ function scanScript(script: string, cwd: string): number {
     if (text.trim().length === 0) continue;
     // A line whose quoting cannot be read is still judged by the words it shows.
     let pipeline = "";
-    for (const command of readCommands(text) ?? [readCommandLenient(text)]) {
+    for (const command of readCommands(text) ?? readCommandsLenient(text)) {
       // A pipeline is one shape for the classification (`curl … | bash` is the
       // network-execute form); a `&&`, `||`, `;` or newline chain is not.
       pipeline = command.segment.isAfterPipe ? `${pipeline} | ${command.segment.text}` : command.segment.text;
@@ -470,7 +470,7 @@ function scanScript(script: string, cwd: string): number {
       // A heredoc's lines are judged as commands, whoever reads them: text alone cannot
       // tell a commit message from a program.
       for (const { body } of command.segment.heredocs) {
-        for (const inside of readCommands(body) ?? [readCommandLenient(body)]) scanCommand(mask, inside, inside.segment.text, cwd, isExpanded);
+        for (const inside of readCommands(body) ?? readCommandsLenient(body)) scanCommand(mask, inside, inside.segment.text, cwd, isExpanded);
       }
     }
   }

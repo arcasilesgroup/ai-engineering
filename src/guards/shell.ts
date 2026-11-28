@@ -835,6 +835,15 @@ export function readCommandLenient(text: string): ShellCommand {
   }, text);
 }
 
+/** One lenient command per line of a text the reader could not read whole. A newline is not
+ *  a quoting construct, so a shape anchored at the start of a line still sees every line. */
+export function readCommandsLenient(text: string): ShellCommand[] {
+  return text
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0)
+    .map((line) => readCommandLenient(line));
+}
+
 /** The argument words of one normalized segment, with redirections and their targets stripped. */
 export function argumentWords(text: string): ShellWord[] {
   return stripRedirectWords(shellWords(text));

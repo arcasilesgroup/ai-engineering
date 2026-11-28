@@ -615,6 +615,9 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a pushd before a program handed to sh", `pushd ${FOLDER} && sh -c 'truncate -s 0 demo.json'`],
     ["a cd before an evaluated program", `cd ${FOLDER} && eval 'printf x > demo.json'`],
     ["an unknown cd before a program that names the folder", `cd "$X" && bash -c 'printf x > demo.json' && cat ${FOLDER}/demo.json`],
+    // A launcher the reader does not unwrap still runs the interpreter its words name.
+    ["an interpreter behind a launcher", `npx node -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'`],
+    ["an interpreter behind a launcher after a cd", `cd ${FOLDER} && uv run python3 -c 'open("demo.json", "w")'`],
   ])("refuses %s", (_name, command) => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());
@@ -641,6 +644,7 @@ describe("Bash writes into the checkpoint folder", () => {
     ["staging the plan with its errors logged elsewhere", `git add -- ${FOLDER}/demo.json 2> git-errors.log`],
     ["a quoted program writing outside the folder", `bash -c 'printf x > notes.txt'`],
     ["a quoted program before the cd into the folder", `bash -c 'printf x > demo.json' && cd ${FOLDER}`],
+    ["an interpreter named as an operand of a reader", `grep python3 ${FOLDER}/demo.json`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {

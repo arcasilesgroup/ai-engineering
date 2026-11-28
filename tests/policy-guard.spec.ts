@@ -258,6 +258,8 @@ describe("classification — agentic commands under the default mode", () => {
     ["sudo behind an env prefix", "FOO=1 sudo id"],
     ["a heredoc fed to a shell", "bash <<'EOF'\nrm -rf /etc/x\nEOF"],
     ["a heredoc whose write is not its first line", "bash <<'EOF'\necho ok\nmkdir -p /etc/x\nEOF"],
+    ["a write line after a line whose quoting cannot be read", "echo ${x:-> f}\ncp evil /etc/nginx.conf"],
+    ["a heredoc write line after an unreadable line", "bash <<'EOF'\necho ${x:-> f}\ncp evil /etc/nginx.conf\nEOF"],
     ["a heredoc piped into a shell", "cat <<'EOF' | sh\nrm -rf /etc/x\nEOF"],
     ["a heredoc fed to tee into /etc", "tee /etc/x <<'EOF'\nhi\nEOF"],
     ["a command after a python3 heredoc", "python3 - <<'EOF'\nimport os\nEOF\nrm -rf /etc/x"],

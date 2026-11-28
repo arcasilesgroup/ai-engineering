@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import type { Payload } from "../payload.ts";
 import { collectStrings, evaluateLocalRules, localRuleReason, type LocalRule } from "./local-rules.ts";
 import { isNetworkPath } from "./self-protect.ts";
-import { inlineShellPrograms, printsFileContent, readCommands } from "./shell.ts";
+import { inlineShellPrograms, printsFileContent, readCommands, readCommandsLenient } from "./shell.ts";
 
 
 /** The directory of THIS guard source, walked up to the package root (the one holding
@@ -173,7 +173,7 @@ const MAX_TARGETS = 512;
  *  `wc -l < notes.txt`) and covers nothing computed (`cat $(ls)`, `python -c`,
  *  `git show`, `curl`): the guard reports what it actually scanned, never what it guessed. */
 function readTargetsIn(command: string, targets: Set<string>): void {
-  for (const read of readCommands(command) ?? []) {
+  for (const read of readCommands(command) ?? readCommandsLenient(command)) {
     for (const target of read.reads) targets.add(target.value);
     const args = read.args.map((word) => word.value);
     if (!printsFileContent(read.verb, args)) continue;

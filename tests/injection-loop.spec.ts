@@ -107,6 +107,10 @@ describe("injection · readTargets — what a command line would print", () => {
     expect(readTargets("./tail -3 log.txt")).toEqual(["log.txt"]);
   });
 
+  test("a line the reader cannot read loses no other line's targets", () => {
+    expect(readTargets("echo ${x:-> f}\ncat notes.txt")).toEqual(["notes.txt"]);
+  });
+
   test("redirect targets are scanned, bare or attached, quoted or not", () => {
     expect(readTargets("wc -l < notes.txt")).toEqual(["notes.txt"]);
     // The attached form is the same redirection, so the file is `notes.txt` and the

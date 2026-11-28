@@ -18,7 +18,7 @@ import { isDeepStrictEqual } from "node:util";
 import { resolveContext } from "../git/context.ts";
 import { runGit } from "../git/run.ts";
 import { readNoFollowFile, writeNoFollowFile } from "../shared-project-fs.ts";
-import { inlineShellPrograms, jsonToolOperands, readCommands, type ShellCommand } from "./shell.ts";
+import { inlineShellPrograms, jsonToolOperands, readCommands, readsOperandsOnly, type ShellCommand } from "./shell.ts";
 import {
   assertCheckpointTransition,
   brainstormApprovalProblem,
@@ -515,11 +515,20 @@ function isJsonToolRead(words: readonly string[], isCheckpointFile: (operand: st
   return operand !== "-" && isCheckpointFile(operand);
 }
 
+/** Whether a command runs an interpreter that can write any path its code names: its verb,
+ *  or a word a launcher outside the reader's prefixes runs (`npx node -e`, `uv run python3`).
+ *  A command that only reads its operands runs nothing: `grep python3 plan.json` searches. */
+function runsInterpreter(command: ShellCommand, isInterpreter: (name: string) => boolean): boolean {
+  if (isInterpreter(command.verb)) return true;
+  if (readsOperandsOnly(command.verb, command.args.map((word) => word.value))) return false;
+  return command.plain.some((word) => isInterpreter(basename(word.value)));
+}
+
 /** Whether one command that names a checkpoint runs an interpreter that could write it.
  *  json.tool with the checkpoint as its one operand only reads it. */
 function hasOpaqueWriteForm(command: ShellCommand): boolean {
   if (isJsonToolRead(commandWords(command), (operand) => CHECKPOINT_TARGET.test(operand))) return false;
-  return OPAQUE_WRITE.test(command.verb);
+  return runsInterpreter(command, (name) => OPAQUE_WRITE.test(name));
 }
 
 /** A path as the shell would resolve it from `cwd`, or null when it hangs off a variable,
@@ -559,7 +568,7 @@ function shellWritesIntoCheckpoints(command: string, cwd: string | null, repo: R
     for (const program of inlineShellPrograms(shellCommand.segment.text)) {
       if (shellWritesIntoCheckpoints(program, directory, repo, mentions)) return true;
     }
-    if (directory !== null && name !== undefined && OPAQUE_WRITERS.has(basename(name)) && landsInCheckpoints(repo, directory)) {
+    if (directory !== null && runsInterpreter(shellCommand, (verb) => OPAQUE_WRITERS.has(verb)) && landsInCheckpoints(repo, directory)) {
       const here = directory;
       const isCheckpointFile = (operand: string): boolean => {
         const absolute = shellPath(here, operand);
