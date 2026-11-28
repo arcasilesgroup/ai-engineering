@@ -7,7 +7,7 @@
 // backticks, heredocs, comments, redirections and one-word `${…}`; it does not expand
 // aliases, functions or arithmetic. Shapes it cannot read come back as null and the caller denies.
 
-import { basename } from "node:path";
+import { basename, sep } from "node:path";
 
 /** A redirection operator starting at `lastIndex`. `>(` is process substitution, not a redirect. */
 const REDIRECT_OPERATOR = /(?:\{\w+\}|\d+)?(?:&>>?|>>?[|!&]?|<>|<&)(?!\()/y;
@@ -560,18 +560,22 @@ export type ShellWord = {
 /** A word the shell expands before the program sees it: an unquoted glob or brace. */
 export const GLOB_CHARS = /[*?[]/;
 
-/** A word spelled as a Windows path (`C:\…`, `.\…`, `..\…`): its `\` separates the segments
+/** A word spelled as a Windows path (`C:\…`, `\\.\…`, `..\…`): its `\` separates the segments
  *  of one path, so it is a character and never an escape. Read as an escape the word names no
  *  file at all — `C:\repo\.ai-engineering\config.toml` comes out as
- *  `C:repo.ai-engineeringconfig.toml`, which no guard resolves to the governed file. The rule
- *  the per-guard command name carried before the one reader took it over. */
-const WINDOWS_PATH_WORD = /^(?:[A-Za-z]:|\.{1,2})(?:\\|$)/;
+ *  `C:repo.ai-engineeringconfig.toml`, which no guard resolves to the governed file. A
+ *  `.`-prefixed path only counts where `\` is the host's separator: on POSIX the shell reads
+ *  `.\ai-engineering` as `.ai-engineering`, so keeping the `\` there names a file nobody wrote
+ *  and lets the write through. The rule the per-guard command name carried before the one
+ *  reader took it over. */
+const DRIVE_PATH_WORD = /^[A-Za-z]:(?:\\|$)/;
+const RELATIVE_PATH_WORD = /^\.{1,2}(?:\\|$)/;
 
 /** Whether a word is spelled as a Windows path, so its `\` separates segments. Every consumer
  *  of the model reads a `\`-spelled path through this one rule, the same one this reader used
  *  to decode it. */
 export function isWindowsPathWord(word: string): boolean {
-  return WINDOWS_PATH_WORD.test(word);
+  return DRIVE_PATH_WORD.test(word) || (sep === "\\" && RELATIVE_PATH_WORD.test(word));
 }
 
 /** Commands that print the bytes of the files they name, so reading one is how a payload
@@ -670,7 +674,7 @@ export function shellWords(text: string): ShellWord[] {
       words.push({ value: operator, isQuoted: false, isOperator: true, unquoted: operator, original: operator });
     } else if (char === "\\") {
       // A separator in a Windows path stays; anywhere else the shell removes it.
-      const isSeparator = WINDOWS_PATH_WORD.test(value);
+      const isSeparator = isWindowsPathWord(value);
       value += isSeparator ? char : next ?? "";
       hasWord = true;
       isQuoted = true;

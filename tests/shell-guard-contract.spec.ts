@@ -3,6 +3,7 @@
 // substitution prints. Each case pins the exact structure a guard reads, so a reader
 // that splits, joins or decodes one character differently from the shell fails here.
 import { describe, expect, test } from "bun:test";
+import { sep } from "node:path";
 import {
   commandIndex,
   findRedirect,
@@ -261,12 +262,14 @@ describe("shellWords", () => {
     expect(shellWords('"ab')).toEqual([word("ab", true, "", '"ab')]);
   });
 
-  test("a Windows path keeps its separators; the same backslash elsewhere is an escape", () => {
+  test("a drive path keeps its separators; a `.`-prefixed backslash is the shell's escape", () => {
     // A path is spelled with `\`, so `\` there is a character: removed as an escape the
     // word names a file nobody wrote, and every guard downstream allows the write.
     expect(shellWords("cat C:\\repo\\.ai-engineering\\config.toml").map((word) => word.value))
       .toEqual(["cat", "C:\\repo\\.ai-engineering\\config.toml"]);
-    expect(shellWords(".\\rm ..\\x").map((word) => word.value)).toEqual([".\\rm", "..\\x"]);
+    // bash runs `.\ai-engineering` as `.ai-engineering`; only where `\` separates the host's
+    // own paths is it a separator rather than an escape.
+    expect(shellWords(".\\rm ..\\x").map((word) => word.value)).toEqual(sep === "\\" ? [".\\rm", "..\\x"] : [".rm", "..x"]);
     // No drive and no leading `.`, so this is an ordinary word with an escape in it.
     expect(shellWords("r\\m C:tools\\rm").map((word) => word.value)).toEqual(["rm", "C:toolsrm"]);
   });

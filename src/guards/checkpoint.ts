@@ -18,7 +18,7 @@ import { isDeepStrictEqual } from "node:util";
 import { resolveContext } from "../git/context.ts";
 import { runGit } from "../git/run.ts";
 import { readNoFollowFile, writeNoFollowFile } from "../shared-project-fs.ts";
-import { inlineShellPrograms, jsonToolOperands, readCommands, readCommandsLenient, readsOperandsOnly, type ShellCommand } from "./shell.ts";
+import { inlineShellPrograms, jsonToolOperands, readCommands, readCommandsLenient, readsOperandsOnly, type ShellCommand, type ShellWord } from "./shell.ts";
 import {
   assertCheckpointTransition,
   brainstormApprovalProblem,
@@ -581,22 +581,58 @@ function runsInterpreter(command: ShellCommand, isInterpreter: (name: string) =>
   return command.plain.some((word) => isInterpreter(programName(word.value)));
 }
 
-/** The program text awk takes from `-e`/`--source`, attached (`-e{...}`, `--source={...}`), as
- *  the next word, or not at all (an empty value awk itself rejects). When one of these is given
- *  every free word is a data file, so it is the only program there is to judge. */
-function awkSourcePrograms(args: readonly string[]): string[] {
-  const programs: string[] = [];
-  for (let index = 0; index < args.length; index++) {
-    const arg = args[index]!;
-    if (arg === "-e" || arg === "--source") {
-      programs.push(args[index + 1] ?? "");
+/** The program text minus what awk only prints: a `>` or `|` inside a string literal writes
+ *  nothing, so the literal is blanked before the write test. */
+function awkCode(program: string): string {
+  return program.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, "");
+}
+
+/** Whether the shell replaces part of this word before awk sees it: a `$` or a backtick outside
+ *  single quotes is expanded, so the program the guard reads is not the one that runs. */
+function isExpandedWord(word: ShellWord): boolean {
+  let inSingleQuotes = false;
+  for (let index = 0; index < word.original.length; index++) {
+    const char = word.original[index]!;
+    if (inSingleQuotes) {
+      if (char === "'") inSingleQuotes = false;
+      continue;
+    }
+    if (char === "\\") {
       index += 1;
       continue;
     }
-    const attached = /^--source=([\s\S]*)$/.exec(arg) ?? /^-e([\s\S]+)$/.exec(arg);
-    if (attached) programs.push(attached[1]!);
+    if (char === "'" || (char === "$" && word.original[index + 1] === "'")) {
+      inSingleQuotes = true;
+      if (char === "$") index += 1;
+      continue;
+    }
+    if (char === "$" || char === "`") return true;
+  }
+  return false;
+}
+
+/** Whether the program text awk takes from `-e`/`--source`, attached (`-e{...}`, `--source={...}`), as
+ *  the next word, or not at all (an empty value awk itself rejects). When one of these is given
+ *  every free word is a data file, so it is the only program there is to judge. */
+function awkSourcePrograms(args: readonly ShellWord[]): ShellWord[] {
+  const programs: ShellWord[] = [];
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]!;
+    if (arg.value === "-e" || arg.value === "--source") {
+      const next = args[index + 1];
+      if (next) programs.push(next);
+      index += 1;
+      continue;
+    }
+    const attached = /^--source=([\s\S]*)$/.exec(arg.value) ?? /^-e([\s\S]+)$/.exec(arg.value);
+    if (attached) programs.push({ ...arg, value: attached[1]! });
   }
   return programs;
+}
+
+/** Whether a program word writes or is a program the guard cannot read. */
+function programWrites(program: ShellWord): boolean {
+  return isExpandedWord(program) || AWK_WRITE.test(awkCode(program.value));
 }
 
 /** Whether an awk option word is one the guard settles: a program it judges (`-e`/`--source`), a
@@ -608,25 +644,26 @@ function isSettledAwkOption(arg: string): boolean {
   return arg === "-" || AWK_PROGRAM_OPTION.test(arg) || AWK_VALUE_OPTION.test(arg) || AWK_FLAG.has(arg);
 }
 
-/** Whether awk's own program writes: a redirection or a pipe in a print, a system() call, or a
- *  program read from a file the guard cannot see. awk's own options take the word after them,
- *  so the program is the first word that is not one. */
+/** Whether awk's own program writes: a redirection or a pipe in a print, a system() call, a
+ *  program read from a file or an expansion the guard cannot see. awk's own options take the
+ *  word after them, so the program is the first word that is not one. */
 function awkProgramWrites(command: ShellCommand): boolean {
-  const args = command.args.map((word) => word.value);
-  const isUnreadableProgram = args.some((arg) => arg === "-f" || arg === "--file" || arg.startsWith("--file=") || /^-f.+/.test(arg));
-  const isUnknownOption = args.some((arg) => arg.startsWith("-") && !isSettledAwkOption(arg));
+  const args = command.args;
+  const words = args.map((word) => word.value);
+  const isUnreadableProgram = words.some((arg) => arg === "-f" || arg === "--file" || arg.startsWith("--file=") || /^-f.+/.test(arg));
+  const isUnknownOption = words.some((arg) => arg.startsWith("-") && !isSettledAwkOption(arg));
   if (isUnreadableProgram || isUnknownOption) return true;
   const sourcePrograms = awkSourcePrograms(args);
-  if (sourcePrograms.length > 0) return sourcePrograms.some((program) => AWK_WRITE.test(program));
+  if (sourcePrograms.length > 0) return sourcePrograms.some(programWrites);
   for (let index = 0; index < args.length; index++) {
-    const arg = args[index]!;
+    const arg = words[index]!;
     if (arg === "-v" || arg === "-F" || arg === "--assign" || arg === "--field-separator") {
       index += 1;
       continue;
     }
     if (/^-(?:v|F).+/.test(arg) || /^--(?:assign|field-separator)=/.test(arg)) continue;
     if (arg.startsWith("-")) continue;
-    return AWK_WRITE.test(arg);
+    return programWrites(args[index]!);
   }
   return false;
 }

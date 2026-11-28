@@ -374,6 +374,9 @@ describe("adversarial · self-protect: the session writes its own artifacts, not
       // and denies the child the session owns. The directory itself stays denied.
       expect(bash(String.raw`rm -rf 'C:\repo\.ai-engineering\brainstorm.html'`)?.deny ?? false).toBe(false);
       expect(bash(String.raw`rm -rf 'C:\repo\.ai-engineering'`)?.deny).toBe(true);
+      // Off Windows that backslash is the shell's escape: bash deletes `.ai-engineering` when
+      // it runs `.\ai-engineering`, so the governed directory must stay denied.
+      expect(bash(String.raw`rm -rf .\ai-engineering`)?.deny).toBe(true);
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }

@@ -263,7 +263,7 @@ function slashed(path: string): string {
   return sep === "\\" ? path.replaceAll("\\", "/") : path;
 }
 
-/** Text read as path tokens. A `\`-spelled Windows path keeps its separators here whatever
+/** Text read as path tokens. A drive-spelled Windows path keeps its separators here whatever
  *  host reads it: read as escapes, `C:\repo\.ai-engineering\brainstorm.html` ends at the
  *  fragment `.ai-engineering`, which resolves to this repo's governed directory and denies a
  *  child the session owns. The rule is the reader's own, the one that decoded the word. */
