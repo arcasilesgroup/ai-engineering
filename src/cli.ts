@@ -59,7 +59,7 @@ if (flags.version && !isRefreshChild) {
   process.exit(0);
 }
 /** The whole map, on two labelled groups: who runs the verb is the first thing a reader
- *  needs and the one thing a flat list of eleven lines hides. */
+ *  needs and the one thing a flat list of ten lines hides. */
 function showMenu(): void {
   showLogo(VERSION);
   const nameWidth = Math.max(...[...HUMAN_VERBS, ...MACHINE_VERBS].map((entry) => entry.verb.length)) + 2;
@@ -84,7 +84,7 @@ if (!isRefreshChild && flags.help) {
     process.exit(0);
   }
   // An unknown verb keeps the unknown-verb error below: it names the nearest verb, and
-  // the menu would bury the typo under eleven lines nobody asked about.
+  // the menu would bury the typo under ten lines nobody asked about.
 }
 if (!isRefreshChild && verb === undefined) {
   showMenu();
