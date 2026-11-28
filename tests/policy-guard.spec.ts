@@ -243,6 +243,7 @@ describe("classification — agentic commands under the default mode", () => {
     ["case 14: an env prefix before bun test", 'TMPDIR=/private/tmp/t-runs bun test tests/ -t "macOS /var alias"'],
     ["case 14: an env prefix before bun test, stderr folded in", 'TMPDIR=/private/tmp/t-runs bun test tests/ -t "macOS /var alias" 2>&1'],
     ["control: git -C <repo> push", `git -C ${REPO} push -u origin b`],
+    ["an unreadable piece piped into a reader", "echo ${x:-> f} | sort notes.txt"],
   ])("allows %s", (_label, command) => {
     expect(evaluate(command, REPO, DEFAULT_MODE).allowed).toBe(true);
   });
@@ -263,6 +264,7 @@ describe("classification — agentic commands under the default mode", () => {
     ["a write piece after an unreadable piece separated by a semicolon", "echo ${x:-> f}; cp evil /etc/nginx.conf"],
     ["a write piece after an unreadable piece behind &&", "echo ${x:-> f} && truncate -s 0 /etc/nginx.conf"],
     ["a heredoc write piece after an unreadable piece", "bash <<'EOF'\necho ${x:-> f}; cp evil /etc/nginx.conf\nEOF"],
+    ["a piped write stage after an unreadable piece", "echo ${x:-> f} | tee /etc/nginx.conf"],
     ["a heredoc piped into a shell", "cat <<'EOF' | sh\nrm -rf /etc/x\nEOF"],
     ["a heredoc fed to tee into /etc", "tee /etc/x <<'EOF'\nhi\nEOF"],
     ["a command after a python3 heredoc", "python3 - <<'EOF'\nimport os\nEOF\nrm -rf /etc/x"],

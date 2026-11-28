@@ -820,10 +820,10 @@ export function readCommands(command: string): ShellCommand[] | null {
 /** One command read from text whose quoting the reader cannot resolve: the words it can
  *  see, judged as a single command. A guard that cannot read the line whole still judges
  *  what it can see rather than passing it. */
-export function readCommandLenient(text: string): ShellCommand {
+export function readCommandLenient(text: string, isAfterPipe = false): ShellCommand {
   return commandOf({
     text,
-    isAfterPipe: false,
+    isAfterPipe,
     opensSubstitution: false,
     isInSubstitution: false,
     isProcessSubstitution: false,
@@ -835,14 +835,19 @@ export function readCommandLenient(text: string): ShellCommand {
   }, text);
 }
 
-/** One lenient command per piece of a text the reader could not read whole: a newline, `;`,
- *  `&&` and `||` separate commands whatever the quoting, so a shape anchored at the start of
- *  a command still sees every command it could write. */
+/** One lenient command per piece of a text the reader could not read whole, cut where the
+ *  shell cuts a command: a newline, `;`, `&&`, `||`, a background `&` end one, and a `|`
+ *  starts the next stage of the pipeline. */
 export function readCommandsLenient(text: string): ShellCommand[] {
-  return text
-    .split(/\r?\n|&&|\|\||;/)
-    .filter((piece) => piece.trim().length > 0)
-    .map((piece) => readCommandLenient(piece));
+  const pieces = text.split(/(\|\||&&|\|&|\||;|&|\r?\n)/);
+  const commands: ShellCommand[] = [];
+  for (let index = 0; index < pieces.length; index += 2) {
+    const piece = pieces[index]!;
+    if (piece.trim().length === 0) continue;
+    const separator = pieces[index - 1];
+    commands.push(readCommandLenient(piece, separator === "|" || separator === "|&"));
+  }
+  return commands;
 }
 
 /** The argument words of one normalized segment, with redirections and their targets stripped. */

@@ -622,6 +622,7 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a heredoc body writing the plan", `bash <<'EOF'\nprintf x > ${FOLDER}/demo.json\nEOF`],
     ["a heredoc body writing the plan after a cd", `cd ${FOLDER} && bash <<'EOF'\nprintf x > demo.json\nEOF`],
     ["a heredoc body running an interpreter", `bash <<'EOF'\nnpx node -e 'require("fs").writeFileSync("${FOLDER}/demo.json", "{}")'\nEOF`],
+    ["a heredoc body that cannot be read writing the plan", `bash <<'EOF'\necho \${x:-> f}\nrm ${FOLDER}/demo.json\nEOF`],
   ])("refuses %s", (_name, command) => {
     withFixture((fixture) => {
       save(fixture.planPath, plan());

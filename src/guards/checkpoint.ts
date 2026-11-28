@@ -18,7 +18,7 @@ import { isDeepStrictEqual } from "node:util";
 import { resolveContext } from "../git/context.ts";
 import { runGit } from "../git/run.ts";
 import { readNoFollowFile, writeNoFollowFile } from "../shared-project-fs.ts";
-import { inlineShellPrograms, jsonToolOperands, readCommands, readsOperandsOnly, type ShellCommand } from "./shell.ts";
+import { inlineShellPrograms, jsonToolOperands, readCommands, readCommandsLenient, readsOperandsOnly, type ShellCommand } from "./shell.ts";
 import {
   assertCheckpointTransition,
   brainstormApprovalProblem,
@@ -482,7 +482,7 @@ function commandWords(command: ShellCommand): string[] {
 function commandsOf(command: string): ShellCommand[] {
   const programs = inlineShellPrograms(command);
   const commands = readCommands(command) ?? [];
-  const bodies = commands.flatMap((parsed) => parsed.segment.heredocs.flatMap(({ body }) => readCommands(body) ?? []));
+  const bodies = commands.flatMap((parsed) => parsed.segment.heredocs.flatMap(({ body }) => readCommands(body) ?? readCommandsLenient(body)));
   return [...commands, ...bodies, ...programs.flatMap((program) => readCommands(program) ?? [])];
 }
 
@@ -579,9 +579,7 @@ function commandsWriteIntoCheckpoints(commands: readonly ShellCommand[], cwd: st
     // So does the body of a heredoc this command feeds: text alone cannot tell a program from
     // a commit message, so every body is judged as the commands it holds.
     for (const { body } of shellCommand.segment.heredocs) {
-      const bodyCommands = readCommands(body);
-      // A body this reader cannot read is data it cannot tell from code: it decides nothing.
-      if (bodyCommands !== null && commandsWriteIntoCheckpoints(bodyCommands, directory, repo, mentions)) return true;
+      if (commandsWriteIntoCheckpoints(readCommands(body) ?? readCommandsLenient(body), directory, repo, mentions)) return true;
     }
     if (directory !== null && runsInterpreter(shellCommand, (verb) => OPAQUE_WRITERS.has(verb)) && landsInCheckpoints(repo, directory)) {
       const here = directory;

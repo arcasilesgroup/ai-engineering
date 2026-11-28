@@ -111,6 +111,8 @@ describe("injection · readTargets — what a command line would print", () => {
     expect(readTargets("echo ${x:-> f}\ncat notes.txt")).toEqual(["notes.txt"]);
     expect(readTargets("echo ${x:-> f}; cat notes.txt")).toEqual(["notes.txt"]);
     expect(readTargets("echo ${x:-> f} && tail -3 log.txt")).toEqual(["log.txt"]);
+    expect(readTargets("echo ${x:-> f} | cat notes.txt")).toEqual(["notes.txt"]);
+    expect(readTargets("echo ${x:-> f} & cat notes.txt")).toEqual(["notes.txt"]);
   });
 
   test("redirect targets are scanned, bare or attached, quoted or not", () => {
