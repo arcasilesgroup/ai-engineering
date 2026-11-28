@@ -517,13 +517,17 @@ function writeTargetsOf(command: ShellCommand): string[] | null {
   const args = command.args.map((word) => word.value);
   // `dd if=… of=<file>` names its destination as an operand of its own.
   for (const operand of operands) if (operand.startsWith("of=")) named.push(operand.slice("of=".length));
-  // `ln target linkname` creates the last operand, or the `-t` folder it is told to.
-  if (command.verb === "ln") {
+  const targetDirectory = (): string | null => {
     const flag = args.findIndex((arg) => arg === "-t" || arg === "--target-directory");
-    const attached = args.flatMap((arg) => (/^--target-directory=(.+)$/.exec(arg) ?? []).slice(1));
-    named.push(...(flag >= 0 ? [args[flag + 1] ?? ""] : attached.length > 0 ? attached : operands.slice(-1)));
-  } else if (DESTINATION_LAST.has(command.verb)) named.push(...operands.slice(-1));
-  else if (OPERAND_WRITERS.has(command.verb) || isInPlaceSed) named.push(...operands);
+    if (flag >= 0) return args[flag + 1] ?? "";
+    return args.flatMap((arg) => (/^--target-directory=(.+)$/.exec(arg) ?? []).slice(1))[0] ?? null;
+  };
+  // `ln target linkname` and `cp a b` create their last operand; `-t dir` writes every operand into dir.
+  if (command.verb === "ln" || DESTINATION_LAST.has(command.verb)) {
+    const directory = targetDirectory();
+    if (directory === null) named.push(...operands.slice(-1));
+    else named.push(directory, ...operands);
+  } else if (OPERAND_WRITERS.has(command.verb) || isInPlaceSed) named.push(...operands);
   const written = named.filter((target) => target.length > 0);
   // A writer fed from stdin leaves its destination unnamed only while the folder it lands in
   // is the input's: `/tmp/backup/{}` lands outside wherever that input came from.
@@ -552,9 +556,10 @@ function isJsonToolRead(words: readonly string[], isCheckpointFile: (operand: st
  *  or a word a launcher outside the reader's prefixes runs (`npx node -e`, `uv run python3`).
  *  A command that only reads its operands runs nothing: `grep python3 plan.json` searches. */
 function runsInterpreter(command: ShellCommand, isInterpreter: (name: string) => boolean): boolean {
-  if (isInterpreter(command.verb)) return true;
+  const programName = (word: string): string => basename(word).replace(/\.exe$/i, "");
+  if (isInterpreter(programName(command.verb))) return true;
   if (readsOperandsOnly(command.verb, command.args.map((word) => word.value))) return false;
-  return command.plain.some((word) => isInterpreter(basename(word.value)));
+  return command.plain.some((word) => isInterpreter(programName(word.value)));
 }
 
 /** Whether one command that names a checkpoint runs an interpreter that could write it.
