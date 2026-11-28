@@ -7,7 +7,7 @@
 // backticks, heredocs, comments, redirections and one-word `${…}`; it does not expand
 // aliases, functions or arithmetic. Shapes it cannot read come back as null and the caller denies.
 
-import { basename, sep } from "node:path";
+import { basename } from "node:path";
 
 /** A redirection operator starting at `lastIndex`. `>(` is process substitution, not a redirect. */
 const REDIRECT_OPERATOR = /(?:\{\w+\}|\d+)?(?:&>>?|>>?[|!&]?|<>|<&)(?!\()/y;
@@ -560,22 +560,22 @@ export type ShellWord = {
 /** A word the shell expands before the program sees it: an unquoted glob or brace. */
 export const GLOB_CHARS = /[*?[]/;
 
-/** A word spelled as a Windows path (`C:\…`, `\\.\…`, `..\…`): its `\` separates the segments
- *  of one path, so it is a character and never an escape. Read as an escape the word names no
- *  file at all — `C:\repo\.ai-engineering\config.toml` comes out as
- *  `C:repo.ai-engineeringconfig.toml`, which no guard resolves to the governed file. A
- *  `.`-prefixed path only counts where `\` is the host's separator: on POSIX the shell reads
- *  `.\ai-engineering` as `.ai-engineering`, so keeping the `\` there names a file nobody wrote
- *  and lets the write through. The rule the per-guard command name carried before the one
- *  reader took it over. */
+/** A word rooted on a drive (`C:\…`): a path only Windows can spell, so its `\` separates
+ *  the segments of one path and is a character, never an escape. Read as an escape the word
+ *  names no file at all — `C:\repo\.ai-engineering\config.toml` comes out as
+ *  `C:repo.ai-engineeringconfig.toml`, which no guard resolves to the governed file.
+ *
+ *  No other spelling is Windows-only. `\` is this reader's escape wherever the word could also
+ *  be read by a POSIX shell, and the words the model judges are the ones a shell already
+ *  unquoted: `bash` runs `.\ai-engineering` as `.ai-engineering` on every host, so keeping that
+ *  `\` names `./ai-engineering` and lets the governed directory be deleted unjudged. */
 const DRIVE_PATH_WORD = /^[A-Za-z]:(?:\\|$)/;
-const RELATIVE_PATH_WORD = /^\.{1,2}(?:\\|$)/;
 
-/** Whether a word is spelled as a Windows path, so its `\` separates segments. Every consumer
- *  of the model reads a `\`-spelled path through this one rule, the same one this reader used
- *  to decode it. */
+/** Whether a word is spelled as a Windows path, so its `\` separates segments. `shellWords` asks
+ *  here while it decodes, so the decoded word every guard resolves a path from was read by this
+ *  one rule. */
 export function isWindowsPathWord(word: string): boolean {
-  return DRIVE_PATH_WORD.test(word) || (sep === "\\" && RELATIVE_PATH_WORD.test(word));
+  return DRIVE_PATH_WORD.test(word);
 }
 
 /** Commands that print the bytes of the files they name, so reading one is how a payload

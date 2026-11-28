@@ -3,10 +3,10 @@
 // substitution prints. Each case pins the exact structure a guard reads, so a reader
 // that splits, joins or decodes one character differently from the shell fails here.
 import { describe, expect, test } from "bun:test";
-import { sep } from "node:path";
 import {
   commandIndex,
   findRedirect,
+  isWindowsPathWord,
   normalizeRedirects,
   printsFileContent,
   readCommands,
@@ -267,9 +267,15 @@ describe("shellWords", () => {
     // word names a file nobody wrote, and every guard downstream allows the write.
     expect(shellWords("cat C:\\repo\\.ai-engineering\\config.toml").map((word) => word.value))
       .toEqual(["cat", "C:\\repo\\.ai-engineering\\config.toml"]);
-    // bash runs `.\ai-engineering` as `.ai-engineering`; only where `\` separates the host's
-    // own paths is it a separator rather than an escape.
-    expect(shellWords(".\\rm ..\\x").map((word) => word.value)).toEqual(sep === "\\" ? [".\\rm", "..\\x"] : [".rm", "..x"]);
+    // `\` is the shell's escape in every word that is not drive-rooted: bash runs
+    // `.\ai-engineering` as `.ai-engineering` on every host, so the governed directory is
+    // judged as the directory, never as `./ai-engineering`.
+    expect(shellWords(".\\rm ..\\x").map((word) => word.value)).toEqual([".rm", "..x"]);
+    // Which spelling counts is a property of the word alone, never of the host that judges
+    // it: a `.`-prefixed word is what bash makes of it on Windows too.
+    expect(isWindowsPathWord(".\\ai-engineering")).toBe(false);
+    expect(isWindowsPathWord("..\\x")).toBe(false);
+    expect(isWindowsPathWord("C:\\repo\\.ai-engineering")).toBe(true);
     // No drive and no leading `.`, so this is an ordinary word with an escape in it.
     expect(shellWords("r\\m C:tools\\rm").map((word) => word.value)).toEqual(["rm", "C:toolsrm"]);
   });
