@@ -49,7 +49,8 @@ const CHECKPOINT_TARGET = /\.ai-engineering\/workflow\/checkpoints\/[^\s/]+\.jso
 // program, judged below.
 const CODE_WRITER = /(?:^|[-_])(?:python|node|perl)(?:\d+(?:\.\d+)*)?$/;
 // The cwd rule treats every program that can reach a file as opaque, as it always has.
-const OPAQUE_WRITER = /(?:^|[-_])(?:python|node|perl|ruby|bun|deno|jq|awk)(?:\d+(?:\.\d+)*)?$/;
+const OPAQUE_WRITER = /(?:^|[-_])(?:python|node|perl|ruby|bun|deno|jq|awk|gawk|mawk|nawk)(?:\d+(?:\.\d+)*)?$/;
+const AWK = new Set(["awk", "gawk", "mawk", "nawk"]);
 const AWK_WRITE = />\s*["']|system\s*\(/;
 const CHECKPOINTS_DIR = ".ai-engineering/workflow/checkpoints";
 const MAX_LINK_HOPS = 40;
@@ -573,10 +574,23 @@ function runsInterpreter(command: ShellCommand, isInterpreter: (name: string) =>
   return command.plain.some((word) => isInterpreter(programName(word.value)));
 }
 
-/** Whether awk's own program writes: an output redirection inside it, or a system() call. */
+/** Whether awk's own program writes: an output redirection inside it, a system() call, or a
+ *  program read from a file the guard cannot see. awk's own options take the word after them,
+ *  so the program is the first word that is not one. */
 function awkProgramWrites(command: ShellCommand): boolean {
-  const program = command.args.map((word) => word.value).find((word) => !word.startsWith("-"));
-  return program !== undefined && AWK_WRITE.test(program);
+  const args = command.args.map((word) => word.value);
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]!;
+    if (arg === "-f" || arg === "--file" || /^--file=/.test(arg) || /^-f.+/.test(arg)) return true;
+    if (arg === "-v" || arg === "-F" || arg === "--assign" || arg === "--field-separator") {
+      index += 1;
+      continue;
+    }
+    if (/^-(?:v|F).+/.test(arg) || /^--(?:assign|field-separator)=/.test(arg)) continue;
+    if (arg.startsWith("-")) continue;
+    return AWK_WRITE.test(arg);
+  }
+  return false;
 }
 
 /** Whether one command that names a checkpoint runs an interpreter that could write it.
@@ -584,7 +598,7 @@ function awkProgramWrites(command: ShellCommand): boolean {
 function hasOpaqueWriteForm(command: ShellCommand): boolean {
   if (isJsonToolRead(commandWords(command), (operand) => CHECKPOINT_TARGET.test(operand))) return false;
   if (runsInterpreter(command, isCodeWriter)) return true;
-  return runsInterpreter(command, (name) => name === "awk") && awkProgramWrites(command);
+  return runsInterpreter(command, (name) => AWK.has(name)) && awkProgramWrites(command);
 }
 
 /** A path as the shell would resolve it from `cwd`, or null when it hangs off a variable,

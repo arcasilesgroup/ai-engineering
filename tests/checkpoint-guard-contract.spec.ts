@@ -636,6 +636,9 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a move into the folder by an attached -t", `mv -t${FOLDER} ../../../base.txt`],
     ["a link into the folder by an attached -t", `ln -s ../../../base.txt -t${FOLDER}`],
     ["an awk program that writes the plan", `awk '{print > "${FOLDER}/plan.json"}' x`],
+    ["an awk program behind an option value", `awk -v n=1 '{print "x" > "${FOLDER}/demo.json"}' /dev/null`],
+    ["a packaged awk that writes the plan", `gawk '{print > "${FOLDER}/plan.json"}' x`],
+    ["an awk program read from a file", `awk -f /tmp/w.awk ${FOLDER}/plan.json`],
     ["a cp into the folder by a combined short flag", `cp -rt ${FOLDER} ../../../base.txt`],
     ["an install into the folder by a combined short flag", `install -Dt ${FOLDER} ../../../base.txt`],
     ["a link into the folder by a combined short flag", `ln -sft ${FOLDER} ../../../base.txt`],
@@ -690,6 +693,7 @@ describe("Bash writes into the checkpoint folder", () => {
     ["a jq read of the plan", `jq . ${FOLDER}/plan.json`],
     ["a copy into a target directory elsewhere by a combined short flag", `cp -rt /tmp/backup ../../../base.txt`],
     ["an awk read of the plan", `awk '{print}' ${FOLDER}/plan.json`],
+    ["an awk read of the plan with a field separator", `awk -F, '{print $1}' ${FOLDER}/plan.json`],
     ["an evaluated program writing outside the folder", `eval 'printf x > notes.txt'`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {
