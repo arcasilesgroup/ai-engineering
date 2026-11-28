@@ -255,6 +255,27 @@ function canonPacks(config: string): unknown[] | null {
   return Array.isArray(packs) ? packs : [packs];
 }
 
+/** The commands Cursor's hook file declares for one event, read as the JSON Cursor
+ *  consumes: a hook spelled in another shape is not a hook that runs. */
+function cursorHookCommands(cwd: string, event = "preToolUse"): string[] {
+  const document = JSON.parse(readFileSync(join(cwd, ".cursor", "hooks.json"), "utf8")) as { hooks?: Record<string, unknown> };
+  const entries = document.hooks?.[event];
+  if (!Array.isArray(entries)) return [];
+  return entries
+    .map((entry) => (typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>)["command"] : undefined))
+    .filter((command): command is string => typeof command === "string");
+}
+
+/** The [surfaces].enabled set the declaration itself reads, so a duplicate entry or a
+ *  second [surfaces] table — which TOML rejects — cannot pass as the set a run asked for. */
+function declaredSurfaces(cwd: string): string[] | null {
+  const document = Bun.TOML.parse(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")) as Record<string, unknown>;
+  const surfaces = document["surfaces"];
+  if (typeof surfaces !== "object" || surfaces === null) return null;
+  const enabled = (surfaces as Record<string, unknown>)["enabled"];
+  return Array.isArray(enabled) ? enabled.filter((id): id is string => typeof id === "string") : null;
+}
+
 function assertCanon(home: string): void {
   const sourceSkills = join(REPO_ROOT, "skills");
   const installedSkills = join(home, "skills");
@@ -535,11 +556,25 @@ describe("init · initMain, phase 1 and phase 2", () => {
     const agents = readFileSync(join(cwd, "AGENTS.md"), "utf8");
     const decisions = readFileSync(join(cwd, "DECISIONS.md"), "utf8");
 
-    const { result, out } = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
+    // --surface naming exactly what is declared changes no setting, so the run is an update.
+    const { result, out } = await capture(() => initMain({ yes: true, surface: ["claude-code"] }));
     expect(result).toBe(0);
     expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(agents);
     expect(readFileSync(join(cwd, "DECISIONS.md"), "utf8")).toBe(decisions);
     expect(out).toMatch(/nothing to sync|nothing written/); // the declared surfaces are already current or patches kept
+  });
+
+  test("--yes --surface on a governed repo makes those hosts the declared set, with no question", async () => {
+    const { cwd } = sandboxed();
+    expect(await initMain({ yes: true })).toBe(0);
+    const agents = readFileSync(join(cwd, "AGENTS.md"), "utf8");
+
+    const { result, out } = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
+    expect(result).toBe(0);
+    expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
+    expect(cursorHookCommands(cwd)).toContain("ai-eng chain PreToolUse --surface cursor");
+    expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(agents);
+    expect(out).toContain("Surfaces changed");
   });
 
   test("--yes keeps an AGENTS.md the project already had, byte for byte", async () => {
@@ -943,6 +978,126 @@ describe("init · non-interactive default skill installation", () => {
     expect(result).toBe(0);
     expect(out).toContain("Nothing changed.");
     expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(agents);
+    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toBe(config);
+  });
+
+  test("--surface alone ticks those hosts in the picker of a first install", async () => {
+    const { cwd } = sandboxed();
+    const { result } = await driven({ surface: ["cursor"] }, [
+      ["Create", "y"],
+      ["governed", "\n"], // Enter accepts the hosts --surface ticked
+      ["CI run", "\n"],
+    ]);
+    expect(result).toBe(0);
+    expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
+    expect(cursorHookCommands(cwd)).toContain("ai-eng chain PreToolUse --surface cursor");
+  });
+
+  test("--surface alone on a governed repo goes straight to the surface picker, ticked with those hosts", async () => {
+    const { cwd } = sandboxed();
+    expect(await initMain({ yes: true })).toBe(0);
+    const agents = readFileSync(join(cwd, "AGENTS.md"), "utf8");
+
+    const { result, out } = await driven({ surface: ["cursor"] }, [["surfaces", "\n"]]);
+    expect(result).toBe(0);
+    expect(out).not.toContain("already governed. What do you want to do?");
+    expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
+    expect(cursorHookCommands(cwd)).toContain("ai-eng chain PreToolUse --surface cursor");
+    expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(agents);
+  });
+
+  test("an unknown --surface id is refused before any question, governed or not", async () => {
+    const { cwd } = sandboxed();
+    const fresh = await capture(() => initMain({ surface: ["claud-code"] }));
+    expect(fresh.result).toBe(2);
+    expect(fresh.out).toContain('"claud-code" is not a surface this release knows');
+    expect(existsSync(join(cwd, ".git"))).toBe(false);
+    expect(existsSync(join(cwd, ".ai-engineering"))).toBe(false);
+
+    expect(await initMain({ yes: true })).toBe(0);
+    const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
+    const governed = await capture(() => initMain({ surface: ["claud-code"] }));
+    expect(governed.result).toBe(2);
+    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toBe(config);
+  });
+
+  test("--ci is refused on an already-governed repo and changes nothing", async () => {
+    const { cwd } = sandboxed();
+    // A first install still honours --ci: only a re-init has nowhere to write it.
+    expect((await capture(() => initMain({ yes: true, ci: "azure-pipelines" }))).result).toBe(0);
+    expect(existsSync(join(cwd, ".azure-pipelines", "ai-eng-check.yml"))).toBe(true);
+    const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
+
+    const alone = await capture(() => initMain({ ci: "github-actions" }));
+    const withSurface = await capture(() => initMain({ surface: ["cursor"], ci: "github-actions" }));
+    for (const run of [alone, withSurface]) {
+      expect(run.result).toBe(2);
+      expect(run.out).toContain("ai-eng config --ci");
+    }
+    expect(existsSync(join(cwd, ".cursor"))).toBe(false);
+    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toBe(config);
+  });
+
+  test("--ci naming no provider is refused before the repo is created", async () => {
+    const { cwd } = sandboxed();
+    const { result, out } = await capture(() => initMain({ ci: "jenkins" }));
+    expect(result).toBe(2);
+    expect(out).toContain('"jenkins" is not a CI provider');
+    expect(existsSync(join(cwd, ".git"))).toBe(false);
+    expect(existsSync(join(cwd, ".ai-engineering"))).toBe(false);
+  });
+
+  test("--surface lists a host once in the declaration however often it is passed", async () => {
+    const { cwd } = sandboxed();
+    expect(await initMain({ yes: true })).toBe(0);
+
+    expect((await capture(() => initMain({ yes: true, surface: ["cursor", "cursor"] }))).result).toBe(0);
+    expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
+
+    // The declaration is the set the flag names, so passing it again changes no setting.
+    const again = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
+    expect(again.result).toBe(0);
+    expect(again.out).not.toContain("Surfaces changed");
+    expect(declaredSurfaces(cwd)).toEqual(["cursor"]);
+  });
+
+  test("--surface in a nested governed repo refuses instead of changing the repo around it", async () => {
+    const { cwd: outer } = sandboxed();
+    expect(await initMain({ yes: true, surface: ["cursor"] })).toBe(0); // the outer repo governs cursor
+    const outerConfig = readFileSync(join(outer, ".ai-engineering", "config.toml"), "utf8");
+    const outerHooks = readFileSync(join(outer, ".cursor", "hooks.json"), "utf8");
+    const outerLock = readFileSync(join(outer, ".ai-engineering", "ai-eng.lock"), "utf8");
+
+    const inner = join(outer, "packages", "app");
+    mkdirSync(inner, { recursive: true });
+    process.chdir(inner);
+    expect(await initMain({ yes: true })).toBe(0); // the nested repo governs claude-code
+    expect(declaredSurfaces(inner)).toEqual(["claude-code"]);
+
+    // A set that differs from the nested declaration: it would rewrite the repo that governs.
+    const { result, out } = await capture(() => initMain({ yes: true, surface: ["opencode"] }));
+    expect(result).toBe(2);
+    expect(out).toContain(realpathSync(outer));
+    expect(out).toContain(realpathSync(inner));
+
+    expect(readFileSync(join(outer, ".ai-engineering", "config.toml"), "utf8")).toBe(outerConfig);
+    expect(readFileSync(join(outer, ".cursor", "hooks.json"), "utf8")).toBe(outerHooks);
+    expect(readFileSync(join(outer, ".ai-engineering", "ai-eng.lock"), "utf8")).toBe(outerLock);
+    expect(declaredSurfaces(inner)).toEqual(["claude-code"]);
+  });
+
+  test("--surface on a config.toml that declares no surfaces never routes into config's refusal", async () => {
+    const { cwd } = sandboxed();
+    mkdirSync(join(cwd, ".git"));
+    mkdirSync(join(cwd, ".ai-engineering"));
+    const config = 'version = "one"\n';
+    writeFileSync(join(cwd, ".ai-engineering", "config.toml"), config);
+
+    const { result, out } = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
+    expect(result).toBe(2);
+    expect(out).not.toContain("you are not in a governed repo");
+    expect(out).toContain("not in a governed repo — nothing written");
+    expect(existsSync(join(cwd, ".cursor"))).toBe(false);
     expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toBe(config);
   });
 

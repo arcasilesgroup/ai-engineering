@@ -64,7 +64,7 @@ export const BUTTONS: readonly Button[] = [
 /** The hero copy and canvas: tilted brand/mark.svg on a soft glow, two-weight claim, refused-call line, and mono ledger. */
 export const HERO = {
   wordmark: "{ai} engineering",
-  claim: "Guardrails for the AI Coding Agents you already run",
+  claim: "Guardrails for the AI coding agents you already run",
   accent: "Guardrails",
   lightFrom: "you already run",
   command: "git commit --no-verify",

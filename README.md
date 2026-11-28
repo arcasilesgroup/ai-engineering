@@ -2,7 +2,7 @@
 
 <h1><picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/hero-dark.webp">
-  <img src=".github/assets/readme/hero-light.webp" alt="{ai} engineering. Guardrails for the AI Coding Agents you already run" width="100%">
+  <img src=".github/assets/readme/hero-light.webp" alt="{ai} engineering. Guardrails for the AI coding agents you already run" width="100%">
 </picture></h1>
 
 <b>Turn any repo into a governed workspace.</b><br/>
