@@ -18,7 +18,7 @@ import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
 import surfacesJson from "../surfaces/surfaces.json";
-import { applySegmentAssignments, applySegmentMutations, COMMAND_PREFIXES, commandOf, createVariableScope, findRedirect, GLOB_CHARS, jsonToolOperands, normalizeRedirects, readCommands, readsOperandsOnly, resolveSubstitutions, substituteVariables, variablesForSegment, withWords, writesLongOutput, type ShellCommand } from "./shell.ts";
+import { applySegmentAssignments, applySegmentMutations, COMMAND_PREFIXES, commandOf, createVariableScope, findRedirect, GLOB_CHARS, isWindowsPathWord, jsonToolOperands, normalizeRedirects, readCommands, readsOperandsOnly, resolveSubstitutions, substituteVariables, variablesForSegment, withWords, writesLongOutput, type ShellCommand } from "./shell.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
  *  `sed` joins them only with -i. The list may over-deny: that is a person told to
@@ -261,6 +261,14 @@ const EMBEDDED_PATH = /(?:~|\.{1,2})?\/?[\w.@+-]*(?:\/[\w.@+-]+)+|\.ai-engineeri
  *  resolved path separates with `\`, and `(?:^|/)\.git/hooks` would never see it. */
 function slashed(path: string): string {
   return sep === "\\" ? path.replaceAll("\\", "/") : path;
+}
+
+/** Text read as path tokens. A `\`-spelled Windows path keeps its separators here whatever
+ *  host reads it: read as escapes, `C:\repo\.ai-engineering\brainstorm.html` ends at the
+ *  fragment `.ai-engineering`, which resolves to this repo's governed directory and denies a
+ *  child the session owns. The rule is the reader's own, the one that decoded the word. */
+function pathScanText(text: string): string {
+  return isWindowsPathWord(text) ? text.replaceAll("\\", "/") : slashed(text);
 }
 
 /** On Windows `//host/share` — the tail of every URL, `https://example.com/i.sh` — resolves
@@ -528,7 +536,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       }
       const producer = segment.isAfterPipe ? parsed[segmentIndex - 1] : undefined;
       const producerTexts = producer === undefined ? [] : [...producer.plain, ...producer.inputs, ...producer.segment.heredocs.map(({ body }) => body)];
-      const feedsGoverned = producerTexts.map(collapseStringConcat).some((text) => [text, ...(text.match(EMBEDDED_PATH) ?? [])].some((path) => names(path) !== null));
+      const feedsGoverned = producerTexts.map(collapseStringConcat).some((text) => [text, ...(pathScanText(text).match(EMBEDDED_PATH) ?? [])].some((path) => names(path) !== null));
       if (INTERPRETERS.has(name) && (args.some((arg) => inline.test(arg)) || feedsGoverned)) return "xargs feeds paths or code to an interpreter the guards cannot see";
     }
     if (DIFF_APPLIERS.has(name) || (name === "git" && ["apply", "am"].includes(gitSubcommand(args).name))) {
@@ -586,8 +594,9 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
         const isLiteral = !isWriter && argIsExpanded[index] === false;
         const joinsStrings = INTERPRETERS.has(name) || name === "awk";
         const scanned = joinsStrings ? collapseStringConcat(arg) : arg;
-        const embedded = isProse ? [] : [...scanned.matchAll(EMBEDDED_PATH)]
-          .filter((match) => match[0] !== scanned && !(isLiteral && GLOB_CHARS.test(scanned[(match.index ?? 0) + match[0].length] ?? "")))
+        const scannedAsPath = pathScanText(scanned);
+        const embedded = isProse ? [] : [...scannedAsPath.matchAll(EMBEDDED_PATH)]
+          .filter((match) => match[0] !== scannedAsPath && !(isLiteral && GLOB_CHARS.test(scannedAsPath[(match.index ?? 0) + match[0].length] ?? "")))
           .map((match) => match[0]);
         const fromLoop = loopVariableValues(scanned, loopVariables);
         for (const path of [scanned, ...embedded, ...fromLoop]) {
@@ -603,7 +612,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       if (!SHELLS.has(name) && !isProse) {
         for (const text of [...segment.heredocs.map(({ body }) => body), ...inputs]) {
           if (RESTRICTED_TEXT.test(text)) return `${name} reads input that invokes a governance-changing ai-eng verb`;
-          const hit = (text.match(EMBEDDED_PATH) ?? []).map((path) => names(path)).find((found) => found !== null);
+          const hit = (pathScanText(text).match(EMBEDDED_PATH) ?? []).map((path) => names(path)).find((found) => found !== null);
           if (hit) return `${name} reads input that names ${hit}, which governs this session`;
         }
         // Programs that take code as an argument (osascript -e, expect -c, tmux, xonsh -c).

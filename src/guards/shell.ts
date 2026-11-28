@@ -567,6 +567,13 @@ export const GLOB_CHARS = /[*?[]/;
  *  the per-guard command name carried before the one reader took it over. */
 const WINDOWS_PATH_WORD = /^(?:[A-Za-z]:|\.{1,2})(?:\\|$)/;
 
+/** Whether a word is spelled as a Windows path, so its `\` separates segments. Every consumer
+ *  of the model reads a `\`-spelled path through this one rule, the same one this reader used
+ *  to decode it. */
+export function isWindowsPathWord(word: string): boolean {
+  return WINDOWS_PATH_WORD.test(word);
+}
+
 /** Commands that print the bytes of the files they name, so reading one is how a payload
  *  reaches the model. Every guard that asks "what does this command read" asks here. */
 const FILE_CONTENT_READERS = new Set([
